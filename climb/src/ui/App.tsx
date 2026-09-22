@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { GameView } from './GameView';
 import { EditorView } from './EditorView';
+import { DevFps } from './DevFps';
 import './app.css';
 
 type Tab = 'game' | 'editor';
@@ -15,6 +16,7 @@ export function App() {
         <button className={tab === 'editor' ? 'active' : ''} onClick={() => setTab('editor')}>地图编辑器</button>
       </nav>
       {tab === 'game' ? <GameView /> : <EditorView />}
+      <DevFps />
     </div>
   );
 }

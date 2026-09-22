@@ -7,25 +7,24 @@ export interface HudState {
   mode: GameMode;
   playtest: boolean;
   roomKey: string;
-  roomName: string;
   jumps: number;
   destroyed: number;
   message: { text: string; color: string; at: number } | null;
 }
 
-const initialState: HudState = { mode: 'idle', playtest: false, roomKey: '', roomName: '', jumps: 0, destroyed: 0, message: null };
+const initialState: HudState = { mode: 'idle', playtest: false, roomKey: '', jumps: 0, destroyed: 0, message: null };
 
 const hudSlice = createSlice({
   name: 'hud',
   initialState,
   reducers: {
     setMode(state, action: PayloadAction<{ mode: GameMode; playtest?: boolean }>) { state.mode = action.payload.mode; if (action.payload.playtest !== undefined) state.playtest = action.payload.playtest; },
-    setRoomInfo(state, action: PayloadAction<{ key: string; name: string }>) { state.roomKey = action.payload.key; state.roomName = action.payload.name; },
+    setRoomKey(state, action: PayloadAction<string>) { state.roomKey = action.payload; },
     setStats(state, action: PayloadAction<{ jumps: number; destroyed: number }>) { state.jumps = action.payload.jumps; state.destroyed = action.payload.destroyed; },
     flash(state, action: PayloadAction<{ text: string; color?: string }>) { state.message = { text: action.payload.text, color: action.payload.color ?? '#ffd166', at: Date.now() }; },
     clearMessage(state) { state.message = null; },
   },
 });
 
-export const { setMode, setRoomInfo, setStats, flash, clearMessage } = hudSlice.actions;
+export const { setMode, setRoomKey, setStats, flash, clearMessage } = hudSlice.actions;
 export default hudSlice.reducer;

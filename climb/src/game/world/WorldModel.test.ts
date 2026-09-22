@@ -1,12 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { WorldModel } from '@/type';
-import { addCol, addRow, clearChar, findStart, roomKeyAt, setCell, worldRows } from './WorldModel';
+import { addRoomAt, clearChar, deleteRoom, findStart, moveRoom, positionOf, roomKeyAt, setCell, worldRows } from './WorldModel';
 
 const small = (): WorldModel => ({
   roomW: 3, roomH: 2,
   layout: [['A', 'B'], ['C', 'D']],
   rooms: { A: ['RRR', 'R.R'], B: ['RRR', 'RPR'], C: ['R.R', 'RRR'], D: ['R.R', 'RRR'] },
-  names: { A: 'a', B: 'b', C: 'c', D: 'd' },
 });
 
 describe('WorldModel', () => {
@@ -27,13 +26,27 @@ describe('WorldModel', () => {
     expect(findStart(m)).toBeNull();
   });
 
-  it('加排加列会创建新房间', () => {
+  it('在越界位置加房间会向那个方向扩展布局', () => {
     const m = small();
-    addRow(m); addCol(m);
-    expect(m.layout.length).toBe(3);
+    const k = addRoomAt(m, -1, 0);          // 左边加一列
     expect(m.layout[0].length).toBe(3);
-    expect(roomKeyAt(m, 2, 2)).toBeTruthy();
-    expect(Object.keys(m.rooms).length).toBe(9);
-    expect(worldRows(m).length).toBe(6);
+    expect(positionOf(m, k)).toEqual({ rx: 0, ry: 0 });
+    expect(positionOf(m, 'A')).toEqual({ rx: 1, ry: 0 });
+    expect(m.layout[1][0]).toBeNull();       // 新列的另一格是空位
+    expect(worldRows(m)[2].slice(0, 3)).toBe('RRR');   // 空位在地图里是实心岩石
+  });
+
+  it('拖拽交换、挪到空位、删除后自动裁掉空排', () => {
+    const m = small();
+    moveRoom(m, { rx: 0, ry: 0 }, { rx: 1, ry: 1 });   // A 和 D 交换
+    expect(roomKeyAt(m, 1, 1)).toBe('A');
+    expect(roomKeyAt(m, 0, 0)).toBe('D');
+    moveRoom(m, { rx: 0, ry: 0 }, { rx: 0, ry: 2 });   // D 挪到下方新的一排
+    expect(m.layout.length).toBe(3);
+    expect(roomKeyAt(m, 0, 2)).toBe('D');
+    expect(roomKeyAt(m, 0, 0)).toBeNull();
+    deleteRoom(m, 'D');
+    expect(m.layout.length).toBe(2);
+    expect(m.rooms.D).toBeUndefined();
   });
 });

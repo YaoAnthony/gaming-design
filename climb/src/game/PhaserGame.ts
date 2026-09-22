@@ -1,6 +1,7 @@
 // ===== 创建 / 销毁 Phaser 实例（React 组件调用）=====
 import Phaser from 'phaser';
-import '@/game/registry/tiles';   // 注册所有砖块与物件（副作用导入）
+import '@/game/registry/tiles';    // 注册所有砖块与物件（副作用导入）
+import '@/game/registry/skills';   // 注册所有角色技能
 import { BootScene } from './scenes/BootScene';
 import { GameScene } from './scenes/GameScene';
 import { EditorScene } from './scenes/EditorScene';

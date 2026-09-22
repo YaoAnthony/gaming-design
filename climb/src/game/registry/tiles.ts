@@ -17,8 +17,8 @@ defineTile(
 );
 
 defineTile(
-  { id: 'B', name: '脆岩', desc: '比泥土多一格感应范围，被波及就整段连锁崩塌', color: 0xc9b27c, frame: TILE_FRAMES.brittle },
-  Traits.Solid, Traits.Destructible(1), Traits.Chain,
+  { id: 'B', name: '脆岩', desc: '周围一有爆炸（含引线）就整块松脱、随重力掉下来，相连的一起掉；炸不没', color: 0xc9b27c, frame: TILE_FRAMES.brittle },
+  Traits.Solid, Traits.Loose(1),
 );
 
 defineTile(
@@ -30,19 +30,18 @@ defineTile(
   { id: 'X', name: '尖刺', desc: '碰到即死；掉下来的地块会把它盖住', color: 0xef476f, frame: TILE_FRAMES.spikes },
   Traits.Hazard('扎到尖刺了'),
 );
-
 // ---------- 物件 ----------
 defineEntity({
-  id: 'P', name: '出生点', desc: '玩家从这里开始（全图唯一）', texture: 'player', unique: true,
+  id: 'P', name: '出生点', desc: '玩家从这里开始（全图唯一）', texture: 'player', unique: true, color: 0x4cc9f0,
   spawn({ host, wx, wy }) { host.spawnPoints.push({ x: wx, y: wy }); },
 });
 
 defineEntity({
-  id: 'M', name: '怪物', desc: '在房间里巡逻，碰到即死；会被落石压扁', texture: 'enemy',
+  id: 'M', name: '怪物', desc: '在房间里巡逻，碰到即死；会被落石压扁', texture: 'enemy', color: 0x9b5de5,
   spawn({ host, wx, wy, cell }) { host.addEnemy({ x: wx, y: wy, rx: cell.rx, ry: cell.ry }); },
 });
 
 defineEntity({
-  id: 'G', name: '终点', desc: '碰到即通关，上面会画一座建筑', texture: 'door',
+  id: 'G', name: '终点', desc: '碰到即通关，上面会画一座建筑', texture: 'door', color: 0xffd166,
   spawn({ host, wx, wy }) { host.setGoal({ x: wx, y: wy }); },
 });

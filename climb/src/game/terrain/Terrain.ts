@@ -3,9 +3,12 @@
 import type Phaser from 'phaser';
 import type { CellRef, TileDef } from '@/type';
 import { AIR, Tiles } from '@/game/registry/registry';
+import { AUTOTILE_VARIANTS } from '@/asset';
+
+export type TileView = 'game' | 'editor';
 
 export interface BlastCell extends CellRef { d: number }
-export interface RemovedCell extends CellRef { id: string; def: TileDef }
+export interface RemovedCell extends CellRef { id: string; def: TileDef; /** 连锁传导的跳数：0 = 直接命中，n = 沿链条传导了 n 格 */ hop?: number }
 export interface ChunkCell extends CellRef { id: string }
 export interface Chunk { cells: ChunkCell[]; container: Phaser.GameObjects.Container; vy: number; py: number }
 
@@ -16,6 +19,8 @@ export interface TerrainHost {
   scene: Phaser.Scene;
   onChunkFall?(cells: ChunkCell[]): void;
   onChunkLand?(cells: ChunkCell[]): void;
+  /** 带 chainDelayMs 的连锁（比如导火索）每摧毁一跳就调用一次，用来播传导中的特效 */
+  onFuseBurn?(cells: ChunkCell[]): void;
 }
 
 export class Terrain {
@@ -37,16 +42,44 @@ export class Terrain {
     this.original = this.grid.map(r => r.slice());
     this.boundaryId = (Tiles.filter(d => d.anchor)[0] ?? { id: AIR }).id;
 
-    const data = this.grid.map(r => r.map(c => Terrain.frameOf(c)));
+    const data = this.grid.map((r, y) => r.map((_, x) => Terrain.frameAt(this.grid, x, y)));
     this.map = host.scene.make.tilemap({ data, tileWidth: this.T, tileHeight: this.T });
     const tileset = this.map.addTilesetImage('tiles', 'tiles', this.T, this.T, 0, 0)!;
     this.layer = this.map.createLayer(0, tileset, 0, 0)!;
-    this.layer.setCollision(Tiles.filter(d => d.solid && d.frame >= 0).map(d => d.frame));
+    const collide: number[] = [];
+    Tiles.filter(d => d.solid && d.gameFrame >= 0).forEach(d => { for (let k = 0; k < (d.autotile ? AUTOTILE_VARIANTS : 1); k++) collide.push(d.gameFrame + k); });
+    this.layer.setCollision(collide);
   }
 
   setOptions(opts: Partial<TerrainOptions>): void { this.opts = { ...this.opts, ...opts }; }
 
-  static frameOf(id: string): number { const d = Tiles.get(id); return d && d.frame != null ? d.frame : -1; }
+  /** 不看邻居的默认帧（碎块等用）；游戏视角优先用 gameFrame */
+  static frameOf(id: string, view: TileView = 'game'): number {
+    const d = Tiles.get(id);
+    if (!d) return -1;
+    return view === 'game' ? d.gameFrame : d.frame;
+  }
+
+  /** 四周同类格子的位掩码：上=1 右=2 下=4 左=8 */
+  static maskAt(grid: string[][], x: number, y: number): number {
+    const id = grid[y]?.[x];
+    let m = 0;
+    if (grid[y - 1]?.[x] === id) m |= 1;
+    if (grid[y]?.[x + 1] === id) m |= 2;
+    if (grid[y + 1]?.[x] === id) m |= 4;
+    if (grid[y]?.[x - 1] === id) m |= 8;
+    return m;
+  }
+
+  /** 看邻居选帧：自动拼贴的材质用 起始帧 + 掩码，其它材质就是起始帧。游戏视角用 gameFrame，编辑器用 frame */
+  static frameAt(grid: string[][], x: number, y: number, view: TileView = 'game'): number {
+    const id = grid[y]?.[x];
+    const d = id != null ? Tiles.get(id) : undefined;
+    if (!d) return -1;
+    const base = view === 'game' ? d.gameFrame : d.frame;
+    if (base < 0) return -1;
+    return d.autotile ? base + Terrain.maskAt(grid, x, y) : base;
+  }
 
   get(x: number, y: number): string {
     if (x < 0 || y < 0 || x >= this.w || y >= this.h) return this.boundaryId;
@@ -58,7 +91,17 @@ export class Terrain {
 
   set(x: number, y: number, id: string): void {
     this.grid[y][x] = id;
-    const f = Terrain.frameOf(id);
+    this.refreshFrame(x, y);
+    // 自动拼贴的邻居要跟着换图案
+    for (const [dx, dy] of NEIGHBORS) {
+      const nx = x + dx, ny = y + dy;
+      if (nx < 0 || ny < 0 || nx >= this.w || ny >= this.h) continue;
+      if (Tiles.get(this.grid[ny][nx])?.autotile) this.refreshFrame(nx, ny);
+    }
+  }
+
+  private refreshFrame(x: number, y: number): void {
+    const f = Terrain.frameAt(this.grid, x, y);
     if (f < 0) this.layer.removeTileAt(x, y); else this.layer.putTileAt(f, x, y);
   }
 
@@ -74,37 +117,181 @@ export class Terrain {
     return out;
   }
 
-  /** 预览：返回会被摧毁的格子 */
-  previewExplosion(cx: number, cy: number): RemovedCell[] {
-    const R = this.opts.explosionRadius;
+  /** 这个格子现在能不能被爆炸直接命中（可炸，且如果是"只点两端"的材质，必须是链条端点） */
+  canIgnite(x: number, y: number): boolean {
+    const def = this.def(x, y);
+    if (!def.destructible) return false;
+    if (def.igniteAtEndsOnly && !Terrain.isChainEnd(this.grid, x, y)) return false;
+    return true;
+  }
+
+  /** 链条端点：同类 4 邻居 ≤ 1 个（孤立的一格既是头也是尾） */
+  static isChainEnd(grid: string[][], x: number, y: number): boolean {
+    const id = grid[y]?.[x];
+    if (id == null) return false;
+    let n = 0;
+    for (const [dx, dy] of NEIGHBORS) if (grid[y + dy]?.[x + dx] === id) n++;
+    return n <= 1;
+  }
+
+  /** 圆形爆炸预览：返回会被摧毁的格子（脆岩多一圈感应，含连锁） */
+  previewExplosion(cx: number, cy: number, radius = this.opts.explosionRadius): RemovedCell[] {
+    const R = radius;
     const maxBonus = Math.max(0, ...Tiles.list().map(d => d.blastSensitivity));
     const seeds: RemovedCell[] = [];
     this.blastCells(cx, cy, R + maxBonus).forEach(c => {
+      if (!this.canIgnite(c.x, c.y)) return;
       const def = this.def(c.x, c.y);
-      if (!def.destructible) return;
       if (c.d <= R + def.blastSensitivity) seeds.push({ x: c.x, y: c.y, id: def.id, def });
     });
-    // 连锁：从会连锁的种子出发，沿同类格子 4 邻域扩散
-    const seen = new Set(seeds.map(c => `${c.x},${c.y}`));
-    const out = seeds.slice();
-    const stack = seeds.filter(c => c.def.chainCollapse);
-    while (stack.length) {
-      const c = stack.pop()!;
+    return this.chain(seeds);
+  }
+
+  /** 任意模板预览：模板内可炸的格子（含连锁；不做感应范围扩展） */
+  previewCells(cells: CellRef[]): RemovedCell[] {
+    const seeds: RemovedCell[] = [];
+    cells.forEach(c => { if (this.canIgnite(c.x, c.y)) { const def = this.def(c.x, c.y); seeds.push({ x: c.x, y: c.y, id: def.id, def }); } });
+    return this.chain(seeds);
+  }
+
+  /** 连锁：从会连锁的种子出发，沿同类格子 4 邻域扩散 */
+  private chain(seeds: RemovedCell[]): RemovedCell[] { return Terrain.computeChain(this.grid, seeds); }
+
+  /**
+   * 纯函数版本（不需要 Phaser 场景，单测直接调）：给定网格和种子，算出连锁会摧毁哪些格子，
+   * 按 BFS 记录每格的传导跳数（hop = 离最近种子的距离）。只沿"和种子同一个 id"的相邻格子
+   * 扩散——这就是"导火索只烧导火索、不会连累旁边其它材质"的全部保证，不需要额外特判。
+   */
+  static computeChain(grid: string[][], seeds: RemovedCell[]): RemovedCell[] {
+    const h = grid.length, w = grid[0]?.length ?? 0;
+    const seen = new Map<string, number>();
+    const out: RemovedCell[] = [];
+    const queue: RemovedCell[] = [];
+    seeds.forEach(s => {
+      const k = `${s.x},${s.y}`;
+      if (seen.has(k)) return;
+      seen.set(k, 0);
+      const withHop: RemovedCell = { ...s, hop: 0 };
+      out.push(withHop);
+      if (s.def.chainCollapse) queue.push(withHop);
+    });
+    let qi = 0;
+    while (qi < queue.length) {
+      const c = queue[qi++];
+      const hop = (c.hop ?? 0) + 1;
       for (const [dx, dy] of NEIGHBORS) {
         const nx = c.x + dx, ny = c.y + dy, k = `${nx},${ny}`;
-        if (seen.has(k) || this.get(nx, ny) !== c.id) continue;
-        seen.add(k);
-        const n: RemovedCell = { x: nx, y: ny, id: c.id, def: c.def };
-        out.push(n); stack.push(n);
+        if (seen.has(k) || nx < 0 || ny < 0 || nx >= w || ny >= h || grid[ny][nx] !== c.id) continue;
+        seen.set(k, hop);
+        const n: RemovedCell = { x: nx, y: ny, id: c.id, def: c.def, hop };
+        out.push(n); queue.push(n);
       }
     }
     return out;
   }
 
-  /** 执行爆炸，返回被摧毁的格子（用于特效） */
-  explode(cx: number, cy: number): RemovedCell[] {
-    const removed = this.previewExplosion(cx, cy);
-    removed.forEach(c => this.set(c.x, c.y, AIR));
+  /** 执行圆形爆炸，返回被摧毁的格子（用于特效） */
+  explode(cx: number, cy: number, radius = this.opts.explosionRadius): RemovedCell[] {
+    return this.destroyCells(this.previewExplosion(cx, cy, radius));
+  }
+
+  /**
+   * 摧毁给定格子（只处理在地图内、当前可炸的），然后做支撑检测。
+   * 格子如果带 hop（来自 previewExplosion / previewCells 的连锁结果）且材质设了
+   * chainDelayMs（比如导火索），会按 hop * chainDelayMs 错峰摧毁，做出"火苗沿链条
+   * 跑过去"的效果；没有 hop 或延迟为 0 的格子照旧瞬间摧毁。返回值仍是完整命中列表，
+   * 摧毁计分 / 起爆特效可以立即用，视觉上的传导只是地形本身随后才跟上。
+   */
+  destroyCells(cells: CellRef[]): RemovedCell[] {
+    const removed: RemovedCell[] = [];
+    const immediate: RemovedCell[] = [];
+    const delayed = new Map<number, RemovedCell[]>();
+    cells.forEach(c => {
+      if (c.x < 0 || c.y < 0 || c.x >= this.w || c.y >= this.h) return;
+      const def = this.def(c.x, c.y);
+      const hop = (c as Partial<RemovedCell>).hop ?? 0;
+      if (hop === 0 ? !this.canIgnite(c.x, c.y) : !def.destructible) return;
+      const r: RemovedCell = { x: c.x, y: c.y, id: def.id, def, hop };
+      removed.push(r);
+      if (def.chainDelayMs > 0 && hop > 0) { const arr = delayed.get(hop) ?? []; arr.push(r); delayed.set(hop, arr); }
+      else immediate.push(r);
+    });
+    immediate.forEach(c => this.set(c.x, c.y, AIR));
+    if (immediate.length) { this.resolveSupport(); this.shake(immediate, 0); }
+    [...delayed.entries()].sort((a, b) => a[0] - b[0]).forEach(([hop, group]) => {
+      const delayMs = hop * group[0].def.chainDelayMs;
+      this.host.scene.time.delayedCall(delayMs, () => {
+        group.forEach(c => this.set(c.x, c.y, AIR));
+        this.resolveSupport();
+        this.shake(group, 0);
+        this.host.onFuseBurn?.(group);
+      });
+    });
+    return removed;
+  }
+
+  // ---- 松脱（脆岩）----
+  /** 纯函数：距任一中心 ≤ radius + 材质感应距离 的"会松脱"格子，按相连同类分组 */
+  static findLooseGroups(grid: string[][], centers: CellRef[], radius: number): CellRef[][] {
+    const h = grid.length, w = grid[0]?.length ?? 0;
+    const seed = new Uint8Array(w * h);
+    const maxBonus = Math.max(0, ...Tiles.list().filter(d => d.looseOnBlast).map(d => d.blastSensitivity));
+    const r = Math.ceil(radius + maxBonus);
+    centers.forEach(c => {
+      for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+        const x = c.x + dx, y = c.y + dy;
+        if (x < 0 || y < 0 || x >= w || y >= h) continue;
+        const def = Tiles.get(grid[y][x]);
+        if (!def?.looseOnBlast) continue;
+        if (Math.sqrt(dx * dx + dy * dy) <= radius + def.blastSensitivity) seed[y * w + x] = 1;
+      }
+    });
+    const seen = new Uint8Array(w * h);
+    const groups: CellRef[][] = [];
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const i = y * w + x;
+      if (!seed[i] || seen[i]) continue;
+      const id = grid[y][x];
+      const group: CellRef[] = []; const st: [number, number][] = [[x, y]]; seen[i] = 1;
+      while (st.length) {
+        const [px, py] = st.pop()!;
+        group.push({ x: px, y: py });
+        for (const [dx, dy] of NEIGHBORS) {
+          const nx = px + dx, ny = py + dy;
+          if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+          const ni = ny * w + nx;
+          if (seen[ni] || grid[ny][nx] !== id) continue;
+          seen[ni] = 1; st.push([nx, ny]);
+        }
+      }
+      groups.push(group);
+    }
+    return groups;
+  }
+
+  /** 预览：会松脱掉落的格子 */
+  previewLoose(centers: CellRef[], radius: number): CellRef[] {
+    return Terrain.findLooseGroups(this.grid, centers, radius).flat();
+  }
+
+  /** 震动：centers 周围会松脱的材质整块变成碎块掉下来。返回松脱的格子数 */
+  shake(centers: CellRef[], radius: number): number {
+    const groups = Terrain.findLooseGroups(this.grid, centers, radius);
+    groups.forEach(g => this.spawnChunk(g.map(c => ({ x: c.x, y: c.y, id: this.grid[c.y][c.x] }))));
+    if (groups.length) this.resolveSupport();
+    return groups.reduce((n, g) => n + g.length, 0);
+  }
+
+  /** 无条件摧毁（引线用）：不管可不可炸、是不是岩石，实心的就炸掉，然后做支撑检测 */
+  destroyCellsForce(cells: CellRef[]): RemovedCell[] {
+    const removed: RemovedCell[] = [];
+    cells.forEach(c => {
+      if (c.x < 0 || c.y < 0 || c.x >= this.w || c.y >= this.h) return;
+      const def = this.def(c.x, c.y);
+      if (!def.solid) return;
+      removed.push({ x: c.x, y: c.y, id: def.id, def, hop: 0 });
+      this.set(c.x, c.y, AIR);
+    });
     if (removed.length) this.resolveSupport();
     return removed;
   }

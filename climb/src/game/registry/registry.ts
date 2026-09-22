@@ -2,16 +2,16 @@
 // 模式：Registry（注册表）+ Trait 组合（策略 / 特征）。
 // 地形、场景、编辑器只通过注册表查询"这个格子有什么能力"，不认识具体砖块字符。
 // 新增一种砖块 = 在 tiles.ts 里多写一个 defineTile / defineEntity，其他代码不用改。
-import type { Classified, EntityDef, EntitySpec, TileCaps, TileDef, TileSpec, TileTrait } from '@/type';
+import type { Classified, EntityDef, EntitySpec, SkillDef, SkillSpec, TileCaps, TileDef, TileSpec, TileTrait } from '@/type';
 
 export class Registry<T extends { id: string; index: number }> {
   private defs = new Map<string, T>();
   private order: T[] = [];
 
-  constructor(private readonly kind: string) {}
+  constructor(private readonly kind: string, private readonly singleChar = true) {}
 
   register(def: T): T {
-    if (typeof def.id !== 'string' || def.id.length !== 1) throw new Error(`${this.kind}: id 必须是单个字符`);
+    if (typeof def.id !== 'string' || !def.id || (this.singleChar && def.id.length !== 1)) throw new Error(`${this.kind}: id 不合法 '${def.id}'`);
     if (this.defs.has(def.id)) throw new Error(`${this.kind}: 重复注册 '${def.id}'`);
     def.index = this.order.length;
     this.defs.set(def.id, def);
@@ -28,7 +28,7 @@ export class Registry<T extends { id: string; index: number }> {
 }
 
 const TILE_CAP_DEFAULTS: TileCaps = {
-  solid: false, anchor: false, destructible: false, blastSensitivity: 0, chainCollapse: false, hazard: null,
+  solid: false, anchor: false, destructible: false, blastSensitivity: 0, chainCollapse: false, looseOnBlast: false, chainDelayMs: 0, igniteAtEndsOnly: false, hazard: null,
 };
 
 /** 可复用的能力特征 */
@@ -37,12 +37,23 @@ export const Traits = {
   Anchor: { anchor: true } as TileTrait,
   Destructible: (sensitivity = 0): TileTrait => ({ destructible: true, blastSensitivity: sensitivity }),
   Chain: { chainCollapse: true } as TileTrait,
+  /** 周围（爆炸范围外再加 sensitivity 格）有爆炸就整块松脱掉落，相连的同类一起掉 */
+  Loose: (sensitivity = 1): TileTrait => ({ looseOnBlast: true, blastSensitivity: sensitivity }),
+  /** 连锁沿这种材质传导时，每跳一格延迟 ms 毫秒才摧毁——做出"火苗跑过去"的传导效果 */
+  Delay: (ms: number): TileTrait => ({ chainDelayMs: ms }),
+  /** 只有链条两端能被点燃，中间段对爆炸免疫（导火索可以穿过危险区而不被误触） */
+  EndsOnly: { igniteAtEndsOnly: true } as TileTrait,
   Hazard: (reason: string): TileTrait => ({ hazard: reason }),
   Hidden: { editorVisible: false } as TileTrait,
 };
 
 export const Tiles = new Registry<TileDef>('砖块');
 export const Entities = new Registry<EntityDef>('物件');
+export const Skills = new Registry<SkillDef>('技能', false);
+
+export function defineSkill(spec: SkillSpec): SkillDef {
+  return Skills.register({ ...spec, desc: spec.desc ?? '', index: 0 });
+}
 
 export function defineTile(spec: TileSpec, ...traits: TileTrait[]): TileDef {
   const caps: TileCaps = Object.assign({}, TILE_CAP_DEFAULTS, ...traits.map(({ editorVisible: _v, ...rest }) => rest));
@@ -54,6 +65,9 @@ export function defineTile(spec: TileSpec, ...traits: TileTrait[]): TileDef {
     desc: spec.desc ?? '',
     color: spec.color,
     frame: spec.frame ?? -1,
+    autotile: spec.autotile ?? false,
+    iconFrame: spec.iconFrame ?? spec.frame ?? -1,
+    gameFrame: spec.gameFrame ?? spec.frame ?? -1,
     editorVisible,
     canFall: caps.solid && !caps.anchor,
     index: 0,
@@ -64,7 +78,7 @@ export function defineTile(spec: TileSpec, ...traits: TileTrait[]): TileDef {
 
 export function defineEntity(spec: EntitySpec): EntityDef {
   const def: EntityDef = {
-    id: spec.id, name: spec.name, desc: spec.desc ?? '', texture: spec.texture, unique: spec.unique ?? false,
+    id: spec.id, name: spec.name, desc: spec.desc ?? '', texture: spec.texture, unique: spec.unique ?? false, color: spec.color ?? 0xffffff,
     spawn: spec.spawn, index: 0,
   };
   return Entities.register(def);

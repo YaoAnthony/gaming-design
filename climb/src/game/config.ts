@@ -21,4 +21,11 @@ export const DEFAULT_CONFIG: GameConfig = {
   crushMinSpeed: 250,
   enemySpeed: 60,
   roomPanMs: 180,
+  skill: 'blast',
+  fuseDelayMs: 90,
+  fuseIgniteRadius: 2.5,
+  deathResetsWorld: true,
+  fogEnabled: false,   // 先关着，以后要用再开
+  fogRadius: 7,
+  fogMemoryAlpha: 0.6,
 };

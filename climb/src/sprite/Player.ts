@@ -4,7 +4,7 @@ import Phaser from 'phaser';
 import type { CellRef, EntryState, GameConfig } from '@/type';
 
 export interface PlayerInput { left: boolean; right: boolean }
-export interface JumpEvent { kind: 'ground' | 'wall'; cell: CellRef }
+export interface JumpEvent { kind: 'ground' | 'wall'; cell: CellRef; /** 蹬墙跳时墙在哪一侧 */ side?: 1 | -1 }
 
 export class Player extends Phaser.Physics.Arcade.Sprite {
   declare body: Phaser.Physics.Arcade.Body;
@@ -39,11 +39,11 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     const x = side > 0 ? Math.floor((b.right + 1) / T) : Math.floor((b.left - 1) / T);
     return { x, y: Math.floor(b.center.y / T) };
   }
-  /** 当前如果起跳，爆炸会在哪（用于预览） */
-  previewCell(): CellRef | null {
-    if (this.onGround) return this.groundCell();
-    if (this.onWallRight) return this.wallCell(1);
-    if (this.onWallLeft) return this.wallCell(-1);
+  /** 当前如果起跳会是什么样的起跳（用于预览） */
+  previewJump(): JumpEvent | null {
+    if (this.onGround) return { kind: 'ground', cell: this.groundCell() };
+    if (this.onWallRight) return { kind: 'wall', cell: this.wallCell(1), side: 1 };
+    if (this.onWallLeft) return { kind: 'wall', cell: this.wallCell(-1), side: -1 };
     return null;
   }
 
@@ -79,7 +79,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
       this.setFlipX(side > 0);
       this.inputLockUntil = time + c.wallJumpLockMs;
       this.consumeJump();
-      return { kind: 'wall', cell };
+      return { kind: 'wall', cell, side };
     }
     return null;
   }

@@ -12,6 +12,12 @@ export interface TileCaps {
   blastSensitivity: number;
   /** 被波及后沿同类格子连锁崩塌 */
   chainCollapse: boolean;
+  /** 周围有爆炸就整块松脱、随重力掉下来（不会被炸没）；感应距离用 blastSensitivity */
+  looseOnBlast: boolean;
+  /** 连锁传导时，每多一跳（格）延迟多少毫秒摧毁；0 = 瞬间摧毁（默认）。用来做"导火索"式的可见传导。 */
+  chainDelayMs: number;
+  /** 只有链条的两端（同类相邻格子 ≤ 1 个）能被爆炸点燃，中间段对爆炸免疫；点燃后仍会从一头烧到另一头 */
+  igniteAtEndsOnly: boolean;
   /** 非空 = 碰到即死，值是死亡提示 */
   hazard: string | null;
 }
@@ -26,8 +32,14 @@ export interface TileSpec {
   desc?: string;
   /** 编辑器 / 预览用的代表色 */
   color: number;
-  /** 图集帧序号，-1 或省略 = 不画（空气） */
+  /** 图集帧序号，-1 或省略 = 不画（空气）。autotile 时是 16 帧的起始帧 */
   frame?: number;
+  /** 自动拼贴：按四周同类格子（上=1 右=2 下=4 左=8）选 frame + 掩码 那一帧 */
+  autotile?: boolean;
+  /** 编辑器物品栏用的帧；省略用 frame */
+  iconFrame?: number;
+  /** 游戏里用的帧（autotile 时是起始帧）；省略用 frame。用来让某些砖块在游戏里不那么显眼 */
+  gameFrame?: number;
   editorVisible?: boolean;
 }
 
@@ -38,6 +50,9 @@ export interface TileDef extends TileCaps {
   desc: string;
   color: number;
   frame: number;
+  autotile: boolean;
+  iconFrame: number;
+  gameFrame: number;
   editorVisible: boolean;
   /** 派生：实心且不是锚点的格子才可能掉落 */
   canFall: boolean;
@@ -72,6 +87,8 @@ export interface EntitySpec {
   texture: string;
   /** 全地图只能有一个（出生点） */
   unique?: boolean;
+  /** 编辑器缩略图里的代表色 */
+  color?: number;
   spawn(ctx: SpawnContext): void;
 }
 

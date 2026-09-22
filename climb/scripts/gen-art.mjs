@@ -68,7 +68,7 @@ class Canvas {
 const T = 32;
 
 // ---- 砖块图集：0 泥土 1 岩石 2 脆岩 3 沙土 4 尖刺 ----
-const tiles = new Canvas(T * 5, T);
+const tiles = new Canvas(T * 21, T);   // 0-4 基础砖块，5-20 引线的 16 种连接图案（只在编辑器里显示）
 // 泥土
 tiles.rect(0, 0, T, T, 0x8d5a3b);
 tiles.rect(4, 6, 6, 4, 0x6f452c); tiles.rect(18, 12, 8, 4, 0x6f452c); tiles.rect(8, 22, 6, 4, 0x6f452c); tiles.rect(22, 24, 5, 3, 0x6f452c);
@@ -87,6 +87,23 @@ for (let i = 0; i < 10; i++) tiles.rect(3 * T + ((i * 7) % 28) + 2, ((i * 11) % 
 tiles.rect(3 * T, 0, T, 3, 0xe8b77f);
 // 尖刺（透明背景）
 for (let k = 0; k < 4; k++) tiles.tri(4 * T + k * 8, T, 4 * T + k * 8 + 4, T - 14, 4 * T + k * 8 + 8, T, 0xef476f);
+// 引线自动拼贴（编辑器叠加层）：帧 = 5 + 位掩码（上=1 右=2 下=4 左=8）；透明底，叠在砖块上
+// 端头（只有一个邻居）和孤立格画成亮黄色节点：那是唯一能被点燃的地方
+for (let mask = 0; mask < 16; mask++) {
+  const ox = (5 + mask) * T;
+  const c = T / 2;
+  const wire = 0xff7b54, thick = 6, half = thick / 2;
+  if (mask & 1) tiles.rect(ox + c - half, 0, thick, c + half, wire);          // 上
+  if (mask & 2) tiles.rect(ox + c - half, c - half, T - c + half, thick, wire); // 右
+  if (mask & 4) tiles.rect(ox + c - half, c - half, thick, T - c + half, wire); // 下
+  if (mask & 8) tiles.rect(ox, c - half, c + half, thick, wire);              // 左
+  tiles.rect(ox + c - half, c - half, thick, thick, wire);                     // 中心接点
+  const bits = [1, 2, 4, 8].filter(b => mask & b).length;
+  if (bits <= 1) {                                                             // 端头 / 孤立：可点燃节点
+    tiles.rect(ox + c - 6, c - 6, 12, 12, 0xff9f1c);
+    tiles.rect(ox + c - 4, c - 4, 8, 8, 0xffd166);
+  }
+}
 tiles.save('tiles.png');
 
 // ---- 玩家 22x38 ----
@@ -107,6 +124,13 @@ const door = new Canvas(24, 32);
 door.roundRect(0, 0, 24, 44, 12, 0xffd166);
 door.roundRect(4, 6, 16, 40, 8, 0x0b0b14);
 door.save('door.png');
+
+// ---- 引线端点（游戏里唯一可见的部分）12x12，暗红色，不抢眼 ----
+const node = new Canvas(12, 12);
+node.roundRect(0, 0, 12, 12, 3, 0x4a1418);
+node.roundRect(2, 2, 8, 8, 2, 0x7a1f26);
+node.rect(4, 4, 4, 4, 0x9c2b33);
+node.save('fusenode.png');
 
 // ---- 粒子 6x6 ----
 const spark = new Canvas(6, 6);

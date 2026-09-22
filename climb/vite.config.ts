@@ -1,10 +1,45 @@
 /// <reference types="vitest" />
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { fileURLToPath, URL } from 'node:url';
+import { writeFile } from 'node:fs/promises';
+
+const MAP_FILE = fileURLToPath(new URL('./src/map/world.json', import.meta.url));
+
+/**
+ * 开发期专用：编辑器 POST /__climb/save-map，直接把地图写进 src/map/world.json。
+ * 只在 `npm run dev` 的开发服务器上存在，打包产物里没有。
+ */
+function saveMapPlugin(): Plugin {
+  return {
+    name: 'climb-save-map',
+    apply: 'serve',
+    // 写回 world.json 时不要触发页面刷新：运行时的地图在 Redux 里，文件只是默认值
+    handleHotUpdate(ctx) { if (ctx.file === MAP_FILE) return []; },
+    configureServer(server) {
+      server.middlewares.use('/__climb/save-map', (req, res) => {
+        if (req.method !== 'POST') { res.statusCode = 405; res.end('POST only'); return; }
+        let body = '';
+        req.on('data', (c: Buffer) => { body += c; });
+        req.on('end', async () => {
+          try {
+            const m = JSON.parse(body) as { roomW?: unknown; roomH?: unknown; layout?: unknown; rooms?: unknown };
+            if (typeof m.roomW !== 'number' || typeof m.roomH !== 'number' || !Array.isArray(m.layout) || !m.rooms) throw new Error('不是合法的地图模型');
+            await writeFile(MAP_FILE, JSON.stringify(m, null, 2) + '\n', 'utf8');
+            res.setHeader('Content-Type', 'application/json');
+            res.end(JSON.stringify({ ok: true, file: 'src/map/world.json' }));
+          } catch (err) {
+            res.statusCode = 400;
+            res.end(JSON.stringify({ ok: false, error: (err as Error).message }));
+          }
+        });
+      });
+    },
+  };
+}
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), saveMapPlugin()],
   resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
   server: { port: 5174, strictPort: true },
   test: { environment: 'node' },

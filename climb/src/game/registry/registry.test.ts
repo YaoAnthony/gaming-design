@@ -7,7 +7,7 @@ describe('注册表', () => {
     const dirt = Tiles.get('#')!, rock = Tiles.get('R')!, brittle = Tiles.get('B')!, spikes = Tiles.get('X')!;
     expect(dirt).toMatchObject({ solid: true, destructible: true, canFall: true, anchor: false });
     expect(rock).toMatchObject({ solid: true, anchor: true, canFall: false, destructible: false });
-    expect(brittle).toMatchObject({ blastSensitivity: 1, chainCollapse: true });
+    expect(brittle).toMatchObject({ looseOnBlast: true, blastSensitivity: 1, destructible: false });
     expect(spikes).toMatchObject({ solid: false, hazard: '扎到尖刺了' });
   });
 

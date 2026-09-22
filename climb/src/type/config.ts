@@ -20,4 +20,18 @@ export interface GameConfig {
   crushMinSpeed: number;
   enemySpeed: number;
   roomPanMs: number;
+  /** 角色起跳技能的 id（见 game/registry/skills.ts） */
+  skill: string;
+  /** 引线每烧一格的间隔（毫秒） */
+  fuseDelayMs: number;
+  /** 引线两端能被点燃的距离（格），从爆炸中心算 */
+  fuseIgniteRadius: number;
+  /** 死亡时重置整张地图（否则只重置当前房间） */
+  deathResetsWorld: boolean;
+  /** 迷雾开关 */
+  fogEnabled: boolean;
+  /** 光照传播半径（格）：从玩家出发沿空气逐格衰减，实心格挡光 */
+  fogRadius: number;
+  /** 见过但不在视野里的格子上残留的雾浓度（0 全清晰，1 全黑） */
+  fogMemoryAlpha: number;
 }

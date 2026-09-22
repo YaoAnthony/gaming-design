@@ -2,14 +2,14 @@ import { useState } from 'react';
 import { GameView } from './GameView';
 import { EditorView } from './EditorView';
 import { DevFps } from './DevFps';
-import { isTouchDevice } from '@/game/input';
+import { useTouch } from './useTouch';
 import './app.css';
 
 type Tab = 'game' | 'editor';
 
 export function App() {
   const [tab, setTab] = useState<Tab>('game');
-  const mobile = isTouchDevice();
+  const mobile = useTouch();
   // 线上版本和手机：没有导航和编辑器，只有游戏；手机竖屏时提示横过来
   if (mobile || import.meta.env.PROD) {
     return (

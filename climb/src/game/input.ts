@@ -3,5 +3,7 @@
 export const touch = { left: false, right: false };
 export const TOUCH_JUMP = 'input:jump';
 
-/** 粗指针（手指）设备：手机、平板 */
-export const isTouchDevice = (): boolean => typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches;
+/** 触屏设备：手机、平板。三种判断取并集，任何一个成立就算 */
+export const isTouchDevice = (): boolean =>
+  typeof window !== 'undefined' &&
+  (window.matchMedia('(pointer: coarse)').matches || navigator.maxTouchPoints > 0 || 'ontouchstart' in window);

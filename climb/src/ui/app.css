@@ -70,7 +70,8 @@ label.check { display: flex; align-items: center; gap: 6px; margin: 8px 0; color
 .dev-fps { position: fixed; right: 10px; top: 8px; font: 12px monospace; color: #9aa0b4; pointer-events: none; }
 
 /* ---- 手机 ---- */
-.app.mobile { height: 100dvh; }
+.app.mobile, .app.play-only { height: 100dvh; }
+.app.play-only .stage { height: 100dvh; }
 .app.mobile .stage { height: 100dvh; }
 .touch-controls { position: absolute; inset: 0; pointer-events: none; }
 .tc-left, .tc-right { position: absolute; bottom: max(18px, env(safe-area-inset-bottom)); display: flex; gap: 14px; pointer-events: auto; }

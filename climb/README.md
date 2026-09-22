@@ -4,7 +4,7 @@
 
 ## 线上版本
 
-推到 `main` 后 GitHub Actions 自动打包部署到 GitHub Pages（`.github/workflows/pages.yml`）。线上没有「写入 world.json」按钮，地图改动靠导出 / 导入 JSON。
+推到 `main` 后 GitHub Actions 自动打包部署到 GitHub Pages（`.github/workflows/pages.yml`）。线上只有游戏（正中一个「开始游戏」），没有编辑器；地图在本地编辑器里改，「写入 world.json」后 push。
 
 ## 命令
 

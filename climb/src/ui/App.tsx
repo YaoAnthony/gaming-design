@@ -10,12 +10,12 @@ type Tab = 'game' | 'editor';
 export function App() {
   const [tab, setTab] = useState<Tab>('game');
   const mobile = isTouchDevice();
-  // 手机：没有导航和编辑器，只有游戏；竖屏时提示横过来
-  if (mobile) {
+  // 线上版本和手机：没有导航和编辑器，只有游戏；手机竖屏时提示横过来
+  if (mobile || import.meta.env.PROD) {
     return (
-      <div className="app mobile">
+      <div className={'app' + (mobile ? ' mobile' : ' play-only')}>
         <GameView />
-        <div className="rotate-hint">横屏玩</div>
+        {mobile && <div className="rotate-hint">横屏玩</div>}
       </div>
     );
   }

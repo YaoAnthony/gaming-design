@@ -4,6 +4,7 @@ import editorReducer, { type EditorState } from './slices/editorSlice';
 import saveReducer, { type SaveState } from './slices/saveSlice';
 import hudReducer from './slices/hudSlice';
 import { loadPersisted, schedulePersist } from './persist';
+import { DEFAULT_WORLD_HASH } from '@/game/world/defaultWorld';
 
 const persisted = typeof window !== 'undefined' ? loadPersisted() : {};
 
@@ -20,7 +21,7 @@ export const store = configureStore({
 if (typeof window !== 'undefined') {
   store.subscribe(() => schedulePersist(() => {
     const s = store.getState();
-    return { editor: { model: s.editor.model, room: s.editor.room }, save: s.save };
+    return { editor: { model: s.editor.model, room: s.editor.room }, save: s.save, defaultHash: DEFAULT_WORLD_HASH };
   }));
 }
 

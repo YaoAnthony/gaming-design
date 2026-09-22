@@ -1,7 +1,7 @@
 // 编辑器状态：地图模型（唯一数据源）、笔刷、当前房间、开关
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 import type { RoomCoord, RoomFlags, WorldModel } from '@/type';
-import defaultWorld from '@/map/world.json';
+import { DEFAULT_WORLD } from '@/game/world/defaultWorld';
 import { addRoomAt, clearChar, deleteRoom as deleteModelRoom, findStart, firstRoom, moveRoom as moveModelRoom, positionOf, roomKeyAt, setCell as setModelCell, setFogCell, setFuseCell, setRoomFlags } from '@/game/world/WorldModel';
 
 export interface EditorState {
@@ -18,7 +18,7 @@ function roomOfStart(m: WorldModel): RoomCoord {
   return st ? { rx: Math.floor(st.x / m.roomW), ry: Math.floor(st.y / m.roomH) } : { rx: 0, ry: 0 };
 }
 
-const initialModel = defaultWorld as WorldModel;
+const initialModel = DEFAULT_WORLD;
 
 const initialState: EditorState = {
   model: initialModel,

@@ -1,6 +1,6 @@
-import { useRef, useState } from 'react';
+import { useRef } from 'react';
 import { useAppDispatch, useAppSelector } from '@/redux/hooks';
-import { replaceModel, resetModel, setShowSupport } from '@/redux/slices/editorSlice';
+import { replaceModel, setShowSupport } from '@/redux/slices/editorSlice';
 import { setConfig } from '@/redux/slices/configSlice';
 import { Skills } from '@/game/registry/registry';
 import '@/game/registry/skills';
@@ -22,19 +22,16 @@ export function Toolbar({ onPlay, status }: Props) {
   const { skill, deathResetsWorld, fogEnabled } = useAppSelector(s => s.config);
   const dispatch = useAppDispatch();
   const file = useRef<HTMLInputElement>(null);
-  const [saveMsg, setSaveMsg] = useState('');
   const { modal, message } = AntApp.useApp();
 
   /** 开发期：让 Vite 开发服务器直接把地图写进 src/map/world.json */
   const writeToSource = async () => {
-    setSaveMsg('写入中…');
     try {
       const r = await fetch('/__climb/save-map', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(model) });
       const j = (await r.json()) as { ok: boolean; file?: string; error?: string };
-      setSaveMsg('');
       if (j.ok) modal.success({ title: '写入成功', content: `地图已写入 ${j.file}`, okText: '好' });
       else modal.error({ title: '写入失败', content: j.error, okText: '好' });
-    } catch (err) { setSaveMsg(''); modal.error({ title: '写入失败', content: (err as Error).message, okText: '好' }); }
+    } catch (err) { modal.error({ title: '写入失败', content: (err as Error).message, okText: '好' }); }
   };
 
   const importFile = async (f: File | undefined) => {
@@ -66,7 +63,6 @@ export function Toolbar({ onPlay, status }: Props) {
       {import.meta.env.DEV && (
         <>
           <div className="row"><button className="btn primary" onClick={() => void writeToSource()}>💾 写入 src/map/world.json</button></div>
-          <div className="hint">{saveMsg || '直接写进源码里的默认地图（仅开发服务器可用）。'}</div>
         </>
       )}
       <div className="row">
@@ -74,15 +70,6 @@ export function Toolbar({ onPlay, status }: Props) {
         <button className="btn" onClick={() => file.current?.click()}>导入 JSON</button>
       </div>
       <input ref={file} type="file" accept="application/json" hidden onChange={e => { void importFile(e.target.files?.[0]); e.target.value = ''; }} />
-      <div className="row">
-        <button className="btn" onClick={() => modal.confirm({
-          title: '恢复成默认地图？',
-          content: '当前编辑内容会被替换，不能撤销。',
-          okText: '恢复', okButtonProps: { danger: true }, cancelText: '取消',
-          onOk: () => dispatch(resetModel()),
-        })}>恢复默认地图</button>
-      </div>
-      <div className="hint">改动自动存在浏览器里。打包版本没有「写入」按钮时，导出的 world.json 覆盖到 src/map/ 也是一样的效果。</div>
       <div className="status">{status}</div>
     </>
   );

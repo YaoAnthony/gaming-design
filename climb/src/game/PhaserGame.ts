@@ -24,7 +24,8 @@ export function createGame(parent: HTMLElement, mode: GameMode, data?: StartGame
     pixelArt: true,
     physics: { default: 'arcade', arcade: { gravity: { x: 0, y: cfg.gravity }, debug: false } },
     scene: [BootScene, GameScene, EditorScene],
-    scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
+    // 居中交给外层 CSS 的 flex；Phaser 自己再加 margin 会在手机上叠加成偏移
+    scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.NO_CENTER },
   });
   game.registry.set('bootNext', mode === 'editor' ? SCENE.editor : SCENE.game);
   game.registry.set('bootData', data ?? {});

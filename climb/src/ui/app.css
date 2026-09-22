@@ -10,7 +10,7 @@ html, body, #root { margin: 0; height: 100%; background: var(--bg); color: var(-
 .toolbar { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--line); }
 .stage { position: relative; flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
 .phaser-host { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
-.phaser-host canvas { max-width: 100%; max-height: 100%; }
+.phaser-host canvas { max-width: 100%; max-height: 100%; margin: 0 !important; }
 .placeholder { color: var(--muted); }
 .btn { background: #1d2340; border: 1px solid var(--line); color: var(--text); border-radius: 6px; padding: 8px 10px; cursor: pointer; }
 .btn:hover { border-color: var(--accent); }

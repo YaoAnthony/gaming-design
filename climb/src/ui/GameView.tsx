@@ -4,6 +4,8 @@ import { clearSave } from '@/redux/slices/saveSlice';
 import type { StartGameData } from '@/game/bridge';
 import { PhaserCanvas } from './PhaserCanvas';
 import { Hud } from './Hud';
+import { TouchControls } from './TouchControls';
+import { isTouchDevice } from '@/game/input';
 
 /** 游戏页：一个「开始游戏」，从头开始 */
 export function GameView() {
@@ -17,7 +19,7 @@ export function GameView() {
     <div className="view">
       <div className="stage">
         {data
-          ? <><PhaserCanvas mode="game" data={data} /><Hud /></>
+          ? <><PhaserCanvas mode="game" data={data} /><Hud />{isTouchDevice() && <TouchControls />}</>
           : <button className="btn primary start" onClick={start}>开始游戏</button>}
       </div>
     </div>

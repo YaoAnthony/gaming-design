@@ -10,6 +10,7 @@ import { bridge, EVT, SCENE, type StartGameData } from '@/game/bridge';
 import { Player, Enemy, type JumpEvent } from '@/sprite';
 import { createSparkEmitter, playCrush, playExplosion, playLand, type SparkEmitter } from '@/particle';
 import { store } from '@/redux/store';
+import { touch, TOUCH_JUMP } from '@/game/input';
 import { flash, setMode, setRoomKey, setStats } from '@/redux/slices/hudSlice';
 import { writeSave } from '@/redux/slices/saveSlice';
 
@@ -131,6 +132,8 @@ export class GameScene extends Phaser.Scene implements EntityHost {
     this.keys = kb.addKeys({ A: 'A', D: 'D' }) as Record<'A' | 'D', Phaser.Input.Keyboard.Key>;
     const press = () => this.player.pressJump(this.time.now);
     kb.on('keydown-SPACE', press); kb.on('keydown-UP', press); kb.on('keydown-W', press);
+    bridge.on(TOUCH_JUMP, press);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => { bridge.off(TOUCH_JUMP, press); touch.left = false; touch.right = false; });
     kb.on('keydown-R', () => { if (!this.won) this.resetRoom(); });
     if (this.playtest) kb.on('keydown-ESC', () => this.exitPlaytest());
 
@@ -383,7 +386,7 @@ export class GameScene extends Phaser.Scene implements EntityHost {
     const r = this.roomOf(p.x, p.y);
     if (!this.sameRoom(r, this.room)) this.onRoomChanged(r);
 
-    const input = { left: this.cursors.left.isDown || this.keys.A.isDown, right: this.cursors.right.isDown || this.keys.D.isDown };
+    const input = { left: this.cursors.left.isDown || this.keys.A.isDown || touch.left, right: this.cursors.right.isDown || this.keys.D.isDown || touch.right };
     const jump = p.step(input, time);
     if (jump) { this.jumps += 1; this.useSkill(jump); store.dispatch(setStats({ jumps: this.jumps, destroyed: this.destroyed })); }
 

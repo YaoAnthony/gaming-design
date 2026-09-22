@@ -39,6 +39,8 @@ function saveMapPlugin(): Plugin {
 }
 
 export default defineConfig({
+  // GitHub Pages 是项目子路径：https://<user>.github.io/gaming-design/
+  base: process.env.GITHUB_PAGES ? '/gaming-design/' : '/',
   plugins: [react(), saveMapPlugin()],
   resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
   server: { port: 5174, strictPort: true },

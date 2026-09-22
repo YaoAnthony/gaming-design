@@ -2,6 +2,10 @@
 
 「起跳即爆炸」的房间制解谜平台游戏。Vite + React + TypeScript + Phaser 3 + Redux Toolkit + Ant Design（弹窗等界面组件）+ Motion（界面动画）。
 
+## 线上版本
+
+推到 `main` 后 GitHub Actions 自动打包部署到 GitHub Pages（`.github/workflows/pages.yml`）。线上没有「写入 world.json」按钮，地图改动靠导出 / 导入 JSON。
+
 ## 命令
 
 ```bash

@@ -1,0 +1,85 @@
+// ===== 砖块 / 物件的类型 =====
+
+/** 砖块能力：地形、爆炸、掉落、危险判定只看这些字段 */
+export interface TileCaps {
+  /** 实心：挡住玩家、怪物、碎块 */
+  solid: boolean;
+  /** 锚点：自身永不掉落，相连的实心格子都被它撑住 */
+  anchor: boolean;
+  /** 可被爆炸摧毁 */
+  destructible: boolean;
+  /** 额外感应半径（格）：0 = 只在爆炸范围内才碎；1 = 范围外一圈也会碎 */
+  blastSensitivity: number;
+  /** 被波及后沿同类格子连锁崩塌 */
+  chainCollapse: boolean;
+  /** 非空 = 碰到即死，值是死亡提示 */
+  hazard: string | null;
+}
+
+/** 一条能力特征（Trait），可组合 */
+export type TileTrait = Partial<TileCaps> & { editorVisible?: boolean };
+
+/** 注册砖块时写的内容 */
+export interface TileSpec {
+  id: string;
+  name: string;
+  desc?: string;
+  /** 编辑器 / 预览用的代表色 */
+  color: number;
+  /** 图集帧序号，-1 或省略 = 不画（空气） */
+  frame?: number;
+  editorVisible?: boolean;
+}
+
+/** 注册完成后的砖块定义 */
+export interface TileDef extends TileCaps {
+  id: string;
+  name: string;
+  desc: string;
+  color: number;
+  frame: number;
+  editorVisible: boolean;
+  /** 派生：实心且不是锚点的格子才可能掉落 */
+  canFall: boolean;
+  /** 注册顺序 */
+  index: number;
+}
+
+export interface CellRef { x: number; y: number }
+export interface RoomCoord { rx: number; ry: number }
+export interface Point { x: number; y: number }
+
+/** 物件进场时拿到的上下文；EntityHost 由 GameScene 实现 */
+export interface EntityHost {
+  spawnPoints: Point[];
+  addEnemy(spawn: EnemySpawn): void;
+  setGoal(p: Point): void;
+}
+export interface EnemySpawn extends Point, RoomCoord {}
+
+export interface SpawnContext {
+  host: EntityHost;
+  wx: number;
+  wy: number;
+  cell: CellRef & RoomCoord;
+}
+
+export interface EntitySpec {
+  id: string;
+  name: string;
+  desc?: string;
+  /** 贴图 key（对应 asset 清单） */
+  texture: string;
+  /** 全地图只能有一个（出生点） */
+  unique?: boolean;
+  spawn(ctx: SpawnContext): void;
+}
+
+export interface EntityDef extends Required<Omit<EntitySpec, 'spawn'>> {
+  spawn(ctx: SpawnContext): void;
+  index: number;
+}
+
+export type Classified =
+  | { kind: 'tile'; def: TileDef }
+  | { kind: 'entity'; def: EntityDef };

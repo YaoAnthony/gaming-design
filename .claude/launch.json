@@ -1,0 +1,29 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "jump-game",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8080",
+        "-d",
+        "jump-game"
+      ],
+      "port": 8080
+    },
+    {
+      "name": "climb-proto",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "8081",
+        "-d",
+        "climb-proto"
+      ],
+      "port": 8081
+    }
+  ]
+}

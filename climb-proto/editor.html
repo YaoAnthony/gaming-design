@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Climb Proto 地图编辑器</title>
+  <style>
+    :root { --bg: #0b0b14; --panel: #151a2e; --line: #2a3150; --text: #e6e8f0; --muted: #9aa0b4; --accent: #4cc9f0; }
+    html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font-family: -apple-system, "PingFang SC", "Microsoft YaHei", monospace, sans-serif; font-size: 13px; }
+    #app { display: flex; height: 100vh; }
+    #side { width: 300px; flex: none; background: var(--panel); border-right: 1px solid var(--line); overflow-y: auto; padding: 12px; box-sizing: border-box; }
+    #game-container { flex: 1; display: flex; align-items: center; justify-content: center; min-width: 0; }
+    #game-container canvas { max-height: 100vh; }
+    h1 { font-size: 16px; margin: 0 0 10px; color: var(--accent); }
+    h2 { font-size: 12px; color: var(--muted); margin: 14px 0 6px; text-transform: uppercase; letter-spacing: .5px; }
+    .palette { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .item { display: flex; align-items: center; gap: 8px; background: #1d2340; border: 1px solid var(--line); color: var(--text); border-radius: 6px; padding: 6px; cursor: pointer; text-align: left; }
+    .item:hover { border-color: var(--accent); }
+    .item.active { border-color: var(--accent); background: #24355a; box-shadow: 0 0 0 1px var(--accent) inset; }
+    .item .icon { width: 32px; height: 32px; flex: none; display: flex; align-items: center; justify-content: center; background: #0b0b14; border-radius: 4px; font-size: 16px; overflow: hidden; }
+    .item .icon img { max-width: 32px; max-height: 32px; image-rendering: pixelated; }
+    .item .label { display: flex; flex-direction: column; line-height: 1.2; }
+    .item .label small { color: var(--muted); }
+    #roommap { display: grid; gap: 4px; margin-bottom: 6px; }
+    .room { background: #1d2340; border: 1px solid var(--line); color: var(--text); border-radius: 4px; padding: 8px 0; cursor: pointer; font-weight: bold; }
+    .room.active { background: #24355a; border-color: var(--accent); }
+    .row { display: flex; gap: 6px; margin: 6px 0; }
+    .row > * { flex: 1; }
+    button.btn { background: #1d2340; border: 1px solid var(--line); color: var(--text); border-radius: 6px; padding: 8px; cursor: pointer; }
+    button.btn:hover { border-color: var(--accent); }
+    button.btn.primary { background: #1b6f8a; border-color: #4cc9f0; font-weight: bold; }
+    input[type=text] { width: 100%; box-sizing: border-box; background: #0b0b14; border: 1px solid var(--line); color: var(--text); border-radius: 6px; padding: 7px; }
+    label.check { display: flex; align-items: center; gap: 6px; margin: 8px 0; color: var(--muted); }
+    #room-title { color: var(--muted); margin-bottom: 6px; }
+    #status { margin-top: 12px; color: var(--muted); min-height: 1.4em; }
+    .hint { color: var(--muted); font-size: 12px; line-height: 1.5; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <aside id="side">
+      <h1>地图编辑器</h1>
+      <div class="hint">左键画、右键擦、按住拖动连续画。红框 = 一开始就会掉落的地块（没连到岩石）。</div>
+
+      <h2>砖块</h2>
+      <div id="palette-tiles" class="palette"></div>
+
+      <h2>物件</h2>
+      <div id="palette-entities" class="palette"></div>
+
+      <h2>房间</h2>
+      <div id="room-title"></div>
+      <div id="roommap"></div>
+      <div class="row"><button class="btn" id="add-row">+ 加一排</button><button class="btn" id="add-col">+ 加一列</button></div>
+      <input type="text" id="room-name" placeholder="房间名 / 谜题提示（进房间时显示）" />
+
+      <h2>试玩</h2>
+      <div class="row"><button class="btn primary" id="play">▶ 从本房间试玩</button></div>
+      <div class="row"><button class="btn" id="play-start">▶ 从出生点试玩</button></div>
+      <div class="hint">试玩时 ESC 回到编辑器，R 重置房间。</div>
+
+      <h2>文件</h2>
+      <label class="check"><input type="checkbox" id="show-support" checked /> 标出会掉落的地块</label>
+      <div class="row"><button class="btn" id="export">导出 JSON</button><button class="btn" id="import-btn">导入 JSON</button></div>
+      <input type="file" id="import" accept="application/json" hidden />
+      <div class="row"><button class="btn" id="copy-js">复制为 world.js</button><button class="btn" id="reset">恢复默认地图</button></div>
+      <div class="hint">改动会自动存在浏览器里。「复制为 world.js」后贴进 src/world.js，正式游戏就用新地图。</div>
+
+      <div id="status"></div>
+    </aside>
+    <main id="game-container"></main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.min.js"></script>
+  <script src="src/config.js"></script>
+  <script src="src/registry.js"></script>
+  <script src="src/tiles.js"></script>
+  <script src="src/world.js"></script>
+  <script src="src/WorldModel.js"></script>
+  <script src="src/Terrain.js"></script>
+  <script src="src/scenes/BootScene.js"></script>
+  <script src="src/scenes/GameScene.js"></script>
+  <script src="src/scenes/EditorScene.js"></script>
+  <script src="src/editor.js"></script>
+</body>
+</html>

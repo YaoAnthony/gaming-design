@@ -408,8 +408,14 @@ export class GameScene extends Phaser.Scene implements EntityHost {
       const b = e.body;
       if (bottom < b.top - 2 || bottom > b.top + 10) continue;
       if (right <= b.left || left >= b.right) continue;
-      this.fallingPlatforms.get(ch.id)?.destroy(); this.fallingPlatforms.delete(ch.id);
-      this.carried.push(new CarriedPaper(this, this.carriedGroup, e, ch, T));
+      // 飘落时的平台直接交给"被驮着"的纸，碰撞体不中断
+      const platform = this.fallingPlatforms.get(ch.id);
+      this.fallingPlatforms.delete(ch.id);
+      const riding = !!platform && this.player.body.touching.down && platform.ridden;
+      const paper = new CarriedPaper(this, this.carriedGroup, e, ch, T, platform);
+      this.carried.push(paper);
+      // 人正站在上面：纸贴到怪物头顶会往上挪几像素，把人一起放稳
+      if (riding) { this.player.y = paper.platform.body.top - this.player.body.height / 2 - 1; this.player.setVelocityY(0); }
       this.flash('纸落在怪物背上了', '#f4f1e8');
       return true;
     }

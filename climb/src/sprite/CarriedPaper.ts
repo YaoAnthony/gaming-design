@@ -13,7 +13,8 @@ export class CarriedPaper {
   private readonly w: number;
   private readonly h: number;
 
-  constructor(scene: Phaser.Scene, group: Phaser.Physics.Arcade.Group, readonly enemy: Enemy, chunk: Chunk, T: number) {
+  /** platform 可以传飘落时用的那一块进来直接接手：碰撞体连续，站在上面的人不会漏下去 */
+  constructor(scene: Phaser.Scene, group: Phaser.Physics.Arcade.Group, readonly enemy: Enemy, chunk: Chunk, T: number, platform?: TopPlatform) {
     this.container = chunk.container;
     this.cells = chunk.cells;
     const xs = this.cells.map(c => c.x), ys = this.cells.map(c => c.y);
@@ -21,7 +22,7 @@ export class CarriedPaper {
     this.w = (maxX - minX + 1) * T; this.h = (maxY - minY + 1) * T;
     this.anchorX = ((minX + maxX + 1) / 2) * T;
     this.anchorBottom = (maxY + 1) * T;
-    this.platform = new TopPlatform(scene, group, this.w, this.h);
+    this.platform = platform ?? new TopPlatform(scene, group, this.w, this.h);
     this.update(0);
   }
 

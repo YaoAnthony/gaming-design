@@ -1,22 +1,32 @@
 import { describe, expect, it } from 'vitest';
 import type { WorldModel } from '@/type';
-import { addRoomAt, clearChar, deleteRoom, findStart, moveRoom, positionOf, roomKeyAt, setCell, worldRows } from './WorldModel';
+import '@/game/registry/tiles';
+import { addRoomAt, clearChar, deleteRoom, entityRows, findStart, moveRoom, normalizeModel, positionOf, roomKeyAt, setEntityCell, worldRows } from './WorldModel';
 
 const small = (): WorldModel => ({
   roomW: 3, roomH: 2,
   layout: [['A', 'B'], ['C', 'D']],
-  rooms: { A: ['RRR', 'R.R'], B: ['RRR', 'RPR'], C: ['R.R', 'RRR'], D: ['R.R', 'RRR'] },
+  rooms: { A: ['RRR', 'R.R'], B: ['RRR', 'R.R'], C: ['R.R', 'RRR'], D: ['R.R', 'RRR'] },
+  entities: { B: ['...', '.P.'] },
 });
 
 describe('WorldModel', () => {
-  it('把房间拼成整张地图', () => {
-    expect(worldRows(small())).toEqual(['RRRRRR', 'R.RRPR', 'R.RR.R', 'RRRRRR']);
+  it('把房间拼成整张地图；物件在自己那层', () => {
+    expect(worldRows(small())).toEqual(['RRRRRR', 'R.RR.R', 'R.RR.R', 'RRRRRR']);
+    expect(entityRows(small())[1]).toBe('....P.');
+  });
+
+  it('旧格式：砖块行里的物件字符会搬到物件层，底下变空气', () => {
+    const m: WorldModel = { roomW: 3, roomH: 1, layout: [['A']], rooms: { A: ['XMX'] } };
+    normalizeModel(m);
+    expect(m.rooms.A).toEqual(['X.X']);
+    expect(m.entities?.A).toEqual(['.M.']);
   });
 
   it('找出生点，优先指定房间', () => {
     const m = small();
     expect(findStart(m)).toMatchObject({ x: 4, y: 1 });
-    setCell(m, 'C', 1, 0, 'P');
+    setEntityCell(m, 'C', 1, 0, 'P');
     expect(findStart(m, { rx: 0, ry: 1 })).toMatchObject({ x: 1, y: 2, pref: true });
   });
 

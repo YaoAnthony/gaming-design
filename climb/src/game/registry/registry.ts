@@ -28,7 +28,7 @@ export class Registry<T extends { id: string; index: number }> {
 }
 
 const TILE_CAP_DEFAULTS: TileCaps = {
-  solid: false, anchor: false, destructible: false, blastSensitivity: 0, chainCollapse: false, looseOnBlast: false, chainDelayMs: 0, igniteAtEndsOnly: false, hazard: null,
+  solid: false, anchor: false, destructible: false, blastSensitivity: 0, chainCollapse: false, looseOnBlast: false, floatSpeed: 0, rideable: false, chainDelayMs: 0, igniteAtEndsOnly: false, hazard: null, hazardBox: null,
 };
 
 /** 可复用的能力特征 */
@@ -39,11 +39,16 @@ export const Traits = {
   Chain: { chainCollapse: true } as TileTrait,
   /** 周围（爆炸范围外再加 sensitivity 格）有爆炸就整块松脱掉落，相连的同类一起掉 */
   Loose: (sensitivity = 1): TileTrait => ({ looseOnBlast: true, blastSensitivity: sensitivity }),
+  /** 松脱后慢慢飘下来（像素/秒），飘着的时候能站在上面，落到怪物头上会被驮着走 */
+  Float: (speed = 55): TileTrait => ({ floatSpeed: speed, rideable: true }),
+  /** 下落时也能站在上面（不一定要飘） */
+  Rideable: { rideable: true } as TileTrait,
   /** 连锁沿这种材质传导时，每跳一格延迟 ms 毫秒才摧毁——做出"火苗跑过去"的传导效果 */
   Delay: (ms: number): TileTrait => ({ chainDelayMs: ms }),
   /** 只有链条两端能被点燃，中间段对爆炸免疫（导火索可以穿过危险区而不被误触） */
   EndsOnly: { igniteAtEndsOnly: true } as TileTrait,
-  Hazard: (reason: string): TileTrait => ({ hazard: reason }),
+  /** 碰到即死；box 是格内真正致命的区域（像素），不给就是整格 */
+  Hazard: (reason: string, box?: { x: number; y: number; w: number; h: number }): TileTrait => ({ hazard: reason, hazardBox: box ?? null }),
   Hidden: { editorVisible: false } as TileTrait,
 };
 

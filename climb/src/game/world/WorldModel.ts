@@ -1,5 +1,6 @@
 // ===== 世界模型的纯函数：拼图、找出生点、房间增删移动、导出 =====
 import type { CellRef, RoomCoord, RoomFlags, WorldModel } from '@/type';
+import { Entities } from '@/game/registry/registry';
 
 export function cloneModel(m: WorldModel): WorldModel { return JSON.parse(JSON.stringify(m)); }
 
@@ -31,6 +32,39 @@ export function setFogCell(m: WorldModel, key: string, x: number, y: number, zon
   m.fog[key] ??= Array.from({ length: m.roomH }, () => '.'.repeat(m.roomW));
   const r = m.fog[key][y];
   m.fog[key][y] = r.substring(0, x) + zone + r.substring(x + 1);
+}
+
+const blankRows = (m: WorldModel) => Array.from({ length: m.roomH }, () => '.'.repeat(m.roomW));
+
+/** 物件层拼成整张图（'.' = 无） */
+export function entityRows(m: WorldModel): string[] {
+  const out: string[] = [];
+  const blank = '.'.repeat(m.roomW);
+  m.layout.forEach(layoutRow => {
+    for (let y = 0; y < m.roomH; y++) out.push(layoutRow.map(k => (k && m.entities?.[k]?.[y]) || blank).join(''));
+  });
+  return out;
+}
+
+export function setEntityCell(m: WorldModel, key: string, x: number, y: number, ch: string): void {
+  m.entities ??= {};
+  m.entities[key] ??= blankRows(m);
+  const r = m.entities[key][y];
+  m.entities[key][y] = r.substring(0, x) + ch + r.substring(x + 1);
+}
+
+/** 旧格式迁移：砖块行里混着的物件字符（P/M/G）搬到物件层，原位置变空气。幂等 */
+export function normalizeModel(m: WorldModel): WorldModel {
+  let moved = false;
+  Object.keys(m.rooms).forEach(k => {
+    m.rooms[k] = m.rooms[k].map((row, y) => row.replace(/./g, (ch, x) => {
+      if (!Entities.has(ch)) return ch;
+      setEntityCell(m, k, x, y, ch); moved = true;
+      return '.';
+    }));
+  });
+  if (moved && m.entities) Object.keys(m.entities).forEach(k => { if (!m.rooms[k]) delete m.entities![k]; });
+  return m;
 }
 
 /** 引线层拼成整张图（'.' = 无） */
@@ -139,6 +173,7 @@ export function deleteRoom(m: WorldModel, key: string): void {
   delete m.rooms[key];
   if (m.fog) delete m.fog[key];
   if (m.fuse) delete m.fuse[key];
+  if (m.entities) delete m.entities[key];
   if (m.roomFlags) delete m.roomFlags[key];
   trimLayout(m);
 }
@@ -150,12 +185,13 @@ export function setCell(m: WorldModel, key: string, x: number, y: number, ch: st
 
 /** 把唯一物件（如出生点）在全图清掉 */
 export function clearChar(m: WorldModel, ch: string): void {
-  Object.keys(m.rooms).forEach(k => { m.rooms[k] = m.rooms[k].map(r => r.split(ch).join('.')); });
+  if (!m.entities) return;
+  Object.keys(m.entities).forEach(k => { m.entities![k] = m.entities![k].map(r => r.split(ch).join('.')); });
 }
 
 /** 找出生点：优先指定房间，其次全图第一个 */
 export function findStart(m: WorldModel, prefRoom?: RoomCoord | null): (CellRef & { pref: boolean }) | null {
-  const rows = worldRows(m);
+  const rows = entityRows(m);
   let any: (CellRef & { pref: boolean }) | null = null;
   rows.forEach((row, y) => [...row].forEach((c, x) => {
     if (c !== 'P') return;

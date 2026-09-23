@@ -9,6 +9,7 @@ describe('注册表', () => {
     expect(rock).toMatchObject({ solid: true, anchor: true, canFall: false, destructible: false });
     expect(brittle).toMatchObject({ looseOnBlast: true, blastSensitivity: 1, destructible: false });
     expect(spikes).toMatchObject({ solid: false, hazard: '扎到尖刺了' });
+    expect(Tiles.get('Z')).toMatchObject({ solid: true, looseOnBlast: true, floatSpeed: 55, destructible: false });
   });
 
   it('物件与砖块分开归类，未知字符当空气', () => {

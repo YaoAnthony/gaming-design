@@ -1,13 +1,13 @@
 // ===== 游戏场景：房间制世界、起跳爆炸、怪物、危险格、存档 =====
 import Phaser from 'phaser';
 import type { CellRef, EnemySpawn, EntityHost, EntryState, FogState, GameConfig, Point, RoomCoord, SkillContext, SkillDef, WorldModel } from '@/type';
-import { classify, Skills } from '@/game/registry/registry';
-import { Terrain } from '@/game/terrain/Terrain';
-import { fogRows, fuseRows, roomKeyAt, worldRows } from '@/game/world/WorldModel';
+import { classify, Skills, Tiles } from '@/game/registry/registry';
+import { Terrain, type Chunk } from '@/game/terrain/Terrain';
+import { entityRows, fogRows, fuseRows, roomKeyAt, worldRows } from '@/game/world/WorldModel';
 import { FuseNet } from '@/game/fuse/Fuse';
 import { FogOfWar } from '@/game/fog/Fog';
 import { bridge, EVT, SCENE, type StartGameData } from '@/game/bridge';
-import { Player, Enemy, type JumpEvent } from '@/sprite';
+import { Player, Enemy, CarriedPaper, TopPlatform, type JumpEvent } from '@/sprite';
 import { createSparkEmitter, playCrush, playExplosion, playLand, type SparkEmitter } from '@/particle';
 import { store } from '@/redux/store';
 import { touch, TOUCH_JUMP } from '@/game/input';
@@ -31,6 +31,10 @@ export class GameScene extends Phaser.Scene implements EntityHost {
   private terrain!: Terrain;
   private player!: Player;
   private enemies!: Phaser.Physics.Arcade.Group;
+  private carried: CarriedPaper[] = [];
+  private carriedGroup!: Phaser.Physics.Arcade.Group;
+  /** 下落中还能站的碎块（纸）对应的物理平台 */
+  private fallingPlatforms = new Map<number, TopPlatform>();
   private sparks!: SparkEmitter;
   private preview!: Phaser.GameObjects.Graphics;
   private skill!: SkillDef;
@@ -78,8 +82,9 @@ export class GameScene extends Phaser.Scene implements EntityHost {
     // 读档时用存档里的格子状态，但"原始状态"仍是地图本身（R 重置用）
     this.terrain = new Terrain({
       scene: this,
-      onChunkFall: () => this.flash('地形断裂！', '#ffd166'),
-      onChunkLand: cells => this.onChunkLand(cells),
+      onChunkFall: ch => this.onChunkFall(ch),
+      onChunkLand: ch => this.onChunkLand(ch),
+      catchChunk: ch => this.catchChunk(ch),
     }, rows, { tile: T, explosionRadius: this.cfg.explosionRadius, chunkGravity: this.cfg.chunkGravity, chunkMaxFall: this.cfg.chunkMaxFall });
     if (this.savedRows && this.savedRows.length === rows.length) {
       this.savedRows.forEach((r, y) => [...r].forEach((c, x) => { if (this.terrain.grid[y][x] !== c && (c === '.' || this.terrain.def(0, 0) !== undefined)) this.terrain.set(x, y, c); }));
@@ -102,9 +107,12 @@ export class GameScene extends Phaser.Scene implements EntityHost {
     // 怪物组先建好，物件 spawn 时会用到
     this.enemies = this.physics.add.group({ classType: Enemy, runChildUpdate: false });
     this.physics.add.collider(this.enemies, this.terrain.layer);
+    this.carried = [];
+    this.fallingPlatforms = new Map();
+    this.carriedGroup = this.physics.add.group({ allowGravity: false, immovable: true });
 
-    // 物件：每个字符问注册表，由物件自己决定怎么进场
-    rows.forEach((row, y) => [...row].forEach((c, x) => {
+    // 物件层：每个字符问注册表，由物件自己决定怎么进场
+    entityRows(this.model).forEach((row, y) => [...row].forEach((c, x) => {
       const cls = classify(c);
       if (cls.kind !== 'entity') return;
       cls.def.spawn({ host: this, wx: x * T + T / 2, wy: y * T + T / 2, cell: { x, y, rx: Math.floor(x / this.roomW), ry: Math.floor(y / this.roomH) } });
@@ -121,6 +129,7 @@ export class GameScene extends Phaser.Scene implements EntityHost {
     this.player = new Player(this, start.x, start.y, this.cfg);
     if (this.savedEntry) this.player.setVelocity(this.savedEntry.vx, this.savedEntry.vy);
     this.physics.add.collider(this.player, this.terrain.layer);
+    this.physics.add.collider(this.player, this.carriedGroup);
 
     this.cameras.main.setBounds(0, 0, levelW, levelH);
     this.entry = { x: start.x, y: start.y, vx: 0, vy: 0 };
@@ -200,6 +209,7 @@ export class GameScene extends Phaser.Scene implements EntityHost {
   }
 
   private resetRoom(): void {
+    this.clearCarried();
     this.terrain.resetRect(this.room.rx * this.roomW, this.room.ry * this.roomH, this.roomW, this.roomH);
     this.fuses.resetRect(this.room.rx * this.roomW, this.room.ry * this.roomH, this.roomW, this.roomH);
     (this.enemies.getChildren() as Enemy[]).forEach(e => { if (e.active && this.sameRoom(e.spawn, this.room)) e.destroy(); });
@@ -213,6 +223,7 @@ export class GameScene extends Phaser.Scene implements EntityHost {
 
   /** 死亡重置整张地图：所有房间的地形、引线、怪物恢复，玩家回到当前房间的重置点；探索记忆保留 */
   private resetWorld(): void {
+    this.clearCarried();
     this.terrain.resetRect(0, 0, this.terrain.w, this.terrain.h);
     this.fuses.resetRect(0, 0, this.terrain.w, this.terrain.h);
     (this.enemies.getChildren() as Enemy[]).slice().forEach(e => e.destroy());
@@ -231,6 +242,61 @@ export class GameScene extends Phaser.Scene implements EntityHost {
 
   // ---------- 怪物 ----------
   private spawnEnemy(sp: EnemySpawn): void { this.enemies.add(new Enemy(this, sp)); }
+
+  /** 飘落的碎块贴到怪物头顶时，改由怪物驮着 */
+  private catchChunk(ch: Chunk): boolean {
+    const T = this.cfg.tile;
+    const xs = ch.cells.map(c => c.x), ys = ch.cells.map(c => c.y);
+    const left = Math.min(...xs) * T + ch.container.x, right = (Math.max(...xs) + 1) * T + ch.container.x;
+    const bottom = (Math.max(...ys) + 1) * T + ch.py;
+    for (const e of this.enemies.getChildren() as Enemy[]) {
+      if (!e.active) continue;
+      const b = e.body;
+      if (bottom < b.top - 2 || bottom > b.top + 10) continue;
+      if (right <= b.left || left >= b.right) continue;
+      this.fallingPlatforms.get(ch.id)?.destroy(); this.fallingPlatforms.delete(ch.id);
+      this.carried.push(new CarriedPaper(this, this.carriedGroup, e, ch, T));
+      this.flash('纸落在怪物背上了', '#f4f1e8');
+      return true;
+    }
+    return false;
+  }
+
+  private updateCarried(dt: number): void {
+    const T = this.cfg.tile;
+    this.player.rideVx = 0;
+    for (let i = this.carried.length - 1; i >= 0; i--) {
+      const c = this.carried[i];
+      if (!c.enemy.active) { c.drop(this.terrain, T); this.carried.splice(i, 1); continue; }
+      c.update(dt);
+      // 站在纸上的人跟着怪物走：给速度而不是直接挪位置，这样撞墙照样会被挡住
+      if (this.player.body.touching.down && c.platform.ridden) this.player.rideVx = c.enemy.body.velocity.x;
+    }
+    // 飘落中的纸：平台跟着碎块走，站在上面就一起飘
+    this.terrain.chunks.forEach(ch => {
+      const p = this.fallingPlatforms.get(ch.id);
+      if (!p) return;
+      const b = this.terrain.chunkBounds(ch);
+      p.place(b.x, b.y, b.w, b.h, dt);
+      if (this.player.body.touching.down && p.ridden) this.player.rideVx = p.vx;
+    });
+  }
+
+  private onChunkFall(ch: Chunk): void {
+    this.flash('地形断裂！', '#ffd166');
+    // 材质说了"下落时能站"就给它一块物理平台
+    if (Tiles.get(ch.cells[0].id)?.rideable) {
+      const b = this.terrain.chunkBounds(ch);
+      const p = new TopPlatform(this, this.carriedGroup, b.w, b.h);
+      p.place(b.x, b.y, b.w, b.h, 0);
+      this.fallingPlatforms.set(ch.id, p);
+    }
+  }
+
+  private clearCarried(): void {
+    this.carried.forEach(c => c.destroy()); this.carried = [];
+    this.fallingPlatforms.forEach(p => p.destroy()); this.fallingPlatforms.clear();
+  }
 
   private killEnemy(e: Enemy): void {
     if (!e.active) return;
@@ -369,23 +435,37 @@ export class GameScene extends Phaser.Scene implements EntityHost {
     store.dispatch(setStats({ jumps: this.jumps, destroyed: this.destroyed }));
   }
 
-  private onChunkLand(cells: CellRef[]): void {
+  private onChunkLand(ch: Chunk): void {
+    const cells = ch.cells;
+    this.fallingPlatforms.get(ch.id)?.destroy(); this.fallingPlatforms.delete(ch.id);   // 落地后由砖块本身负责碰撞
     this.fogDirty = true;
     playLand(this);
+    // 飘落的东西（纸）不会砸死任何东西，落地时也不算"埋住"
+    if (cells.some(c => (Tiles.get(c.id)?.floatSpeed ?? 0) > 0)) return;
     if (!this.dead && !this.won && this.terrain.cellsOverlapRect(cells, this.player.body)) this.die('被落石埋住了');
     (this.enemies.getChildren() as Enemy[]).forEach(e => { if (e.active && this.terrain.cellsOverlapRect(cells, e.body)) this.killEnemy(e); });
   }
 
+  /** 碰到危险格才死：用玩家碰撞框（往里收 3 像素）和危险格的致命区域做矩形相交，不再按格子粗判 */
   private touchingHazard(): string | null {
-    const b = this.player.body, T = this.cfg.tile;
-    const pts: [number, number][] = [[b.left + 3, b.bottom - 2], [b.right - 3, b.bottom - 2], [b.center.x, b.center.y], [b.left + 3, b.top + 2], [b.right - 3, b.top + 2]];
-    for (const [x, y] of pts) { const h = this.terrain.def(Math.floor(x / T), Math.floor(y / T)).hazard; if (h) return h; }
+    const b = this.player.body, T = this.cfg.tile, inset = 3;
+    const px = b.x + inset, py = b.y + inset, pw = b.width - inset * 2, ph = b.height - inset * 2;
+    const x0 = Math.floor(px / T), x1 = Math.floor((px + pw) / T), y0 = Math.floor(py / T), y1 = Math.floor((py + ph) / T);
+    for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++) {
+      const def = this.terrain.def(tx, ty);
+      if (!def.hazard) continue;
+      const hb = def.hazardBox ?? { x: 0, y: 0, w: T, h: T };
+      const hx = tx * T + hb.x, hy = ty * T + hb.y;
+      if (px < hx + hb.w && px + pw > hx && py < hy + hb.h && py + ph > hy) return def.hazard;
+    }
     return null;
   }
+
 
   update(time: number, delta: number): void {
     this.terrain.updateChunks(delta / 1000);
     this.updateEnemies();
+    this.updateCarried(delta / 1000);
     this.updateFog();
     if (this.dead || this.won) { this.drawPreview(null); return; }
 

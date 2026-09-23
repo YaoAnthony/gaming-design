@@ -1,4 +1,4 @@
-// ===== 怪物：在自己的房间里巡逻，遇墙 / 遇悬崖掉头 =====
+// ===== 怪物：巡逻，遇墙 / 遇悬崖掉头；尖刺伤不到它，可以穿过房间边界 =====
 import Phaser from 'phaser';
 import type { EnemySpawn } from '@/type';
 import type { Terrain } from '@/game/terrain/Terrain';
@@ -15,11 +15,11 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.body.setSize(26, 22);
   }
 
-  step(terrain: Terrain, roomPxW: number, speed: number): void {
+  /** 巡逻：撞墙或前面没地就掉头。不受房间边界限制，路通就能走到隔壁房间（头上的纸跟着走） */
+  step(terrain: Terrain, _roomPxW: number, speed: number): void {
     const b = this.body, T = terrain.T;
-    const roomL = this.spawn.rx * roomPxW + T, roomR = (this.spawn.rx + 1) * roomPxW - T;
-    if (b.blocked.left || b.left <= roomL) this.dir = 1;
-    else if (b.blocked.right || b.right >= roomR) this.dir = -1;
+    if (b.blocked.left) this.dir = 1;
+    else if (b.blocked.right) this.dir = -1;
     else if (b.blocked.down) {
       const frontX = Math.floor((this.dir > 0 ? b.right + 2 : b.left - 2) / T);
       const belowY = Math.floor((b.bottom + 2) / T);

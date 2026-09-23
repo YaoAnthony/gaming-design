@@ -28,8 +28,13 @@ defineTile(
 
 defineTile(
   { id: 'X', name: '尖刺', desc: '碰到即死；掉下来的地块会把它盖住', color: 0xef476f, frame: TILE_FRAMES.spikes },
-  Traits.Hazard('扎到尖刺了'),
+  Traits.Hazard('扎到尖刺了', { x: 2, y: 20, w: 28, h: 12 }),   // 只有尖刺本体那一条会扎人，上面的空档不算
 );
+defineTile(
+  { id: 'Z', name: '纸', desc: '周围一有爆炸就松脱，慢慢飘下来；飘到怪物头上会被驮着走，可以踩', color: 0xf4f1e8, frame: TILE_FRAMES.paper },
+  Traits.Solid, Traits.Loose(1), Traits.Float(55),
+);
+
 // ---------- 物件 ----------
 defineEntity({
   id: 'P', name: '出生点', desc: '玩家从这里开始（全图唯一）', texture: 'player', unique: true, color: 0x4cc9f0,

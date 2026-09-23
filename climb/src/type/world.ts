@@ -9,6 +9,8 @@ export interface WorldModel {
   rooms: Record<string, string[]>;
   /** 迷雾区（可选）：每个房间 roomH 行，'.' = 无区，'1'-'4' = 区号；玩家进入区内任一格，整个区永久揭开 */
   fog?: Record<string, string[]>;
+  /** 物件层（可选）：出生点 / 怪物 / 终点，和砖块分开，所以怪物可以放在尖刺上。'.' = 无 */
+  entities?: Record<string, string[]>;
   /** 引线层（可选）：每个房间 roomH 行，'.' = 无，'W' = 有引线。叠在地形之上，不占格子、不挡人 */
   fuse?: Record<string, string[]>;
   /** 房间级开关（可选） */

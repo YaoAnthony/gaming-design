@@ -38,7 +38,7 @@ export function RoomMap() {
           <div key={`r${gx},${gy}`} className={'room-thumb' + (active ? ' active' : '') + (dragging && dragging.rx === gx && dragging.ry === gy ? ' dragging' : '')}
             title={k} draggable onDragStart={onDragStart(rc)} onDragEnd={() => setDragging(null)} onDragOver={onDragOver} onDrop={onDrop(rc)}
             onClick={() => dispatch(setRoom(rc))}>
-            <RoomThumb rows={model.rooms[k]} fuse={model.fuse?.[k]} roomW={model.roomW} roomH={model.roomH} />
+            <RoomThumb rows={model.rooms[k]} entities={model.entities?.[k]} fuse={model.fuse?.[k]} roomW={model.roomW} roomH={model.roomH} />
             <span className="room-key">{k}</span>
           </div>,
         );

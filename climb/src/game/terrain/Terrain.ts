@@ -10,17 +10,19 @@ export type TileView = 'game' | 'editor';
 export interface BlastCell extends CellRef { d: number }
 export interface RemovedCell extends CellRef { id: string; def: TileDef; /** 连锁传导的跳数：0 = 直接命中，n = 沿链条传导了 n 格 */ hop?: number }
 export interface ChunkCell extends CellRef { id: string }
-export interface Chunk { cells: ChunkCell[]; container: Phaser.GameObjects.Container; vy: number; py: number }
+export interface Chunk { id: number; cells: ChunkCell[]; container: Phaser.GameObjects.Container; vy: number; py: number; /** >0 = 匀速飘落 */ floatSpeed: number; t: number }
 
 export interface TerrainOptions { tile: number; explosionRadius: number; chunkGravity: number; chunkMaxFall: number }
 
 /** 场景需要提供给地形的最小接口 */
 export interface TerrainHost {
   scene: Phaser.Scene;
-  onChunkFall?(cells: ChunkCell[]): void;
-  onChunkLand?(cells: ChunkCell[]): void;
+  onChunkFall?(chunk: Chunk): void;
+  onChunkLand?(chunk: Chunk): void;
   /** 带 chainDelayMs 的连锁（比如导火索）每摧毁一跳就调用一次，用来播传导中的特效 */
   onFuseBurn?(cells: ChunkCell[]): void;
+  /** 飘落的碎块每帧问一次：有没有人把它接住（比如落到怪物头上）。返回 true 表示接管了它 */
+  catchChunk?(chunk: Chunk): boolean;
 }
 
 export class Terrain {
@@ -30,6 +32,7 @@ export class Terrain {
   readonly grid: string[][];
   readonly original: string[][];
   readonly chunks: Chunk[] = [];
+  private nextChunkId = 1;
   readonly layer: Phaser.Tilemaps.TilemapLayer;
   private readonly map: Phaser.Tilemaps.Tilemap;
   private readonly boundaryId: string;
@@ -269,14 +272,20 @@ export class Terrain {
     return groups;
   }
 
-  /** 预览：会松脱掉落的格子 */
+  /** 预览：会松脱并真正掉下去的格子 */
   previewLoose(centers: CellRef[], radius: number): CellRef[] {
-    return Terrain.findLooseGroups(this.grid, centers, radius).flat();
+    return Terrain.findLooseGroups(this.grid, centers, radius).filter(g => this.canGroupFall(g)).flat();
   }
 
-  /** 震动：centers 周围会松脱的材质整块变成碎块掉下来。返回松脱的格子数 */
+  /** 一组格子作为整体能不能往下掉：每一格的正下方要么是空的，要么还是这组自己的格子 */
+  canGroupFall(group: CellRef[]): boolean {
+    const inGroup = new Set(group.map(c => `${c.x},${c.y}`));
+    return group.every(c => inGroup.has(`${c.x},${c.y + 1}`) || !this.isSolid(c.x, c.y + 1));
+  }
+
+  /** 震动：centers 周围会松脱的材质整块变成碎块掉下来。已经坐在实地上、掉不下去的不理会（不出特效）。返回松脱的格子数 */
   shake(centers: CellRef[], radius: number): number {
-    const groups = Terrain.findLooseGroups(this.grid, centers, radius);
+    const groups = Terrain.findLooseGroups(this.grid, centers, radius).filter(g => this.canGroupFall(g));
     groups.forEach(g => this.spawnChunk(g.map(c => ({ x: c.x, y: c.y, id: this.grid[c.y][c.x] }))));
     if (groups.length) this.resolveSupport();
     return groups.reduce((n, g) => n + g.length, 0);
@@ -357,16 +366,29 @@ export class Terrain {
     const scene = this.host.scene;
     const container = scene.add.container(0, 0).setDepth(5);
     cells.forEach(c => container.add(scene.add.image(c.x * this.T + this.T / 2, c.y * this.T + this.T / 2, 'tiles', Terrain.frameOf(c.id))));
-    this.chunks.push({ cells, container, vy: 0, py: 0 });
-    this.host.onChunkFall?.(cells);
+    const chunk: Chunk = { id: this.nextChunkId++, cells, container, vy: 0, py: 0, floatSpeed: Tiles.get(cells[0].id)?.floatSpeed ?? 0, t: 0 };
+    this.chunks.push(chunk);
+    this.host.onChunkFall?.(chunk);
+  }
+
+  /** 从外面放回来一块（比如驮着它的怪物没了），从给定格子位置继续掉 */
+  addChunk(cells: ChunkCell[], container: Phaser.GameObjects.Container): void {
+    const T = this.T;
+    container.setPosition(0, 0);
+    (container.list as Phaser.GameObjects.Image[]).forEach((img, k) => img.setPosition(cells[k].x * T + T / 2, cells[k].y * T + T / 2));
+    const chunk: Chunk = { id: this.nextChunkId++, cells, container, vy: 0, py: 0, floatSpeed: Tiles.get(cells[0].id)?.floatSpeed ?? 0, t: 0 };
+    this.chunks.push(chunk);
+    this.host.onChunkFall?.(chunk);
   }
 
   /** 碎块每帧更新：整体下落，任一格子下方被挡住就落地并并回格子 */
   updateChunks(dt: number): void {
     for (let i = this.chunks.length - 1; i >= 0; i--) {
       const ch = this.chunks[i];
-      ch.vy = Math.min(ch.vy + this.opts.chunkGravity * dt, this.opts.chunkMaxFall);
+      ch.t += dt;
+      ch.vy = ch.floatSpeed > 0 ? ch.floatSpeed : Math.min(ch.vy + this.opts.chunkGravity * dt, this.opts.chunkMaxFall);
       ch.py += ch.vy * dt;
+      if (ch.floatSpeed > 0 && this.host.catchChunk?.(ch)) { this.chunks.splice(i, 1); continue; }
       let landed = false;
       while (ch.py >= this.T) {
         const blocked = ch.cells.some(c => this.isSolid(c.x, c.y + 1) || this.chunkCellAt(c.x, c.y + 1, ch));
@@ -379,10 +401,11 @@ export class Terrain {
         ch.container.destroy();
         ch.cells.forEach(c => this.set(c.x, c.y, c.id));
         this.chunks.splice(i, 1);
-        this.host.onChunkLand?.(ch.cells);
+        this.host.onChunkLand?.(ch);
         this.resolveSupport();
       } else {
         ch.container.y = ch.py;
+        ch.container.x = ch.floatSpeed > 0 ? Math.sin(ch.t * 2.5) * 4 : 0;   // 飘落时左右轻晃
         (ch.container.list as Phaser.GameObjects.Image[]).forEach((img, k) => { img.y = ch.cells[k].y * this.T + this.T / 2; });
       }
     }
@@ -402,6 +425,14 @@ export class Terrain {
       for (let x = x0; x < x0 + w; x++)
         if (this.grid[y][x] !== this.original[y][x]) this.set(x, y, this.original[y][x]);
     this.resolveSupport();
+  }
+
+  /** 碎块当前在世界里的包围盒（含下落的小数偏移和飘落的左右晃动） */
+  chunkBounds(ch: Chunk): { x: number; y: number; w: number; h: number } {
+    const T = this.T;
+    const xs = ch.cells.map(c => c.x), ys = ch.cells.map(c => c.y);
+    const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys);
+    return { x: minX * T + ch.container.x, y: minY * T + ch.py, w: (maxX - minX + 1) * T, h: (maxY - minY + 1) * T };
   }
 
   forEachChunkCell(fn: (ch: Chunk, px: number, py: number, w: number, h: number) => void): void {

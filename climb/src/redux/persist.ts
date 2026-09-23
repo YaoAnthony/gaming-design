@@ -1,7 +1,7 @@
 // localStorage 持久化：编辑器地图 + 存档
 import type { EditorState } from './slices/editorSlice';
 import type { SaveState } from './slices/saveSlice';
-import { isValidModel } from '@/game/world/WorldModel';
+import { isValidModel, normalizeModel } from '@/game/world/WorldModel';
 import { DEFAULT_WORLD_HASH } from '@/game/world/defaultWorld';
 
 const KEY = 'climb:v1';
@@ -16,7 +16,7 @@ export function loadPersisted(): PersistedState {
     const out: PersistedState = {};
     // 线上：打包的地图换了新版本，旧的编辑副本作废（本地开发不动，编辑器里的才是正在改的）
     const stale = import.meta.env.PROD && p.defaultHash !== DEFAULT_WORLD_HASH;
-    if (!stale && p.editor?.model && isValidModel(p.editor.model)) out.editor = { model: p.editor.model, room: p.editor.room };
+    if (!stale && p.editor?.model && isValidModel(p.editor.model)) out.editor = { model: normalizeModel(p.editor.model), room: p.editor.room };
     if (p.save?.current?.version === 1) out.save = p.save;
     return out;
   } catch { return {}; }

@@ -5,7 +5,7 @@ import { Terrain } from '@/game/terrain/Terrain';
 import { fuseRows, roomKeyAt, worldRows } from '@/game/world/WorldModel';
 import { bridge, EVT, SCENE } from '@/game/bridge';
 import { store } from '@/redux/store';
-import { paintCell, paintFog, paintFuse } from '@/redux/slices/editorSlice';
+import { paintCell, paintEntity, paintFog, paintFuse } from '@/redux/slices/editorSlice';
 import { TILE_FRAMES } from '@/asset';
 import { FOG_ZONE_COLORS } from '@/ui/editor/fogZones';
 
@@ -80,8 +80,10 @@ export class EditorScene extends Phaser.Scene {
     this.cursor.setVisible(!!c);
     if (!c) return;
     this.cursor.setPosition(c.x * this.T, c.y * this.T);
-    const def = classify(this.rows()[c.y]?.[c.x] ?? '.').def;
-    this.game.events.emit('editor:status', `(${c.x}, ${c.y})  ${def.name}`);
+    const key = this.key();
+    const tile = classify(this.rows()[c.y]?.[c.x] ?? '.').def;
+    const ent = key ? classify(this.state().model.entities?.[key]?.[c.y]?.[c.x] ?? '.') : null;
+    this.game.events.emit('editor:status', `(${c.x}, ${c.y})  ${tile.name}${ent && ent.kind === 'entity' ? ' + ' + ent.def.name : ''}`);
   }
 
   private paint(p: Phaser.Input.Pointer): void {
@@ -104,30 +106,39 @@ export class EditorScene extends Phaser.Scene {
       store.dispatch(paintFog({ key, x: c.x, y: c.y, zone }));
       return;
     }
+    const cls = classify(brush);
+    if (cls.kind === 'entity') {
+      // 物件画在自己那一层，底下的砖块（比如尖刺）保留；右键只擦物件
+      const ch = p.rightButtonDown() ? '.' : brush;
+      const cur = this.state().model.entities?.[key]?.[c.y]?.[c.x] ?? '.';
+      if (cur === ch) return;
+      store.dispatch(paintEntity({ key, x: c.x, y: c.y, ch, unique: cls.def.unique }));
+      return;
+    }
     const ch = p.rightButtonDown() ? '.' : brush;
     if (this.rows()[c.y][c.x] === ch) return;
-    const cls = classify(ch);
-    store.dispatch(paintCell({ key, x: c.x, y: c.y, ch, unique: cls.kind === 'entity' && cls.def.unique }));
+    store.dispatch(paintCell({ key, x: c.x, y: c.y, ch }));
   }
 
   /** grid 是把物件替换成空气后的网格，只用来算砖块的拼贴掩码；分类要看原始字符 */
   private refreshCell(x: number, y: number, grid: string[][]): void {
-    const T = this.T;
-    const ch = this.rows()[y]?.[x] ?? '.';
-    const cls = classify(ch);
+    const T = this.T, key = this.key();
     const k = `${x},${y}`;
     const old = this.entityImgs.get(k);
     if (old) { old.destroy(); this.entityImgs.delete(k); }
-    if (cls.kind === 'tile') {
-      const f = Terrain.frameAt(grid, x, y, 'editor');
-      if (f < 0) this.layer.removeTileAt(x, y); else this.layer.putTileAt(f, x, y);
-    } else {
-      this.layer.removeTileAt(x, y);
-      const img = this.add.image(x * T + T / 2, y * T + T / 2, cls.def.texture).setDepth(2);
+    // 砖块层
+    const f = Terrain.frameAt(grid, x, y, 'editor');
+    if (f < 0) this.layer.removeTileAt(x, y); else this.layer.putTileAt(f, x, y);
+    // 物件层（叠在砖块上）
+    const ech = (key && this.state().model.entities?.[key]?.[y]?.[x]) || '.';
+    const cls = classify(ech);
+    if (cls.kind === 'entity') {
+      const img = this.add.image(x * T + T / 2, y * T + T / 2, cls.def.texture).setDepth(2.3);
       img.setScale(Math.min(T / img.width, T / img.height) * 0.9);
       this.entityImgs.set(k, img);
     }
   }
+
 
   private refreshAll(): void {
     const s = this.state();
@@ -136,8 +147,7 @@ export class EditorScene extends Phaser.Scene {
     this.grid.clear(); this.grid.lineStyle(1, 0xffffff, 0.12);
     for (let x = 0; x <= m.roomW; x++) this.grid.lineBetween(x * T, 0, x * T, m.roomH * T);
     for (let y = 0; y <= m.roomH; y++) this.grid.lineBetween(0, y * T, m.roomW * T, y * T);
-    // 物件字符对自动拼贴来说等于空气，所以先把它们归一成 '.' 再算邻居
-    const grid = this.rows().map(r => r.split('').map(c => (classify(c).kind === 'tile' ? c : '.')));
+    const grid = this.rows().map(r => r.split(''));
     for (let y = 0; y < m.roomH; y++) for (let x = 0; x < m.roomW; x++) this.refreshCell(x, y, grid);
     this.drawFogZones();
     this.drawFuse();

@@ -1,8 +1,9 @@
 // 打包进来的默认地图（src/map/world.json）及其指纹
 import defaultWorld from '@/map/world.json';
 import type { WorldModel } from '@/type';
+import { normalizeModel } from './WorldModel';
 
-export const DEFAULT_WORLD = defaultWorld as WorldModel;
+export const DEFAULT_WORLD = normalizeModel(JSON.parse(JSON.stringify(defaultWorld)) as WorldModel);
 
 /** 简单字符串哈希，用来判断打包的地图有没有变 */
 export function modelHash(m: WorldModel): string {

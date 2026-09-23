@@ -68,7 +68,7 @@ class Canvas {
 const T = 32;
 
 // ---- 砖块图集：0 泥土 1 岩石 2 脆岩 3 沙土 4 尖刺 ----
-const tiles = new Canvas(T * 21, T);   // 0-4 基础砖块，5-20 引线的 16 种连接图案（只在编辑器里显示）
+const tiles = new Canvas(T * 22, T);   // 0-4 基础砖块，5-20 引线的 16 种连接图案（只在编辑器里显示），21 纸
 // 泥土
 tiles.rect(0, 0, T, T, 0x8d5a3b);
 tiles.rect(4, 6, 6, 4, 0x6f452c); tiles.rect(18, 12, 8, 4, 0x6f452c); tiles.rect(8, 22, 6, 4, 0x6f452c); tiles.rect(22, 24, 5, 3, 0x6f452c);
@@ -104,6 +104,11 @@ for (let mask = 0; mask < 16; mask++) {
     tiles.rect(ox + c - 4, c - 4, 8, 8, 0xffd166);
   }
 }
+// 纸：白底、淡淡的横线、一角微卷
+tiles.rect(21 * T, 0, T, T, 0xf4f1e8);
+for (let k = 0; k < 4; k++) tiles.rect(21 * T + 5, 8 + k * 6, 22, 1, 0xd8d3c4);
+tiles.rect(21 * T, 0, T, 2, 0xffffff);
+tiles.tri(21 * T + T, T - 8, 21 * T + T, T, 21 * T + T - 8, T, 0xd8d3c4);
 tiles.save('tiles.png');
 
 // ---- 玩家 22x38 ----

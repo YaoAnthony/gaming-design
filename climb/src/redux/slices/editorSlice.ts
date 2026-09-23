@@ -2,7 +2,7 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 import type { RoomCoord, RoomFlags, WorldModel } from '@/type';
 import { DEFAULT_WORLD } from '@/game/world/defaultWorld';
-import { addRoomAt, clearChar, deleteRoom as deleteModelRoom, findStart, firstRoom, moveRoom as moveModelRoom, positionOf, roomKeyAt, setCell as setModelCell, setFogCell, setFuseCell, setRoomFlags } from '@/game/world/WorldModel';
+import { addRoomAt, clearChar, deleteRoom as deleteModelRoom, findStart, firstRoom, moveRoom as moveModelRoom, positionOf, roomKeyAt, normalizeModel, setCell as setModelCell, setEntityCell, setFogCell, setFuseCell, setRoomFlags } from '@/game/world/WorldModel';
 
 export interface EditorState {
   model: WorldModel;
@@ -35,10 +35,16 @@ const editorSlice = createSlice({
     setBrush(state, action: PayloadAction<string>) { state.brush = action.payload; },
     setRoom(state, action: PayloadAction<RoomCoord>) { state.room = action.payload; },
     setShowSupport(state, action: PayloadAction<boolean>) { state.showSupport = action.payload; },
-    paintCell(state, action: PayloadAction<{ key: string; x: number; y: number; ch: string; unique?: boolean }>) {
+    paintCell(state, action: PayloadAction<{ key: string; x: number; y: number; ch: string }>) {
+      const { key, x, y, ch } = action.payload;
+      setModelCell(state.model, key, x, y, ch);
+      state.version++;
+    },
+    /** 物件画笔（出生点 / 怪物 / 终点）：画在物件层，不动底下的砖块；'.' 擦除 */
+    paintEntity(state, action: PayloadAction<{ key: string; x: number; y: number; ch: string; unique?: boolean }>) {
       const { key, x, y, ch, unique } = action.payload;
       if (unique) clearChar(state.model, ch);
-      setModelCell(state.model, key, x, y, ch);
+      setEntityCell(state.model, key, x, y, ch);
       state.version++;
     },
     /** 迷雾区画笔：zone 是 '1'-'4'，'.' 擦除 */
@@ -77,7 +83,7 @@ const editorSlice = createSlice({
       state.version++;
     },
     replaceModel(state, action: PayloadAction<WorldModel>) {
-      state.model = action.payload;
+      state.model = normalizeModel(action.payload);
       state.room = roomOfStart(action.payload);
       state.version++;
     },
@@ -89,5 +95,5 @@ const editorSlice = createSlice({
   },
 });
 
-export const { setBrush, setRoom, setShowSupport, paintCell, paintFog, paintFuse, setRoomFlag, addRoom, moveRoom, deleteRoom, replaceModel, resetModel } = editorSlice.actions;
+export const { setBrush, setRoom, setShowSupport, paintCell, paintEntity, paintFog, paintFuse, setRoomFlag, addRoom, moveRoom, deleteRoom, replaceModel, resetModel } = editorSlice.actions;
 export default editorSlice.reducer;

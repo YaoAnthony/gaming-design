@@ -14,12 +14,18 @@ export interface TileCaps {
   chainCollapse: boolean;
   /** 周围有爆炸就整块松脱、随重力掉下来（不会被炸没）；感应距离用 blastSensitivity */
   looseOnBlast: boolean;
+  /** 松脱后不是砸下来而是匀速飘下来的速度（像素/秒）；0 = 正常重力。飘落的东西落到怪物头上会被驮着走 */
+  floatSpeed: number;
+  /** 下落 / 被驮着的时候也是一块能从上面站的平台 */
+  rideable: boolean;
   /** 连锁传导时，每多一跳（格）延迟多少毫秒摧毁；0 = 瞬间摧毁（默认）。用来做"导火索"式的可见传导。 */
   chainDelayMs: number;
   /** 只有链条的两端（同类相邻格子 ≤ 1 个）能被爆炸点燃，中间段对爆炸免疫；点燃后仍会从一头烧到另一头 */
   igniteAtEndsOnly: boolean;
   /** 非空 = 碰到即死，值是死亡提示 */
   hazard: string | null;
+  /** 危险格真正致命的区域（格内像素坐标）；不设 = 整格 */
+  hazardBox: { x: number; y: number; w: number; h: number } | null;
 }
 
 /** 一条能力特征（Trait），可组合 */

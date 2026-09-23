@@ -7,15 +7,17 @@ export function cloneModel(m: WorldModel): WorldModel { return JSON.parse(JSON.s
 /** 空位在游戏里是一整块岩石 */
 export function solidRoom(w: number, h: number): string[] { return Array.from({ length: h }, () => 'R'.repeat(w)); }
 
-/** 拼成整张地图（字符串数组） */
+/** 拼成整张地图（字符串数组）。砖块行里若混着旧格式的物件字符，按空气处理 */
 export function worldRows(m: WorldModel): string[] {
   const out: string[] = [];
   const solid = solidRoom(m.roomW, m.roomH);
   m.layout.forEach(layoutRow => {
-    for (let y = 0; y < m.roomH; y++) out.push(layoutRow.map(k => (k && m.rooms[k] ? m.rooms[k][y] : solid[y])).join(''));
+    for (let y = 0; y < m.roomH; y++) out.push(layoutRow.map(k => (k && m.rooms[k] ? stripEntities(m.rooms[k][y]) : solid[y])).join(''));
   });
   return out;
 }
+
+const stripEntities = (row: string) => row.replace(/./g, ch => (Entities.has(ch) ? '.' : ch));
 
 /** 迷雾区拼成整张图（'.' = 无区） */
 export function fogRows(m: WorldModel): string[] {
@@ -36,12 +38,22 @@ export function setFogCell(m: WorldModel, key: string, x: number, y: number, zon
 
 const blankRows = (m: WorldModel) => Array.from({ length: m.roomH }, () => '.'.repeat(m.roomW));
 
-/** 物件层拼成整张图（'.' = 无） */
+/** 物件层拼成整张图（'.' = 无）。砖块行里若还混着旧格式的物件字符（P/M/G），也一并算进来 */
 export function entityRows(m: WorldModel): string[] {
   const out: string[] = [];
   const blank = '.'.repeat(m.roomW);
   m.layout.forEach(layoutRow => {
-    for (let y = 0; y < m.roomH; y++) out.push(layoutRow.map(k => (k && m.entities?.[k]?.[y]) || blank).join(''));
+    for (let y = 0; y < m.roomH; y++) out.push(layoutRow.map(k => {
+      if (!k) return blank;
+      const layer = m.entities?.[k]?.[y] ?? blank;
+      const legacy = m.rooms[k]?.[y] ?? blank;
+      let row = '';
+      for (let x = 0; x < m.roomW; x++) {
+        const e = layer[x] ?? '.', t = legacy[x] ?? '.';
+        row += e !== '.' ? e : Entities.has(t) ? t : '.';
+      }
+      return row;
+    }).join(''));
   });
   return out;
 }

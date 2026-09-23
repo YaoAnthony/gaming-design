@@ -16,6 +16,12 @@ describe('WorldModel', () => {
     expect(entityRows(small())[1]).toBe('....P.');
   });
 
+  it('混合格式：砖块行里残留的物件字符照样能读到，地形里当空气', () => {
+    const m: WorldModel = { roomW: 3, roomH: 1, layout: [['A']], rooms: { A: ['XGX'] }, entities: { A: ['...'] } };
+    expect(entityRows(m)).toEqual(['.G.']);
+    expect(worldRows(m)).toEqual(['X.X']);
+  });
+
   it('旧格式：砖块行里的物件字符会搬到物件层，底下变空气', () => {
     const m: WorldModel = { roomW: 3, roomH: 1, layout: [['A']], rooms: { A: ['XMX'] } };
     normalizeModel(m);

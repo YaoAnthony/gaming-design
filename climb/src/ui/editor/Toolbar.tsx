@@ -4,7 +4,7 @@ import { replaceModel, setShowSupport } from '@/redux/slices/editorSlice';
 import { setConfig } from '@/redux/slices/configSlice';
 import { Skills } from '@/game/registry/registry';
 import '@/game/registry/skills';
-import { isValidModel } from '@/game/world/WorldModel';
+import { isValidModel, normalizeModel } from '@/game/world/WorldModel';
 import type { WorldModel } from '@/type';
 import { App as AntApp, Select } from 'antd';
 
@@ -27,7 +27,7 @@ export function Toolbar({ onPlay, status }: Props) {
   /** 开发期：让 Vite 开发服务器直接把地图写进 src/map/world.json */
   const writeToSource = async () => {
     try {
-      const r = await fetch('/__climb/save-map', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(model) });
+      const r = await fetch('/__climb/save-map', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(normalizeModel(JSON.parse(JSON.stringify(model)))) });
       const j = (await r.json()) as { ok: boolean; file?: string; error?: string };
       if (j.ok) modal.success({ title: '写入成功', content: `地图已写入 ${j.file}`, okText: '好' });
       else modal.error({ title: '写入失败', content: j.error, okText: '好' });
@@ -67,7 +67,7 @@ export function Toolbar({ onPlay, status }: Props) {
         </>
       )}
       <div className="row">
-        <button className="btn" onClick={() => download('world.json', JSON.stringify(model, null, 2))}>导出 world.json</button>
+        <button className="btn" onClick={() => download('world.json', JSON.stringify(normalizeModel(JSON.parse(JSON.stringify(model))), null, 2))}>导出 world.json</button>
         <button className="btn" onClick={() => file.current?.click()}>导入 JSON</button>
       </div>
       <input ref={file} type="file" accept="application/json" hidden onChange={e => { void importFile(e.target.files?.[0]); e.target.value = ''; }} />

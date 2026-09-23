@@ -19,7 +19,7 @@ function download(name: string, text: string) {
 
 export function Toolbar({ onPlay, status }: Props) {
   const { model, showSupport } = useAppSelector(s => s.editor);
-  const { skill, deathResetsWorld, fogEnabled } = useAppSelector(s => s.config);
+  const { skill, deathResetsWorld, fogEnabled, directionalBlast } = useAppSelector(s => s.config);
   const dispatch = useAppDispatch();
   const file = useRef<HTMLInputElement>(null);
   const { modal, message } = AntApp.useApp();
@@ -55,6 +55,7 @@ export function Toolbar({ onPlay, status }: Props) {
         <span className="hint" style={{ flex: 'none', alignSelf: 'center' }}>技能</span>
         <Select size="small" value={skill} onChange={v => dispatch(setConfig({ skill: v }))} options={Skills.list().map(sk => ({ value: sk.id, label: sk.name, title: sk.desc }))} />
       </div>
+      <label className="check"><input type="checkbox" checked={directionalBlast} onChange={e => dispatch(setConfig({ directionalBlast: e.target.checked }))} /> 定向爆炸（按住方向起跳，炸那边两格）</label>
       <label className="check"><input type="checkbox" checked={deathResetsWorld} onChange={e => dispatch(setConfig({ deathResetsWorld: e.target.checked }))} /> 死亡重置整张地图</label>
       <label className="check"><input type="checkbox" checked={fogEnabled} onChange={e => dispatch(setConfig({ fogEnabled: e.target.checked }))} /> 迷雾</label>
 

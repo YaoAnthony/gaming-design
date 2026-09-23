@@ -26,6 +26,9 @@ export interface GameConfig {
   fuseDelayMs: number;
   /** 引线两端能被点燃的距离（格），从爆炸中心算 */
   fuseIgniteRadius: number;
+  /** 定向爆炸：地面起跳时按着左/右，爆炸中心往那边挪 directionalOffset 格 */
+  directionalBlast: boolean;
+  directionalOffset: number;
   /** 死亡时重置整张地图（否则只重置当前房间） */
   deathResetsWorld: boolean;
   /** 迷雾开关 */

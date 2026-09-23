@@ -304,7 +304,14 @@ export class GameScene extends Phaser.Scene implements EntityHost {
     };
   }
 
-  private useSkill(jump: JumpEvent): void {
+  /** 定向爆炸：地面起跳时按着方向，爆炸中心往那边挪 */
+  private aimJump(jump: JumpEvent): JumpEvent {
+    if (!this.cfg.directionalBlast || jump.kind !== 'ground' || !jump.dir) return jump;
+    return { ...jump, cell: { x: jump.cell.x + jump.dir * this.cfg.directionalOffset, y: jump.cell.y } };
+  }
+
+  private useSkill(rawJump: JumpEvent): void {
+    const jump = this.aimJump(rawJump);
     this.skill.onJump(this.skillContext(jump));
     this.sound.play('boom', { volume: 0.8 });
     // 爆炸中心附近有引线端点就点燃
@@ -390,7 +397,7 @@ export class GameScene extends Phaser.Scene implements EntityHost {
     const jump = p.step(input, time);
     if (jump) { this.jumps += 1; this.useSkill(jump); store.dispatch(setStats({ jumps: this.jumps, destroyed: this.destroyed })); }
 
-    this.drawPreview(p.previewJump());
+    this.drawPreview(p.previewJump(input) && this.aimJump(p.previewJump(input)!));
     this.handleChunkContact();
     if (this.dead) return;
     const hazard = this.touchingHazard();

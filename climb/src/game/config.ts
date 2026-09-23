@@ -24,6 +24,8 @@ export const DEFAULT_CONFIG: GameConfig = {
   skill: 'blast',
   fuseDelayMs: 90,
   fuseIgniteRadius: 2.5,
+  directionalBlast: false,
+  directionalOffset: 2,
   deathResetsWorld: true,
   fogEnabled: false,   // 先关着，以后要用再开
   fogRadius: 7,

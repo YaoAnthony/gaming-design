@@ -331,9 +331,12 @@ export class GameScene extends Phaser.Scene implements EntityHost {
     this.checkBossTouch(boss, rect);
   }
 
-  /** 碰到 Boss 即死 */
-  private checkBossTouch(_boss: Boss, rect: Phaser.Geom.Rectangle): void {
-    if (!this.dead && !this.won && Phaser.Geom.Intersects.RectangleToRectangle(rect, this.player.rect())) this.die('被大史莱姆吞了');
+  /** 碰到 Boss 即死：用收过边的致命矩形对玩家收 3 像素的矩形，贴上去才算 */
+  private checkBossTouch(boss: Boss, _rect: Phaser.Geom.Rectangle): void {
+    if (this.dead || this.won) return;
+    const pb = this.player.body;
+    const pr = new Phaser.Geom.Rectangle(pb.x + 3, pb.y + 3, pb.width - 6, pb.height - 6);
+    if (Phaser.Geom.Intersects.RectangleToRectangle(boss.lethalRect(), pr)) this.die('被大史莱姆吞了');
   }
 
   private spitMinions(boss: Boss): void {

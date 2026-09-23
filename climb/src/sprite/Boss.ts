@@ -34,6 +34,12 @@ export class Boss extends Phaser.Physics.Arcade.Sprite {
   }
 
   rect(): Phaser.Geom.Rectangle { const b = this.body; return new Phaser.Geom.Rectangle(b.x, b.y, b.width, b.height); }
+
+  /** 致命判定用的矩形：比物理体收进去一圈，圆角处的空白不算碰到 */
+  lethalRect(): Phaser.Geom.Rectangle {
+    const b = this.body;
+    return new Phaser.Geom.Rectangle(b.x + 12, b.y + 14, b.width - 24, b.height - 20);
+  }
   invulnerable(time: number): boolean { return time < this.hurtUntil; }
 
   /** 每帧推进状态机；返回事件让场景播特效 / 生怪 */

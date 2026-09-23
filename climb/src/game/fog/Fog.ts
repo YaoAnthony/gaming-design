@@ -24,7 +24,9 @@ export class FogOfWar {
   private explored: Uint8Array;
   private light: Float32Array;
   private revealed = new Set<string>();
+  /** 当前房间的迷雾。换房间时和 rtPrev 对调：旧房间的迷雾原地留着，镜头平移的这 180ms 里两个房间都盖着 */
   private rt: Phaser.GameObjects.RenderTexture;
+  private rtPrev: Phaser.GameObjects.RenderTexture;
   /** 笔刷对象池：每格一支硬方块、一支柔光，画的时候只改位置和透明度，然后一次性擦除（一趟渲染） */
   private squares: Phaser.GameObjects.Image[] = [];
   private glows: Phaser.GameObjects.Image[] = [];
@@ -40,45 +42,60 @@ export class FogOfWar {
       saved.revealedZones.forEach(z => this.revealed.add(z));
     }
     const T = opts.tile;
-    this.rt = scene.add.renderTexture(0, 0, opts.roomW * T, opts.roomH * T).setOrigin(0).setDepth(12);
+    this.rt = scene.add.renderTexture(0, 0, opts.roomW * T, opts.roomH * T).setOrigin(0).setDepth(12).setVisible(false);
+    this.rtPrev = scene.add.renderTexture(0, 0, opts.roomW * T, opts.roomH * T).setOrigin(0).setDepth(12).setVisible(false);
     for (let i = 0; i < opts.roomW * opts.roomH; i++) {
       this.squares.push(scene.make.image({ key: 'fogsquare', add: false }));
       this.glows.push(scene.make.image({ key: 'fogglow', add: false }));
     }
   }
 
-  destroy(): void { this.rt.destroy(); this.squares.forEach(i => i.destroy()); this.glows.forEach(i => i.destroy()); }
+  destroy(): void { this.rt.destroy(); this.rtPrev.destroy(); this.squares.forEach(i => i.destroy()); this.glows.forEach(i => i.destroy()); }
 
-  /** 光照传播（纯函数）：返回每格亮度 0..1。空气格传播并衰减，实心格被照亮但不再传播 */
+  /** 光照传播（纯函数）：返回每格亮度 0..1。
+   *  形状是圆：亮度按到玩家的直线距离衰减，超过 radius 就不亮；沿空气八方向扩散，实心格被照亮但不再传播 */
   static computeLight(grid: string[][], sx: number, sy: number, radius: number): Float32Array {
     const h = grid.length, w = grid[0].length;
     const light = new Float32Array(w * h);
     if (sx < 0 || sy < 0 || sx >= w || sy >= h) return light;
-    const dist = new Int16Array(w * h).fill(-1);
+    const seen = new Uint8Array(w * h);
     const solid = (x: number, y: number) => !!Tiles.get(grid[y][x])?.solid;
-    const value = (d: number) => Math.max(0, 1 - d / (radius + 1));
+    const value = (x: number, y: number) => { const d = Math.hypot(x - sx, y - sy); return d > radius ? 0 : 1 - d / (radius + 1); };
     const q: number[] = [sy * w + sx];
-    dist[sy * w + sx] = 0; light[sy * w + sx] = 1;
+    seen[sy * w + sx] = 1; light[sy * w + sx] = 1;
     let qi = 0;
     while (qi < q.length) {
-      const i = q[qi++]; const x = i % w, y = (i - x) / w; const d = dist[i];
-      if (d >= radius) continue;
-      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+      const i = q[qi++]; const x = i % w, y = (i - x) / w;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        if (!dx && !dy) continue;
         const nx = x + dx, ny = y + dy;
         if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
-        const ni = ny * w + nx, nd = d + 1;
-        if (solid(nx, ny)) { light[ni] = Math.max(light[ni], value(nd)); continue; }   // 墙被照亮，但挡住后面
-        if (dist[ni] >= 0 && dist[ni] <= nd) continue;
-        dist[ni] = nd; light[ni] = Math.max(light[ni], value(nd)); q.push(ni);
+        const ni = ny * w + nx;
+        if (seen[ni]) continue;
+        const v = value(nx, ny);
+        if (v <= 0) continue;
+        // 斜向不能从两块墙的夹缝里钻过去
+        if (dx && dy && solid(x + dx, y) && solid(x, y + dy)) continue;
+        seen[ni] = 1; light[ni] = v;
+        if (!solid(nx, ny)) q.push(ni);   // 墙被照亮，但挡住后面
       }
     }
     return light;
   }
 
   /** 玩家站在 (px, py) 格：重算视野、揭开迷雾区、更新记忆 */
+  /** 场景里其他光源（地上的蜡烛等），格坐标 + 半径 */
+  private sources: { x: number; y: number; r: number }[] = [];
+  setSources(list: { x: number; y: number; r: number }[]): void { this.sources = list; this.dirty = true; }
+
   compute(px: number, py: number): void {
     const { w, h } = this;
     this.light = FogOfWar.computeLight(this.grid, px, py, this.opts.radius);
+    // 其他光源叠加：每格取最亮的那个
+    this.sources.forEach(s => {
+      const l = FogOfWar.computeLight(this.grid, s.x, s.y, s.r);
+      for (let i = 0; i < l.length; i++) if (l[i] > this.light[i]) this.light[i] = l[i];
+    });
     // 踏进迷雾区就揭开整个区
     const z = this.zoneKey(px, py);
     if (z) this.revealed.add(z);
@@ -107,7 +124,16 @@ export class FogOfWar {
     return this.explored[y * this.w + x] === 1;
   }
 
-  setRoom(r: RoomCoord): void { this.room = r; this.dirty = true; }
+  /** 照明半径变了（比如捡到蜡烛） */
+  setRadius(r: number): void { if (r !== this.opts.radius) { this.opts.radius = r; this.dirty = true; } }
+
+  setRoom(r: RoomCoord): void {
+    if (r.rx === this.room.rx && r.ry === this.room.ry) return;
+    // 旧房间那张原样留在原地，新房间用另一张画；画好之前先藏着，免得闪一下旧内容
+    [this.rt, this.rtPrev] = [this.rtPrev, this.rt];
+    this.rt.setVisible(false);
+    this.room = r; this.dirty = true;
+  }
   markDirty(): void { this.dirty = true; }
 
   /** 只在脏的时候重画：整块填黑，再在亮格 / 记忆格上按"擦除"混合擦出来 */
@@ -135,6 +161,7 @@ export class FogOfWar {
         if (l > 0) { const gl = this.glows[n]; gl.setPosition(cx, cy).setAlpha(a * 0.5); batch.push(gl); }   // 往暗处晕开一点柔光
       }
     if (batch.length) this.rt.erase(batch);   // 一次调用 = 一趟渲染
+    this.rt.setVisible(true);
   }
 
   toState(): FogState {

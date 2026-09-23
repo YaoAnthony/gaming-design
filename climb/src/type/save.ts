@@ -17,6 +17,8 @@ export interface SaveData {
   version: 1;
   /** 在第几层（层 id） */
   floorId?: string;
+  /** 身上带着的道具 id */
+  items?: string[];
   fog?: FogState;
   /** 引线层的当前状态（烧掉的不会回来），每行 '0'/'1' */
   fuse?: string[];

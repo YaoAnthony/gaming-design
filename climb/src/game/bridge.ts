@@ -15,6 +15,8 @@ export interface StartGameData {
   startRoom?: RoomCoord | null;
   entry?: { x: number; y: number; vx: number; vy: number } | null;
   stats?: { jumps: number; destroyed: number } | null;
+  /** 身上带着的道具（换层时带过去） */
+  items?: string[];
   fog?: FogState | null;
   fuse?: string[] | null;
   playtest?: boolean;

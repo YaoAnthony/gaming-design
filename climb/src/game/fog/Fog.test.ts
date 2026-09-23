@@ -26,6 +26,16 @@ describe('FogOfWar.computeLight（光照扩散）', () => {
     expect(l[5]).toBe(0);
   });
 
+  it('亮区是圆不是菱形：对角 (3,3) 距离 4.24 在半径 5 内亮，(4,4) 距离 5.66 不亮', () => {
+    const grid = Array.from({ length: 11 }, () => '.'.repeat(11).split(''));
+    const l = FogOfWar.computeLight(grid, 5, 5, 5);
+    const at = (x: number, y: number) => l[y * 11 + x];
+    expect(at(8, 8)).toBeGreaterThan(0);        // 菱形下这格（曼哈顿距离 6）会是黑的
+    expect(at(9, 9)).toBe(0);
+    expect(at(10, 5)).toBeGreaterThan(0);       // 正右 5 格：圆的边缘
+    expect(at(8, 8)).toBeCloseTo(at(2, 2));     // 对称
+  });
+
   it('起点越界返回全黑', () => {
     expect([...FogOfWar.computeLight([['.']], 5, 5, 3)]).toEqual([0]);
   });

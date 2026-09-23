@@ -2,7 +2,7 @@
 // 模式：Registry（注册表）+ Trait 组合（策略 / 特征）。
 // 地形、场景、编辑器只通过注册表查询"这个格子有什么能力"，不认识具体砖块字符。
 // 新增一种砖块 = 在 tiles.ts 里多写一个 defineTile / defineEntity，其他代码不用改。
-import type { Classified, EntityDef, EntitySpec, SkillDef, SkillSpec, TileCaps, TileDef, TileSpec, TileTrait } from '@/type';
+import type { Classified, EntityDef, EntitySpec, SkillDef, SkillSpec, TileCaps, TileDef, TileSpec, TileTrait, ItemDef, ItemSpec } from '@/type';
 
 export class Registry<T extends { id: string; index: number }> {
   private defs = new Map<string, T>();
@@ -55,6 +55,7 @@ export const Traits = {
 export const Tiles = new Registry<TileDef>('砖块');
 export const Entities = new Registry<EntityDef>('物件');
 export const Skills = new Registry<SkillDef>('技能', false);
+export const Items = new Registry<ItemDef>('道具', false);
 
 export function defineSkill(spec: SkillSpec): SkillDef {
   return Skills.register({ ...spec, desc: spec.desc ?? '', index: 0 });
@@ -79,6 +80,10 @@ export function defineTile(spec: TileSpec, ...traits: TileTrait[]): TileDef {
   };
   if (def.solid && def.frame < 0) throw new Error(`砖块 '${def.id}' 是实心的，必须有图集帧`);
   return Tiles.register(def);
+}
+
+export function defineItem(spec: ItemSpec): ItemDef {
+  return Items.register({ ...spec, light: spec.light ?? 0, index: 0 });
 }
 
 export function defineEntity(spec: EntitySpec): EntityDef {

@@ -39,6 +39,9 @@ export function FloorTabs() {
         </button>
       ))}
       <button className="floor add" onClick={openAdd}>＋ 添加一层</button>
+      <span className="floor-spacer" />
+      <button className="floor" onClick={() => rename(floor)}>改名</button>
+      <button className="floor danger" disabled={project.floors.length <= 1} onClick={() => remove(floor)}>删除本层</button>
       <Modal open={adding} title="添加一层" okText="添加" cancelText="取消" onOk={confirmAdd} onCancel={() => setAdding(false)} destroyOnHidden>
         <div className="row"><span className="hint" style={{ flex: 'none', alignSelf: 'center', width: 60 }}>名字</span><Input value={name} maxLength={20} onChange={e => setName(e.target.value)} onPressEnter={confirmAdd} /></div>
         <div className="row"><span className="hint" style={{ flex: 'none', alignSelf: 'center', width: 60 }}>房间宽</span><InputNumber min={10} max={80} value={roomW} onChange={v => setRoomW(v ?? 20)} /></div>

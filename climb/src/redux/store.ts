@@ -5,10 +5,12 @@ import saveReducer, { type SaveState } from './slices/saveSlice';
 import hudReducer from './slices/hudSlice';
 import { loadPersisted, schedulePersist } from './persist';
 import { DEFAULT_WORLD_HASH } from '@/game/world/defaultWorld';
+import type { GameConfig } from '@/type';
 
 const persisted = typeof window !== 'undefined' ? loadPersisted() : {};
 
-const preloadedState: { editor: EditorState; save: SaveState } = {
+const preloadedState: { editor: EditorState; save: SaveState; config: GameConfig } = {
+  config: { ...configReducer(undefined, { type: '@@init' }), ...(persisted.config ?? {}) },
   editor: { ...editorReducer(undefined, { type: '@@init' }), ...(persisted.editor ?? {}) },
   save: persisted.save ?? saveReducer(undefined, { type: '@@init' }),
 };
@@ -21,7 +23,7 @@ export const store = configureStore({
 if (typeof window !== 'undefined') {
   store.subscribe(() => schedulePersist(() => {
     const s = store.getState();
-    return { editor: { project: s.editor.project, floor: s.editor.floor, room: s.editor.room }, save: s.save, defaultHash: DEFAULT_WORLD_HASH };
+    return { editor: { project: s.editor.project, floor: s.editor.floor, room: s.editor.room }, save: s.save, config: { musicVolume: s.config.musicVolume }, defaultHash: DEFAULT_WORLD_HASH };
   }));
 }
 

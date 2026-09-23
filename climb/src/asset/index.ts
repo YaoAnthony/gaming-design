@@ -9,6 +9,8 @@ import fuseNodeUrl from './fusenode.png';
 import bossUrl from './boss.png';
 import skeletonUrl from './skeleton.png';
 import castleUrl from './castle.png';
+import candleUrl from './candle.png';
+import volumeUrl from './volume.png';
 import boomUrl from './boob.mp3';
 import bgmUrl from './Pixelated_Coffee.mp3';
 import bossMusicUrl from './boss.mp3';
@@ -48,6 +50,8 @@ export const IMAGES: ImageAsset[] = [
   { key: 'boss', url: bossUrl },
   { key: 'skeleton', url: skeletonUrl },
   { key: 'castle', url: castleUrl },
+  { key: 'candle', url: candleUrl },
+  { key: 'volume', url: volumeUrl },
 ];
 
 /** 对话框头像（React 里用 URL 显示，不进 Phaser）。同一个角色不同表情 = 不同 key，台词里按句指定 */

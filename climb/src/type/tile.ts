@@ -78,6 +78,8 @@ export interface EntityHost {
   /** 塔门：走进去到下一层 */
   addPortal(p: Point): void;
   addNpc(spawn: NpcSpawn): void;
+  addItem(spawn: ItemSpawn): void;
+  addSlider(spawn: SliderSpawn): void;
   setGoal(p: Point): void;
 }
 export interface EnemySpawn extends Point, RoomCoord {}
@@ -97,6 +99,29 @@ export interface NpcSpawn extends Point {
   lines: DialogueLine[];
   /** 消失时播放的音效 key */
   sound?: string;
+}
+
+/** 可捡起的道具：捡到后一直带着（换层、死亡都不掉） */
+export interface ItemDef {
+  id: string;
+  name: string;
+  texture: string;
+  /** 拿在手上时的照明半径（格）；0 = 不发光 */
+  light: number;
+  index: number;
+}
+export type ItemSpec = Omit<ItemDef, 'index' | 'light'> & { light?: number };
+
+export interface ItemSpawn extends Point { item: ItemDef }
+
+/** 游戏里的滑块：一条轨道 + 一个能推着走的滑钮，位置映射到某个数值设置（比如音量） */
+export interface SliderSpawn extends Point {
+  /** 轨道长度（格），从图标右边开始 */
+  length: number;
+  /** 绑定到 GameConfig 里哪个数字字段 */
+  config: 'musicVolume';
+  min: number;
+  max: number;
 }
 
 export interface SpawnContext {

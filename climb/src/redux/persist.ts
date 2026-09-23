@@ -1,7 +1,7 @@
 // localStorage 持久化：编辑器项目（多层）+ 存档
 import type { EditorState } from './slices/editorSlice';
 import type { SaveState } from './slices/saveSlice';
-import type { Project, WorldModel } from '@/type';
+import type { GameConfig, Project, WorldModel } from '@/type';
 import { asProject } from '@/game/world/WorldModel';
 import { DEFAULT_WORLD_HASH } from '@/game/world/defaultWorld';
 
@@ -10,6 +10,8 @@ const KEY = 'climb:v1';
 export interface PersistedState {
   editor?: Partial<EditorState> & { model?: WorldModel };   // model 是旧格式（单层）
   save?: SaveState;
+  /** 玩家自己的设置（音量） */
+  config?: Partial<GameConfig>;
   /** 存这份编辑副本时打包地图的指纹 */
   defaultHash?: string;
 }
@@ -27,6 +29,7 @@ export function loadPersisted(): PersistedState {
       if (project) out.editor = { project, floor: Math.min(p.editor.floor ?? 0, project.floors.length - 1), room: p.editor.room };
     }
     if (p.save?.current?.version === 1) out.save = p.save;
+    if (typeof p.config?.musicVolume === 'number') out.config = { musicVolume: Math.max(0, Math.min(1, p.config.musicVolume)) };
     return out;
   } catch { return {}; }
 }

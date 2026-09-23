@@ -21,6 +21,12 @@ export class Music {
     if (this.scene.sound.locked) this.scene.sound.once('unlocked', start); else start();
   }
 
+  /** 音量改了：正在放的立刻跟着变 */
+  setVolume(v: number): void {
+    this.volume = v;
+    if (this.current) { this.scene.tweens.killTweensOf(this.current); (this.current as Phaser.Sound.WebAudioSound).setVolume(v); }
+  }
+
   stop(): void {
     this.current?.stop(); this.current?.destroy();
     this.current = null; this.currentKey = '';

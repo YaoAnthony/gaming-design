@@ -1,7 +1,7 @@
 // ===== 所有砖块与物件的注册 =====
 // 想加新砖块：照着写一个 defineTile，其余系统自动认识它（地形、爆炸、掉落、贴图、编辑器物品栏）。
 import { TILE_FRAMES } from '@/asset';
-import { defineEntity, defineTile, Traits } from './registry';
+import { defineEntity, defineItem, defineTile, Items, Traits } from './registry';
 import { DIALOGUES } from './dialogues';
 
 // ---------- 砖块 ----------
@@ -70,4 +70,17 @@ defineEntity({
 defineEntity({
   id: 'N', name: '骷髅', desc: '挡在路上的小角色。走近强制对话，每跳一次说下一句，说完就消失', texture: 'skeleton', color: 0xf1efe6, origin: [0.5, 1],
   spawn({ host, wx, wy }) { host.addNpc({ x: wx, y: wy, name: '骷髅', texture: 'skeleton', avatar: 'default', lines: DIALOGUES.skeleton, sound: 'bossLaugh' }); },
+});
+
+// ---------- 道具 ----------
+const candle = defineItem({ id: 'candle', name: '蜡烛', texture: 'candle', light: 8 });
+
+defineEntity({
+  id: 'C', name: '蜡烛', desc: '地上的蜡烛。捡起来拿在右手，周围 8 格被照亮', texture: 'candle', color: 0xffd166, origin: [0.5, 1],
+  spawn({ host, wx, wy }) { host.addItem({ x: wx, y: wy, item: Items.get(candle.id)! }); },
+});
+
+defineEntity({
+  id: 'V', name: '音量滑块', desc: '设置房间用：喇叭图标右边一条轨道，走过去把滑钮推到哪儿，音乐就多大', texture: 'volume', color: 0xffd166, origin: [0.5, 1],
+  spawn({ host, wx, wy }) { host.addSlider({ x: wx, y: wy, length: 8, config: 'musicVolume', min: 0, max: 1 }); },
 });

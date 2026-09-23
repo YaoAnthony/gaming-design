@@ -1,7 +1,7 @@
 // ===== 游戏场景：房间制世界、起跳爆炸、怪物、危险格、存档 =====
 import Phaser from 'phaser';
-import type { CellRef, EnemySpawn, EntityHost, EntryState, FogState, GameConfig, NpcSpawn, Point, Project, RoomCoord, SkillContext, SkillDef, TextBlock, WorldModel } from '@/type';
-import { classify, Skills, Tiles } from '@/game/registry/registry';
+import type { CellRef, EnemySpawn, EntityHost, EntryState, FogState, GameConfig, ItemDef, ItemSpawn, NpcSpawn, Point, Project, RoomCoord, SkillContext, SkillDef, SliderSpawn, TextBlock, WorldModel } from '@/type';
+import { classify, Items, Skills, Tiles } from '@/game/registry/registry';
 import { Terrain, type Chunk } from '@/game/terrain/Terrain';
 import { bakeTexts, entityRows, floorAfter, floorIndex, fogRows, fuseRows, roomKeyAt, worldRows } from '@/game/world/WorldModel';
 import { FuseNet } from '@/game/fuse/Fuse';
@@ -14,6 +14,9 @@ import { resizeGame } from '@/game/resize';
 import { touch, TOUCH_JUMP } from '@/game/input';
 import { Music } from '@/game/Music';
 import { flash, setBoss, setDialogue, setMode, setRoomKey, setStats } from '@/redux/slices/hudSlice';
+import { setConfig } from '@/redux/slices/configSlice';
+
+interface Slider { spawn: SliderSpawn; x0: number; x1: number; y: number; knob: Phaser.GameObjects.Rectangle; waves: Phaser.GameObjects.Graphics; value: number }
 
 interface Npc { spawn: NpcSpawn; sprite: Phaser.Physics.Arcade.Image; index: number; done: boolean }
 import { writeSave } from '@/redux/slices/saveSlice';
@@ -31,6 +34,13 @@ export class GameScene extends Phaser.Scene implements EntityHost {
   private npcs: Npc[] = [];
   private npcBodies!: Phaser.Physics.Arcade.StaticGroup;
   private talking: Npc | null = null;
+  /** 地上的道具 */
+  private groundItems: { spawn: ItemSpawn; sprite: Phaser.GameObjects.Image; glow?: Phaser.GameObjects.Image }[] = [];
+  /** 身上带着的道具 → 手上的贴图（和光晕）*/
+  private held = new Map<string, { sprite: Phaser.GameObjects.Image; glow: Phaser.GameObjects.Image }>();
+  private heldIds: string[] = [];
+  /** 设置房间里的滑块 */
+  private sliders: Slider[] = [];
   private announceFloor = false;
   /** 正在切层（淡出中），不再响应输入 */
   private leaving = false;
@@ -96,6 +106,8 @@ export class GameScene extends Phaser.Scene implements EntityHost {
     this.model = baked.model;
     this.textBlocks = baked.blocks.filter(b => b.cells.length > 0).map(b => ({ block: b.block, cells: b.cells, done: false }));
     this.portals = []; this.npcs = []; this.talking = null;
+    this.groundItems = []; this.held = new Map(); this.heldIds = data.items ?? [];
+    this.sliders = [];
     this.announceFloor = !!data.announceFloor;
     this.leaving = false;
     this.playtest = !!data.playtest;
@@ -179,6 +191,7 @@ export class GameScene extends Phaser.Scene implements EntityHost {
     this.physics.add.collider(this.player, this.terrain.layer);
     this.physics.add.collider(this.player, this.carriedGroup);
     this.physics.add.collider(this.player, this.npcBodies);
+    this.heldIds.forEach(id => { const def = Items.get(id); if (def) this.hold(def); });
 
     this.cameras.main.setBounds(0, 0, levelW, levelH);
     this.entry = { x: start.x, y: start.y, vx: 0, vy: 0 };
@@ -205,6 +218,9 @@ export class GameScene extends Phaser.Scene implements EntityHost {
 
     this.music = new Music(this, this.cfg.musicVolume);
     this.music.play('bgm');
+    let lastVol = this.cfg.musicVolume;
+    const unsubVol = store.subscribe(() => { const v = store.getState().config.musicVolume; if (v !== lastVol) { lastVol = v; this.music.setVolume(v); } });
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, unsubVol);
     if (this.announceFloor) {
       this.cameras.main.fadeIn(350, 0, 0, 0);
       const floor = this.project.floors.find(f => f.id === this.floorId);
@@ -222,6 +238,118 @@ export class GameScene extends Phaser.Scene implements EntityHost {
     this.portals.push(p);
     this.add.image(p.x, p.y + this.cfg.tile / 2, 'castle').setOrigin(0.5, 1).setDepth(1.5);
   }
+  addItem(spawn: ItemSpawn): void {
+    if (this.heldIds.includes(spawn.item.id)) return;   // 已经拿着了，地上不再放
+    const sprite = this.add.image(spawn.x, spawn.y + this.cfg.tile / 2, spawn.item.texture).setOrigin(0.5, 1).setDepth(2.4);
+    this.tweens.add({ targets: sprite, y: sprite.y - 3, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+    let glow: Phaser.GameObjects.Image | undefined;
+    if (spawn.item.light > 0) {
+      // 地上就亮着，远远看见，勾着人过去
+      glow = this.add.image(spawn.x, spawn.y, 'fogglow').setDepth(2.35).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.3).setScale(1.5);
+      this.tweens.add({ targets: glow, alpha: 0.45, scale: 1.75, duration: 160, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+    }
+    this.groundItems.push({ spawn, sprite, glow });
+    this.syncLightSources();
+  }
+  /** 地上会发光的道具都是迷雾里的光源 */
+  private syncLightSources(): void {
+    const T = this.cfg.tile;
+    this.fog?.setSources(this.groundItems.filter(g => g.spawn.item.light > 0).map(g => ({ x: Math.floor(g.spawn.x / T), y: Math.floor(g.spawn.y / T), r: g.spawn.item.light })));
+    this.fogDirty = true;
+  }
+
+  // ---------- 道具 ----------
+  /** 碰到就捡 */
+  private checkItems(): void {
+    if (!this.groundItems.length) return;
+    const r = this.player.rect();
+    for (let i = this.groundItems.length - 1; i >= 0; i--) {
+      const g = this.groundItems[i];
+      if (!Phaser.Geom.Intersects.RectangleToRectangle(g.sprite.getBounds(), r)) continue;
+      this.groundItems.splice(i, 1);
+      g.sprite.destroy(); g.glow?.destroy();
+      this.syncLightSources();
+      this.hold(g.spawn.item);
+      this.sparks.explode(8, g.spawn.x, g.spawn.y);
+      if (!this.playtest) this.autosave();
+    }
+  }
+  /** 拿在右手上；有照明的道具顺便把迷雾半径撑开 */
+  private hold(def: ItemDef): void {
+    if (this.held.has(def.id)) return;
+    if (!this.heldIds.includes(def.id)) this.heldIds.push(def.id);
+    const sprite = this.add.image(0, 0, def.texture).setOrigin(0.5, 1).setDepth(10.5);
+    const glow = this.add.image(0, 0, 'fogglow').setDepth(9.5).setBlendMode(Phaser.BlendModes.ADD).setAlpha(def.light > 0 ? 0.28 : 0).setScale(1.4);
+    if (def.light > 0) this.tweens.add({ targets: glow, alpha: 0.42, scale: 1.6, duration: 140, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+    this.held.set(def.id, { sprite, glow });
+    this.placeHeld();
+    this.fog?.setRadius(this.lightRadius()); this.fogDirty = true;
+  }
+  private lightRadius(): number {
+    return Math.max(this.cfg.fogRadius, ...[...this.held.keys()].map(id => Items.get(id)?.light ?? 0));
+  }
+  /** 手上的东西跟着人走：右手 = 面朝方向那一侧 */
+  private placeHeld(): void {
+    if (!this.held.size) return;
+    const side = this.player.flipX ? -1 : 1, b = this.player.body;
+    let k = 0;
+    this.held.forEach(({ sprite, glow }) => {
+      const x = b.center.x + side * (13 + k * 6), y = b.center.y + 8;
+      sprite.setPosition(x, y).setFlipX(side < 0);
+      glow.setPosition(x, y - sprite.height / 2);
+      k++;
+    });
+  }
+
+  // ---------- 滑块 ----------
+  addSlider(spawn: SliderSpawn): void {
+    const T = this.cfg.tile;
+    const floor = spawn.y + T / 2;
+    this.add.image(spawn.x, floor - 4, 'volume').setOrigin(0.5, 1).setDepth(2.4);
+    const x0 = spawn.x + T * 0.9, x1 = spawn.x + spawn.length * T, y = floor - 12;
+    const rail = this.add.graphics().setDepth(2.3);
+    rail.lineStyle(6, 0x0b0b14, 0.9); rail.lineBetween(x0, y, x1, y);
+    rail.lineStyle(2, 0x9aa0b4, 0.9); rail.lineBetween(x0, y, x1, y);
+    for (let i = 0; i <= 4; i++) { const tx = x0 + (x1 - x0) * i / 4; rail.lineStyle(2, 0x9aa0b4, 0.6); rail.lineBetween(tx, y - 6, tx, y + 6); }
+    const knob = this.add.rectangle(x0, y, 14, 24, 0xffd166).setStrokeStyle(2, 0x0b0b14).setDepth(2.6);
+    const waves = this.add.graphics().setDepth(2.5);
+    const s: Slider = { spawn, x0, x1, y, knob, waves, value: NaN };
+    this.sliders.push(s);
+    this.syncSlider(s, store.getState().config[spawn.config]);
+  }
+  /** 数值 → 滑钮位置 + 喇叭旁的声波 */
+  private syncSlider(s: Slider, value: number): void {
+    if (value === s.value) return;
+    s.value = value;
+    const t = (value - s.spawn.min) / (s.spawn.max - s.spawn.min);
+    s.knob.x = s.x0 + (s.x1 - s.x0) * Phaser.Math.Clamp(t, 0, 1);
+    const g = s.waves, cx = s.spawn.x + 10, cy = s.y - 4;
+    g.clear();
+    if (t <= 0) { g.lineStyle(2, 0xef476f, 0.9); g.lineBetween(cx + 4, cy - 5, cx + 12, cy + 5); g.lineBetween(cx + 12, cy - 5, cx + 4, cy + 5); return; }
+    const n = t < 0.34 ? 1 : t < 0.67 ? 2 : 3;
+    g.lineStyle(2, 0xffd166, 0.9);
+    for (let i = 1; i <= n; i++) g.beginPath(), g.arc(cx, cy, 5 + i * 5, -0.9, 0.9, false), g.strokePath();
+  }
+  /** 人走进滑钮就把它推着走；停在哪儿，设置就是多少 */
+  private updateSliders(): void {
+    if (!this.sliders.length) return;
+    const b = this.player.body;
+    this.sliders.forEach(s => {
+      // 别处改了设置（比如读档），滑钮跟过去
+      this.syncSlider(s, store.getState().config[s.spawn.config]);
+      const half = 7, kx = s.knob.x;
+      if (b.bottom <= s.y - 12 || b.top >= s.y + 12) return;
+      if (b.right <= kx - half || b.left >= kx + half) return;
+      const nx = Phaser.Math.Clamp(b.center.x < kx ? b.right + half : b.left - half, s.x0, s.x1);
+      if (nx === kx) return;
+      const t = (nx - s.x0) / (s.x1 - s.x0);
+      const value = Math.round((s.spawn.min + (s.spawn.max - s.spawn.min) * t) * 100) / 100;
+      store.dispatch(setConfig({ [s.spawn.config]: value }));
+      this.syncSlider(s, value);
+      s.knob.x = nx;
+    });
+  }
+
   addNpc(spawn: NpcSpawn): void {
     const sprite = this.npcBodies.create(spawn.x, spawn.y + this.cfg.tile / 2, spawn.texture) as Phaser.Physics.Arcade.Image;
     sprite.setOrigin(0.5, 1).setDepth(2.5).refreshBody();
@@ -459,7 +587,7 @@ export class GameScene extends Phaser.Scene implements EntityHost {
   }
 
   private autosave(): void {
-    store.dispatch(writeSave({ floorId: this.floorId, rows: this.terrain.rows(), room: this.room, entry: this.entry, stats: { jumps: this.jumps, destroyed: this.destroyed }, fog: this.fog?.toState(), fuse: this.fuses.toState() }));
+    store.dispatch(writeSave({ floorId: this.floorId, items: [...this.heldIds], rows: this.terrain.rows(), room: this.room, entry: this.entry, stats: { jumps: this.jumps, destroyed: this.destroyed }, fog: this.fog?.toState(), fuse: this.fuses.toState() }));
   }
 
   private resetRoom(): void {
@@ -774,11 +902,11 @@ export class GameScene extends Phaser.Scene implements EntityHost {
     this.updateBoss();
     this.updateBursts(delta / 1000);
     this.updateFog();
-    if (this.dead || this.won || this.leaving) { this.drawPreview(null); return; }
+    if (this.dead || this.won || this.leaving) { this.drawPreview(null); this.placeHeld(); return; }
 
     const p = this.player;
     const r = this.roomOf(p.x, p.y);
-    if (!this.sameRoom(r, this.room)) this.onRoomChanged(r);
+    if (!this.sameRoom(r, this.room)) { this.onRoomChanged(r); this.updateFog(); }   // 同一帧把新房间的迷雾画好，不给它露脸的机会
 
     this.checkNpcs();
     const lock = !!this.talking;   // 对话中站着别动，只能跳
@@ -787,6 +915,9 @@ export class GameScene extends Phaser.Scene implements EntityHost {
     if (jump) { this.jumps += 1; this.useSkill(jump); store.dispatch(setStats({ jumps: this.jumps, destroyed: this.destroyed })); if (lock) this.advanceDialogue(); }
 
     this.drawPreview(p.previewJump(input) && this.aimJump(p.previewJump(input)!));
+    this.checkItems();
+    this.placeHeld();
+    this.updateSliders();
     this.handleChunkContact();
     if (this.dead) return;
     const hazard = this.touchingHazard();
@@ -825,7 +956,7 @@ export class GameScene extends Phaser.Scene implements EntityHost {
     this.player.clearTint();
     const cam = this.cameras.main;
     const restart = () => {
-      const data: StartGameData = { project: this.project, floorId: id, playtest: this.playtest, announceFloor: true, stats: { jumps: this.jumps, destroyed: this.destroyed } };
+      const data: StartGameData = { project: this.project, floorId: id, playtest: this.playtest, announceFloor: true, stats: { jumps: this.jumps, destroyed: this.destroyed }, items: [...this.heldIds] };
       this.scene.restart(data);
     };
     const fade = (ms: number) => { cam.fadeOut(ms, 0, 0, 0); cam.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, restart); };

@@ -206,3 +206,19 @@ ca.rect(62, 90, 4, 12, glow);
 // 旗
 ca.rect(63, 20, 2, 26, wallDk); ca.tri(65, 20, 65, 32, 79, 26, roof);
 ca.save('castle.png');
+
+// ---- 蜡烛 12x18（地上的道具，捡起来拿在右手）----
+const cd = new Canvas(12, 18);
+cd.rect(3, 8, 6, 10, 0xf1efe6); cd.rect(3, 8, 2, 10, 0xffffff); cd.rect(7, 8, 2, 10, 0xc9c4b4);   // 蜡身 + 高光 / 阴影
+cd.rect(4, 17, 4, 1, 0xd9a066);                                                             // 底座一点暖色
+cd.rect(5, 6, 2, 2, 0x3a2a12);                                                              // 烛芯
+cd.tri(2, 6, 10, 6, 6, 0, 0xff9f1c); cd.tri(4, 6, 8, 6, 6, 2, 0xffd166); cd.rect(5, 4, 2, 2, 0xffffff); // 火苗
+cd.save('candle.png');
+
+// ---- 音量图标 24x24（设置房间里滑块左边的喇叭）----
+const vo = new Canvas(24, 24);
+vo.rect(2, 8, 6, 8, 0xf1efe6);                                   // 喇叭底座
+vo.tri(8, 8, 8, 16, 15, 22, 0xf1efe6); vo.tri(8, 8, 15, 2, 15, 22, 0xf1efe6);   // 喇叭口
+vo.rect(8, 8, 7, 8, 0xf1efe6);
+vo.rect(3, 9, 2, 6, 0xc9c4b4); vo.rect(13, 3, 2, 18, 0xc9c4b4);  // 阴影
+vo.save('volume.png');

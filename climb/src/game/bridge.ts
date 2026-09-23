@@ -2,10 +2,14 @@
 // React → Phaser：通过这个事件总线（编辑器重载、开始游戏）
 // Phaser → React：直接 dispatch 到 Redux（hud / save slice）
 import Phaser from 'phaser';
-import type { FogState, RoomCoord, WorldModel } from '@/type';
+import type { FogState, Project, RoomCoord } from '@/type';
 
 export interface StartGameData {
-  model: WorldModel;
+  /** 整个项目（多层）；游戏从 floorId 那层开始，缺省第一层 */
+  project: Project;
+  floorId?: string;
+  /** 进场时闪一下层名（换层用） */
+  announceFloor?: boolean;
   /** 读档时整张地图的格子状态 */
   rows?: string[];
   startRoom?: RoomCoord | null;

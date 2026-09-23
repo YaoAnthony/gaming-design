@@ -2,10 +2,11 @@
 import Phaser from 'phaser';
 import { classify } from '@/game/registry/registry';
 import { Terrain } from '@/game/terrain/Terrain';
-import { fuseRows, roomKeyAt, worldRows } from '@/game/world/WorldModel';
+import { fuseRows, nextFloorId, roomKeyAt, worldRows } from '@/game/world/WorldModel';
+import { layoutText, textSize } from '@/game/world/font';
 import { bridge, EVT, SCENE } from '@/game/bridge';
 import { store } from '@/redux/store';
-import { paintCell, paintEntity, paintFog, paintFuse } from '@/redux/slices/editorSlice';
+import { addText, currentModel, paintCell, paintEntity, paintFog, paintFuse, removeText } from '@/redux/slices/editorSlice';
 import { TILE_FRAMES } from '@/asset';
 import { FOG_ZONE_COLORS } from '@/ui/editor/fogZones';
 
@@ -17,6 +18,8 @@ export class EditorScene extends Phaser.Scene {
   private fuseTiles!: Phaser.Tilemaps.TilemapLayer;
   private cursor!: Phaser.GameObjects.Rectangle;
   private grid!: Phaser.GameObjects.Graphics;
+  private textLayer!: Phaser.GameObjects.Graphics;
+  private textLabels: Phaser.GameObjects.Text[] = [];
   private T = 32;
   private lastVersion = -1;
   private lastRoomKey: string | null = null;
@@ -24,9 +27,12 @@ export class EditorScene extends Phaser.Scene {
   constructor() { super(SCENE.editor); }
 
   create(): void {
-    const { model } = store.getState().editor;
+    const model = currentModel(store.getState().editor);
     this.T = store.getState().config.tile;
     const T = this.T;
+    // 画布 = 一个房间；试玩回来时尺寸可能被游戏场景改过
+    if (this.scale.width !== model.roomW * T || this.scale.height !== model.roomH * T) this.scale.resize(model.roomW * T, model.roomH * T);
+    this.cameras.main.setSize(model.roomW * T, model.roomH * T);
     this.cameras.main.setBackgroundColor('#141a2c');
     this.cameras.main.setScroll(0, 0);
 
@@ -39,18 +45,19 @@ export class EditorScene extends Phaser.Scene {
     this.grid = this.add.graphics().setDepth(1);
     this.overlay = this.add.graphics().setDepth(3);
     this.fogLayer = this.add.graphics().setDepth(2.5);
+    this.textLayer = this.add.graphics().setDepth(2.6);
     this.cursor = this.add.rectangle(0, 0, T, T).setOrigin(0).setStrokeStyle(2, 0xffffff, 0.9).setDepth(4).setVisible(false);
 
     this.input.mouse?.disableContextMenu();
-    this.input.on('pointerdown', (p: Phaser.Input.Pointer) => this.paint(p));
-    this.input.on('pointermove', (p: Phaser.Input.Pointer) => { this.moveCursor(p); if (p.isDown) this.paint(p); });
+    this.input.on('pointerdown', (p: Phaser.Input.Pointer) => { if (this.state().brush === 'text') this.placeText(p); else this.paint(p); });
+    this.input.on('pointermove', (p: Phaser.Input.Pointer) => { this.moveCursor(p); if (p.isDown && this.state().brush !== 'text') this.paint(p); });
     this.input.on('pointerout', () => this.cursor.setVisible(false));
 
     const reload = () => this.refreshAll();
     bridge.on(EVT.editorReload, reload);
     const unsubscribe = store.subscribe(() => {
       const s = store.getState().editor;
-      const key = roomKeyAt(s.model, s.room.rx, s.room.ry);
+      const key = roomKeyAt(currentModel(s), s.room.rx, s.room.ry);
       if (s.version !== this.lastVersion || key !== this.lastRoomKey) this.refreshAll();
     });
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => { bridge.off(EVT.editorReload, reload); unsubscribe(); });
@@ -65,11 +72,12 @@ export class EditorScene extends Phaser.Scene {
   }
 
   private state() { return store.getState().editor; }
-  private key(): string | null { const s = this.state(); return roomKeyAt(s.model, s.room.rx, s.room.ry); }
-  private rows(): string[] { const k = this.key(); return k ? this.state().model.rooms[k] : []; }
+  private model() { return currentModel(this.state()); }
+  private key(): string | null { const s = this.state(); return roomKeyAt(currentModel(s), s.room.rx, s.room.ry); }
+  private rows(): string[] { const k = this.key(); return k ? this.model().rooms[k] : []; }
 
   private cellAt(p: Phaser.Input.Pointer): { x: number; y: number } | null {
-    const { model } = this.state();
+    const model = this.model();
     const x = Math.floor(p.worldX / this.T), y = Math.floor(p.worldY / this.T);
     if (x < 0 || y < 0 || x >= model.roomW || y >= model.roomH) return null;
     return { x, y };
@@ -82,7 +90,7 @@ export class EditorScene extends Phaser.Scene {
     this.cursor.setPosition(c.x * this.T, c.y * this.T);
     const key = this.key();
     const tile = classify(this.rows()[c.y]?.[c.x] ?? '.').def;
-    const ent = key ? classify(this.state().model.entities?.[key]?.[c.y]?.[c.x] ?? '.') : null;
+    const ent = key ? classify(this.model().entities?.[key]?.[c.y]?.[c.x] ?? '.') : null;
     this.game.events.emit('editor:status', `(${c.x}, ${c.y})  ${tile.name}${ent && ent.kind === 'entity' ? ' + ' + ent.def.name : ''}`);
   }
 
@@ -93,7 +101,7 @@ export class EditorScene extends Phaser.Scene {
     const brush = this.state().brush;
     if (brush === 'fuse') {
       const on = !p.rightButtonDown();
-      const cur = this.state().model.fuse?.[key]?.[c.y]?.[c.x] === 'W';
+      const cur = this.model().fuse?.[key]?.[c.y]?.[c.x] === 'W';
       if (cur === on) return;
       store.dispatch(paintFuse({ key, x: c.x, y: c.y, on }));
       return;
@@ -101,7 +109,7 @@ export class EditorScene extends Phaser.Scene {
     if (brush.startsWith('fog:')) {
       // 迷雾区画笔：右键擦除
       const zone = p.rightButtonDown() ? '.' : brush.slice(4);
-      const cur = this.state().model.fog?.[key]?.[c.y]?.[c.x] ?? '.';
+      const cur = this.model().fog?.[key]?.[c.y]?.[c.x] ?? '.';
       if (cur === zone) return;
       store.dispatch(paintFog({ key, x: c.x, y: c.y, zone }));
       return;
@@ -110,7 +118,7 @@ export class EditorScene extends Phaser.Scene {
     if (cls.kind === 'entity') {
       // 物件画在自己那一层，底下的砖块（比如尖刺）保留；右键只擦物件
       const ch = p.rightButtonDown() ? '.' : brush;
-      const cur = this.state().model.entities?.[key]?.[c.y]?.[c.x] ?? '.';
+      const cur = this.model().entities?.[key]?.[c.y]?.[c.x] ?? '.';
       if (cur === ch) return;
       store.dispatch(paintEntity({ key, x: c.x, y: c.y, ch, unique: cls.def.unique }));
       return;
@@ -118,6 +126,22 @@ export class EditorScene extends Phaser.Scene {
     const ch = p.rightButtonDown() ? '.' : brush;
     if (this.rows()[c.y][c.x] === ch) return;
     store.dispatch(paintCell({ key, x: c.x, y: c.y, ch }));
+  }
+
+  /** 文字画笔：左键在这一格放一串新字（内容在侧栏改），右键删掉点到的那串 */
+  private placeText(p: Phaser.Input.Pointer): void {
+    const c = this.cellAt(p), key = this.key();
+    if (!c || !key) return;
+    const s = this.state(), m = this.model();
+    const blocks = m.texts?.[key] ?? [];
+    if (p.rightButtonDown()) {
+      const hit = blocks.find(b => { const sz = textSize(b.text); return c.x >= b.x && c.y >= b.y && c.x < b.x + sz.w && c.y < b.y + sz.h; });
+      if (hit) store.dispatch(removeText({ key, id: hit.id }));
+      return;
+    }
+    const next = s.project.floors[s.floor + 1];
+    const target = next ? next.id : nextFloorId(s.project);
+    store.dispatch(addText({ key, block: { id: 't' + Date.now().toString(36), x: c.x, y: c.y, text: 'START', tile: '=', target } }));
   }
 
   /** grid 是把物件替换成空气后的网格，只用来算砖块的拼贴掩码；分类要看原始字符 */
@@ -130,7 +154,7 @@ export class EditorScene extends Phaser.Scene {
     const f = Terrain.frameAt(grid, x, y, 'editor');
     if (f < 0) this.layer.removeTileAt(x, y); else this.layer.putTileAt(f, x, y);
     // 物件层（叠在砖块上）
-    const ech = (key && this.state().model.entities?.[key]?.[y]?.[x]) || '.';
+    const ech = (key && this.model().entities?.[key]?.[y]?.[x]) || '.';
     const cls = classify(ech);
     if (cls.kind === 'entity') {
       // 按游戏里的真实尺寸画，以这一格的中心为中心，所见即所得
@@ -143,21 +167,41 @@ export class EditorScene extends Phaser.Scene {
   private refreshAll(): void {
     const s = this.state();
     this.lastVersion = s.version; this.lastRoomKey = this.key();
-    const T = this.T, m = s.model;
+    const T = this.T, m = currentModel(s);
     this.grid.clear(); this.grid.lineStyle(1, 0xffffff, 0.12);
     for (let x = 0; x <= m.roomW; x++) this.grid.lineBetween(x * T, 0, x * T, m.roomH * T);
     for (let y = 0; y <= m.roomH; y++) this.grid.lineBetween(0, y * T, m.roomW * T, y * T);
     const grid = this.rows().map(r => r.split(''));
+    // 文字方块烘进网格：只占空气格，和游戏里一样
+    const key = this.key();
+    const blocks = key ? m.texts?.[key] ?? [] : [];
+    blocks.forEach(b => layoutText(b.text, b.x, b.y).forEach(c => { if (grid[c.y]?.[c.x] === '.') grid[c.y][c.x] = b.tile; }));
     for (let y = 0; y < m.roomH; y++) for (let x = 0; x < m.roomW; x++) this.refreshCell(x, y, grid);
+    this.drawTextBlocks(blocks);
     this.drawFogZones();
     this.drawFuse();
     this.updateSupport();
   }
 
+  /** 每串字画个框 + 目标层标签，编辑时能看出边界 */
+  private drawTextBlocks(blocks: { id: string; x: number; y: number; text: string; target: string }[]): void {
+    const T = this.T, s = this.state();
+    this.textLayer.clear();
+    this.textLabels.forEach(t => t.destroy()); this.textLabels = [];
+    blocks.forEach(b => {
+      const sz = textSize(b.text);
+      this.textLayer.lineStyle(2, 0xffd166, 0.9);
+      this.textLayer.strokeRect(b.x * T - 2, b.y * T - 2, sz.w * T + 4, sz.h * T + 4);
+      const target = s.project.floors.find(f => f.id === b.target);
+      const label = this.add.text(b.x * T, b.y * T - 16, '→ ' + (target ? target.name : '?'), { fontSize: '12px', color: '#ffd166', backgroundColor: '#141a2ccc', padding: { x: 3, y: 1 } }).setDepth(2.7);
+      this.textLabels.push(label);
+    });
+  }
+
   /** 引线层：按四周连接自动拼贴，编辑器里整条线可见（游戏里只有端点）。
    *  掩码用整张大地图算，所以房间边缘的引线会显示成"连到隔壁房间"，而不是端头。 */
   private drawFuse(): void {
-    const s = this.state(), m = s.model;
+    const s = this.state(), m = currentModel(s);
     const world = fuseRows(m).map(r => r.split(''));
     const ox = s.room.rx * m.roomW, oy = s.room.ry * m.roomH;
     for (let y = 0; y < m.roomH; y++) for (let x = 0; x < m.roomW; x++) {
@@ -170,7 +214,7 @@ export class EditorScene extends Phaser.Scene {
   private drawFogZones(): void {
     const T = this.T, s = this.state(), key = this.key();
     this.fogLayer.clear();
-    const rows = key ? s.model.fog?.[key] : undefined;
+    const rows = key ? currentModel(s).fog?.[key] : undefined;
     if (!rows) return;
     rows.forEach((row, y) => [...row].forEach((z, x) => {
       const color = FOG_ZONE_COLORS[z];
@@ -182,7 +226,7 @@ export class EditorScene extends Phaser.Scene {
 
   /** 标出一开始就会掉落的格子 */
   private updateSupport(): void {
-    const s = this.state(), T = this.T, m = s.model;
+    const s = this.state(), T = this.T, m = currentModel(s);
     this.overlay.clear();
     if (!s.showSupport) return;
     const ox = s.room.rx * m.roomW, oy = s.room.ry * m.roomH;

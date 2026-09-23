@@ -1,6 +1,6 @@
 import { useState, type DragEvent } from 'react';
 import { useAppDispatch, useAppSelector } from '@/redux/hooks';
-import { addRoom, deleteRoom, moveRoom, setRoom, setRoomFlag } from '@/redux/slices/editorSlice';
+import { addRoom, deleteRoom, moveRoom, setRoom, setRoomFlag, currentModel } from '@/redux/slices/editorSlice';
 import { roomKeyAt, worldCols, worldRowsCount } from '@/game/world/WorldModel';
 import type { RoomCoord } from '@/type';
 import { App as AntApp } from 'antd';
@@ -8,7 +8,8 @@ import { RoomThumb } from './RoomThumb';
 
 /** 房间布局：缩略图网格，四周多一圈空位可以加房间；拖拽交换 / 移动 */
 export function RoomMap() {
-  const { model, room } = useAppSelector(s => s.editor);
+  const room = useAppSelector(s => s.editor.room);
+  const model = useAppSelector(s => currentModel(s.editor));
   const dispatch = useAppDispatch();
   const { modal } = AntApp.useApp();
   const [dragging, setDragging] = useState<RoomCoord | null>(null);

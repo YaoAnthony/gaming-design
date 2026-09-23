@@ -15,6 +15,8 @@ export class FuseNet {
   private cells: Uint8Array;
   private readonly original: Uint8Array;
   private nodes = new Map<number, Phaser.GameObjects.Image>();
+  /** 还没烧到的那几跳（重置时要取消，不然会在恢复后的地形上继续炸） */
+  private pending: Phaser.Time.TimerEvent[] = [];
 
   constructor(private scene: Phaser.Scene, rows: string[], private opts: FuseOptions, saved?: string[]) {
     this.h = rows.length; this.w = rows[0]?.length ?? 0;
@@ -90,15 +92,23 @@ export class FuseNet {
         this.refreshNodes();
         onBurn?.(group);
       };
-      if (hop === 0) burn(); else this.scene.time.delayedCall(hop * this.opts.delayMs, burn);
+      if (hop === 0) burn(); else this.pending.push(this.scene.time.delayedCall(hop * this.opts.delayMs, burn));
     });
+    this.pending = this.pending.filter(t => !t.hasDispatched);
     return planned.length;
   }
 
+  /** 取消所有还在路上的燃烧 */
+  cancelPending(): void {
+    this.pending.forEach(t => t.remove(false));
+    this.pending = [];
+  }
+
   /** 房间重置：矩形内恢复成初始引线 */
-  resetRect(x0: number, y0: number, w: number, h: number): void {
+  resetRect(x0: number, y0: number, w: number, h: number, keep?: (x: number, y: number) => boolean): void {
+    this.cancelPending();
     for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) {
-      if (x < 0 || y < 0 || x >= this.w || y >= this.h) continue;
+      if (x < 0 || y < 0 || x >= this.w || y >= this.h || keep?.(x, y)) continue;
       this.cells[y * this.w + x] = this.original[y * this.w + x];
     }
     this.refreshNodes();

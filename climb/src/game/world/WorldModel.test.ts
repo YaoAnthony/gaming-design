@@ -66,3 +66,44 @@ describe('WorldModel', () => {
     expect(m.rooms.D).toBeUndefined();
   });
 });
+
+// ---- 多层项目 + 文字方块 ----
+import { asProject, bakeTexts, floorAfter, newFloor } from './WorldModel';
+import { layoutText, textSize } from './font';
+
+describe('font', () => {
+  it('A 占 3x5，字间空一格，换行空一行', () => {
+    expect(textSize('A')).toEqual({ w: 3, h: 5 });
+    expect(textSize('AB')).toEqual({ w: 7, h: 5 });
+    expect(textSize('A\nB')).toEqual({ w: 3, h: 11 });
+    const cells = layoutText('I', 2, 3);
+    expect(cells.length).toBe(9);                       // I：上下横杠各 3 格 + 中间一竖 3 格
+    expect(cells.every(c => c.x >= 2 && c.x < 5 && c.y >= 3 && c.y < 8)).toBe(true);
+  });
+});
+
+describe('project', () => {
+  it('旧的单层地图包装成一层项目', () => {
+    const p = asProject({ roomW: 4, roomH: 4, layout: [['A']], rooms: { A: ['RRRR', 'R..R', 'R..R', 'RRRR'] } })!;
+    expect(p.floors.length).toBe(1);
+    expect(p.floors[0].id).toBe('f1');
+    expect(asProject({ nope: 1 })).toBeNull();
+  });
+  it('新层 id 不重复，floorAfter 顺着走', () => {
+    const p = asProject({ roomW: 4, roomH: 4, layout: [['A']], rooms: { A: ['RRRR', 'R..R', 'R..R', 'RRRR'] } })!;
+    p.floors.push(newFloor(p, '', 6, 5));
+    expect(p.floors[1].id).toBe('f2');
+    expect(p.floors[1].model.roomW).toBe(6);
+    expect(floorAfter(p, 'f1')?.id).toBe('f2');
+    expect(floorAfter(p, 'f2')).toBeNull();
+  });
+  it('文字只烘进空气格，并记下世界坐标', () => {
+    const m = { roomW: 6, roomH: 7, layout: [['A']], rooms: { A: ['RRRRRR', 'R....R', 'R....R', 'R....R', 'R....R', 'R....R', 'RRRRRR'] }, texts: { A: [{ id: 't', x: 1, y: 1, text: 'I', tile: '=', target: 'f2' }] } };
+    const { model, blocks } = bakeTexts(m);
+    expect(blocks[0].cells.length).toBe(9);
+    expect(model.rooms.A[1]).toBe('R===.R');
+    expect(model.rooms.A[2]).toBe('R.=..R');
+    expect(m.rooms.A[1]).toBe('R....R');              // 原模型不动
+    expect(blocks[0].cells[0]).toEqual({ x: 1, y: 1 });
+  });
+});

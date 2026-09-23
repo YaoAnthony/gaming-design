@@ -7,12 +7,15 @@ import { defineTile, Tiles, Traits } from '@/game/registry/registry';
 defineTile({ id: 'T', name: '测试连锁砖', color: 0xffffff, frame: 5, gameFrame: 21, autotile: true }, Traits.Solid, Traits.Destructible(1), Traits.Chain, Traits.Delay(90), Traits.EndsOnly);
 
 describe('Terrain 支撑检测', () => {
-  it('连到岩石的泥土不会掉，悬空的会掉', () => {
+  it('泥土没有重力：悬空也不掉；连着泥土的沙土被撑住，悬空的沙土会掉', () => {
     const rows = [
       'RRRRR',
       'R...R',
-      'R.#.R',   // (2,2) 四周都是空气 → 悬空
-      'R#..R',   // (1,3) 连着左边的 R
+      'R.S.R',   // (2,2) 四周都是空气 → 悬空
+      'R...R',
+      'R.#.R',   // (2,4) 泥土悬空但不掉
+      'R...R',
+      'R#S.R',   // (2,6) 连着泥土 → 被撑住
       'RRRRR',
     ];
     const un = Terrain.findUnsupported(rows);
@@ -26,8 +29,8 @@ describe('Terrain 支撑检测', () => {
   });
 
   it('尖刺不是实心的，不参与支撑也不会掉', () => {
-    const rows = ['RRRRR', 'R...R', 'R.#.R', 'R.X.R', 'RRRRR'];
-    // (2,2) 泥土下面是尖刺、四周是空气 → 悬空；尖刺本身不会掉
+    const rows = ['RRRRR', 'R...R', 'R.S.R', 'R.X.R', 'RRRRR'];
+    // (2,2) 沙土下面是尖刺、四周是空气 → 悬空；尖刺本身不会掉
     expect(Terrain.findUnsupported(rows)).toEqual([{ x: 2, y: 2 }]);
   });
 });

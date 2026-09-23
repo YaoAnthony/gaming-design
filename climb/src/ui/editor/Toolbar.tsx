@@ -1,17 +1,18 @@
 import { useEffect, useRef } from 'react';
 import { useAppDispatch, useAppSelector } from '@/redux/hooks';
-import { replaceModel, setShowSupport } from '@/redux/slices/editorSlice';
+import { replaceProject, setShowSupport } from '@/redux/slices/editorSlice';
 import { setConfig } from '@/redux/slices/configSlice';
 import { Skills } from '@/game/registry/registry';
 import '@/game/registry/skills';
-import { isValidModel, normalizeModel } from '@/game/world/WorldModel';
+import { asProject } from '@/game/world/WorldModel';
 import { modelHash } from '@/game/world/defaultWorld';
-import type { WorldModel } from '@/type';
 import { App as AntApp, Select } from 'antd';
 
 const FILE_HASH_KEY = 'climb:fileHash';
 
 interface Props { onPlay(fromStart: boolean): void; status: string }
+
+const clone = <T,>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
 
 function download(name: string, text: string) {
   const a = document.createElement('a');
@@ -21,7 +22,7 @@ function download(name: string, text: string) {
 }
 
 export function Toolbar({ onPlay, status }: Props) {
-  const { model, showSupport } = useAppSelector(s => s.editor);
+  const { project, showSupport } = useAppSelector(s => s.editor);
   const { skill, deathResetsWorld, fogEnabled, directionalBlast } = useAppSelector(s => s.config);
   const dispatch = useAppDispatch();
   const file = useRef<HTMLInputElement>(null);
@@ -31,11 +32,11 @@ export function Toolbar({ onPlay, status }: Props) {
   const loadFromSource = async () => {
     try {
       const r = await fetch('/__climb/load-map');
-      const m: unknown = await r.json();
-      if (!isValidModel(m)) throw new Error('格式不对');
+      const p = asProject(await r.json());
+      if (!p) throw new Error('格式不对');
       // 先算指纹，再把一份副本交给 Redux（交出去的对象会被冻结，之后不能再改）
-      const hash = modelHash(normalizeModel(JSON.parse(JSON.stringify(m)) as WorldModel));
-      dispatch(replaceModel(JSON.parse(JSON.stringify(m)) as WorldModel));
+      const hash = modelHash(p);
+      dispatch(replaceProject(clone(p)));
       localStorage.setItem(FILE_HASH_KEY, hash);
     } catch (err) { modal.error({ title: '载入失败', content: (err as Error).message, okText: '好' }); }
   };
@@ -47,9 +48,9 @@ export function Toolbar({ onPlay, status }: Props) {
     (async () => {
       try {
         const r = await fetch('/__climb/load-map');
-        const m: unknown = await r.json();
-        if (cancelled || !isValidModel(m)) return;
-        const fileHash = modelHash(normalizeModel(JSON.parse(JSON.stringify(m)) as WorldModel));
+        const p = asProject(await r.json());
+        if (cancelled || !p) return;
+        const fileHash = modelHash(p);
         const known = localStorage.getItem(FILE_HASH_KEY);
         if (!known) { localStorage.setItem(FILE_HASH_KEY, fileHash); return; }
         if (known === fileHash) return;
@@ -57,7 +58,7 @@ export function Toolbar({ onPlay, status }: Props) {
           title: 'src/map/world.json 有新改动',
           content: '载入会替换当前编辑内容；想保留自己的改动先取消、写入，再点「载入」。',
           okText: '载入', cancelText: '先不',
-          onOk: () => { dispatch(replaceModel(JSON.parse(JSON.stringify(m)) as WorldModel)); localStorage.setItem(FILE_HASH_KEY, fileHash); },
+          onOk: () => { dispatch(replaceProject(clone(p))); localStorage.setItem(FILE_HASH_KEY, fileHash); },
           onCancel: () => localStorage.setItem(FILE_HASH_KEY, fileHash),
         });
       } catch { /* 开发服务器没开就算了 */ }
@@ -69,9 +70,10 @@ export function Toolbar({ onPlay, status }: Props) {
   /** 开发期：让 Vite 开发服务器直接把地图写进 src/map/world.json */
   const writeToSource = async () => {
     try {
-      const r = await fetch('/__climb/save-map', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(normalizeModel(JSON.parse(JSON.stringify(model)))) });
+      const out = asProject(clone(project))!;
+      const r = await fetch('/__climb/save-map', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(out) });
       const j = (await r.json()) as { ok: boolean; file?: string; error?: string };
-      if (j.ok) { localStorage.setItem(FILE_HASH_KEY, modelHash(normalizeModel(JSON.parse(JSON.stringify(model))))); modal.success({ title: '写入成功', content: `地图已写入 ${j.file}`, okText: '好' }); }
+      if (j.ok) { localStorage.setItem(FILE_HASH_KEY, modelHash(out)); modal.success({ title: '写入成功', content: `地图已写入 ${j.file}`, okText: '好' }); }
       else modal.error({ title: '写入失败', content: j.error, okText: '好' });
     } catch (err) { modal.error({ title: '写入失败', content: (err as Error).message, okText: '好' }); }
   };
@@ -79,9 +81,9 @@ export function Toolbar({ onPlay, status }: Props) {
   const importFile = async (f: File | undefined) => {
     if (!f) return;
     try {
-      const m: unknown = JSON.parse(await f.text());
-      if (!isValidModel(m)) throw new Error('格式不对');
-      dispatch(replaceModel(JSON.parse(JSON.stringify(m)) as WorldModel));
+      const p = asProject(JSON.parse(await f.text()));
+      if (!p) throw new Error('格式不对');
+      dispatch(replaceProject(clone(p)));
     } catch (err) { void message.error('导入失败：' + (err as Error).message); }
   };
 
@@ -112,7 +114,7 @@ export function Toolbar({ onPlay, status }: Props) {
         </>
       )}
       <div className="row">
-        <button className="btn" onClick={() => download('world.json', JSON.stringify(normalizeModel(JSON.parse(JSON.stringify(model))), null, 2))}>导出 world.json</button>
+        <button className="btn" onClick={() => download('world.json', JSON.stringify(asProject(clone(project)), null, 2))}>导出 world.json</button>
         <button className="btn" onClick={() => file.current?.click()}>导入 JSON</button>
       </div>
       <input ref={file} type="file" accept="application/json" hidden onChange={e => { void importFile(e.target.files?.[0]); e.target.value = ''; }} />

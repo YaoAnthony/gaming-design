@@ -38,6 +38,14 @@ export function Palette() {
       </div>
       <div className="hint">引线可以穿过空气和任何砖块，不改变地形。经过空气就只是过一下。</div>
 
+      <h2>文字</h2>
+      <div className="palette">
+        <button className={'item' + (brush === 'text' ? ' active' : '')} title="一串字，每个字母由可炸的砖拼成；全炸完就跳到指定的层。右键删除" onClick={() => dispatch(setBrush('text'))}>
+          <div className="icon"><div className="frame" style={{ backgroundImage: `url(${tilesUrl})`, backgroundPosition: `-${TILE_FRAMES.letter * TILE_SIZE}px 0` }} /></div>
+          <div className="label"><b>文字方块</b><small>text</small></div>
+        </button>
+      </div>
+
       <h2>迷雾区</h2>
       <div className="palette">
         {FOG_ZONES.map(z => (

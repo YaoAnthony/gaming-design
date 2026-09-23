@@ -27,8 +27,12 @@ function saveMapPlugin(): Plugin {
         req.on('data', (c: Buffer) => { body += c; });
         req.on('end', async () => {
           try {
-            const m = JSON.parse(body) as { roomW?: unknown; roomH?: unknown; layout?: unknown; rooms?: unknown };
-            if (typeof m.roomW !== 'number' || typeof m.roomH !== 'number' || !Array.isArray(m.layout) || !m.rooms) throw new Error('不是合法的地图模型');
+            const m = JSON.parse(body) as { floors?: unknown; roomW?: unknown; roomH?: unknown; layout?: unknown; rooms?: unknown };
+            const isModel = (o: { roomW?: unknown; roomH?: unknown; layout?: unknown; rooms?: unknown }) => typeof o.roomW === 'number' && typeof o.roomH === 'number' && Array.isArray(o.layout) && !!o.rooms;
+            const ok = Array.isArray(m.floors)
+              ? m.floors.length > 0 && m.floors.every((f: { id?: unknown; model?: unknown }) => typeof f?.id === 'string' && isModel((f.model ?? {}) as { roomW?: unknown }))
+              : isModel(m);
+            if (!ok) throw new Error('不是合法的地图项目');
             await writeFile(MAP_FILE, JSON.stringify(m, null, 2) + '\n', 'utf8');
             res.setHeader('Content-Type', 'application/json');
             res.end(JSON.stringify({ ok: true, file: 'src/map/world.json' }));

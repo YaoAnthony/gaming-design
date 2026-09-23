@@ -223,14 +223,22 @@ export class Terrain {
     if (immediate.length) { this.resolveSupport(); this.shake(immediate, 0); }
     [...delayed.entries()].sort((a, b) => a[0] - b[0]).forEach(([hop, group]) => {
       const delayMs = hop * group[0].def.chainDelayMs;
-      this.host.scene.time.delayedCall(delayMs, () => {
+      this.pending.push(this.host.scene.time.delayedCall(delayMs, () => {
         group.forEach(c => this.set(c.x, c.y, AIR));
         this.resolveSupport();
         this.shake(group, 0);
         this.host.onFuseBurn?.(group);
-      });
+      }));
     });
+    this.pending = this.pending.filter(t => !t.hasDispatched);
     return removed;
+  }
+
+  /** 还没执行的延迟摧毁 */
+  private pending: Phaser.Time.TimerEvent[] = [];
+  cancelPending(): void {
+    this.pending.forEach(t => t.remove(false));
+    this.pending = [];
   }
 
   // ---- 松脱（脆岩）----
@@ -416,14 +424,16 @@ export class Terrain {
   }
 
   /** 房间重置：恢复矩形内的格子，清掉范围内的碎块 */
-  resetRect(x0: number, y0: number, w: number, h: number): void {
+  /** 把矩形内恢复成初始地形；keep 返回 true 的格子保持现状（比如 Boss 炸开的通道） */
+  resetRect(x0: number, y0: number, w: number, h: number, keep?: (x: number, y: number) => boolean): void {
+    this.cancelPending();
     for (let i = this.chunks.length - 1; i >= 0; i--) {
       const ch = this.chunks[i];
       if (ch.cells.some(c => c.x >= x0 && c.x < x0 + w && c.y >= y0 && c.y < y0 + h)) { ch.container.destroy(); this.chunks.splice(i, 1); }
     }
     for (let y = y0; y < y0 + h; y++)
       for (let x = x0; x < x0 + w; x++)
-        if (this.grid[y][x] !== this.original[y][x]) this.set(x, y, this.original[y][x]);
+        if (this.grid[y][x] !== this.original[y][x] && !keep?.(x, y)) this.set(x, y, this.original[y][x]);
     this.resolveSupport();
   }
 

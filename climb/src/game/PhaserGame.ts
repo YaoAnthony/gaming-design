@@ -7,18 +7,25 @@ import { GameScene } from './scenes/GameScene';
 import { EditorScene } from './scenes/EditorScene';
 import { SCENE, type StartGameData } from './bridge';
 import { store } from '@/redux/store';
+import type { WorldModel } from '@/type';
+
+/** 画布尺寸 = 一个房间的像素尺寸（每层可以不一样） */
+export function roomPx(m: WorldModel): { w: number; h: number } {
+  const T = store.getState().config.tile;
+  return { w: m.roomW * T, h: m.roomH * T };
+}
 
 export type GameMode = 'game' | 'editor';
 
 let current: Phaser.Game | null = null;
 export const getGame = (): Phaser.Game | null => current;
 
-export function createGame(parent: HTMLElement, mode: GameMode, data?: StartGameData): Phaser.Game {
+export function createGame(parent: HTMLElement, mode: GameMode, data?: StartGameData, size?: { w: number; h: number }): Phaser.Game {
   const cfg = store.getState().config;
   const game = new Phaser.Game({
     type: Phaser.AUTO,
-    width: cfg.viewW,
-    height: cfg.viewH,
+    width: size?.w ?? cfg.viewW,
+    height: size?.h ?? cfg.viewH,
     parent,
     backgroundColor: mode === 'editor' ? '#141a2c' : '#0b0b14',
     pixelArt: true,

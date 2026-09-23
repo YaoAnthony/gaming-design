@@ -7,12 +7,12 @@ import { defineEntity, defineTile, Traits } from './registry';
 defineTile({ id: '.', name: '空气 / 橡皮', desc: '什么都没有', color: 0x000000 });
 
 defineTile(
-  { id: '#', name: '泥土', desc: '爆炸范围内会被炸掉；没连到岩石就会掉落', color: 0x8d5a3b, frame: TILE_FRAMES.dirt },
-  Traits.Solid, Traits.Destructible(0),
+  { id: '#', name: '泥土', desc: '爆炸范围内会被炸掉；自己不会掉，也撑得住别的砖', color: 0x8d5a3b, frame: TILE_FRAMES.dirt },
+  Traits.Solid, Traits.Anchor, Traits.Destructible(0),
 );
 
 defineTile(
-  { id: 'R', name: '岩石', desc: '炸不动，也是唯一的锚点', color: 0x5d6470, frame: TILE_FRAMES.rock },
+  { id: 'R', name: '岩石', desc: '炸不动的锚点', color: 0x5d6470, frame: TILE_FRAMES.rock },
   Traits.Solid, Traits.Anchor,
 );
 
@@ -35,6 +35,11 @@ defineTile(
   Traits.Solid, Traits.Loose(1), Traits.Float(55),
 );
 
+defineTile(
+  { id: '=', name: '字块', desc: '文字方块默认用它：可炸，但自己不会掉、也撑得住别的砖（悬空的字才站得住）', color: 0xb8c4e0, frame: TILE_FRAMES.letter },
+  Traits.Solid, Traits.Anchor, Traits.Destructible(0),
+);
+
 // ---------- 物件 ----------
 defineEntity({
   id: 'P', name: '出生点', desc: '玩家从这里开始（全图唯一）', texture: 'player', unique: true, color: 0x4cc9f0,
@@ -49,6 +54,11 @@ defineEntity({
 defineEntity({
   id: 'K', name: 'Boss 大史莱姆', desc: '放进哪个房间，那个房间就是 Boss 战：进门封门、出血条，Boss 从这里落下。只有落石和引线能伤它', texture: 'boss', color: 0x9b5de5,
   spawn({ host, wx, wy, cell }) { host.addBoss({ x: wx, y: wy, rx: cell.rx, ry: cell.ry }); },
+});
+
+defineEntity({
+  id: 'T', name: '塔门', desc: '走进去到下一层', texture: 'door', color: 0x4cc9f0,
+  spawn({ host, wx, wy }) { host.addPortal({ x: wx, y: wy }); },
 });
 
 defineEntity({

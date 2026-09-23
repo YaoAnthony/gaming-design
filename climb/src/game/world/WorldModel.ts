@@ -1,5 +1,6 @@
 // ===== 世界模型的纯函数：拼图、找出生点、房间增删移动、导出 =====
-import type { CellRef, RoomCoord, RoomFlags, WorldModel } from '@/type';
+import type { CellRef, Floor, Project, RoomCoord, RoomFlags, TextBlock, WorldModel } from '@/type';
+import { layoutText } from './font';
 import { Entities } from '@/game/registry/registry';
 
 export function cloneModel(m: WorldModel): WorldModel { return JSON.parse(JSON.stringify(m)); }
@@ -78,6 +79,70 @@ export function normalizeModel(m: WorldModel): WorldModel {
   if (moved && m.entities) Object.keys(m.entities).forEach(k => { if (!m.rooms[k]) delete m.entities![k]; });
   return m;
 }
+
+// ---------- 文字方块 ----------
+export function addTextBlock(m: WorldModel, key: string, block: TextBlock): void {
+  m.texts ??= {};
+  (m.texts[key] ??= []).push(block);
+}
+export function updateTextBlock(m: WorldModel, key: string, id: string, patch: Partial<TextBlock>): void {
+  const b = m.texts?.[key]?.find(t => t.id === id);
+  if (b) Object.assign(b, patch);
+}
+export function removeTextBlock(m: WorldModel, key: string, id: string): void {
+  if (!m.texts?.[key]) return;
+  m.texts[key] = m.texts[key].filter(t => t.id !== id);
+}
+
+/** 把所有文字方块烘焙进砖块行（只写到空气格、只写在房间内）；返回烘焙后的模型和每个文字块占的世界格子 */
+export function bakeTexts(m: WorldModel): { model: WorldModel; blocks: { block: TextBlock; key: string; cells: CellRef[] }[] } {
+  const model = cloneModel(m);
+  const blocks: { block: TextBlock; key: string; cells: CellRef[] }[] = [];
+  if (!model.texts) return { model, blocks };
+  Object.entries(model.texts).forEach(([key, list]) => {
+    const pos = positionOf(model, key);
+    if (!pos || !model.rooms[key]) return;
+    list.forEach(block => {
+      const cells: CellRef[] = [];
+      layoutText(block.text, block.x, block.y).forEach(c => {
+        if (c.x < 0 || c.y < 0 || c.x >= model.roomW || c.y >= model.roomH) return;
+        const row = model.rooms[key][c.y];
+        if (row[c.x] !== '.') return;
+        model.rooms[key][c.y] = row.substring(0, c.x) + block.tile + row.substring(c.x + 1);
+        cells.push({ x: pos.rx * model.roomW + c.x, y: pos.ry * model.roomH + c.y });
+      });
+      blocks.push({ block, key, cells });
+    });
+  });
+  return { model, blocks };
+}
+
+// ---------- 项目 / 层 ----------
+export function isProject(p: unknown): p is Project {
+  return !!p && typeof p === 'object' && Array.isArray((p as Project).floors) && (p as Project).floors.every(f => f && typeof f.id === 'string' && isValidModel(f.model));
+}
+
+/** 文件里可能是旧的单层地图，也可能是多层项目，统一成项目 */
+export function asProject(json: unknown): Project | null {
+  if (isProject(json)) { json.floors.forEach(f => normalizeModel(f.model)); return json; }
+  if (isValidModel(json)) return { floors: [{ id: 'f1', name: '第 1 层', model: normalizeModel(json) }] };
+  return null;
+}
+
+export function nextFloorId(p: Project): string {
+  let n = p.floors.length + 1;
+  while (p.floors.some(f => f.id === 'f' + n)) n++;
+  return 'f' + n;
+}
+
+export function newFloor(p: Project, name: string, roomW: number, roomH: number): Floor {
+  const id = nextFloorId(p);
+  const model: WorldModel = { roomW, roomH, layout: [['A']], rooms: { A: emptyRoom(roomW, roomH) } };
+  return { id, name: name || `第 ${p.floors.length + 1} 层`, model };
+}
+
+export const floorIndex = (p: Project, id: string): number => p.floors.findIndex(f => f.id === id);
+export const floorAfter = (p: Project, id: string): Floor | null => p.floors[floorIndex(p, id) + 1] ?? null;
 
 /** 引线层拼成整张图（'.' = 无） */
 export function fuseRows(m: WorldModel): string[] {
@@ -187,6 +252,7 @@ export function deleteRoom(m: WorldModel, key: string): void {
   if (m.fuse) delete m.fuse[key];
   if (m.entities) delete m.entities[key];
   if (m.roomFlags) delete m.roomFlags[key];
+  if (m.texts) delete m.texts[key];
   trimLayout(m);
 }
 

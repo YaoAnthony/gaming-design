@@ -75,6 +75,8 @@ export interface EntityHost {
   spawnPoints: Point[];
   addEnemy(spawn: EnemySpawn): void;
   addBoss(spawn: EnemySpawn): void;
+  /** 塔门：走进去到下一层 */
+  addPortal(p: Point): void;
   setGoal(p: Point): void;
 }
 export interface EnemySpawn extends Point, RoomCoord {}

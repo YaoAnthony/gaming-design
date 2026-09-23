@@ -15,6 +15,33 @@ export interface WorldModel {
   fuse?: Record<string, string[]>;
   /** 房间级开关（可选） */
   roomFlags?: Record<string, RoomFlags>;
+  /** 文字方块（可选）：用 3x5 像素字体拼成可炸砖块的一串字，全炸掉就跳到目标层 */
+  texts?: Record<string, TextBlock[]>;
+}
+
+export interface TextBlock {
+  id: string;
+  /** 锚点：房间内格坐标（左上角） */
+  x: number;
+  y: number;
+  /** 大写字母 / 数字 / 空格，'\n' 换行 */
+  text: string;
+  /** 用哪种砖块拼（必须可炸） */
+  tile: string;
+  /** 全炸掉后跳到哪一层（层 id） */
+  target: string;
+}
+
+/** 塔的一层：独立的世界 */
+export interface Floor {
+  id: string;
+  name: string;
+  model: WorldModel;
+}
+
+/** 整个项目 = 若干层，第一层是塔外 */
+export interface Project {
+  floors: Floor[];
 }
 
 export interface RoomFlags {

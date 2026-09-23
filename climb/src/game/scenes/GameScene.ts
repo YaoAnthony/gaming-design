@@ -1,9 +1,9 @@
 // ===== 游戏场景：房间制世界、起跳爆炸、怪物、危险格、存档 =====
 import Phaser from 'phaser';
-import type { CellRef, EnemySpawn, EntityHost, EntryState, FogState, GameConfig, Point, RoomCoord, SkillContext, SkillDef, WorldModel } from '@/type';
+import type { CellRef, EnemySpawn, EntityHost, EntryState, FogState, GameConfig, Point, Project, RoomCoord, SkillContext, SkillDef, TextBlock, WorldModel } from '@/type';
 import { classify, Skills, Tiles } from '@/game/registry/registry';
 import { Terrain, type Chunk } from '@/game/terrain/Terrain';
-import { entityRows, fogRows, fuseRows, roomKeyAt, worldRows } from '@/game/world/WorldModel';
+import { bakeTexts, entityRows, floorAfter, fogRows, fuseRows, roomKeyAt, worldRows } from '@/game/world/WorldModel';
 import { FuseNet } from '@/game/fuse/Fuse';
 import { FogOfWar } from '@/game/fog/Fog';
 import { bridge, EVT, SCENE, type StartGameData } from '@/game/bridge';
@@ -17,7 +17,16 @@ import { writeSave } from '@/redux/slices/saveSlice';
 
 export class GameScene extends Phaser.Scene implements EntityHost {
   private cfg!: GameConfig;
+  private project!: Project;
+  private floorId = '';
+  /** 当前层的模型（文字方块已烘焙成砖） */
   private model!: WorldModel;
+  /** 文字方块：全部格子都被炸掉就跳到目标层 */
+  private textBlocks: { block: TextBlock; cells: CellRef[]; done: boolean }[] = [];
+  private portals: Point[] = [];
+  private announceFloor = false;
+  /** 正在切层（淡出中），不再响应输入 */
+  private leaving = false;
   private playtest = false;
   private startRoom: RoomCoord | null = null;
   private savedRows: string[] | null = null;
@@ -45,6 +54,12 @@ export class GameScene extends Phaser.Scene implements EntityHost {
   /** 还没封上的门（等玩家离开门口再封） */
   private bossDoorsPending: CellRef[] = [];
   private bossDefeated = new Set<string>();
+  /** 封门时的位置：打赢之后死了就回到这里 */
+  private bossSealEntry: EntryState | null = null;
+  /** 打赢的 Boss：在哪个房间、复活点、倒下的位置 */
+  private bossWon: { entry: EntryState; at: Point } | null = null;
+  /** Boss 炸开点燃的引线烧掉的格子（世界格下标）：死亡重置时不恢复 */
+  private bossBurnt = new Set<number>();
   private bossSpawns: EnemySpawn[] = [];
   private bursts: SparkBurst[] = [];
   private sparks!: SparkEmitter;
@@ -69,7 +84,15 @@ export class GameScene extends Phaser.Scene implements EntityHost {
   constructor() { super(SCENE.game); }
 
   init(data: StartGameData): void {
-    this.model = data.model;
+    this.project = data.project;
+    const floor = (data.floorId && this.project.floors.find(f => f.id === data.floorId)) || this.project.floors[0];
+    this.floorId = floor.id;
+    const baked = bakeTexts(floor.model);
+    this.model = baked.model;
+    this.textBlocks = baked.blocks.filter(b => b.cells.length > 0).map(b => ({ block: b.block, cells: b.cells, done: false }));
+    this.portals = [];
+    this.announceFloor = !!data.announceFloor;
+    this.leaving = false;
     this.playtest = !!data.playtest;
     this.startRoom = data.startRoom ?? null;
     this.savedRows = data.rows ?? null;
@@ -81,6 +104,7 @@ export class GameScene extends Phaser.Scene implements EntityHost {
     this.destroyed = data.stats?.destroyed ?? 0;
     this.dead = false; this.won = false; this.prevEntry = null; this.lastResetAt = null;
     this.spawnPoints = []; this.enemySpawns = []; this.bossSpawns = []; this.goal = null;
+    this.bossDefeated.clear(); this.bossSealEntry = null; this.bossWon = null; this.bossBurnt = new Set();
   }
 
   create(): void {
@@ -89,6 +113,9 @@ export class GameScene extends Phaser.Scene implements EntityHost {
     const T = this.cfg.tile;
     this.roomW = this.model.roomW; this.roomH = this.model.roomH;
     this.roomPxW = this.roomW * T; this.roomPxH = this.roomH * T;
+    // 画布 = 一个房间；每层房间尺寸可以不同，换层时跟着改
+    if (this.scale.width !== this.roomPxW || this.scale.height !== this.roomPxH) this.scale.resize(this.roomPxW, this.roomPxH);
+    this.cameras.main.setSize(this.roomPxW, this.roomPxH);
 
     const rows = worldRows(this.model);
     // 读档时用存档里的格子状态，但"原始状态"仍是地图本身（R 重置用）
@@ -167,6 +194,11 @@ export class GameScene extends Phaser.Scene implements EntityHost {
 
     this.music = new Music(this, this.cfg.musicVolume);
     this.music.play('bgm');
+    if (this.announceFloor) {
+      this.cameras.main.fadeIn(350, 0, 0, 0);
+      const floor = this.project.floors.find(f => f.id === this.floorId);
+      if (floor) this.flash(floor.name, '#ffd166');
+    }
     store.dispatch(setMode({ mode: 'playing', playtest: this.playtest }));
     store.dispatch(setStats({ jumps: this.jumps, destroyed: this.destroyed }));
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => { this.music.stop(); store.dispatch(setMode({ mode: 'idle' })); store.dispatch(setBoss(null)); });
@@ -175,22 +207,30 @@ export class GameScene extends Phaser.Scene implements EntityHost {
   // ---------- EntityHost ----------
   addEnemy(spawn: EnemySpawn): void { this.enemySpawns.push(spawn); this.spawnEnemy(spawn); }
   addBoss(spawn: EnemySpawn): void { this.bossSpawns.push(spawn); }
+  addPortal(p: Point): void {
+    this.portals.push(p);
+    this.add.image(p.x, p.y, 'door').setDepth(2).setTint(0x4cc9f0);
+  }
   setGoal(p: Point): void {
     this.goal = p;
     this.add.image(p.x, p.y, 'door').setDepth(2);
     this.drawBuilding(p.x, p.y + this.cfg.tile / 2);
   }
 
-  /** 在房间里找一个"脚下是实心、头顶两格是空气"的位置，离房间中心最近的那个；找不到就房间中央 */
+  /** 在房间里找一个"脚下是实心、头顶两格是空气"的位置：离房间入口（边上的缺口）最近的那个，没有缺口就离中心最近；找不到就房间中央 */
   private standingSpot(r: RoomCoord): Point {
     const T = this.cfg.tile, x0 = r.rx * this.roomW, y0 = r.ry * this.roomH;
     const cx = x0 + this.roomW / 2, cy = y0 + this.roomH / 2;
+    const openings: CellRef[] = [];
+    for (let y = y0 + 1; y < y0 + this.roomH - 1; y++) for (const x of [x0, x0 + this.roomW - 1]) if (!this.terrain.isSolid(x, y)) openings.push({ x, y });
+    for (let x = x0 + 1; x < x0 + this.roomW - 1; x++) for (const y of [y0, y0 + this.roomH - 1]) if (!this.terrain.isSolid(x, y)) openings.push({ x, y });
+    const anchors = openings.length ? openings : [{ x: cx, y: cy }];
     let best: CellRef | null = null, bestD = Infinity;
     for (let y = y0 + 1; y < y0 + this.roomH - 1; y++)
       for (let x = x0 + 1; x < x0 + this.roomW - 1; x++) {
         if (this.terrain.isSolid(x, y) || this.terrain.isSolid(x, y - 1) || !this.terrain.isSolid(x, y + 1)) continue;
         if (this.terrain.def(x, y).hazard) continue;
-        const d = (x + 0.5 - cx) ** 2 + (y + 0.5 - cy) ** 2;
+        const d = Math.min(...anchors.map(a => (x + 0.5 - a.x) ** 2 + (y + 0.5 - a.y) ** 2));
         if (d < bestD) { bestD = d; best = { x, y }; }
       }
     if (!best) return { x: cx * T, y: (y0 + this.roomH * 0.3) * T };
@@ -259,6 +299,7 @@ export class GameScene extends Phaser.Scene implements EntityHost {
     this.fogDirty = true;
     // 复活点就定在关门的这个位置
     this.entry = { x: this.player.x, y: this.player.y, vx: 0, vy: 0 };
+    this.bossSealEntry = this.entry;
     if (this.bossRoom) this.time.delayedCall(350, () => { if (this.bossRoom && !this.boss && this.bossDoors.length) this.spawnBoss(this.bossRoom); });
   }
 
@@ -285,9 +326,9 @@ export class GameScene extends Phaser.Scene implements EntityHost {
       playCrush(this.sparks, this.boss.x, this.boss.y);
       for (let i = 0; i < 6; i++) this.sparks.explode(10, this.boss.x + (Math.random() - 0.5) * 80, this.boss.y + (Math.random() - 0.5) * 60);
       // 爆开：一圈穿墙火花，唯一作用是点燃碰到的引线端点
-      this.bursts.push(new SparkBurst(this, this.boss.x, this.boss.y, this.cfg.bossBurstCount, this.cfg.bossBurstSpeed, this.cfg.tile, this.cfg.bossBurstTtl));
-      this.cameras.main.shake(400, 0.015);
+      this.burst(this.boss.x, this.boss.y);
       this.flash('大史莱姆倒下了', '#ffd166');
+      if (this.bossSealEntry) this.bossWon = { entry: this.bossSealEntry, at: { x: this.boss.x, y: this.boss.y } };
       this.endBoss(true);
     }
   }
@@ -297,7 +338,7 @@ export class GameScene extends Phaser.Scene implements EntityHost {
     let lit = 0;
     this.bursts.forEach(b => b.update(dt, cell => {
       if (!this.fuses.isEnd(cell.x, cell.y)) return false;
-      if (this.fuses.ignite([cell], this.terrain, cells => this.onFuseBurn(cells))) lit++;
+      if (this.fuses.ignite([cell], this.terrain, cells => { cells.forEach(c => this.bossBurnt.add(c.y * this.terrain.w + c.x)); this.onFuseBurn(cells); })) lit++;
       return true;
     }));
     if (lit) this.flash('引线点燃！', '#ff7b54');
@@ -364,14 +405,14 @@ export class GameScene extends Phaser.Scene implements EntityHost {
   }
 
   private autosave(): void {
-    store.dispatch(writeSave({ rows: this.terrain.rows(), room: this.room, entry: this.entry, stats: { jumps: this.jumps, destroyed: this.destroyed }, fog: this.fog?.toState(), fuse: this.fuses.toState() }));
+    store.dispatch(writeSave({ floorId: this.floorId, rows: this.terrain.rows(), room: this.room, entry: this.entry, stats: { jumps: this.jumps, destroyed: this.destroyed }, fog: this.fog?.toState(), fuse: this.fuses.toState() }));
   }
 
   private resetRoom(): void {
     this.clearCarried();
     if (this.boss || this.bossDoors.length || this.bossDoorsPending.length) this.endBoss(false);
-    this.terrain.resetRect(this.room.rx * this.roomW, this.room.ry * this.roomH, this.roomW, this.roomH);
-    this.fuses.resetRect(this.room.rx * this.roomW, this.room.ry * this.roomH, this.roomW, this.roomH);
+    this.terrain.resetRect(this.room.rx * this.roomW, this.room.ry * this.roomH, this.roomW, this.roomH, this.keepBurnt);
+    this.fuses.resetRect(this.room.rx * this.roomW, this.room.ry * this.roomH, this.roomW, this.roomH, this.keepBurnt);
     (this.enemies.getChildren() as Enemy[]).forEach(e => { if (e.active && this.sameRoom(e.spawn, this.room)) e.destroy(); });
     this.enemySpawns.filter(sp => this.sameRoom(sp, this.room)).forEach(sp => this.spawnEnemy(sp));
     this.player.respawn(this.entry);
@@ -383,14 +424,24 @@ export class GameScene extends Phaser.Scene implements EntityHost {
   }
 
   /** 死亡重置整张地图：所有房间的地形、引线、怪物恢复，玩家回到当前房间的重置点；探索记忆保留 */
+  private keepBurnt = (x: number, y: number): boolean => this.bossBurnt.has(y * this.terrain.w + x);
   private resetWorld(): void {
     this.clearCarried();
     if (this.boss || this.bossDoors.length || this.bossDoorsPending.length) this.endBoss(false);
-    this.bossDefeated.clear();
-    this.terrain.resetRect(0, 0, this.terrain.w, this.terrain.h);
-    this.fuses.resetRect(0, 0, this.terrain.w, this.terrain.h);
+    // 打赢过的 Boss 不回来；它炸开的通道也不恢复
+    const won = this.bossWon;
+    if (!won) this.bossDefeated.clear();
+    this.terrain.resetRect(0, 0, this.terrain.w, this.terrain.h, this.keepBurnt);
+    this.fuses.resetRect(0, 0, this.terrain.w, this.terrain.h, this.keepBurnt);
     (this.enemies.getChildren() as Enemy[]).slice().forEach(e => e.destroy());
     this.enemySpawns.forEach(sp => this.spawnEnemy(sp));
+    if (won) {
+      // 直接回到 Boss 房，Boss 再炸一次
+      this.entry = won.entry; this.prevEntry = null;
+      const r = this.roomOf(won.entry.x, won.entry.y);
+      if (!this.sameRoom(r, this.room)) this.enterRoom(r, true);
+      this.replayBossDeath(won.at);
+    }
     this.player.respawn(this.entry);
     this.dead = false;
     this.fogDirty = true;
@@ -463,7 +514,12 @@ export class GameScene extends Phaser.Scene implements EntityHost {
     }
   }
 
+  /** 重置前把所有"正在发生"的东西清掉：火花、飘纸、掉落平台、还没出场的 Boss、镜头抖动 */
   private clearCarried(): void {
+    this.time.removeAllEvents();
+    this.tweens.killTweensOf(this.cameras.main);
+    this.cameras.main.shakeEffect.reset();
+    this.sparks.killAll();
     this.bursts.forEach(b => b.destroy()); this.bursts = [];
     this.carried.forEach(c => c.destroy()); this.carried = [];
     this.fallingPlatforms.forEach(p => p.destroy()); this.fallingPlatforms.clear();
@@ -599,6 +655,23 @@ export class GameScene extends Phaser.Scene implements EntityHost {
   }
 
   /** 引线每烧一跳：火花 + 计入摧毁数 + 迷雾要重算 */
+  /** Boss 爆开：一圈穿墙火花，唯一作用是点燃碰到的引线端点 */
+  private burst(x: number, y: number): void {
+    this.bursts.push(new SparkBurst(this, x, y, this.cfg.bossBurstCount, this.cfg.bossBurstSpeed, this.cfg.tile, this.cfg.bossBurstTtl));
+    this.cameras.main.shake(400, 0.015);
+  }
+
+  /** 打赢之后死了：回到 Boss 房，Boss 出现即炸开，重演开路那一下 */
+  private replayBossDeath(at: Point): void {
+    const ghost = this.add.image(at.x, at.y, 'boss').setDepth(5).setAlpha(0.85).setScale(0.6);
+    this.tweens.add({ targets: ghost, scale: 1.15, alpha: 1, duration: 320, ease: 'Back.out', onComplete: () => {
+      ghost.destroy();
+      playCrush(this.sparks, at.x, at.y);
+      for (let i = 0; i < 6; i++) this.sparks.explode(10, at.x + (Math.random() - 0.5) * 80, at.y + (Math.random() - 0.5) * 60);
+      this.burst(at.x, at.y);
+    } });
+  }
+
   private onFuseBurn(cells: CellRef[]): void {
     this.fogDirty = true;
     const T = this.cfg.tile;
@@ -641,7 +714,7 @@ export class GameScene extends Phaser.Scene implements EntityHost {
     this.updateBoss();
     this.updateBursts(delta / 1000);
     this.updateFog();
-    if (this.dead || this.won) { this.drawPreview(null); return; }
+    if (this.dead || this.won || this.leaving) { this.drawPreview(null); return; }
 
     const p = this.player;
     const r = this.roomOf(p.x, p.y);
@@ -657,6 +730,40 @@ export class GameScene extends Phaser.Scene implements EntityHost {
     const hazard = this.touchingHazard();
     if (hazard) { this.die(hazard); return; }
     if (this.goal && Phaser.Math.Distance.Between(p.x, p.y, this.goal.x, this.goal.y) < 24) this.win();
+    this.checkFloorExits();
+  }
+
+  // ---------- 层 ----------
+  /** 塔门：走进去到下一层；文字方块：整串字都炸掉了就跳到它指定的层 */
+  private checkFloorExits(): void {
+    const p = this.player;
+    if (this.portals.some(pt => Phaser.Math.Distance.Between(p.x, p.y, pt.x, pt.y) < 24)) {
+      const next = floorAfter(this.project, this.floorId);
+      if (next) this.goToFloor(next.id); else this.win();
+      return;
+    }
+    for (const tb of this.textBlocks) {
+      if (tb.done) continue;
+      if (!tb.cells.every(c => this.terrain.grid[c.y]?.[c.x] !== tb.block.tile)) continue;
+      tb.done = true;
+      this.goToFloor(tb.block.target);
+      return;
+    }
+  }
+
+  private goToFloor(id: string): void {
+    if (this.leaving) return;
+    const floor = this.project.floors.find(f => f.id === id);
+    if (!floor) { this.flash('没有这一层', '#ef476f'); return; }
+    this.leaving = true;
+    this.player.freeze(0xffffff);
+    this.player.clearTint();
+    const cam = this.cameras.main;
+    cam.fadeOut(350, 0, 0, 0);
+    cam.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
+      const data: StartGameData = { project: this.project, floorId: id, playtest: this.playtest, announceFloor: true, stats: { jumps: this.jumps, destroyed: this.destroyed } };
+      this.scene.restart(data);
+    });
   }
 
   private updateFog(): void {

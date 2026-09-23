@@ -21,7 +21,7 @@ export const store = configureStore({
 if (typeof window !== 'undefined') {
   store.subscribe(() => schedulePersist(() => {
     const s = store.getState();
-    return { editor: { model: s.editor.model, room: s.editor.room }, save: s.save, defaultHash: DEFAULT_WORLD_HASH };
+    return { editor: { project: s.editor.project, floor: s.editor.floor, room: s.editor.room }, save: s.save, defaultHash: DEFAULT_WORLD_HASH };
   }));
 }
 

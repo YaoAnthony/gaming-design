@@ -1,12 +1,18 @@
-// localStorage 持久化：编辑器地图 + 存档
+// localStorage 持久化：编辑器项目（多层）+ 存档
 import type { EditorState } from './slices/editorSlice';
 import type { SaveState } from './slices/saveSlice';
-import { isValidModel, normalizeModel } from '@/game/world/WorldModel';
+import type { Project, WorldModel } from '@/type';
+import { asProject } from '@/game/world/WorldModel';
 import { DEFAULT_WORLD_HASH } from '@/game/world/defaultWorld';
 
 const KEY = 'climb:v1';
 
-export interface PersistedState { editor?: Partial<EditorState>; save?: SaveState; /** 存这份编辑副本时打包地图的指纹 */ defaultHash?: string }
+export interface PersistedState {
+  editor?: Partial<EditorState> & { model?: WorldModel };   // model 是旧格式（单层）
+  save?: SaveState;
+  /** 存这份编辑副本时打包地图的指纹 */
+  defaultHash?: string;
+}
 
 export function loadPersisted(): PersistedState {
   try {
@@ -16,7 +22,10 @@ export function loadPersisted(): PersistedState {
     const out: PersistedState = {};
     // 线上：打包的地图换了新版本，旧的编辑副本作废（本地开发不动，编辑器里的才是正在改的）
     const stale = import.meta.env.PROD && p.defaultHash !== DEFAULT_WORLD_HASH;
-    if (!stale && p.editor?.model && isValidModel(p.editor.model)) out.editor = { model: normalizeModel(p.editor.model), room: p.editor.room };
+    if (!stale && p.editor) {
+      const project: Project | null = asProject(p.editor.project ?? p.editor.model);
+      if (project) out.editor = { project, floor: Math.min(p.editor.floor ?? 0, project.floors.length - 1), room: p.editor.room };
+    }
     if (p.save?.current?.version === 1) out.save = p.save;
     return out;
   } catch { return {}; }

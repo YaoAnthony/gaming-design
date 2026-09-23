@@ -23,6 +23,7 @@ export const TILE_FRAMES = {
   /** 引线层在编辑器里的自动拼贴起始帧：实际帧 = fuse + 位掩码（上=1 右=2 下=4 左=8），共 16 帧 */
   fuse: 5,
   paper: 21,
+  letter: 22,
 } as const;
 
 export const AUTOTILE_VARIANTS = 16;

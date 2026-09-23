@@ -155,3 +155,54 @@ node.save('fusenode.png');
 const spark = new Canvas(6, 6);
 spark.rect(0, 0, 6, 6, 0xffffff);
 spark.save('spark.png');
+
+// ---- 骷髅 28x36：红眼、红披风、金扣（参考用户给的形象）----
+const sk = new Canvas(28, 36);
+const bone = 0xf1efe6, dark = 0x0b0b14, shade = 0xc9c4b4, red = 0xb3121b, redDk = 0x6e0b12, gold = 0xffc94a, eye = 0xff1e1e;
+// 披风：肩膀两侧张开，往下收
+sk.tri(0, 15, 14, 12, 14, 36, redDk); sk.tri(28, 15, 14, 12, 14, 36, redDk);
+sk.rect(3, 14, 22, 18, red); sk.rect(1, 16, 26, 10, red);
+sk.rect(5, 30, 18, 3, redDk); sk.rect(3, 26, 22, 2, redDk);          // 褶皱阴影
+sk.rect(9, 19, 10, 15, dark);                                         // 披风里面是黑的
+// 头骨
+sk.roundRect(6, 0, 16, 14, 5, bone);
+sk.rect(8, 10, 12, 4, shade);
+sk.rect(9, 4, 4, 4, dark); sk.rect(15, 4, 4, 4, dark);                // 眼窝
+sk.rect(10, 5, 2, 2, eye); sk.rect(16, 5, 2, 2, eye);                 // 红眼
+sk.rect(13, 8, 2, 2, dark);                                           // 鼻
+sk.rect(10, 12, 8, 2, dark); sk.rect(11, 12, 1, 2, bone); sk.rect(13, 12, 1, 2, bone); sk.rect(15, 12, 1, 2, bone); // 牙
+// 领口 + 金扣
+sk.rect(8, 14, 12, 3, red); sk.rect(6, 17, 3, 3, gold); sk.rect(19, 17, 3, 3, gold);
+sk.rect(7, 18, 1, 1, dark); sk.rect(20, 18, 1, 1, dark);
+// 脊柱 / 肋骨露在披风开口里
+sk.rect(13, 17, 2, 12, bone); sk.rect(10, 20, 8, 1, bone); sk.rect(10, 23, 8, 1, bone); sk.rect(11, 26, 6, 1, bone);
+// 腿
+sk.rect(10, 31, 3, 5, bone); sk.rect(15, 31, 3, 5, bone);
+sk.save('skeleton.png');
+
+// ---- 小城堡 128x112（通往下一层的门在正中底部）----
+const ca = new Canvas(128, 112);
+const wall = 0x6c7386, wallDk = 0x4f566a, wallLt = 0x8a92a8, roof = 0x9b2f3a, roofDk = 0x6e1f28, glow = 0xffd166;
+const brick = (x, y, w, h) => { for (let j = y + 4; j < y + h; j += 8) for (let i = x + ((j / 8) & 1 ? 4 : 0); i < x + w - 2; i += 10) ca.rect(i + 1, j, 4, 2, wallDk); };
+// 两侧塔楼
+for (const tx of [0, 104]) {
+  ca.rect(tx, 28, 24, 84, wall); ca.rect(tx, 28, 24, 2, wallLt); ca.rect(tx, 108, 24, 4, wallDk);
+  for (let i = 0; i < 3; i++) ca.rect(tx + i * 9, 22, 6, 6, wall);              // 垛口
+  ca.tri(tx - 2, 22, tx + 26, 22, tx + 12, 2, roof); ca.tri(tx + 2, 22, tx + 22, 22, tx + 12, 8, roofDk);
+  ca.rect(tx + 9, 44, 6, 10, dark); ca.rect(tx + 9, 72, 6, 10, dark);          // 窗
+  brick(tx, 30, 24, 78);
+}
+// 主体
+ca.rect(20, 52, 88, 60, wall); ca.rect(20, 52, 88, 2, wallLt); ca.rect(20, 108, 88, 4, wallDk);
+for (let i = 0; i < 9; i++) ca.rect(22 + i * 10, 46, 6, 6, wall);
+brick(20, 54, 88, 54);
+ca.rect(34, 62, 8, 12, dark); ca.rect(86, 62, 8, 12, dark);                      // 窗
+ca.rect(36, 65, 4, 4, glow); ca.rect(88, 65, 4, 4, glow);
+// 门：26x38 拱门，里面透光
+ca.roundRect(50, 70, 28, 44, 13, wallDk);
+ca.roundRect(52, 72, 24, 44, 11, dark);
+ca.roundRect(58, 84, 12, 28, 5, 0x3a2a12);
+ca.rect(62, 90, 4, 12, glow);
+// 旗
+ca.rect(63, 20, 2, 26, wallDk); ca.tri(65, 20, 65, 32, 79, 26, roof);
+ca.save('castle.png');

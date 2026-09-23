@@ -6,6 +6,7 @@ import { fuseRows, nextFloorId, roomKeyAt, worldRows } from '@/game/world/WorldM
 import { layoutText, textSize } from '@/game/world/font';
 import { bridge, EVT, SCENE } from '@/game/bridge';
 import { store } from '@/redux/store';
+import { resizeGame } from '@/game/resize';
 import { addText, currentModel, paintCell, paintEntity, paintFog, paintFuse, removeText } from '@/redux/slices/editorSlice';
 import { TILE_FRAMES } from '@/asset';
 import { FOG_ZONE_COLORS } from '@/ui/editor/fogZones';
@@ -31,7 +32,7 @@ export class EditorScene extends Phaser.Scene {
     this.T = store.getState().config.tile;
     const T = this.T;
     // 画布 = 一个房间；试玩回来时尺寸可能被游戏场景改过
-    if (this.scale.width !== model.roomW * T || this.scale.height !== model.roomH * T) this.scale.resize(model.roomW * T, model.roomH * T);
+    resizeGame(this.game, model.roomW * T, model.roomH * T);
     this.cameras.main.setSize(model.roomW * T, model.roomH * T);
     this.cameras.main.setBackgroundColor('#141a2c');
     this.cameras.main.setScroll(0, 0);
@@ -158,7 +159,8 @@ export class EditorScene extends Phaser.Scene {
     const cls = classify(ech);
     if (cls.kind === 'entity') {
       // 按游戏里的真实尺寸画，以这一格的中心为中心，所见即所得
-      const img = this.add.image(x * T + T / 2, y * T + T / 2, cls.def.texture).setDepth(2.3);
+      const [ox, oy] = cls.def.origin;
+      const img = this.add.image(x * T + T * ox, y * T + T * oy, cls.def.texture).setOrigin(ox, oy).setDepth(2.3);
       this.entityImgs.set(k, img);
     }
   }

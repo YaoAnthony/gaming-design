@@ -397,10 +397,13 @@ export class Terrain {
       ch.vy = ch.floatSpeed > 0 ? ch.floatSpeed : Math.min(ch.vy + this.opts.chunkGravity * dt, this.opts.chunkMaxFall);
       ch.py += ch.vy * dt;
       if (ch.floatSpeed > 0 && this.host.catchChunk?.(ch)) { this.chunks.splice(i, 1); continue; }
+      // 落地判定：下面是砖块就立刻落地（以前要等 py 走满一格才检查，碎块会先陷进地里一整格再弹回来；
+      // 慢慢飘的纸尤其明显，站在上面的人会被一起带进地里）。下面是另一块还在掉的碎块，则按整格对齐。
       let landed = false;
-      while (ch.py >= this.T) {
-        const blocked = ch.cells.some(c => this.isSolid(c.x, c.y + 1) || this.chunkCellAt(c.x, c.y + 1, ch));
-        if (blocked) { landed = true; break; }
+      for (;;) {
+        if (ch.cells.some(c => this.isSolid(c.x, c.y + 1))) { landed = true; break; }
+        if (ch.cells.some(c => this.chunkCellAt(c.x, c.y + 1, ch))) { landed = ch.py >= this.T; break; }
+        if (ch.py < this.T) break;
         ch.cells.forEach(c => { c.y += 1; });
         ch.py -= this.T;
       }

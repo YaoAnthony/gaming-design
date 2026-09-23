@@ -12,6 +12,7 @@ export const DEFAULT_CONFIG: GameConfig = {
   wallJumpX: 260,
   wallJumpY: -560,
   wallSlideMaxFall: 120,
+  maxFall: 900,
   wallJumpLockMs: 160,
   coyoteMs: 90,
   jumpBufferMs: 100,
@@ -35,7 +36,6 @@ export const DEFAULT_CONFIG: GameConfig = {
   bossBurstCount: 24,
   bossBurstSpeed: 380,
   bossBurstTtl: 2.5,
-  fogEnabled: false,   // 先关着，以后要用再开
   fogRadius: 7,
   fogMemoryAlpha: 0.6,
 };

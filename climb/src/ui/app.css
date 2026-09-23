@@ -32,6 +32,15 @@ h2 { font-size: 12px; color: var(--muted); margin: 14px 0 6px; text-transform: u
 .hud { position: absolute; inset: 0; pointer-events: none; font-family: monospace; }
 .hud-msg { position: absolute; top: 48px; left: 0; right: 0; text-align: center; font-size: 22px; opacity: 0; transition: opacity .4s; }
 .hud-msg.show { opacity: 1; transition: none; }
+.dialogue { position: absolute; left: 50%; bottom: 8%; transform: translateX(-50%); width: min(82%, 560px); display: flex; gap: 12px; align-items: stretch; background: rgba(11, 11, 20, .88); border: 2px solid #f1efe6; border-radius: 10px; padding: 10px 14px 8px 10px; font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
+.dialogue-avatar { width: 72px; height: 72px; flex: none; border-radius: 8px; border: 1px solid #f1efe6; image-rendering: pixelated; object-fit: cover; align-self: center; }
+.dialogue-body { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.dialogue-body .dialogue-text { flex: 1; }
+.dialogue-name { color: #ffd166; font-size: 12px; margin-bottom: 4px; }
+.dialogue-text { color: #e6e8f0; font-size: 16px; line-height: 1.5; }
+.dialogue-hint { color: #f1efe6; font-size: 14px; text-align: right; margin-top: 4px; animation: nudge 1s ease-in-out infinite; }
+@keyframes nudge { 0%, 100% { opacity: .5; transform: translateX(0); } 50% { opacity: 1; transform: translateX(3px); } }
+.won { position: absolute; inset: 0; pointer-events: auto; }
 .celebration { position: absolute; inset: 0; overflow: hidden; display: flex; align-items: center; justify-content: center; }
 .confetti { position: absolute; left: 50%; bottom: 20%; width: 0; height: 0; }
 .confetti-piece { position: absolute; left: 0; top: 0; display: block; border-radius: 2px; will-change: transform, opacity; }

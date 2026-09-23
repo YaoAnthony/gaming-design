@@ -77,9 +77,27 @@ export interface EntityHost {
   addBoss(spawn: EnemySpawn): void;
   /** 塔门：走进去到下一层 */
   addPortal(p: Point): void;
+  addNpc(spawn: NpcSpawn): void;
   setGoal(p: Point): void;
 }
 export interface EnemySpawn extends Point, RoomCoord {}
+
+/** 会说话的小角色：挡在路上，走近强制对话，每跳一次（炸一次）下一句，说完就消失 */
+export interface DialogueLine {
+  text: string;
+  /** 这一句用哪个头像（AVATARS 的 key）；不写就用角色默认头像 */
+  avatar?: string;
+}
+
+export interface NpcSpawn extends Point {
+  name: string;
+  texture: string;
+  /** 默认头像 key */
+  avatar?: string;
+  lines: DialogueLine[];
+  /** 消失时播放的音效 key */
+  sound?: string;
+}
 
 export interface SpawnContext {
   host: EntityHost;
@@ -98,6 +116,8 @@ export interface EntitySpec {
   unique?: boolean;
   /** 编辑器缩略图里的代表色 */
   color?: number;
+  /** 贴图相对格子的锚点（0~1）：默认居中；[0.5, 1] = 底边贴着格子底、水平居中（站在地上的东西） */
+  origin?: [number, number];
   spawn(ctx: SpawnContext): void;
 }
 

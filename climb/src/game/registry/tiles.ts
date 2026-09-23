@@ -2,6 +2,7 @@
 // 想加新砖块：照着写一个 defineTile，其余系统自动认识它（地形、爆炸、掉落、贴图、编辑器物品栏）。
 import { TILE_FRAMES } from '@/asset';
 import { defineEntity, defineTile, Traits } from './registry';
+import { DIALOGUES } from './dialogues';
 
 // ---------- 砖块 ----------
 defineTile({ id: '.', name: '空气 / 橡皮', desc: '什么都没有', color: 0x000000 });
@@ -57,11 +58,16 @@ defineEntity({
 });
 
 defineEntity({
-  id: 'T', name: '塔门', desc: '走进去到下一层', texture: 'door', color: 0x4cc9f0,
+  id: 'T', name: '小城堡', desc: '走进城门到下一层', texture: 'castle', color: 0x4cc9f0, origin: [0.5, 1],
   spawn({ host, wx, wy }) { host.addPortal({ x: wx, y: wy }); },
 });
 
 defineEntity({
   id: 'G', name: '终点', desc: '碰到即通关，上面会画一座建筑', texture: 'door', color: 0xffd166,
   spawn({ host, wx, wy }) { host.setGoal({ x: wx, y: wy }); },
+});
+
+defineEntity({
+  id: 'N', name: '骷髅', desc: '挡在路上的小角色。走近强制对话，每跳一次说下一句，说完就消失', texture: 'skeleton', color: 0xf1efe6, origin: [0.5, 1],
+  spawn({ host, wx, wy }) { host.addNpc({ x: wx, y: wy, name: '骷髅', texture: 'skeleton', avatar: 'default', lines: DIALOGUES.skeleton, sound: 'bossLaugh' }); },
 });

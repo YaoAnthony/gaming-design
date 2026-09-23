@@ -60,7 +60,7 @@ export function RoomMap() {
       <div className="hint">点击选择，拖动交换或挪到空位，「+」在那个位置新建房间。空位在游戏里是实心岩石。</div>
       {key && (
         <>
-          <label className="check"><input type="checkbox" checked={!!model.roomFlags?.[key]?.noFog} onChange={e => dispatch(setRoomFlag({ key, flags: { noFog: e.target.checked } }))} /> 这个房间不要迷雾</label>
+          <label className="check"><input type="checkbox" checked={!!model.roomFlags?.[key]?.fog} onChange={e => dispatch(setRoomFlag({ key, flags: { fog: e.target.checked } }))} /> 这个房间启用迷雾</label>
           <div className="row">
             <button className="btn danger" onClick={() => modal.confirm({
               title: `删除房间 ${key}？`,

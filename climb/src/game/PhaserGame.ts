@@ -7,6 +7,7 @@ import { GameScene } from './scenes/GameScene';
 import { EditorScene } from './scenes/EditorScene';
 import { SCENE, type StartGameData } from './bridge';
 import { store } from '@/redux/store';
+export { resizeGame } from './resize';
 import type { WorldModel } from '@/type';
 
 /** 画布尺寸 = 一个房间的像素尺寸（每层可以不一样） */
@@ -16,6 +17,7 @@ export function roomPx(m: WorldModel): { w: number; h: number } {
 }
 
 export type GameMode = 'game' | 'editor';
+
 
 let current: Phaser.Game | null = null;
 export const getGame = (): Phaser.Game | null => current;
@@ -29,7 +31,8 @@ export function createGame(parent: HTMLElement, mode: GameMode, data?: StartGame
     parent,
     backgroundColor: mode === 'editor' ? '#141a2c' : '#0b0b14',
     pixelArt: true,
-    physics: { default: 'arcade', arcade: { gravity: { x: 0, y: cfg.gravity }, debug: false } },
+    // tileBias：一步陷进砖块超过这个深度就不再分离（会穿墙）。32 = 一整格，配合 maxFall 保证不穿
+    physics: { default: 'arcade', arcade: { gravity: { x: 0, y: cfg.gravity }, tileBias: 32, debug: false } },
     scene: [BootScene, GameScene, EditorScene],
     // 居中交给外层 CSS 的 flex；Phaser 自己再加 margin 会在手机上叠加成偏移
     scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.NO_CENTER },

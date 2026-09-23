@@ -7,9 +7,13 @@ import doorUrl from './door.png';
 import sparkUrl from './spark.png';
 import fuseNodeUrl from './fusenode.png';
 import bossUrl from './boss.png';
+import skeletonUrl from './skeleton.png';
+import castleUrl from './castle.png';
 import boomUrl from './boob.mp3';
 import bgmUrl from './Pixelated_Coffee.mp3';
 import bossMusicUrl from './boss.mp3';
+import bossLaughUrl from './boss_laughing.mp3';
+import avatarDefaultUrl from './re/avatar_default.png';
 
 export const TILE_SIZE = 32;
 
@@ -42,11 +46,19 @@ export const IMAGES: ImageAsset[] = [
   { key: 'spark', url: sparkUrl },
   { key: 'fusenode', url: fuseNodeUrl },
   { key: 'boss', url: bossUrl },
+  { key: 'skeleton', url: skeletonUrl },
+  { key: 'castle', url: castleUrl },
 ];
+
+/** 对话框头像（React 里用 URL 显示，不进 Phaser）。同一个角色不同表情 = 不同 key，台词里按句指定 */
+export const AVATARS: Record<string, string> = {
+  default: avatarDefaultUrl,
+};
 
 export interface AudioAsset { key: string; url: string }
 export const AUDIO: AudioAsset[] = [
   { key: 'boom', url: boomUrl },            // 起跳爆炸
   { key: 'bgm', url: bgmUrl },              // 平时的背景音乐（循环）
   { key: 'bossMusic', url: bossMusicUrl },  // Boss 战音乐（循环）
+  { key: 'bossLaugh', url: bossLaughUrl },  // 骷髅消失时的笑声
 ];

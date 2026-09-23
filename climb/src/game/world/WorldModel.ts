@@ -77,6 +77,8 @@ export function normalizeModel(m: WorldModel): WorldModel {
     }));
   });
   if (moved && m.entities) Object.keys(m.entities).forEach(k => { if (!m.rooms[k]) delete m.entities![k]; });
+  // 迷雾以前是全局开关 + 例外房间，现在是按房间开启：旧标记直接丢掉（默认就是不启用）
+  if (m.roomFlags) Object.values(m.roomFlags).forEach(f => { delete f.noFog; });
   return m;
 }
 

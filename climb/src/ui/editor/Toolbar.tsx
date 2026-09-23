@@ -23,7 +23,7 @@ function download(name: string, text: string) {
 
 export function Toolbar({ onPlay, status }: Props) {
   const { project, showSupport } = useAppSelector(s => s.editor);
-  const { skill, deathResetsWorld, fogEnabled, directionalBlast } = useAppSelector(s => s.config);
+  const { skill, deathResetsWorld, directionalBlast } = useAppSelector(s => s.config);
   const dispatch = useAppDispatch();
   const file = useRef<HTMLInputElement>(null);
   const { modal, message } = AntApp.useApp();
@@ -101,7 +101,6 @@ export function Toolbar({ onPlay, status }: Props) {
       </div>
       <label className="check"><input type="checkbox" checked={directionalBlast} onChange={e => dispatch(setConfig({ directionalBlast: e.target.checked }))} /> 定向爆炸（按住方向起跳，炸那边两格）</label>
       <label className="check"><input type="checkbox" checked={deathResetsWorld} onChange={e => dispatch(setConfig({ deathResetsWorld: e.target.checked }))} /> 死亡重置整张地图</label>
-      <label className="check"><input type="checkbox" checked={fogEnabled} onChange={e => dispatch(setConfig({ fogEnabled: e.target.checked }))} /> 迷雾</label>
 
       <h2>文件</h2>
       <label className="check"><input type="checkbox" checked={showSupport} onChange={e => dispatch(setShowSupport(e.target.checked))} /> 标出会掉落的地块</label>

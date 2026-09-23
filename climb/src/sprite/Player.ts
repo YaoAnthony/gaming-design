@@ -21,6 +21,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     scene.physics.add.existing(this);
     this.setDepth(10);
     this.body.setSize(22, 38);
+    this.body.setMaxVelocityY(cfg.maxFall);
   }
 
   setConfig(cfg: GameConfig): void { this.cfg = cfg; }
@@ -89,6 +90,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   private consumeJump(): void { this.jumpPressedAt = -9999; this.lastGroundedAt = -9999; }
 
   freeze(tint: number): void { this.setTint(tint); this.setVelocity(0, 0); this.body.moves = false; }
+  unfreeze(): void { this.clearTint(); this.body.moves = true; this.jumpPressedAt = -9999; }
 
   respawn(entry: EntryState): void {
     this.clearTint(); this.body.moves = true;

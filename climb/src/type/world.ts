@@ -45,7 +45,9 @@ export interface Project {
 }
 
 export interface RoomFlags {
-  /** 这个房间不要迷雾（比如出生房间、剧情房间） */
+  /** 这个房间启用迷雾（默认不启用） */
+  fog?: boolean;
+  /** @deprecated 旧字段：以前迷雾是全局开关，这里标记例外房间。normalizeModel 会删掉 */
   noFog?: boolean;
   /** Boss 房间：玩家一进来就封门、出 Boss */
   boss?: boolean;

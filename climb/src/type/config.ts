@@ -9,6 +9,8 @@ export interface GameConfig {
   wallJumpX: number;
   wallJumpY: number;
   wallSlideMaxFall: number;
+  /** 最大下落速度（像素/秒）。必须小于 60Hz 下 tileBias 允许的每步位移，否则会穿过砖块 */
+  maxFall: number;
   wallJumpLockMs: number;
   coyoteMs: number;
   jumpBufferMs: number;
@@ -43,7 +45,6 @@ export interface GameConfig {
   bossBurstSpeed: number;
   bossBurstTtl: number;
   /** 迷雾开关 */
-  fogEnabled: boolean;
   /** 光照传播半径（格）：从玩家出发沿空气逐格衰减，实心格挡光 */
   fogRadius: number;
   /** 见过但不在视野里的格子上残留的雾浓度（0 全清晰，1 全黑） */

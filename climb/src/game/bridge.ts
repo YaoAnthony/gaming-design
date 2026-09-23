@@ -27,6 +27,8 @@ export const EVT = {
   startGame: 'game:start',
   playtestExit: 'playtest:exit',
   requestReset: 'game:reset',
+  /** 通关画面上点一下：继续玩 */
+  continueGame: 'game:continue',
 } as const;
 
 export const bridge = new Phaser.Events.EventEmitter();

@@ -38,6 +38,10 @@ export interface GameConfig {
   bossHopMs: number;
   bossSpitMs: number;
   bossMaxMinions: number;
+  /** Boss 死亡时射出的穿墙火花：数量 / 速度（像素/秒）/ 存活秒数。碰到引线端点就点燃 */
+  bossBurstCount: number;
+  bossBurstSpeed: number;
+  bossBurstTtl: number;
   /** 迷雾开关 */
   fogEnabled: boolean;
   /** 光照传播半径（格）：从玩家出发沿空气逐格衰减，实心格挡光 */

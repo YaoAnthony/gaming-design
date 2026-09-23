@@ -32,6 +32,9 @@ export const DEFAULT_CONFIG: GameConfig = {
   bossHopMs: 1400,
   bossSpitMs: 5000,
   bossMaxMinions: 6,
+  bossBurstCount: 24,
+  bossBurstSpeed: 380,
+  bossBurstTtl: 2.5,
   fogEnabled: false,   // 先关着，以后要用再开
   fogRadius: 7,
   fogMemoryAlpha: 0.6,

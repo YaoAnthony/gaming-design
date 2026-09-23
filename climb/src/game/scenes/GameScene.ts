@@ -146,7 +146,7 @@ export class GameScene extends Phaser.Scene implements EntityHost {
     this.cameras.main.setBounds(0, 0, levelW, levelH);
     this.entry = { x: start.x, y: start.y, vx: 0, vy: 0 };
     this.enterRoom(this.roomOf(start.x, start.y), true);
-    if (this.roomFlagBoss(this.room)) this.time.delayedCall(400, () => { if (!this.boss && this.roomFlagBoss(this.room)) this.startBoss(this.room); });
+    if (this.roomFlagBoss(this.room)) this.startBoss(this.room);
 
     // 输入
     const kb = this.input.keyboard!;
@@ -220,15 +220,19 @@ export class GameScene extends Phaser.Scene implements EntityHost {
     return this.bossSpawns.some(sp => this.sameRoom(sp, r)) || !!this.model.roomFlags?.[key]?.boss;
   }
 
-  /** 玩家进 Boss 房：封住两侧入口，血条出现，Boss 从天花板正中掉下来 */
+  /** 玩家进 Boss 房：先不出 Boss，只记下要封的门，等玩家走进来一点再封门、再出场 */
   private startBoss(r: RoomCoord): void {
-    const T = this.cfg.tile, x0 = r.rx * this.roomW, y0 = r.ry * this.roomH;
+    const x0 = r.rx * this.roomW, y0 = r.ry * this.roomH;
     this.bossRoom = r;
-    // 封门：房间左右两列里原本是空气的格子要变岩石，但等玩家离开门口再封，免得把人封进墙里
     this.bossDoors = []; this.bossDoorsPending = [];
     for (let y = y0; y < y0 + this.roomH; y++) for (const x of [x0, x0 + this.roomW - 1]) {
       if (!this.terrain.isSolid(x, y)) this.bossDoorsPending.push({ x, y });
     }
+  }
+
+  /** 门关上之后 Boss 才从放物件的位置落下 */
+  private spawnBoss(r: RoomCoord): void {
+    const T = this.cfg.tile, x0 = r.rx * this.roomW, y0 = r.ry * this.roomH;
     const sp = this.bossSpawns.find(b => this.sameRoom(b, r));
     const bx = sp ? sp.x : (x0 + this.roomW / 2) * T, by = sp ? sp.y : (y0 + 1.5) * T;
     this.boss = new Boss(this, bx, by, { hp: this.cfg.bossHp, hopMs: this.cfg.bossHopMs, spitMs: this.cfg.bossSpitMs, tile: T });
@@ -253,6 +257,9 @@ export class GameScene extends Phaser.Scene implements EntityHost {
     this.bossDoorsPending = [];
     this.cameras.main.shake(120, 0.005);
     this.fogDirty = true;
+    // 复活点就定在关门的这个位置
+    this.entry = { x: this.player.x, y: this.player.y, vx: 0, vy: 0 };
+    if (this.bossRoom) this.time.delayedCall(350, () => { if (this.bossRoom && !this.boss && this.bossDoors.length) this.spawnBoss(this.bossRoom); });
   }
 
   private endBoss(defeated: boolean): void {
@@ -298,8 +305,8 @@ export class GameScene extends Phaser.Scene implements EntityHost {
   }
 
   private updateBoss(): void {
-    if (!this.boss) return;
     this.sealBossDoors();
+    if (!this.boss) return;
     const boss = this.boss, T = this.cfg.tile;
     const ev = boss.step(this.time.now, { x: this.player.x, y: this.player.y });
     const feet = { x: Math.floor(boss.x / T), y: Math.floor(boss.body.bottom / T) };
@@ -663,12 +670,6 @@ export class GameScene extends Phaser.Scene implements EntityHost {
   private die(reason: string): void {
     if (this.dead) return;
     this.dead = true;
-    // 在 Boss 房里死：退回上一个房间的入口，重置后重新走进来才再触发 Boss
-    if (this.boss && this.prevEntry) {
-      this.entry = this.prevEntry; this.prevEntry = null;
-      const r = this.roomOf(this.entry.x, this.entry.y);
-      if (!this.sameRoom(r, this.room)) this.enterRoom(r, false);
-    }
     // 刚重置就死 = 入口本身致命 → 退回上一个房间的入口
     if (this.lastResetAt != null && this.time.now - this.lastResetAt < 400 && this.prevEntry) {
       this.entry = this.prevEntry; this.prevEntry = null;

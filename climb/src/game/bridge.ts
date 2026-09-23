@@ -22,6 +22,7 @@ export const EVT = {
   editorReload: 'editor:reload',
   startGame: 'game:start',
   playtestExit: 'playtest:exit',
+  requestReset: 'game:reset',
 } as const;
 
 export const bridge = new Phaser.Events.EventEmitter();

@@ -1,7 +1,7 @@
 // HUD：Phaser 每帧 / 每事件推给 React 的数据
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 
-export type GameMode = 'idle' | 'playing' | 'won';
+export type GameMode = 'idle' | 'playing' | 'dead' | 'won';
 
 export interface HudState {
   mode: GameMode;

@@ -89,3 +89,9 @@ label.check { display: flex; align-items: center; gap: 6px; margin: 8px 0; color
 .boss-bar { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); display: flex; gap: 4px; padding: 6px 8px; background: rgba(11,11,20,.7); border: 1px solid #7a2d3d; border-radius: 8px; }
 .boss-bar .seg { width: 26px; height: 12px; border-radius: 3px; background: #2a1a22; }
 .boss-bar .seg.on { background: #ef476f; box-shadow: 0 0 6px rgba(239,71,111,.6); }
+
+/* 死亡画面 */
+.death { position: absolute; inset: 0; pointer-events: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; background: rgba(70, 8, 16, .72); animation: death-in .35s ease-out; }
+.death-title { font-size: 56px; font-weight: bold; letter-spacing: 6px; color: #ffb3c1; text-shadow: 0 0 24px rgba(239,71,111,.8); }
+.death-sub { font-size: 16px; color: #e6e8f0; opacity: .85; }
+@keyframes death-in { from { opacity: 0; } to { opacity: 1; } }

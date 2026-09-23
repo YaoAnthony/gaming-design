@@ -156,7 +156,10 @@ export class GameScene extends Phaser.Scene implements EntityHost {
     kb.on('keydown-SPACE', press); kb.on('keydown-UP', press); kb.on('keydown-W', press);
     bridge.on(TOUCH_JUMP, press);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => { bridge.off(TOUCH_JUMP, press); touch.left = false; touch.right = false; });
-    kb.on('keydown-R', () => { if (!this.won) this.resetRoom(); });
+    kb.on('keydown-R', () => { if (this.won) return; if (this.dead) this.resetAfterDeath(); else this.resetRoom(); });
+    const requestReset = () => { if (this.dead && !this.won) this.resetAfterDeath(); };
+    bridge.on(EVT.requestReset, requestReset);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => bridge.off(EVT.requestReset, requestReset));
     if (this.playtest) kb.on('keydown-ESC', () => this.exitPlaytest());
 
     this.preview = this.add.graphics().setDepth(8);
@@ -669,7 +672,17 @@ export class GameScene extends Phaser.Scene implements EntityHost {
     this.player.freeze(0xef476f);
     this.flash(reason, '#ef476f');
     this.cameras.main.shake(200, 0.01);
-    this.time.delayedCall(550, () => { if (!this.dead) return; if (this.cfg.deathResetsWorld) this.resetWorld(); else this.resetRoom(); });
+    this.diedAt = this.time.now;
+    store.dispatch(setMode({ mode: 'dead' }));
+  }
+
+  private diedAt = 0;
+
+  /** 死亡画面里按 R（或点一下）：按设置重置整张地图或当前房间 */
+  private resetAfterDeath(): void {
+    if (!this.dead || this.time.now - this.diedAt < 300) return;   // 刚死的一瞬间不响应，免得误触
+    if (this.cfg.deathResetsWorld) this.resetWorld(); else this.resetRoom();
+    store.dispatch(setMode({ mode: 'playing' }));
   }
 
   private win(): void {

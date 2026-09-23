@@ -435,6 +435,14 @@ export class Terrain {
     return { x: minX * T + ch.container.x, y: minY * T + ch.py, w: (maxX - minX + 1) * T, h: (maxY - minY + 1) * T };
   }
 
+  /** 直接拿掉一块正在下落的碎块（比如被 Boss 吞了），不并回地形 */
+  removeChunk(ch: Chunk): void {
+    const i = this.chunks.indexOf(ch);
+    if (i < 0) return;
+    ch.container.destroy();
+    this.chunks.splice(i, 1);
+  }
+
   forEachChunkCell(fn: (ch: Chunk, px: number, py: number, w: number, h: number) => void): void {
     const T = this.T;
     this.chunks.forEach(ch => ch.cells.forEach(c => fn(ch, c.x * T, c.y * T + ch.py, T, T)));

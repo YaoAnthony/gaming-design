@@ -2,7 +2,7 @@
 import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { fileURLToPath, URL } from 'node:url';
-import { writeFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 
 const MAP_FILE = fileURLToPath(new URL('./src/map/world.json', import.meta.url));
 
@@ -17,6 +17,10 @@ function saveMapPlugin(): Plugin {
     // 写回 world.json 时不要触发页面刷新：运行时的地图在 Redux 里，文件只是默认值
     handleHotUpdate(ctx) { if (ctx.file === MAP_FILE) return []; },
     configureServer(server) {
+      server.middlewares.use('/__climb/load-map', async (_req, res) => {
+        res.setHeader('Content-Type', 'application/json');
+        try { res.end(await readFile(MAP_FILE, 'utf8')); } catch (err) { res.statusCode = 500; res.end(JSON.stringify({ ok: false, error: (err as Error).message })); }
+      });
       server.middlewares.use('/__climb/save-map', (req, res) => {
         if (req.method !== 'POST') { res.statusCode = 405; res.end('POST only'); return; }
         let body = '';

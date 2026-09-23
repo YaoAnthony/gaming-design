@@ -31,6 +31,13 @@ export interface GameConfig {
   directionalOffset: number;
   /** 死亡时重置整张地图（否则只重置当前房间） */
   deathResetsWorld: boolean;
+  /** 音乐音量 0-1 */
+  musicVolume: number;
+  /** Boss 参数 */
+  bossHp: number;
+  bossHopMs: number;
+  bossSpitMs: number;
+  bossMaxMinions: number;
   /** 迷雾开关 */
   fogEnabled: boolean;
   /** 光照传播半径（格）：从玩家出发沿空气逐格衰减，实心格挡光 */

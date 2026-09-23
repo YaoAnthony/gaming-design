@@ -6,7 +6,10 @@ import enemyUrl from './enemy.png';
 import doorUrl from './door.png';
 import sparkUrl from './spark.png';
 import fuseNodeUrl from './fusenode.png';
+import bossUrl from './boss.png';
 import boomUrl from './boob.mp3';
+import bgmUrl from './Pixelated_Coffee.mp3';
+import bossMusicUrl from './boss.mp3';
 
 export const TILE_SIZE = 32;
 
@@ -37,9 +40,12 @@ export const IMAGES: ImageAsset[] = [
   { key: 'door', url: doorUrl },
   { key: 'spark', url: sparkUrl },
   { key: 'fusenode', url: fuseNodeUrl },
+  { key: 'boss', url: bossUrl },
 ];
 
 export interface AudioAsset { key: string; url: string }
 export const AUDIO: AudioAsset[] = [
-  { key: 'boom', url: boomUrl },   // 起跳爆炸
+  { key: 'boom', url: boomUrl },            // 起跳爆炸
+  { key: 'bgm', url: bgmUrl },              // 平时的背景音乐（循环）
+  { key: 'bossMusic', url: bossMusicUrl },  // Boss 战音乐（循环）
 ];

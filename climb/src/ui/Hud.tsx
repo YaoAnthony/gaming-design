@@ -12,6 +12,11 @@ export function Hud() {
   if (hud.mode === 'idle') return null;
   return (
     <div className="hud">
+      {hud.boss && (
+        <div className="boss-bar">
+          {Array.from({ length: hud.boss.max }, (_, i) => <span key={i} className={'seg' + (i < hud.boss!.hp ? ' on' : '')} />)}
+        </div>
+      )}
       {hud.message && <div className={'hud-msg' + (msgVisible ? ' show' : '')} style={{ color: hud.message.color }}>{hud.message.text}</div>}
       {hud.mode === 'won' && (
         <Celebration title="到达建筑！" subtitle={`跳跃 ${hud.jumps} 次，摧毁 ${hud.destroyed} 格地形${hud.playtest ? '　ESC 回编辑器' : ''}`} />

@@ -27,6 +27,11 @@ export const DEFAULT_CONFIG: GameConfig = {
   directionalBlast: false,
   directionalOffset: 2,
   deathResetsWorld: true,
+  musicVolume: 0.35,
+  bossHp: 10,
+  bossHopMs: 1400,
+  bossSpitMs: 5000,
+  bossMaxMinions: 6,
   fogEnabled: false,   // 先关着，以后要用再开
   fogRadius: 7,
   fogMemoryAlpha: 0.6,

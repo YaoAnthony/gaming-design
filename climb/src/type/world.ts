@@ -20,4 +20,6 @@ export interface WorldModel {
 export interface RoomFlags {
   /** 这个房间不要迷雾（比如出生房间、剧情房间） */
   noFog?: boolean;
+  /** Boss 房间：玩家一进来就封门、出 Boss */
+  boss?: boolean;
 }

@@ -84,3 +84,8 @@ label.check { display: flex; align-items: center; gap: 6px; margin: 8px 0; color
 @media (orientation: portrait) {
   .app.mobile .rotate-hint { display: flex; position: fixed; inset: 0; align-items: center; justify-content: center; background: #0b0b14; color: var(--muted); font-size: 22px; z-index: 50; }
 }
+
+/* Boss 血条 */
+.boss-bar { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); display: flex; gap: 4px; padding: 6px 8px; background: rgba(11,11,20,.7); border: 1px solid #7a2d3d; border-radius: 8px; }
+.boss-bar .seg { width: 26px; height: 12px; border-radius: 3px; background: #2a1a22; }
+.boss-bar .seg.on { background: #ef476f; box-shadow: 0 0 6px rgba(239,71,111,.6); }

@@ -47,6 +47,11 @@ defineEntity({
 });
 
 defineEntity({
+  id: 'K', name: 'Boss 大史莱姆', desc: '放进哪个房间，那个房间就是 Boss 战：进门封门、出血条，Boss 从这里落下。只有落石和引线能伤它', texture: 'boss', color: 0x9b5de5,
+  spawn({ host, wx, wy, cell }) { host.addBoss({ x: wx, y: wy, rx: cell.rx, ry: cell.ry }); },
+});
+
+defineEntity({
   id: 'G', name: '终点', desc: '碰到即通关，上面会画一座建筑', texture: 'door', color: 0xffd166,
   spawn({ host, wx, wy }) { host.setGoal({ x: wx, y: wy }); },
 });

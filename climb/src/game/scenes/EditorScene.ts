@@ -133,8 +133,8 @@ export class EditorScene extends Phaser.Scene {
     const ech = (key && this.state().model.entities?.[key]?.[y]?.[x]) || '.';
     const cls = classify(ech);
     if (cls.kind === 'entity') {
+      // 按游戏里的真实尺寸画，以这一格的中心为中心，所见即所得
       const img = this.add.image(x * T + T / 2, y * T + T / 2, cls.def.texture).setDepth(2.3);
-      img.setScale(Math.min(T / img.width, T / img.height) * 0.9);
       this.entityImgs.set(k, img);
     }
   }

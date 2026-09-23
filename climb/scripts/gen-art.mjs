@@ -124,6 +124,16 @@ enemy.rect(6, 7, 5, 5, 0xffffff); enemy.rect(17, 7, 5, 5, 0xffffff);
 enemy.rect(8, 9, 2, 2, 0x0b0b14); enemy.rect(19, 9, 2, 2, 0x0b0b14);
 enemy.save('enemy.png');
 
+// ---- 大史莱姆 96x96（正好 3x3 格）----
+const boss = new Canvas(96, 96);
+boss.roundRect(0, 10, 96, 86, 32, 0x6a3fb0);
+boss.roundRect(6, 16, 84, 74, 28, 0x9b5de5);
+boss.roundRect(14, 22, 30, 16, 8, 0xc4a7ff);          // 高光
+boss.rect(24, 44, 14, 16, 0xffffff); boss.rect(58, 44, 14, 16, 0xffffff);
+boss.rect(30, 50, 6, 8, 0x0b0b14); boss.rect(64, 50, 6, 8, 0x0b0b14);
+boss.rect(36, 72, 24, 6, 0x3a1f5c);                    // 嘴
+boss.save('boss.png');
+
 // ---- 门 24x32 ----
 const door = new Canvas(24, 32);
 door.roundRect(0, 0, 24, 44, 12, 0xffd166);

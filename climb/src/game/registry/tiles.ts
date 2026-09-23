@@ -72,6 +72,11 @@ defineEntity({
   spawn({ host, wx, wy }) { host.addNpc({ x: wx, y: wy, name: '骷髅', texture: 'skeleton', avatar: 'default', lines: DIALOGUES.skeleton, sound: 'bossLaugh' }); },
 });
 
+defineTile(
+  { id: '%', name: '门', desc: '锁着的门：拿对应颜色的钥匙碰一下就开。由「钥匙与门」工具烘焙，不直接画', color: 0xbdbdbd, frame: TILE_FRAMES.door, editorVisible: false },
+  Traits.Solid, Traits.Anchor,
+);
+
 // ---------- 道具 ----------
 const candle = defineItem({ id: 'candle', name: '蜡烛', texture: 'candle', light: 8 });
 
@@ -84,3 +89,11 @@ defineEntity({
   id: 'V', name: '音量滑块', desc: '设置房间用：喇叭图标右边一条轨道，走过去把滑钮推到哪儿，音乐就多大', texture: 'volume', color: 0xffd166, origin: [0.5, 1],
   spawn({ host, wx, wy }) { host.addSlider({ x: wx, y: wy, length: 8, config: 'musicVolume', min: 0, max: 1 }); },
 });
+
+// ---------- 吃豆人（俯视层用） ----------
+const PAC = '吃豆人';
+defineEntity({ id: 'o', name: '豆子', desc: '吃一颗 10 分。房间里的豆子吃光会触发后面的剧情', texture: 'pellet', color: 0xffe8b0, group: PAC, spawn({ host, wx, wy }) { host.addPellet({ x: wx, y: wy }, false); } });
+defineEntity({ id: 'O', name: '大力丸', desc: '50 分，鬼全部变蓝一段时间，可以反吃', texture: 'power', color: 0xffe8b0, group: PAC, spawn({ host, wx, wy }) { host.addPellet({ x: wx, y: wy }, true); } });
+defineEntity({ id: 'H', name: '鬼巢', desc: '四只鬼从这里出来，被吃后回这里复活。放在巢的门口那一格', texture: 'ghosthouse', color: 0xffb3c6, group: PAC, spawn({ host, wx, wy }) { host.addGhostHouse({ x: wx, y: wy }); } });
+defineEntity({ id: 'F', name: '葡萄点', desc: '吃到 70 颗和 170 颗豆子时在这里出现葡萄，9 秒内吃到加分', texture: 'grapes', color: 0x9b5de5, group: PAC, spawn({ host, wx, wy }) { host.addFruitPoint({ x: wx, y: wy }); } });
+defineEntity({ id: '~', name: '隧道格', desc: '鬼经过这里减速；配合房间开关「左右打通」做穿屏隧道。游戏里不可见', texture: 'tunnel', color: 0x4cc9f0, group: PAC, spawn({ host, cell }) { host.addTunnel({ x: cell.x, y: cell.y }); } });

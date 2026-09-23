@@ -107,3 +107,33 @@ describe('project', () => {
     expect(blocks[0].cells[0]).toEqual({ x: 1, y: 1 });
   });
 });
+
+// ---- 钥匙与门 ----
+import { addLockGroup, bakeLocks, LOCK_COLORS, removeLockGroup, setDoorCell, setKeyCell } from './WorldModel';
+
+describe('locks', () => {
+  const base = (): WorldModel => ({ roomW: 5, roomH: 4, layout: [['A']], rooms: { A: ['RRRRR', 'R...R', 'R.#.R', 'RRRRR'] } });
+  it('每加一组颜色往后轮，最多 9 组', () => {
+    const m = base();
+    const a = addLockGroup(m)!, b = addLockGroup(m)!;
+    expect([a.id, b.id]).toEqual([1, 2]);
+    expect([a.color, b.color]).toEqual([LOCK_COLORS[0], LOCK_COLORS[1]]);
+    for (let i = 0; i < 7; i++) addLockGroup(m);
+    expect(addLockGroup(m)).toBeNull();
+  });
+  it('门只烘进空气格，钥匙记坐标；删组后全部消失', () => {
+    const m = base();
+    const g = addLockGroup(m)!;
+    setDoorCell(m, 'A', 1, 1, g.id); setDoorCell(m, 'A', 2, 2, g.id);   // (2,2) 是泥土，烘不进去
+    setKeyCell(m, 'A', 3, 1, g.id);
+    const { model, doors, keys } = bakeLocks(m);
+    expect(model.rooms.A[1]).toBe('R%..R');
+    expect(model.rooms.A[2]).toBe('R.#.R');
+    expect(doors.map(d => [d.x, d.y, d.group])).toEqual([[1, 1, 1]]);   // 泥土上的门不算
+    expect(keys).toEqual([{ x: 3, y: 1, group: 1 }]);
+    expect(m.rooms.A[1]).toBe('R...R');                                    // 原模型不动
+    removeLockGroup(m, g.id);
+    expect(bakeLocks(m).doors).toEqual([]);
+    expect(m.locks!.keys.A[1]).toBe('.....');
+  });
+});

@@ -12,6 +12,16 @@ export const DIALOGUES: Record<string, DialogueLine[]> = {
     { text: '那是我的小家，没什么好看的，你已经通关了，恭喜你，你可以回家了' },
     { text: '我跟你说别炸了，time to go home!' },
     { text: '这么想去我家看看？' },
-    { text: '哈哈哈，那你可别后悔' },
+    { text: '哈哈哈，那你可别后悔', avatar: 'laugh' },
+  ],
+  /** 吃豆人层：豆子吃光之后（骷髅王的画外音，自动翻页） */
+  pacTaunt: [
+    { text: '哈哈哈，你是不是以为吃完东西就赢了？', avatar: 'laugh', autoMs: 2800 },
+    { text: '接着被追下去吧', autoMs: 2200 },
+  ],
+  /** 鬼全灭之后 */
+  pacKing: [
+    { text: '嗯~ 这葡萄真好吃，也不知道这小子被追的怎么样了', autoMs: 3400 },
+    { text: '诶？！怎么全没了', autoMs: 2400 },
   ],
 };

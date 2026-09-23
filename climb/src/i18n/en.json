@@ -1,0 +1,12 @@
+{
+  "start": "Start",
+  "rotate": "Rotate to landscape",
+  "loading": "Loading {{pct}}%",
+  "place": "Location: {{place}}",
+  "dead": "U DEAD",
+  "deadHint": "Press R",
+  "won": "Cleared!",
+  "wonStats": "{{jumps}} jumps, {{destroyed}} tiles destroyed",
+  "wonContinue": "jump to continue",
+  "wonEditor": "ESC back to editor"
+}

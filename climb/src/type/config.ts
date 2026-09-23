@@ -11,6 +11,8 @@ export interface GameConfig {
   wallSlideMaxFall: number;
   /** 最大下落速度（像素/秒）。必须小于 60Hz 下 tileBias 允许的每步位移，否则会穿过砖块 */
   maxFall: number;
+  /** 俯视层的移动速度（像素/秒） */
+  topdownSpeed: number;
   wallJumpLockMs: number;
   coyoteMs: number;
   jumpBufferMs: number;

@@ -1,5 +1,5 @@
 // ===== 世界模型的纯函数：拼图、找出生点、房间增删移动、导出 =====
-import type { CellRef, Floor, Project, RoomCoord, RoomFlags, TextBlock, WorldModel } from '@/type';
+import type { LockGroup, Locks, CellRef, Floor, Project, RoomCoord, RoomFlags, TextBlock, WorldModel } from '@/type';
 import { layoutText } from './font';
 import { Entities } from '@/game/registry/registry';
 
@@ -255,6 +255,7 @@ export function deleteRoom(m: WorldModel, key: string): void {
   if (m.entities) delete m.entities[key];
   if (m.roomFlags) delete m.roomFlags[key];
   if (m.texts) delete m.texts[key];
+  if (m.locks) { delete m.locks.doors[key]; delete m.locks.keys[key]; }
   trimLayout(m);
 }
 
@@ -286,4 +287,77 @@ export function isValidModel(m: unknown): m is WorldModel {
   if (!m || typeof m !== 'object') return false;
   const o = m as Record<string, unknown>;
   return typeof o.roomW === 'number' && typeof o.roomH === 'number' && Array.isArray(o.layout) && !!o.rooms && typeof o.rooms === 'object';
+}
+
+// ---------- 钥匙与门 ----------
+/** 组的颜色按添加顺序轮着来：蓝 绿 黄 红 紫 橙 粉 白 青 */
+export const LOCK_COLORS = [0x4cc9f0, 0x06d6a0, 0xffd166, 0xef476f, 0x9b5de5, 0xff9f1c, 0xff8fab, 0xf1efe6, 0x00b4d8];
+export const LOCK_COLOR_NAMES = ['蓝', '绿', '黄', '红', '紫', '橙', '粉', '白', '青'];
+/** 门在砖块行里的字符（烘焙时写入，不进物品栏） */
+export const DOOR_CHAR = '%';
+
+export function lockGroup(m: WorldModel, id: number): LockGroup | undefined { return m.locks?.groups.find(g => g.id === id); }
+
+/** 加一组：id 取最小没用过的 1-9，颜色按 id 轮 */
+export function addLockGroup(m: WorldModel): LockGroup | null {
+  const locks: Locks = (m.locks ??= { groups: [], doors: {}, keys: {} });
+  let id = 1; while (locks.groups.some(g => g.id === id)) id++;
+  if (id > 9) return null;
+  const g = { id, color: LOCK_COLORS[(id - 1) % LOCK_COLORS.length] };
+  locks.groups.push(g);
+  return g;
+}
+
+/** 删一组：它的门和钥匙全擦掉 */
+export function removeLockGroup(m: WorldModel, id: number): void {
+  if (!m.locks) return;
+  m.locks.groups = m.locks.groups.filter(g => g.id !== id);
+  const ch = String(id);
+  [m.locks.doors, m.locks.keys].forEach(layer => Object.keys(layer).forEach(k => { layer[k] = layer[k].map(r => r.split(ch).join('.')); }));
+}
+
+function setLockCell(m: WorldModel, layer: 'doors' | 'keys', key: string, x: number, y: number, id: number): void {
+  const locks: Locks = (m.locks ??= { groups: [], doors: {}, keys: {} });
+  locks[layer][key] ??= Array.from({ length: m.roomH }, () => '.'.repeat(m.roomW));
+  const r = locks[layer][key][y];
+  locks[layer][key][y] = r.substring(0, x) + (id > 0 ? String(id) : '.') + r.substring(x + 1);
+}
+export const setDoorCell = (m: WorldModel, key: string, x: number, y: number, id: number): void => setLockCell(m, 'doors', key, x, y, id);
+export const setKeyCell = (m: WorldModel, key: string, x: number, y: number, id: number): void => setLockCell(m, 'keys', key, x, y, id);
+
+export interface LockCell extends CellRef { group: number }
+/** 门烘进砖块行（只占空气格）；返回门格和钥匙格的世界坐标 + 组号 */
+export function bakeLocks(m: WorldModel): { model: WorldModel; doors: LockCell[]; keys: LockCell[] } {
+  const model = cloneModel(m);
+  const doors: LockCell[] = [], keys: LockCell[] = [];
+  const locks = model.locks;
+  if (!locks) return { model, doors, keys };
+  const valid = new Set(locks.groups.map(g => g.id));
+  const scan = (layer: Record<string, string[]>, out: LockCell[], bake: boolean) => {
+    Object.entries(layer).forEach(([key, rows]) => {
+      const pos = positionOf(model, key);
+      if (!pos || !model.rooms[key]) return;
+      rows.forEach((row, y) => [...row].forEach((ch, x) => {
+        const group = Number(ch);
+        if (!(group >= 1 && group <= 9) || !valid.has(group)) return;
+        if (bake) {
+          const r = model.rooms[key][y];
+          if (r[x] !== '.') return;
+          model.rooms[key][y] = r.substring(0, x) + DOOR_CHAR + r.substring(x + 1);
+        }
+        out.push({ x: pos.rx * model.roomW + x, y: pos.ry * model.roomH + y, group });
+      }));
+    });
+  };
+  scan(locks.doors, doors, true);
+  scan(locks.keys, keys, false);
+  return { model, doors, keys };
+}
+
+// ---------- 层的模式 ----------
+/** 这一层是不是俯视（吃豆人）：手动勾了，或者地图里放了任何「吃豆人」分区的物件（豆子、鬼巢……）就自动算 */
+export function isTopdown(floor: Floor): boolean {
+  if (floor.mode === 'topdown') return true;
+  const pac = new Set(Entities.filter(e => e.group === '吃豆人').map(e => e.id));
+  return Object.values(floor.model.entities ?? {}).some(rows => rows.some(r => [...r].some(ch => pac.has(ch))));
 }

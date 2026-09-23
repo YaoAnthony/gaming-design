@@ -90,6 +90,7 @@ export function defineEntity(spec: EntitySpec): EntityDef {
   const def: EntityDef = {
     id: spec.id, name: spec.name, desc: spec.desc ?? '', texture: spec.texture, unique: spec.unique ?? false, color: spec.color ?? 0xffffff,
     origin: spec.origin ?? [0.5, 0.5],
+    group: spec.group ?? '物件',
     spawn: spec.spawn, index: 0,
   };
   return Entities.register(def);

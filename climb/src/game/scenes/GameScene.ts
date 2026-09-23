@@ -3,7 +3,7 @@ import Phaser from 'phaser';
 import type { CellRef, EnemySpawn, EntityHost, EntryState, FogState, GameConfig, ItemDef, ItemSpawn, NpcSpawn, Point, Project, RoomCoord, SkillContext, SkillDef, SliderSpawn, TextBlock, WorldModel } from '@/type';
 import { classify, Items, Skills, Tiles } from '@/game/registry/registry';
 import { Terrain, type Chunk } from '@/game/terrain/Terrain';
-import { bakeTexts, entityRows, floorAfter, floorIndex, fogRows, fuseRows, roomKeyAt, worldRows } from '@/game/world/WorldModel';
+import { bakeLocks, bakeTexts, DOOR_CHAR, entityRows, floorAfter, floorIndex, fogRows, fuseRows, isTopdown, lockGroup, roomKeyAt, worldRows, type LockCell } from '@/game/world/WorldModel';
 import { FuseNet } from '@/game/fuse/Fuse';
 import { FogOfWar } from '@/game/fog/Fog';
 import { bridge, EVT, SCENE, type StartGameData } from '@/game/bridge';
@@ -11,10 +11,18 @@ import { Player, Enemy, CarriedPaper, TopPlatform, Boss, SparkBurst, type JumpEv
 import { createSparkEmitter, playCrush, playExplosion, playLand, type SparkEmitter } from '@/particle';
 import { store } from '@/redux/store';
 import { resizeGame } from '@/game/resize';
-import { touch, TOUCH_JUMP } from '@/game/input';
+import { touch, TOUCH_ACTION, TOUCH_JUMP } from '@/game/input';
 import { Music } from '@/game/Music';
-import { flash, setBoss, setDialogue, setMode, setRoomKey, setStats } from '@/redux/slices/hudSlice';
+import { GhostManager } from '@/game/pacman/Ghosts';
+import { DIALOGUES } from '@/game/registry/dialogues';
+import type { DialogueLine } from '@/type';
+import { flash, setBoss, setDialogue, setMode, setPlace, setRoomKey, setScore, setStats, setTopdown } from '@/redux/slices/hudSlice';
 import { setConfig } from '@/redux/slices/configSlice';
+
+/** 能拿在手上的东西 */
+interface Carry { id: string; texture: string; tint: number; light: number; /** 钥匙对应的组 */ key?: number }
+interface GroundThing { carry: Carry; x: number; y: number; sprite: Phaser.GameObjects.Image; glow?: Phaser.GameObjects.Image; /** 刚放下的：人走开之前不能再捡 */ blocked: boolean }
+const carryOfItem = (d: ItemDef): Carry => ({ id: d.id, texture: d.texture, tint: 0xffffff, light: d.light });
 
 interface Slider { spawn: SliderSpawn; x0: number; x1: number; y: number; knob: Phaser.GameObjects.Rectangle; waves: Phaser.GameObjects.Graphics; value: number }
 
@@ -34,13 +42,37 @@ export class GameScene extends Phaser.Scene implements EntityHost {
   private npcs: Npc[] = [];
   private npcBodies!: Phaser.Physics.Arcade.StaticGroup;
   private talking: Npc | null = null;
-  /** 地上的道具 */
-  private groundItems: { spawn: ItemSpawn; sprite: Phaser.GameObjects.Image; glow?: Phaser.GameObjects.Image }[] = [];
-  /** 身上带着的道具 → 手上的贴图（和光晕）*/
-  private held = new Map<string, { sprite: Phaser.GameObjects.Image; glow: Phaser.GameObjects.Image }>();
-  private heldIds: string[] = [];
+  /** 手上只有一个位置：蜡烛、钥匙……拿了新的就把旧的放在原地（共用的携带机制） */
+  private ground: GroundThing[] = [];
+  private held: { carry: Carry; sprite: Phaser.GameObjects.Image; glow: Phaser.GameObjects.Image } | null = null;
+  /** 进场时手里的东西（换层 / 读档带过来的 id） */
+  private heldId: string | null = null;
   /** 设置房间里的滑块 */
   private sliders: Slider[] = [];
+  private pendingKeys: LockCell[] = [];
+  /** 钥匙与门：门格（烘进砖块）、已经开了的组 */
+  private doorCells: LockCell[] = [];
+  private openedLocks = new Set<number>();
+  private lockColor = (group: number): number => lockGroup(this.model, group)?.color ?? 0xffffff;
+  /** 俯视层（吃豆人）：无重力、四方向；豆子 / 鬼巢 / 葡萄点 / 隧道 */
+  private topdown = false;
+  private pellets: { x: number; y: number; power: boolean; sprite: Phaser.GameObjects.Image }[] = [];
+  /** 所有豆子的原位：死亡复活时（剧情开始前）全部复原 */
+  private pelletSpawns: { x: number; y: number; power: boolean }[] = [];
+  private ghostHouses: Point[] = [];
+  private fruitPoints: Point[] = [];
+  private tunnels = new Set<number>();
+  private score = 0;
+  private eaten = 0;
+  private ghosts: GhostManager | null = null;
+  private powerCount = 0;
+  private fruit: { sprite: Phaser.GameObjects.Image; until: number; x: number; y: number } | null = null;
+  /** 清豆之后的剧本：追 → 画外音 → 解锁炸弹 → 鬼全灭 → 骷髅王登场。用时间戳推进，不用定时器（重置会清定时器） */
+  private pac: { phase: 'play' | 'chase' | 'taunt' | 'bombs' | 'kingWait' | 'king' | 'done'; at: number } = { phase: 'play', at: 0 };
+  /** 剧情对话（不挂在角色上，按 autoMs 自动翻页） */
+  private cutscene: { speaker: string; lines: DialogueLine[]; index: number; until: number; onDone?: () => void } | null = null;
+  private bombsUnlocked = false;
+  private bomb: { cell: CellRef; sprite: Phaser.GameObjects.Image; explodeAt: number; armed: boolean } | null = null;
   private announceFloor = false;
   /** 正在切层（淡出中），不再响应输入 */
   private leaving = false;
@@ -82,6 +114,7 @@ export class GameScene extends Phaser.Scene implements EntityHost {
   private skill!: SkillDef;
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private keys!: Record<'A' | 'D', Phaser.Input.Keyboard.Key>;
+  private keys4!: Record<'W' | 'S', Phaser.Input.Keyboard.Key>;
 
   spawnPoints: Point[] = [];
   private enemySpawns: EnemySpawn[] = [];
@@ -102,11 +135,19 @@ export class GameScene extends Phaser.Scene implements EntityHost {
     this.project = data.project;
     const floor = (data.floorId && this.project.floors.find(f => f.id === data.floorId)) || this.project.floors[0];
     this.floorId = floor.id;
+    this.topdown = isTopdown(floor);
+    this.pellets = []; this.pelletSpawns = []; this.ghostHouses = []; this.fruitPoints = []; this.tunnels = new Set(); this.score = 0; this.eaten = 0;
+    this.ghosts = null; this.powerCount = 0; this.fruit = null;
+    this.pac = { phase: 'play', at: 0 }; this.cutscene = null; this.bombsUnlocked = false; this.bomb = null;
     const baked = bakeTexts(floor.model);
-    this.model = baked.model;
+    const locks = bakeLocks(baked.model);
+    this.model = locks.model;
+    this.doorCells = locks.doors;
+    this.pendingKeys = locks.keys;
+    this.openedLocks = new Set();
     this.textBlocks = baked.blocks.filter(b => b.cells.length > 0).map(b => ({ block: b.block, cells: b.cells, done: false }));
     this.portals = []; this.npcs = []; this.talking = null;
-    this.groundItems = []; this.held = new Map(); this.heldIds = data.items ?? [];
+    this.ground = []; this.held = null; this.heldId = data.held ?? null;
     this.sliders = [];
     this.announceFloor = !!data.announceFloor;
     this.leaving = false;
@@ -188,10 +229,20 @@ export class GameScene extends Phaser.Scene implements EntityHost {
 
     this.player = new Player(this, start.x, start.y, this.cfg);
     if (this.savedEntry) this.player.setVelocity(this.savedEntry.vx, this.savedEntry.vy);
-    this.physics.add.collider(this.player, this.terrain.layer);
+    if (this.topdown) {
+      // 俯视：整层没有重力；人靠格子逻辑走，不和砖块做物理碰撞（穿屏隧道要能出边界）
+      this.physics.world.gravity.y = 0;
+      this.player.setTopDown(true);
+      this.player.setPosition(Math.floor(start.x / T) * T + T / 2, Math.floor(start.y / T) * T + T / 2);
+    } else this.physics.add.collider(this.player, this.terrain.layer);
     this.physics.add.collider(this.player, this.carriedGroup);
     this.physics.add.collider(this.player, this.npcBodies);
-    this.heldIds.forEach(id => { const def = Items.get(id); if (def) this.hold(def); });
+    { const def = this.heldId ? Items.get(this.heldId) : undefined; if (def) this.hold(carryOfItem(def)); else this.heldId = null; }   // 钥匙不跨层
+    this.pendingKeys.forEach(c => this.spawnGround({ id: 'key:' + c.group, texture: 'key', tint: this.lockColor(c.group), light: 0, key: c.group }, c.x * T + T / 2, c.y * T + T / 2));
+    this.tintDoors();
+
+    if (this.topdown && this.ghostHouses.length) this.spawnGhosts(this.ghostHouses[0]);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => { this.ghosts?.destroy(); this.ghosts = null; });
 
     this.cameras.main.setBounds(0, 0, levelW, levelH);
     this.entry = { x: start.x, y: start.y, vx: 0, vy: 0 };
@@ -203,9 +254,14 @@ export class GameScene extends Phaser.Scene implements EntityHost {
     this.cursors = kb.createCursorKeys();
     this.keys = kb.addKeys({ A: 'A', D: 'D' }) as Record<'A' | 'D', Phaser.Input.Keyboard.Key>;
     const press = () => { if (this.won) this.continueAfterWin(); else this.player.pressJump(this.time.now); };
-    kb.on('keydown-SPACE', press); kb.on('keydown-UP', press); kb.on('keydown-W', press);
-    bridge.on(TOUCH_JUMP, press);
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => { bridge.off(TOUCH_JUMP, press); touch.left = false; touch.right = false; });
+    // 俯视层：W / ↑ 是往上走，永远不当动作键；动作只认空格（炸弹之后接在 action 上）
+    const action = () => { if (this.won) this.continueAfterWin(); else if (this.talking) this.advanceDialogue(); else if (this.bombsUnlocked && !this.dead) this.placeBomb(); };
+    if (this.topdown) { kb.on('keydown-SPACE', action); bridge.on(TOUCH_ACTION, action); }
+    else { kb.on('keydown-SPACE', press); kb.on('keydown-UP', press); kb.on('keydown-W', press); bridge.on(TOUCH_JUMP, press); }
+    this.keys4 = kb.addKeys({ W: 'W', S: 'S' }) as Record<'W' | 'S', Phaser.Input.Keyboard.Key>;
+    // 开发期：K = 把剩下的豆子一口吃光，直接看清空之后的剧情
+    if (import.meta.env.DEV && this.topdown) kb.on('keydown-K', () => { if (!this.pellets.length) return; this.pellets.forEach(pe => pe.sprite.destroy()); this.eaten += this.pellets.length; this.pellets = []; this.onPelletsCleared(); });
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => { bridge.off(TOUCH_JUMP, press); bridge.off(TOUCH_ACTION, action); touch.left = false; touch.right = false; touch.up = false; touch.down = false; });
     kb.on('keydown-R', () => { if (this.won) return; if (this.dead) this.resetAfterDeath(); else this.resetRoom(); });
     const requestReset = () => { if (this.dead && !this.won) this.resetAfterDeath(); };
     const continueGame = () => { if (this.won) this.continueAfterWin(); };
@@ -227,6 +283,8 @@ export class GameScene extends Phaser.Scene implements EntityHost {
       if (floor) this.flash(floor.name, '#ffd166');
     }
     store.dispatch(setMode({ mode: 'playing', playtest: this.playtest }));
+    store.dispatch(setPlace(this.project.floors.find(f => f.id === this.floorId)?.place ?? ''));
+    store.dispatch(setTopdown(this.topdown)); store.dispatch(setScore(0));
     store.dispatch(setStats({ jumps: this.jumps, destroyed: this.destroyed }));
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => { this.music.stop(); store.dispatch(setMode({ mode: 'idle' })); store.dispatch(setBoss(null)); store.dispatch(setDialogue(null)); });
   }
@@ -239,66 +297,331 @@ export class GameScene extends Phaser.Scene implements EntityHost {
     this.add.image(p.x, p.y + this.cfg.tile / 2, 'castle').setOrigin(0.5, 1).setDepth(1.5);
   }
   addItem(spawn: ItemSpawn): void {
-    if (this.heldIds.includes(spawn.item.id)) return;   // 已经拿着了，地上不再放
-    const sprite = this.add.image(spawn.x, spawn.y + this.cfg.tile / 2, spawn.item.texture).setOrigin(0.5, 1).setDepth(2.4);
-    this.tweens.add({ targets: sprite, y: sprite.y - 3, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
-    let glow: Phaser.GameObjects.Image | undefined;
-    if (spawn.item.light > 0) {
-      // 地上就亮着，远远看见，勾着人过去
-      glow = this.add.image(spawn.x, spawn.y, 'fogglow').setDepth(2.35).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.3).setScale(1.5);
-      this.tweens.add({ targets: glow, alpha: 0.45, scale: 1.75, duration: 160, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
-    }
-    this.groundItems.push({ spawn, sprite, glow });
-    this.syncLightSources();
-  }
-  /** 地上会发光的道具都是迷雾里的光源 */
-  private syncLightSources(): void {
-    const T = this.cfg.tile;
-    this.fog?.setSources(this.groundItems.filter(g => g.spawn.item.light > 0).map(g => ({ x: Math.floor(g.spawn.x / T), y: Math.floor(g.spawn.y / T), r: g.spawn.item.light })));
-    this.fogDirty = true;
+    if (this.heldId === spawn.item.id) return;   // 已经拿着了，地上不再放
+    this.spawnGround(carryOfItem(spawn.item), spawn.x, spawn.y);
   }
 
-  // ---------- 道具 ----------
-  /** 碰到就捡 */
-  private checkItems(): void {
-    if (!this.groundItems.length) return;
+  // ---------- 吃豆人 ----------
+  addPellet(p: Point, power: boolean): void {
+    this.pelletSpawns.push({ x: p.x, y: p.y, power });
+    this.placePellet(p, power);
+  }
+  private placePellet(p: Point, power: boolean): void {
+    const sprite = this.add.image(p.x, p.y, power ? 'power' : 'pellet').setDepth(2.2);
+    if (power) this.tweens.add({ targets: sprite, alpha: 0.35, duration: 260, yoyo: true, repeat: -1 });
+    this.pellets.push({ x: p.x, y: p.y, power, sprite });
+  }
+  addGhostHouse(p: Point): void { this.ghostHouses.push(p); this.add.image(p.x, p.y, 'ghosthouse').setDepth(2.2); }
+  addFruitPoint(p: Point): void { this.fruitPoints.push(p); }
+  addTunnel(cell: CellRef): void { this.tunnels.add(cell.y * this.terrain.w + cell.x); }
+
+  private addScore(n: number): void { this.score += n; store.dispatch(setScore(this.score)); }
+  /** 走到豆子所在格就吃掉 */
+  private eatPellets(): void {
+    const b = this.player.body, T = this.cfg.tile;
+    for (let i = this.pellets.length - 1; i >= 0; i--) {
+      const pe = this.pellets[i];
+      if (Math.abs(b.center.x - pe.x) > T * 0.45 || Math.abs(b.center.y - pe.y) > T * 0.45) continue;
+      this.pellets.splice(i, 1); pe.sprite.destroy();
+      this.eaten++;
+      this.addScore(pe.power ? 50 : 10);
+      if (pe.power) this.onPowerPellet();
+      if (!this.pellets.some(q => !q.power)) this.onPelletsCleared();   // 小豆子吃光就算清空，四个角的大力丸不算
+    }
+  }
+  /** 大力丸：鬼全部变蓝；蓝的时间一次比一次短 */
+  private onPowerPellet(): void {
+    this.cameras.main.flash(120, 255, 232, 176, false);
+    const ms = Math.max(1500, 6000 - this.powerCount * 800);
+    this.powerCount++;
+    this.ghosts?.frighten(ms);
+  }
+  private spawnGhosts(door: Point): void {
+    const T = this.cfg.tile, r = this.roomOf(door.x, door.y);
+    const key = roomKeyAt(this.model, r.rx, r.ry) ?? '';
+    this.ghosts = new GhostManager(this, {
+      tile: T, w: this.terrain.w,
+      isSolid: (cx, cy) => cx < 0 || cy < 0 || cx >= this.terrain.w || cy >= this.terrain.h || this.terrain.isSolid(cx, cy) || (!!this.bomb && this.bomb.cell.x === cx && this.bomb.cell.y === cy),
+      room: { x0: r.rx * this.roomW, y0: r.ry * this.roomH, w: this.roomW, h: this.roomH },
+      wrapX: !!this.model.roomFlags?.[key]?.wrapX,
+      tunnels: this.tunnels,
+      player: () => { const b = this.player.body; return { cx: Math.floor(b.center.x / T), cy: Math.floor(b.center.y / T), dir: this.player.heading }; },
+    }, door);
+  }
+  /** 鬼：每帧走一步，碰到玩家看是谁吃谁 */
+  private updateGhosts(dt: number): void {
+    if (!this.ghosts) return;
+    this.ghosts.update(dt, this.time.now);
+    if (this.dead || this.won || this.leaving) return;
     const r = this.player.rect();
-    for (let i = this.groundItems.length - 1; i >= 0; i--) {
-      const g = this.groundItems[i];
-      if (!Phaser.Geom.Intersects.RectangleToRectangle(g.sprite.getBounds(), r)) continue;
-      this.groundItems.splice(i, 1);
+    const hit = this.ghosts.touch(new Phaser.Geom.Rectangle(r.x + 4, r.y + 4, r.width - 8, r.height - 8));
+    if (hit.eaten) {
+      const score = this.ghosts.eat(hit.eaten);
+      this.addScore(score);
+      this.popScore(hit.eaten.x, hit.eaten.y, score);
+      this.sparks.explode(10, hit.eaten.x, hit.eaten.y);
+      this.cameras.main.shake(80, 0.004);
+    } else if (hit.caught) this.die('被鬼抓住了');
+  }
+  /** 飘起来的分数 */
+  private popScore(x: number, y: number, n: number): void {
+    const t = this.add.text(x, y, String(n), { fontSize: '14px', color: '#4cf0f0', fontStyle: 'bold' }).setOrigin(0.5).setDepth(11);
+    this.tweens.add({ targets: t, y: y - 28, alpha: 0, duration: 900, ease: 'Sine.out', onComplete: () => t.destroy() });
+  }
+  /** 葡萄：吃到第 70 和 170 颗豆子时出现 9 秒 */
+  private updateFruit(): void {
+    if (!this.fruitPoints.length) return;
+    if (!this.fruit && (this.eaten === 70 || this.eaten === 170) && !this.fruitShown.has(this.eaten)) {
+      this.fruitShown.add(this.eaten);
+      const p = this.fruitPoints[Math.floor(Math.random() * this.fruitPoints.length)];
+      const sprite = this.add.image(p.x, p.y, 'grapes').setDepth(2.3);
+      this.tweens.add({ targets: sprite, y: p.y - 3, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+      this.fruit = { sprite, until: this.time.now + 9000, x: p.x, y: p.y };
+    }
+    if (!this.fruit) return;
+    const b = this.player.body;
+    if (Math.abs(b.center.x - this.fruit.x) < 16 && Math.abs(b.center.y - this.fruit.y) < 16) {
+      this.addScore(300); this.popScore(this.fruit.x, this.fruit.y, 300);
+      this.fruit.sprite.destroy(); this.fruit = null;
+    } else if (this.time.now > this.fruit.until) { this.fruit.sprite.destroy(); this.fruit = null; }
+  }
+  private fruitShown = new Set<number>();
+  /** 豆子吃光：不结束。鬼提速永久追击，剧本开始 */
+  private onPelletsCleared(): void {
+    if (this.pac.phase !== 'play') return;
+    this.pac = { phase: 'chase', at: this.time.now };
+    if (this.ghosts) { this.ghosts.speedMul = 1.5; this.ghosts.forceChase(); }
+    this.cameras.main.shake(200, 0.006);
+  }
+  /** 死亡复活：剧情还没开始的话，豆子全部放回去 */
+  private restorePellets(): void {
+    if (!this.topdown || this.pac.phase !== 'play') return;
+    this.pellets.forEach(pe => pe.sprite.destroy());
+    this.pellets = [];
+    this.pelletSpawns.forEach(p => this.placePellet({ x: p.x, y: p.y }, p.power));
+    this.eaten = 0; this.fruitShown.clear();
+    if (this.fruit) { this.fruit.sprite.destroy(); this.fruit = null; }
+  }
+  private updatePacScript(now: number): void {
+    const p = this.pac;
+    switch (p.phase) {
+      case 'chase':
+        if (now - p.at >= 6000) { p.phase = 'taunt'; this.startCutscene('骷髅王', DIALOGUES.pacTaunt, () => { this.pac = { phase: 'bombs', at: this.time.now }; }); }
+        break;
+      case 'bombs':
+        if (!this.bombsUnlocked && now - p.at >= 1000) { this.bombsUnlocked = true; this.flash('空格', '#ffd166'); }
+        if (this.bombsUnlocked && (!this.ghosts || !this.ghosts.anyAlive)) this.pac = { phase: 'kingWait', at: now };
+        break;
+      case 'kingWait':
+        if (now - p.at >= 2000) { p.phase = 'king'; this.startCutscene('骷髅王', DIALOGUES.pacKing, () => this.spawnKing()); }
+        break;
+    }
+  }
+  /** 骷髅王出现在你面前：淡入。后面的剧情再接 */
+  private spawnKing(): void {
+    this.pac = { phase: 'done', at: this.time.now };
+    const T = this.cfg.tile, b = this.player.body, h = this.player.heading;
+    const dx = h.x || (h.y ? 0 : 1), dy = h.x ? 0 : h.y;
+    let cx = Math.floor(b.center.x / T), cy = Math.floor(b.center.y / T);
+    for (let i = 0; i < 2; i++) { const nx = cx + dx, ny = cy + dy; if (this.terrain.isSolid(nx, ny)) break; cx = nx; cy = ny; }
+    const king = this.add.image(cx * T + T / 2, cy * T + T / 2 + 4, 'skeleton').setScale(1.25).setAlpha(0).setDepth(6.5).setFlipX(dx > 0);
+    this.tweens.add({ targets: king, alpha: 1, duration: 1200, ease: 'Sine.out' });
+    this.cameras.main.flash(300, 255, 255, 255, false);
+  }
+
+  // ---------- 剧情对话 ----------
+  private startCutscene(speaker: string, lines: DialogueLine[], onDone?: () => void): void {
+    this.cutscene = { speaker, lines, index: 0, until: 0, onDone };
+    this.showCutsceneLine(this.time.now);
+  }
+  private showCutsceneLine(now: number): void {
+    const c = this.cutscene; if (!c) return;
+    const line = c.lines[c.index];
+    c.until = now + (line.autoMs ?? 2500);
+    store.dispatch(setDialogue({ speaker: c.speaker, text: line.text, avatar: line.avatar ?? 'default', index: c.index, total: c.lines.length, auto: true, pos: this.dialoguePos(line) }));
+  }
+  private updateCutscene(now: number): void {
+    const c = this.cutscene; if (!c || now < c.until) return;
+    c.index++;
+    if (c.index < c.lines.length) { this.showCutsceneLine(now); return; }
+    this.cutscene = null;
+    store.dispatch(setDialogue(null));
+    c.onDone?.();
+  }
+
+  // ---------- 炸弹 ----------
+  private placeBomb(): void {
+    if (this.bomb) return;
+    const T = this.cfg.tile, b = this.player.body;
+    const cell = { x: Math.floor(b.center.x / T), y: Math.floor(b.center.y / T) };
+    const sprite = this.add.image(cell.x * T + T / 2, cell.y * T + T / 2, 'bomb').setDepth(5);
+    this.tweens.add({ targets: sprite, scale: 1.15, duration: 250, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+    this.bomb = { cell, sprite, explodeAt: this.time.now + 1500, armed: false };
+  }
+  private updateBomb(now: number): void {
+    const bm = this.bomb; if (!bm) return;
+    const T = this.cfg.tile, b = this.player.body;
+    const pc = { x: Math.floor(b.center.x / T), y: Math.floor(b.center.y / T) };
+    if (!bm.armed && (pc.x !== bm.cell.x || pc.y !== bm.cell.y)) bm.armed = true;   // 人走开之后炸弹才挡路
+    if (now < bm.explodeAt) return;
+    this.bomb = null; bm.sprite.destroy();
+    // 十字：中心 + 四个方向各 2 格；岩石挡住，可炸的砖炸掉并挡住后面
+    const cells: CellRef[] = [bm.cell];
+    const destroy: CellRef[] = [];
+    for (const d of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+      for (let i = 1; i <= 2; i++) {
+        const c = { x: bm.cell.x + d[0] * i, y: bm.cell.y + d[1] * i };
+        if (c.x < 0 || c.y < 0 || c.x >= this.terrain.w || c.y >= this.terrain.h) break;
+        const def = this.terrain.def(c.x, c.y);
+        if (def.solid) { if (def.destructible) { cells.push(c); destroy.push(c); } break; }
+        cells.push(c);
+      }
+    }
+    cells.forEach(c => {
+      const fx = this.add.rectangle(c.x * T + T / 2, c.y * T + T / 2, T - 4, T - 4, 0xff9f1c).setDepth(7).setAlpha(0.95);
+      this.tweens.add({ targets: fx, alpha: 0, scale: 0.6, duration: 380, ease: 'Quad.out', onComplete: () => fx.destroy() });
+      this.sparks.explode(6, c.x * T + T / 2, c.y * T + T / 2);
+    });
+    if (destroy.length) { this.terrain.destroyCellsForce(destroy); this.destroyed += destroy.length; }
+    this.sound.play('boom', { volume: 0.7 });
+    this.cameras.main.shake(200, 0.01);
+    this.fogDirty = true;
+    const inBlast = (x: number, y: number) => cells.some(c => c.x === Math.floor(x / T) && c.y === Math.floor(y / T));
+    this.ghosts?.ghosts.forEach(g => { if (g.alive && inBlast(g.x, g.y)) { this.ghosts!.kill(g); this.popScore(g.x, g.y, 500); this.addScore(500); } });
+    if (!this.dead && !this.won && inBlast(b.center.x, b.center.y)) this.die('被自己的炸弹炸到了');
+  }
+  /** 俯视层每帧：四方向走、穿屏、吃豆 */
+  private updateTopdown(lock: boolean): void {
+    const p = this.player, T = this.cfg.tile;
+    const wrap = !!this.model.roomFlags?.[roomKeyAt(this.model, this.room.rx, this.room.ry) ?? '']?.wrapX;
+    const x0 = this.room.rx * this.roomW, x1 = x0 + this.roomW;
+    const isSolid = (cx: number, cy: number) => {
+      if (wrap && (cx < x0 || cx >= x1)) return false;   // 打通的房间：边界外当作通路，出去就从另一边进来
+      if (this.ghostHouses.some(h => Math.floor(h.x / T) === cx && Math.floor(h.y / T) === cy)) return true;   // 鬼巢的门人进不去
+      if (this.bomb?.armed && this.bomb.cell.x === cx && this.bomb.cell.y === cy) return true;                  // 放下的炸弹挡路
+      return cx < 0 || cy < 0 || cx >= this.terrain.w || cy >= this.terrain.h || this.terrain.isSolid(cx, cy);
+    };
+    const input = lock ? { left: false, right: false, up: false, down: false }
+      : { left: this.cursors.left.isDown || this.keys.A.isDown || touch.left, right: this.cursors.right.isDown || this.keys.D.isDown || touch.right, up: this.cursors.up.isDown || this.keys4.W.isDown || touch.up, down: this.cursors.down.isDown || this.keys4.S.isDown || touch.down };
+    p.stepTopDown(input, isSolid);
+    if (wrap) {
+      const left = x0 * T, right = x1 * T;
+      if (p.body.center.x < left - T / 2) p.x += this.roomPxW; else if (p.body.center.x > right + T / 2) p.x -= this.roomPxW;
+    }
+    this.eatPellets();
+    this.updateFruit();
+  }
+  /** 俯视层里不管死活都要走的东西：剧本、剧情对话、炸弹 */
+  private updatePacAlways(now: number): void {
+    if (!this.topdown) return;
+    this.updateCutscene(now);
+    this.updateBomb(now);
+    if (!this.dead) this.updatePacScript(now);
+  }
+
+  // ---------- 携带（共用机制）----------
+  /** 放一个东西在地上：会发光的自带光晕，也是迷雾里的光源 */
+  private spawnGround(carry: Carry, x: number, y: number, blocked = false): void {
+    const sprite = this.add.image(x, y, carry.texture).setTint(carry.tint).setDepth(2.4);
+    this.tweens.add({ targets: sprite, y: y - 3, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+    let glow: Phaser.GameObjects.Image | undefined;
+    if (carry.light > 0) {
+      glow = this.add.image(x, y, 'fogglow').setDepth(2.35).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.3).setScale(1.5);
+      this.tweens.add({ targets: glow, alpha: 0.45, scale: 1.75, duration: 160, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+    }
+    this.ground.push({ carry, x, y, sprite, glow, blocked });
+    this.syncLightSources();
+  }
+  private syncLightSources(): void {
+    const T = this.cfg.tile;
+    this.fog?.setSources(this.ground.filter(g => g.carry.light > 0).map(g => ({ x: Math.floor(g.x / T), y: Math.floor(g.y / T), r: g.carry.light })));
+    this.fogDirty = true;
+  }
+  /** 碰到就捡；手里有东西就换：旧的留在这个位置，等人走开才能再捡 */
+  private updateCarry(): void {
+    const r = this.player.rect();
+    for (let i = this.ground.length - 1; i >= 0; i--) {
+      const g = this.ground[i];
+      const touching = Phaser.Geom.Intersects.RectangleToRectangle(g.sprite.getBounds(), r);
+      if (g.blocked) { if (!touching) g.blocked = false; continue; }
+      if (!touching) continue;
+      this.ground.splice(i, 1);
       g.sprite.destroy(); g.glow?.destroy();
+      const old = this.held?.carry ?? null;
+      this.hold(g.carry);
+      if (old) this.spawnGround(old, g.x, g.y, true);
       this.syncLightSources();
-      this.hold(g.spawn.item);
-      this.sparks.explode(8, g.spawn.x, g.spawn.y);
+      this.sparks.explode(8, g.x, g.y);
       if (!this.playtest) this.autosave();
     }
   }
-  /** 拿在右手上；有照明的道具顺便把迷雾半径撑开 */
-  private hold(def: ItemDef): void {
-    if (this.held.has(def.id)) return;
-    if (!this.heldIds.includes(def.id)) this.heldIds.push(def.id);
-    const sprite = this.add.image(0, 0, def.texture).setOrigin(0.5, 1).setDepth(10.5);
-    const glow = this.add.image(0, 0, 'fogglow').setDepth(9.5).setBlendMode(Phaser.BlendModes.ADD).setAlpha(def.light > 0 ? 0.28 : 0).setScale(1.4);
-    if (def.light > 0) this.tweens.add({ targets: glow, alpha: 0.42, scale: 1.6, duration: 140, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
-    this.held.set(def.id, { sprite, glow });
+  /** 拿在右手上；有照明的顺便把迷雾半径撑开 */
+  private hold(carry: Carry): void {
+    this.dropHeldSprites();
+    const sprite = this.add.image(0, 0, carry.texture).setTint(carry.tint).setOrigin(0.5, 1).setDepth(10.5);
+    const glow = this.add.image(0, 0, 'fogglow').setDepth(9.5).setBlendMode(Phaser.BlendModes.ADD).setAlpha(carry.light > 0 ? 0.28 : 0).setScale(1.4);
+    if (carry.light > 0) this.tweens.add({ targets: glow, alpha: 0.42, scale: 1.6, duration: 140, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+    this.held = { carry, sprite, glow }; this.heldId = carry.id;
     this.placeHeld();
     this.fog?.setRadius(this.lightRadius()); this.fogDirty = true;
   }
-  private lightRadius(): number {
-    return Math.max(this.cfg.fogRadius, ...[...this.held.keys()].map(id => Items.get(id)?.light ?? 0));
+  /** 手空了（钥匙用掉） */
+  private dropHeldSprites(): void {
+    if (!this.held) return;
+    this.held.sprite.destroy(); this.held.glow.destroy();
+    this.held = null; this.heldId = null;
+    this.fog?.setRadius(this.lightRadius()); this.fogDirty = true;
   }
+  private lightRadius(): number { return Math.max(this.cfg.fogRadius, this.held?.carry.light ?? 0); }
   /** 手上的东西跟着人走：右手 = 面朝方向那一侧 */
   private placeHeld(): void {
-    if (!this.held.size) return;
+    if (!this.held) return;
     const side = this.player.flipX ? -1 : 1, b = this.player.body;
-    let k = 0;
-    this.held.forEach(({ sprite, glow }) => {
-      const x = b.center.x + side * (13 + k * 6), y = b.center.y + 8;
-      sprite.setPosition(x, y).setFlipX(side < 0);
-      glow.setPosition(x, y - sprite.height / 2);
-      k++;
+    const x = b.center.x + side * 13, y = b.center.y + 8;
+    this.held.sprite.setPosition(x, y).setFlipX(side < 0);
+    this.held.glow.setPosition(x, y - this.held.sprite.height / 2);
+  }
+
+  // ---------- 钥匙与门 ----------
+  /** 门砖是白底，按组乘上颜色。重置后砖被重新放过，要再染一次 */
+  private tintDoors(): void {
+    this.doorCells.forEach(c => {
+      if (this.terrain.grid[c.y]?.[c.x] !== DOOR_CHAR) return;
+      const t = this.terrain.layer.getTileAt(c.x, c.y);
+      if (t) t.tint = this.lockColor(c.group);
     });
+  }
+  /** 手里是钥匙、贴着同组的门（四周 3px 内）→ 开这一组 */
+  private updateLocks(): void {
+    const key = this.held?.carry.key;
+    if (key === undefined || !this.doorCells.length) return;
+    const r = this.player.rect(), T = this.cfg.tile;
+    const x0 = Math.floor((r.left - 3) / T), x1 = Math.floor((r.right + 3) / T), y0 = Math.floor((r.top - 3) / T), y1 = Math.floor((r.bottom + 3) / T);
+    for (const c of this.doorCells) {
+      if (c.group !== key || c.x < x0 || c.x > x1 || c.y < y0 || c.y > y1) continue;
+      if (this.terrain.grid[c.y]?.[c.x] !== DOOR_CHAR) continue;
+      this.openLock(c.group);
+      break;
+    }
+  }
+  /** 一把钥匙开一组门：这组所有门格消失，钥匙用掉 */
+  private openLock(group: number): void {
+    this.dropHeldSprites();
+    this.openedLocks.add(group);
+    const cells = this.doorCells.filter(c => c.group === group && this.terrain.grid[c.y]?.[c.x] === DOOR_CHAR);
+    const T = this.cfg.tile;
+    cells.forEach(c => this.sparks.explode(6, c.x * T + T / 2, c.y * T + T / 2));
+    this.terrain.destroyCellsForce(cells);
+    this.cameras.main.shake(120, 0.004);
+    this.fogDirty = true;
+  }
+  /** 重置把门放回来了：开过的组再拿掉，颜色再染一遍 */
+  private restoreLocks(): void {
+    this.openedLocks.forEach(g => {
+      const cells = this.doorCells.filter(c => c.group === g && this.terrain.grid[c.y]?.[c.x] === DOOR_CHAR);
+      if (cells.length) this.terrain.destroyCellsForce(cells);
+    });
+    this.tintDoors();
   }
 
   // ---------- 滑块 ----------
@@ -366,10 +689,16 @@ export class GameScene extends Phaser.Scene implements EntityHost {
     this.talking = npc; npc.index = 0;
     this.showLine();
   }
+  /** 对话框放哪：台词指定了就听台词的，否则躲开玩家（人在下半屏就放上面） */
+  private dialoguePos(line: DialogueLine): 'top' | 'bottom' {
+    if (line.pos) return line.pos;
+    const cam = this.cameras.main;
+    return this.player.y - cam.scrollY > cam.height / 2 ? 'top' : 'bottom';
+  }
   private showLine(): void {
     const n = this.talking; if (!n) return;
     const line = n.spawn.lines[n.index];
-    store.dispatch(setDialogue({ speaker: n.spawn.name, text: line.text, avatar: line.avatar ?? n.spawn.avatar, index: n.index, total: n.spawn.lines.length }));
+    store.dispatch(setDialogue({ speaker: n.spawn.name, text: line.text, avatar: line.avatar ?? n.spawn.avatar, index: n.index, total: n.spawn.lines.length, pos: this.dialoguePos(line) }));
   }
   /** 每跳一次说下一句；最后一句说完再跳，角色带着笑声淡出 */
   private advanceDialogue(): void {
@@ -587,7 +916,7 @@ export class GameScene extends Phaser.Scene implements EntityHost {
   }
 
   private autosave(): void {
-    store.dispatch(writeSave({ floorId: this.floorId, items: [...this.heldIds], rows: this.terrain.rows(), room: this.room, entry: this.entry, stats: { jumps: this.jumps, destroyed: this.destroyed }, fog: this.fog?.toState(), fuse: this.fuses.toState() }));
+    store.dispatch(writeSave({ floorId: this.floorId, held: this.heldId ?? undefined, rows: this.terrain.rows(), room: this.room, entry: this.entry, stats: { jumps: this.jumps, destroyed: this.destroyed }, fog: this.fog?.toState(), fuse: this.fuses.toState() }));
   }
 
   private resetRoom(): void {
@@ -599,6 +928,9 @@ export class GameScene extends Phaser.Scene implements EntityHost {
     if (this.inBossRoom(this.room)) this.forgetBossWin();
     (this.enemies.getChildren() as Enemy[]).forEach(e => { if (e.active && this.sameRoom(e.spawn, this.room)) e.destroy(); });
     this.enemySpawns.filter(sp => this.sameRoom(sp, this.room)).forEach(sp => this.spawnEnemy(sp));
+    this.restoreLocks();
+    this.ghosts?.reset(this.time.now);
+    this.restorePellets();
     this.player.respawn(this.entry);
     this.dead = false;
     this.fogDirty = true;
@@ -629,6 +961,9 @@ export class GameScene extends Phaser.Scene implements EntityHost {
       if (!this.sameRoom(r, this.room)) this.enterRoom(r, true);
       this.replayBossDeath(won.at);
     }
+    this.restoreLocks();
+    this.ghosts?.reset(this.time.now);
+    this.restorePellets();
     this.player.respawn(this.entry);
     this.dead = false;
     this.fogDirty = true;
@@ -704,6 +1039,7 @@ export class GameScene extends Phaser.Scene implements EntityHost {
   /** 重置前把所有"正在发生"的东西清掉：火花、飘纸、掉落平台、还没出场的 Boss、镜头抖动 */
   private clearCarried(): void {
     this.endDialogue();
+    if (this.bomb) { this.bomb.sprite.destroy(); this.bomb = null; }
     this.time.removeAllEvents();
     this.tweens.killTweensOf(this.cameras.main);
     this.cameras.main.shakeEffect.reset();
@@ -901,6 +1237,8 @@ export class GameScene extends Phaser.Scene implements EntityHost {
     this.updateCarried(delta / 1000);
     this.updateBoss();
     this.updateBursts(delta / 1000);
+    this.updateGhosts(delta / 1000);
+    this.updatePacAlways(time);
     this.updateFog();
     if (this.dead || this.won || this.leaving) { this.drawPreview(null); this.placeHeld(); return; }
 
@@ -910,14 +1248,19 @@ export class GameScene extends Phaser.Scene implements EntityHost {
 
     this.checkNpcs();
     const lock = !!this.talking;   // 对话中站着别动，只能跳
-    const input = { left: !lock && (this.cursors.left.isDown || this.keys.A.isDown || touch.left), right: !lock && (this.cursors.right.isDown || this.keys.D.isDown || touch.right) };
-    const jump = p.step(input, time);
-    if (jump) { this.jumps += 1; this.useSkill(jump); store.dispatch(setStats({ jumps: this.jumps, destroyed: this.destroyed })); if (lock) this.advanceDialogue(); }
-
-    this.drawPreview(p.previewJump(input) && this.aimJump(p.previewJump(input)!));
-    this.checkItems();
+    if (this.topdown) {
+      this.updateTopdown(lock);
+      this.drawPreview(null);
+    } else {
+      const input = { left: !lock && (this.cursors.left.isDown || this.keys.A.isDown || touch.left), right: !lock && (this.cursors.right.isDown || this.keys.D.isDown || touch.right) };
+      const jump = p.step(input, time);
+      if (jump) { this.jumps += 1; this.useSkill(jump); store.dispatch(setStats({ jumps: this.jumps, destroyed: this.destroyed })); if (lock) this.advanceDialogue(); }
+      this.drawPreview(p.previewJump(input) && this.aimJump(p.previewJump(input)!));
+    }
+    this.updateCarry();
     this.placeHeld();
     this.updateSliders();
+    this.updateLocks();
     this.handleChunkContact();
     if (this.dead) return;
     const hazard = this.touchingHazard();
@@ -956,7 +1299,7 @@ export class GameScene extends Phaser.Scene implements EntityHost {
     this.player.clearTint();
     const cam = this.cameras.main;
     const restart = () => {
-      const data: StartGameData = { project: this.project, floorId: id, playtest: this.playtest, announceFloor: true, stats: { jumps: this.jumps, destroyed: this.destroyed }, items: [...this.heldIds] };
+      const data: StartGameData = { project: this.project, floorId: id, playtest: this.playtest, announceFloor: true, stats: { jumps: this.jumps, destroyed: this.destroyed }, held: this.heldId ?? undefined };
       this.scene.restart(data);
     };
     const fade = (ms: number) => { cam.fadeOut(ms, 0, 0, 0); cam.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, restart); };

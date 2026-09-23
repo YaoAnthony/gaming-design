@@ -6,6 +6,7 @@ import zhCN from 'antd/locale/zh_CN';
 import { store } from '@/redux/store';
 import { App } from '@/ui/App';
 import { getGame } from '@/game/PhaserGame';
+import '@/i18n';
 
 // 开发期调试入口：控制台可以直接看 store / Phaser 实例
 if (import.meta.env.DEV) (window as unknown as { __climb: unknown }).__climb = { store, getGame };

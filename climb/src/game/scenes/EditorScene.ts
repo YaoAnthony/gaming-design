@@ -2,12 +2,12 @@
 import Phaser from 'phaser';
 import { classify } from '@/game/registry/registry';
 import { Terrain } from '@/game/terrain/Terrain';
-import { fuseRows, nextFloorId, roomKeyAt, worldRows } from '@/game/world/WorldModel';
+import { DOOR_CHAR, fuseRows, lockGroup, nextFloorId, roomKeyAt, worldRows } from '@/game/world/WorldModel';
 import { layoutText, textSize } from '@/game/world/font';
 import { bridge, EVT, SCENE } from '@/game/bridge';
 import { store } from '@/redux/store';
 import { resizeGame } from '@/game/resize';
-import { addText, currentModel, paintCell, paintEntity, paintFog, paintFuse, removeText } from '@/redux/slices/editorSlice';
+import { addText, currentModel, paintCell, paintDoor, paintEntity, paintFog, paintFuse, paintKey, removeText } from '@/redux/slices/editorSlice';
 import { TILE_FRAMES } from '@/asset';
 import { FOG_ZONE_COLORS } from '@/ui/editor/fogZones';
 
@@ -21,6 +21,7 @@ export class EditorScene extends Phaser.Scene {
   private grid!: Phaser.GameObjects.Graphics;
   private textLayer!: Phaser.GameObjects.Graphics;
   private textLabels: Phaser.GameObjects.Text[] = [];
+  private keyImgs: Phaser.GameObjects.Image[] = [];
   private T = 32;
   private lastVersion = -1;
   private lastRoomKey: string | null = null;
@@ -107,6 +108,16 @@ export class EditorScene extends Phaser.Scene {
       store.dispatch(paintFuse({ key, x: c.x, y: c.y, on }));
       return;
     }
+    if (brush.startsWith('door:') || brush.startsWith('key:')) {
+      // 钥匙与门：门画在门层（游戏里烘进砖块），钥匙画在钥匙层；右键擦
+      const isDoor = brush.startsWith('door:');
+      const id = p.rightButtonDown() ? 0 : Number(brush.split(':')[1]);
+      const layer = isDoor ? this.model().locks?.doors : this.model().locks?.keys;
+      const cur = Number(layer?.[key]?.[c.y]?.[c.x] ?? 0) || 0;
+      if (cur === id) return;
+      store.dispatch((isDoor ? paintDoor : paintKey)({ key, x: c.x, y: c.y, id }));
+      return;
+    }
     if (brush.startsWith('fog:')) {
       // 迷雾区画笔：右键擦除
       const zone = p.rightButtonDown() ? '.' : brush.slice(4);
@@ -178,11 +189,27 @@ export class EditorScene extends Phaser.Scene {
     const key = this.key();
     const blocks = key ? m.texts?.[key] ?? [] : [];
     blocks.forEach(b => layoutText(b.text, b.x, b.y).forEach(c => { if (grid[c.y]?.[c.x] === '.') grid[c.y][c.x] = b.tile; }));
+    // 门也烘进网格（只占空气格），画完再按组染色
+    const doorRows = key ? m.locks?.doors[key] : undefined;
+    doorRows?.forEach((row, y) => [...row].forEach((ch, x) => { if (grid[y]?.[x] === '.' && lockGroup(m, Number(ch))) grid[y][x] = DOOR_CHAR; }));
     for (let y = 0; y < m.roomH; y++) for (let x = 0; x < m.roomW; x++) this.refreshCell(x, y, grid);
+    doorRows?.forEach((row, y) => [...row].forEach((ch, x) => { const g = lockGroup(m, Number(ch)); const t = g && grid[y]?.[x] === DOOR_CHAR ? this.layer.getTileAt(x, y) : null; if (t) t.tint = g!.color; }));
+    this.drawKeys(key ? m.locks?.keys[key] : undefined);
     this.drawTextBlocks(blocks);
     this.drawFogZones();
     this.drawFuse();
     this.updateSupport();
+  }
+
+  /** 钥匙：按组染色的小钥匙 */
+  private drawKeys(rows: string[] | undefined): void {
+    const T = this.T, m = this.model();
+    this.keyImgs.forEach(i => i.destroy()); this.keyImgs = [];
+    rows?.forEach((row, y) => [...row].forEach((ch, x) => {
+      const g = lockGroup(m, Number(ch));
+      if (!g) return;
+      this.keyImgs.push(this.add.image(x * T + T / 2, y * T + T / 2, 'key').setTint(g.color).setDepth(2.4));
+    }));
   }
 
   /** 每串字画个框 + 目标层标签，编辑时能看出边界 */

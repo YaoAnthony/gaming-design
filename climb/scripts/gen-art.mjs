@@ -68,7 +68,7 @@ class Canvas {
 const T = 32;
 
 // ---- 砖块图集：0 泥土 1 岩石 2 脆岩 3 沙土 4 尖刺 ----
-const tiles = new Canvas(T * 23, T);   // 0-4 基础砖块，5-20 引线的 16 种连接图案（只在编辑器里显示），21 纸，22 字块
+const tiles = new Canvas(T * 24, T);   // 0-4 基础砖块，5-20 引线的 16 种连接图案（只在编辑器里显示），21 纸，22 字块，23 门（白底，运行时按组染色）
 // 泥土
 tiles.rect(0, 0, T, T, 0x8d5a3b);
 tiles.rect(4, 6, 6, 4, 0x6f452c); tiles.rect(18, 12, 8, 4, 0x6f452c); tiles.rect(8, 22, 6, 4, 0x6f452c); tiles.rect(22, 24, 5, 3, 0x6f452c);
@@ -113,6 +113,11 @@ tiles.tri(21 * T + T, T - 8, 21 * T + T, T, 21 * T + T - 8, T, 0xd8d3c4);
 tiles.rect(22 * T, 0, T, T, 0xb8c4e0);
 tiles.rect(22 * T, 0, T, 2, 0xdde4f5); tiles.rect(22 * T, T - 3, T, 3, 0x8e9bb8);
 tiles.rect(22 * T + 12, 12, 8, 8, 0x8e9bb8); tiles.rect(22 * T + 14, 14, 4, 4, 0x6f7c99);
+// 门：浅色门板 + 边框 + 锁孔，画成近白色，游戏里乘上各组的颜色
+tiles.rect(23 * T, 0, T, T, 0xbdbdbd);
+tiles.rect(23 * T + 3, 3, T - 6, T - 6, 0xefefef);
+tiles.rect(23 * T + 3, 3, T - 6, 2, 0xffffff); tiles.rect(23 * T + 3, T - 5, T - 6, 2, 0xd0d0d0);
+tiles.rect(23 * T + 13, 10, 6, 6, 0x2a2a2a); tiles.rect(23 * T + 15, 15, 2, 7, 0x2a2a2a);
 tiles.save('tiles.png');
 
 // ---- 玩家 22x38 ----
@@ -222,3 +227,43 @@ vo.tri(8, 8, 8, 16, 15, 22, 0xf1efe6); vo.tri(8, 8, 15, 2, 15, 22, 0xf1efe6);   
 vo.rect(8, 8, 7, 8, 0xf1efe6);
 vo.rect(3, 9, 2, 6, 0xc9c4b4); vo.rect(13, 3, 2, 18, 0xc9c4b4);  // 阴影
 vo.save('volume.png');
+
+// ---- 钥匙 16x16（白色，按组染色）----
+const ky = new Canvas(16, 16);
+ky.roundRect(1, 1, 8, 8, 4, 0xffffff); ky.rect(4, 4, 2, 2, 0x2a2a2a);     // 钥匙环
+ky.rect(8, 8, 2, 2, 0xffffff); ky.line(8, 8, 14, 14, 0xffffff, 2);        // 钥匙杆
+ky.rect(12, 9, 3, 2, 0xffffff); ky.rect(10, 11, 2, 2, 0xffffff);          // 齿
+ky.save('key.png');
+
+// ---- 吃豆人：豆子 / 大力丸 / 鬼巢门 / 葡萄 / 隧道标记 ----
+const pe = new Canvas(8, 8); pe.roundRect(2, 2, 4, 4, 2, 0xffe8b0); pe.save('pellet.png');
+const po = new Canvas(16, 16); po.roundRect(1, 1, 14, 14, 7, 0xffe8b0); po.roundRect(4, 3, 5, 4, 2, 0xffffff); po.save('power.png');
+const gh = new Canvas(64, 16); gh.rect(0, 5, 64, 6, 0xffb3c6); gh.rect(0, 5, 64, 2, 0xffd6e0); gh.rect(0, 9, 64, 2, 0xd97a94); gh.save('ghosthouse.png');
+const gr = new Canvas(20, 24);
+gr.rect(9, 0, 2, 5, 0x5a3a1e); gr.tri(11, 1, 17, 0, 13, 5, 0x06d6a0);                       // 梗 + 叶
+[[6, 6], [12, 6], [3, 11], [9, 11], [15, 11], [6, 16], [12, 16], [9, 21]].forEach(([x, y]) => { gr.roundRect(x - 3, y - 3, 7, 7, 3, 0x9b5de5); gr.rect(x - 2, y - 2, 2, 2, 0xc4a7ff); });
+gr.save('grapes.png');
+const tu = new Canvas(32, 32); for (let i = 0; i < 32; i += 8) tu.rect(i, 0, 4, 32, 0x4cc9f0); tu.save('tunnel.png');
+
+// ---- 鬼 26x26：白色身体（运行时按只染色）+ 眼睛 + 惊吓脸 ----
+const gb = new Canvas(26, 26);
+gb.roundRect(0, 0, 26, 26, 13, 0xffffff); gb.rect(0, 13, 26, 9, 0xffffff);
+[0, 7, 14, 21].forEach(x => gb.rect(x, 22, 5, 4, 0xffffff));                 // 波浪裙边
+gb.save('ghost.png');
+const gb2 = new Canvas(26, 26);                                               // 第二帧：裙边错开半格，走起来会摆
+gb2.roundRect(0, 0, 26, 26, 13, 0xffffff); gb2.rect(0, 13, 26, 9, 0xffffff);
+[3, 10, 17].forEach(x => gb2.rect(x, 22, 6, 4, 0xffffff)); gb2.rect(0, 22, 2, 3, 0xffffff); gb2.rect(24, 22, 2, 3, 0xffffff);
+gb2.save('ghost2.png');
+const ge = new Canvas(26, 26);
+[[5, 7], [15, 7]].forEach(([x, y]) => { ge.roundRect(x, y, 7, 8, 3, 0xffffff); ge.rect(x + 3, y + 3, 3, 4, 0x2233cc); });
+ge.save('ghosteyes.png');
+const gs = new Canvas(26, 26);
+gs.rect(7, 9, 3, 3, 0xffc2c2); gs.rect(16, 9, 3, 3, 0xffc2c2);                 // 小眼
+[4, 8, 12, 16].forEach((x, i) => { gs.rect(x, 17 + (i % 2) * 2, 3, 2, 0xffc2c2); gs.rect(x + 3, 17 + ((i + 1) % 2) * 2, 2, 2, 0xffc2c2); });   // 锯齿嘴
+gs.save('ghostscared.png');
+
+// ---- 炸弹 22x22 ----
+const bo = new Canvas(22, 22);
+bo.roundRect(1, 5, 18, 17, 8, 0x1b1b24); bo.roundRect(4, 8, 6, 5, 2, 0x4a4a5c);   // 球体 + 高光
+bo.rect(9, 2, 4, 4, 0x5a3a1e); bo.rect(13, 0, 3, 3, 0xffd166); bo.rect(14, 1, 1, 1, 0xffffff);   // 引信 + 火星
+bo.save('bomb.png');

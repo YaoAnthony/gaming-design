@@ -3,6 +3,7 @@ import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 import type { Project, RoomCoord, RoomFlags, TextBlock, WorldModel } from '@/type';
 import { DEFAULT_PROJECT } from '@/game/world/defaultWorld';
 import {
+  addLockGroup as addModelLock, removeLockGroup as removeModelLock, setDoorCell, setKeyCell,
   addRoomAt, addTextBlock as addModelText, clearChar, deleteRoom as deleteModelRoom, findStart, firstRoom, moveRoom as moveModelRoom,
   newFloor, normalizeModel, positionOf, removeTextBlock as removeModelText, roomKeyAt, setCell as setModelCell, setEntityCell, setFogCell,
   setFuseCell, setRoomFlags, updateTextBlock as updateModelText,
@@ -74,6 +75,11 @@ const editorSlice = createSlice({
       setRoomFlags(m(state), action.payload.key, action.payload.flags);
       state.version++;
     },
+    // ---- 钥匙与门 ----
+    addLock(state) { addModelLock(m(state)); state.version++; },
+    removeLock(state, action: PayloadAction<number>) { removeModelLock(m(state), action.payload); state.version++; },
+    paintDoor(state, action: PayloadAction<{ key: string; x: number; y: number; id: number }>) { const { key, x, y, id } = action.payload; setDoorCell(m(state), key, x, y, id); state.version++; },
+    paintKey(state, action: PayloadAction<{ key: string; x: number; y: number; id: number }>) { const { key, x, y, id } = action.payload; setKeyCell(m(state), key, x, y, id); state.version++; },
     // ---- 文字方块 ----
     addText(state, action: PayloadAction<{ key: string; block: TextBlock }>) { addModelText(m(state), action.payload.key, action.payload.block); state.version++; },
     updateText(state, action: PayloadAction<{ key: string; id: string; patch: Partial<TextBlock> }>) { updateModelText(m(state), action.payload.key, action.payload.id, action.payload.patch); state.version++; },
@@ -102,13 +108,23 @@ const editorSlice = createSlice({
       state.room = roomOfStart(m(state));
       state.version++;
     },
-    addFloor(state, action: PayloadAction<{ name: string; roomW: number; roomH: number }>) {
-      state.project.floors.push(newFloor(state.project, action.payload.name, action.payload.roomW, action.payload.roomH));
+    addFloor(state, action: PayloadAction<{ name: string; roomW: number; roomH: number; place?: string; mode?: 'platform' | 'topdown' }>) {
+      const f = newFloor(state.project, action.payload.name, action.payload.roomW, action.payload.roomH);
+      if (action.payload.place) f.place = action.payload.place;
+      if (action.payload.mode === 'topdown') f.mode = 'topdown';
+      state.project.floors.push(f);
       state.floor = state.project.floors.length - 1;
       state.room = { rx: 0, ry: 0 };
       state.version++;
     },
-    renameFloor(state, action: PayloadAction<{ index: number; name: string }>) { const f = state.project.floors[action.payload.index]; if (f) f.name = action.payload.name; state.version++; },
+    renameFloor(state, action: PayloadAction<{ index: number; name: string; place?: string; mode?: 'platform' | 'topdown' }>) {
+      const f = state.project.floors[action.payload.index];
+      if (!f) return;
+      f.name = action.payload.name;
+      if (action.payload.place !== undefined) { if (action.payload.place) f.place = action.payload.place; else delete f.place; }
+      if (action.payload.mode !== undefined) { if (action.payload.mode === 'topdown') f.mode = 'topdown'; else delete f.mode; }
+      state.version++;
+    },
     deleteFloor(state, action: PayloadAction<number>) {
       if (state.project.floors.length <= 1) return;
       state.project.floors.splice(action.payload, 1);
@@ -129,6 +145,6 @@ const editorSlice = createSlice({
 
 export const {
   setBrush, setRoom, setShowSupport, paintCell, paintEntity, paintFog, paintFuse, setRoomFlag,
-  addText, updateText, removeText, addRoom, moveRoom, deleteRoom, setFloor, addFloor, renameFloor, deleteFloor, replaceProject,
+  addText, updateText, removeText, addLock, removeLock, paintDoor, paintKey, addRoom, moveRoom, deleteRoom, setFloor, addFloor, renameFloor, deleteFloor, replaceProject,
 } = editorSlice.actions;
 export default editorSlice.reducer;

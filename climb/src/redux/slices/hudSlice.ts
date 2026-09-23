@@ -11,12 +11,17 @@ export interface HudState {
   destroyed: number;
   message: { text: string; color: string; at: number } | null;
   boss: { hp: number; max: number } | null;
-  dialogue: { speaker: string; text: string; avatar?: string; index: number; total: number } | null;
+  dialogue: { speaker: string; text: string; avatar?: string; index: number; total: number; /** 自动翻页的剧情对话：不显示 ▸ */ auto?: boolean; /** 放上面还是下面 */ pos?: 'top' | 'bottom' } | null;
   /** 通关画面是不是真的结束（否则可以继续玩） */
   final: boolean;
+  /** 左上角「当前位置」 */
+  place: string;
+  /** 俯视（吃豆人）层：显示分数、手机端十字键 */
+  topdown: boolean;
+  score: number;
 }
 
-const initialState: HudState = { mode: 'idle', playtest: false, roomKey: '', jumps: 0, destroyed: 0, message: null, boss: null, dialogue: null, final: false };
+const initialState: HudState = { mode: 'idle', playtest: false, roomKey: '', jumps: 0, destroyed: 0, message: null, boss: null, dialogue: null, final: false, place: '', topdown: false, score: 0 };
 
 const hudSlice = createSlice({
   name: 'hud',
@@ -29,8 +34,11 @@ const hudSlice = createSlice({
     clearMessage(state) { state.message = null; },
     setBoss(state, action: PayloadAction<{ hp: number; max: number } | null>) { state.boss = action.payload; },
     setDialogue(state, action: PayloadAction<HudState['dialogue']>) { state.dialogue = action.payload; },
+    setPlace(state, action: PayloadAction<string>) { state.place = action.payload; },
+    setTopdown(state, action: PayloadAction<boolean>) { state.topdown = action.payload; },
+    setScore(state, action: PayloadAction<number>) { state.score = action.payload; },
   },
 });
 
-export const { setMode, setRoomKey, setStats, flash, clearMessage, setBoss, setDialogue } = hudSlice.actions;
+export const { setMode, setRoomKey, setStats, flash, clearMessage, setBoss, setDialogue, setPlace, setTopdown, setScore } = hudSlice.actions;
 export default hudSlice.reducer;

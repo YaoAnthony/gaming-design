@@ -13,6 +13,7 @@ export const DEFAULT_CONFIG: GameConfig = {
   wallJumpY: -560,
   wallSlideMaxFall: 120,
   maxFall: 900,
+  topdownSpeed: 120,
   wallJumpLockMs: 160,
   coyoteMs: 90,
   jumpBufferMs: 100,

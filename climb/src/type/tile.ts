@@ -80,6 +80,11 @@ export interface EntityHost {
   addNpc(spawn: NpcSpawn): void;
   addItem(spawn: ItemSpawn): void;
   addSlider(spawn: SliderSpawn): void;
+  // 吃豆人
+  addPellet(p: Point, power: boolean): void;
+  addGhostHouse(p: Point): void;
+  addFruitPoint(p: Point): void;
+  addTunnel(cell: CellRef): void;
   setGoal(p: Point): void;
 }
 export interface EnemySpawn extends Point, RoomCoord {}
@@ -89,6 +94,10 @@ export interface DialogueLine {
   text: string;
   /** 这一句用哪个头像（AVATARS 的 key）；不写就用角色默认头像 */
   avatar?: string;
+  /** 自动翻页：显示这么多毫秒后自己到下一句（剧情对话用，不用按键） */
+  autoMs?: number;
+  /** 对话框放上面还是下面；不写就自动躲开玩家（人在下半屏就放上面） */
+  pos?: 'top' | 'bottom';
 }
 
 export interface NpcSpawn extends Point {
@@ -143,6 +152,8 @@ export interface EntitySpec {
   color?: number;
   /** 贴图相对格子的锚点（0~1）：默认居中；[0.5, 1] = 底边贴着格子底、水平居中（站在地上的东西） */
   origin?: [number, number];
+  /** 物品栏里归到哪个分区（默认「物件」） */
+  group?: string;
   spawn(ctx: SpawnContext): void;
 }
 

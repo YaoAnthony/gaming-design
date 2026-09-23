@@ -11,11 +11,23 @@ import skeletonUrl from './skeleton.png';
 import castleUrl from './castle.png';
 import candleUrl from './candle.png';
 import volumeUrl from './volume.png';
+import keyUrl from './key.png';
+import pelletUrl from './pellet.png';
+import powerUrl from './power.png';
+import ghostHouseUrl from './ghosthouse.png';
+import grapesUrl from './grapes.png';
+import tunnelUrl from './tunnel.png';
+import ghostUrl from './ghost.png';
+import ghost2Url from './ghost2.png';
+import ghostEyesUrl from './ghosteyes.png';
+import ghostScaredUrl from './ghostscared.png';
+import bombUrl from './bomb.png';
 import boomUrl from './boob.mp3';
 import bgmUrl from './Pixelated_Coffee.mp3';
 import bossMusicUrl from './boss.mp3';
 import bossLaughUrl from './boss_laughing.mp3';
 import avatarDefaultUrl from './re/avatar_default.png';
+import avatarLaughUrl from './re/avatar_la.png';
 
 export const TILE_SIZE = 32;
 
@@ -30,6 +42,8 @@ export const TILE_FRAMES = {
   fuse: 5,
   paper: 21,
   letter: 22,
+  /** 锁着的门（白底，游戏里按组染色） */
+  door: 23,
 } as const;
 
 export const AUTOTILE_VARIANTS = 16;
@@ -52,11 +66,23 @@ export const IMAGES: ImageAsset[] = [
   { key: 'castle', url: castleUrl },
   { key: 'candle', url: candleUrl },
   { key: 'volume', url: volumeUrl },
+  { key: 'key', url: keyUrl },
+  { key: 'pellet', url: pelletUrl },
+  { key: 'power', url: powerUrl },
+  { key: 'ghosthouse', url: ghostHouseUrl },
+  { key: 'grapes', url: grapesUrl },
+  { key: 'tunnel', url: tunnelUrl },
+  { key: 'ghost', url: ghostUrl },
+  { key: 'ghost2', url: ghost2Url },
+  { key: 'ghosteyes', url: ghostEyesUrl },
+  { key: 'ghostscared', url: ghostScaredUrl },
+  { key: 'bomb', url: bombUrl },
 ];
 
 /** 对话框头像（React 里用 URL 显示，不进 Phaser）。同一个角色不同表情 = 不同 key，台词里按句指定 */
 export const AVATARS: Record<string, string> = {
   default: avatarDefaultUrl,
+  laugh: avatarLaughUrl,
 };
 
 export interface AudioAsset { key: string; url: string }

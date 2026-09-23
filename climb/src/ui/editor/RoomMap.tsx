@@ -10,6 +10,7 @@ import { RoomThumb } from './RoomThumb';
 export function RoomMap() {
   const room = useAppSelector(s => s.editor.room);
   const model = useAppSelector(s => currentModel(s.editor));
+  const lockColors = Object.fromEntries((model.locks?.groups ?? []).map(g => [g.id, g.color]));
   const dispatch = useAppDispatch();
   const { modal } = AntApp.useApp();
   const [dragging, setDragging] = useState<RoomCoord | null>(null);
@@ -39,7 +40,7 @@ export function RoomMap() {
           <div key={`r${gx},${gy}`} className={'room-thumb' + (active ? ' active' : '') + (dragging && dragging.rx === gx && dragging.ry === gy ? ' dragging' : '')}
             title={k} draggable onDragStart={onDragStart(rc)} onDragEnd={() => setDragging(null)} onDragOver={onDragOver} onDrop={onDrop(rc)}
             onClick={() => dispatch(setRoom(rc))}>
-            <RoomThumb rows={model.rooms[k]} entities={model.entities?.[k]} fuse={model.fuse?.[k]} roomW={model.roomW} roomH={model.roomH} />
+            <RoomThumb rows={model.rooms[k]} entities={model.entities?.[k]} fuse={model.fuse?.[k]} doors={model.locks?.doors[k]} keys={model.locks?.keys[k]} colors={lockColors} roomW={model.roomW} roomH={model.roomH} />
             <span className="room-key">{k}</span>
           </div>,
         );
@@ -61,6 +62,7 @@ export function RoomMap() {
       {key && (
         <>
           <label className="check"><input type="checkbox" checked={!!model.roomFlags?.[key]?.fog} onChange={e => dispatch(setRoomFlag({ key, flags: { fog: e.target.checked } }))} /> 这个房间启用迷雾</label>
+          <label className="check"><input type="checkbox" checked={!!model.roomFlags?.[key]?.wrapX} onChange={e => dispatch(setRoomFlag({ key, flags: { wrapX: e.target.checked } }))} /> 左右打通（隧道）</label>
           <div className="row">
             <button className="btn danger" onClick={() => modal.confirm({
               title: `删除房间 ${key}？`,

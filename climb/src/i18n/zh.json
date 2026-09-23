@@ -1,0 +1,12 @@
+{
+  "start": "开始游戏",
+  "rotate": "横屏玩",
+  "loading": "加载中 {{pct}}%",
+  "place": "当前位置: {{place}}",
+  "dead": "U DEAD",
+  "deadHint": "按 R 重来",
+  "won": "通关！",
+  "wonStats": "跳跃 {{jumps}} 次，摧毁 {{destroyed}} 格地形",
+  "wonContinue": "跳一下继续",
+  "wonEditor": "ESC 回编辑器"
+}

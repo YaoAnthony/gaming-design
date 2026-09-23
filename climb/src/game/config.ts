@@ -28,7 +28,7 @@ export const DEFAULT_CONFIG: GameConfig = {
   directionalOffset: 2,
   deathResetsWorld: true,
   musicVolume: 0.35,
-  bossHp: 10,
+  bossHp: 5,
   bossHopMs: 1400,
   bossSpitMs: 5000,
   bossMaxMinions: 6,

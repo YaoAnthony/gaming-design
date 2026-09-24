@@ -1,10 +1,12 @@
 /// <reference types="vitest" />
-import { defineConfig, type Plugin } from 'vite';
+import { defineConfig, normalizePath, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { fileURLToPath, URL } from 'node:url';
 import { readFile, writeFile } from 'node:fs/promises';
 
 const MAP_FILE = fileURLToPath(new URL('./src/map/world.json', import.meta.url));
+/** Vite 给钩子的路径是正斜杠；Windows 上 MAP_FILE 是反斜杠，直接比较永远不相等 */
+const MAP_FILE_POSIX = normalizePath(MAP_FILE);
 
 /**
  * 开发期专用：编辑器 POST /__climb/save-map，直接把地图写进 src/map/world.json。
@@ -15,7 +17,7 @@ function saveMapPlugin(): Plugin {
     name: 'climb-save-map',
     apply: 'serve',
     // 写回 world.json 时不要触发页面刷新：运行时的地图在 Redux 里，文件只是默认值
-    handleHotUpdate(ctx) { if (ctx.file === MAP_FILE) return []; },
+    handleHotUpdate(ctx) { if (normalizePath(ctx.file) === MAP_FILE_POSIX) return []; },
     configureServer(server) {
       server.middlewares.use('/__climb/load-map', async (_req, res) => {
         res.setHeader('Content-Type', 'application/json');

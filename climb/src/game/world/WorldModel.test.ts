@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { WorldModel } from '@/type';
 import '@/game/registry/tiles';
+import '@/game/mechanics';
 import { addRoomAt, clearChar, deleteRoom, entityRows, findStart, moveRoom, normalizeModel, positionOf, roomKeyAt, setEntityCell, worldRows } from './WorldModel';
 
 const small = (): WorldModel => ({

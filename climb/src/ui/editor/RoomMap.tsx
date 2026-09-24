@@ -5,11 +5,16 @@ import { roomKeyAt, worldCols, worldRowsCount } from '@/game/world/WorldModel';
 import type { RoomCoord } from '@/type';
 import { App as AntApp } from 'antd';
 import { RoomThumb } from './RoomThumb';
+import { floorMechanicOf, Mechanics } from '@/game/mechanics/define';
 
 /** 房间布局：缩略图网格，四周多一圈空位可以加房间；拖拽交换 / 移动 */
 export function RoomMap() {
   const room = useAppSelector(s => s.editor.room);
   const model = useAppSelector(s => currentModel(s.editor));
+  const floor = useAppSelector(s => s.editor.project.floors[s.editor.floor]);
+  // 机制声明的房间开关：这一层的层机制 + 所有通用机制
+  const floorMech = floor ? floorMechanicOf(floor) : null;
+  const roomFlagOptions = Mechanics.filter(m => m === floorMech || m.scope === 'global').flatMap(m => m.roomFlags);
   const lockColors = Object.fromEntries((model.locks?.groups ?? []).map(g => [g.id, g.color]));
   const dispatch = useAppDispatch();
   const { modal } = AntApp.useApp();
@@ -62,7 +67,9 @@ export function RoomMap() {
       {key && (
         <>
           <label className="check"><input type="checkbox" checked={!!model.roomFlags?.[key]?.fog} onChange={e => dispatch(setRoomFlag({ key, flags: { fog: e.target.checked } }))} /> 这个房间启用迷雾</label>
-          <label className="check"><input type="checkbox" checked={!!model.roomFlags?.[key]?.wrapX} onChange={e => dispatch(setRoomFlag({ key, flags: { wrapX: e.target.checked } }))} /> 左右打通（隧道）</label>
+          {roomFlagOptions.map(f => (
+            <label key={f.key} className="check"><input type="checkbox" checked={!!model.roomFlags?.[key]?.[f.key]} onChange={e => dispatch(setRoomFlag({ key, flags: { [f.key]: e.target.checked } }))} /> {f.label}</label>
+          ))}
           <div className="row">
             <button className="btn danger" onClick={() => modal.confirm({
               title: `删除房间 ${key}？`,

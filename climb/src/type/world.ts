@@ -47,8 +47,8 @@ export interface Floor {
   name: string;
   /** 左上角「当前位置」显示的文字（空 = 不显示） */
   place?: string;
-  /** platform = 平台跳跃（默认）；topdown = 俯视、无重力、沿格子四方向走（吃豆人） */
-  mode?: 'platform' | 'topdown';
+  /** 层机制的 id（见 game/mechanics）：platform = 平台跳（默认）、pacman = 吃豆人……旧地图的 'topdown' 也认 */
+  mode?: string;
   model: WorldModel;
 }
 
@@ -60,10 +60,10 @@ export interface Project {
 export interface RoomFlags {
   /** 这个房间启用迷雾（默认不启用） */
   fog?: boolean;
-  /** 左右打通（吃豆人的隧道）：从左边出去从右边进来 */
-  wrapX?: boolean;
   /** @deprecated 旧字段：以前迷雾是全局开关，这里标记例外房间。normalizeModel 会删掉 */
   noFog?: boolean;
   /** Boss 房间：玩家一进来就封门、出 Boss */
   boss?: boolean;
+  /** 机制自己声明的房间开关（defineMechanic 的 roomFlags） */
+  [flag: string]: boolean | undefined;
 }

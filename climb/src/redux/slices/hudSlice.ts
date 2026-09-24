@@ -16,12 +16,13 @@ export interface HudState {
   final: boolean;
   /** 左上角「当前位置」 */
   place: string;
-  /** 俯视（吃豆人）层：显示分数、手机端十字键 */
-  topdown: boolean;
-  score: number;
+  /** 手机端按键布局（层机制决定）：jump = ←→ + 跳；dpad = 十字键 + 动作键 */
+  controls: 'jump' | 'dpad';
+  /** 右上角分数；null = 这一层不显示 */
+  score: number | null;
 }
 
-const initialState: HudState = { mode: 'idle', playtest: false, roomKey: '', jumps: 0, destroyed: 0, message: null, boss: null, dialogue: null, final: false, place: '', topdown: false, score: 0 };
+const initialState: HudState = { mode: 'idle', playtest: false, roomKey: '', jumps: 0, destroyed: 0, message: null, boss: null, dialogue: null, final: false, place: '', controls: 'jump', score: null };
 
 const hudSlice = createSlice({
   name: 'hud',
@@ -35,10 +36,10 @@ const hudSlice = createSlice({
     setBoss(state, action: PayloadAction<{ hp: number; max: number } | null>) { state.boss = action.payload; },
     setDialogue(state, action: PayloadAction<HudState['dialogue']>) { state.dialogue = action.payload; },
     setPlace(state, action: PayloadAction<string>) { state.place = action.payload; },
-    setTopdown(state, action: PayloadAction<boolean>) { state.topdown = action.payload; },
-    setScore(state, action: PayloadAction<number>) { state.score = action.payload; },
+    setControls(state, action: PayloadAction<HudState['controls']>) { state.controls = action.payload; },
+    setScore(state, action: PayloadAction<number | null>) { state.score = action.payload; },
   },
 });
 
-export const { setMode, setRoomKey, setStats, flash, clearMessage, setBoss, setDialogue, setPlace, setTopdown, setScore } = hudSlice.actions;
+export const { setMode, setRoomKey, setStats, flash, clearMessage, setBoss, setDialogue, setPlace, setControls, setScore } = hudSlice.actions;
 export default hudSlice.reducer;

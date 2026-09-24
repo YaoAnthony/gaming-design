@@ -23,7 +23,7 @@ export function Hud() {
         </div>
       )}
       {hud.place && <div className="place">{t('place', { place: hud.place })}</div>}
-      {hud.topdown && <div className="score">{hud.score}</div>}
+      {hud.score !== null && <div className="score">{hud.score}</div>}
       {hud.message && <div className={'hud-msg' + (msgVisible ? ' show' : '')} style={{ color: hud.message.color }}>{hud.message.text}</div>}
       {hud.mode === 'playing' && hud.dialogue && (
         <div className={'dialogue pos-' + (hud.dialogue.pos ?? 'bottom')}>

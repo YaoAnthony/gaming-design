@@ -2,10 +2,11 @@ import { useEffect, type PointerEvent } from 'react';
 import { touch, TOUCH_ACTION, TOUCH_JUMP } from '@/game/input';
 import { bridge } from '@/game/bridge';
 
-interface Props { topdown?: boolean }
+interface Props { layout?: 'jump' | 'dpad' }
 
-/** 手机端虚拟按键：平台层 ←→ + 一个动作键（跳）；俯视层 ▲▼◀▶ + 一个动作键（炸弹）。按住即持续，松开即停 */
-export function TouchControls({ topdown = false }: Props) {
+/** 手机端虚拟按键（布局由层机制决定）：jump = ←→ + 一个动作键（跳）；dpad = ▲▼◀▶ + 一个动作键。按住即持续，松开即停 */
+export function TouchControls({ layout = 'jump' }: Props) {
+  const dpad = layout === 'dpad';
   useEffect(() => () => { touch.left = false; touch.right = false; touch.up = false; touch.down = false; }, []);
 
   const hold = (key: 'left' | 'right' | 'up' | 'down') => ({
@@ -14,11 +15,11 @@ export function TouchControls({ topdown = false }: Props) {
     onPointerCancel: () => { touch[key] = false; },
     onPointerLeave: () => { touch[key] = false; },
   });
-  const action = topdown ? TOUCH_ACTION : TOUCH_JUMP;
+  const action = dpad ? TOUCH_ACTION : TOUCH_JUMP;
 
   return (
     <div className="touch-controls">
-      {topdown ? (
+      {dpad ? (
         <div className="tc-left tc-dpad">
           <button className="tc-btn tc-up" {...hold('up')} aria-label="上">▲</button>
           <button className="tc-btn tc-l" {...hold('left')} aria-label="左">◀</button>

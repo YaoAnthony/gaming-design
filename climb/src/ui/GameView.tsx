@@ -19,7 +19,7 @@ export function GameView() {
   const project = import.meta.env.PROD ? DEFAULT_PROJECT : editorProject;
   const [data, setData] = useState<StartGameData | null>(null);
   const touch = useTouch();
-  const topdown = useAppSelector(s => s.hud.topdown);
+  const controls = useAppSelector(s => s.hud.controls);
 
   const start = () => { dispatch(clearSave()); setData({ project, playtest: false }); };
 
@@ -27,7 +27,7 @@ export function GameView() {
     <div className="view">
       <div className="stage">
         {data
-          ? <><PhaserCanvas mode="game" data={data} size={roomPx(project.floors[0].model)} /><Hud />{touch && <TouchControls topdown={topdown} />}</>
+          ? <><PhaserCanvas mode="game" data={data} size={roomPx(project.floors[0].model)} /><Hud />{touch && <TouchControls layout={controls} />}</>
           : <button className="btn primary start" onClick={start}>{t('start')}</button>}
       </div>
     </div>

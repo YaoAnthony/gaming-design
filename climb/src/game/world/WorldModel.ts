@@ -353,11 +353,3 @@ export function bakeLocks(m: WorldModel): { model: WorldModel; doors: LockCell[]
   scan(locks.keys, keys, false);
   return { model, doors, keys };
 }
-
-// ---------- 层的模式 ----------
-/** 这一层是不是俯视（吃豆人）：手动勾了，或者地图里放了任何「吃豆人」分区的物件（豆子、鬼巢……）就自动算 */
-export function isTopdown(floor: Floor): boolean {
-  if (floor.mode === 'topdown') return true;
-  const pac = new Set(Entities.filter(e => e.group === '吃豆人').map(e => e.id));
-  return Object.values(floor.model.entities ?? {}).some(rows => rows.some(r => [...r].some(ch => pac.has(ch))));
-}

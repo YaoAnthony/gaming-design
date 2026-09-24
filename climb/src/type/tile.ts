@@ -70,22 +70,10 @@ export interface CellRef { x: number; y: number }
 export interface RoomCoord { rx: number; ry: number }
 export interface Point { x: number; y: number }
 
-/** 物件进场时拿到的上下文；EntityHost 由 GameScene 实现 */
-export interface EntityHost {
-  spawnPoints: Point[];
+/** 核心物件（出生点、巡逻怪）进场时拿到的东西；机制的物件拿到的是机制实例 */
+export interface CoreHost {
+  addSpawnPoint(p: Point): void;
   addEnemy(spawn: EnemySpawn): void;
-  addBoss(spawn: EnemySpawn): void;
-  /** 塔门：走进去到下一层 */
-  addPortal(p: Point): void;
-  addNpc(spawn: NpcSpawn): void;
-  addItem(spawn: ItemSpawn): void;
-  addSlider(spawn: SliderSpawn): void;
-  // 吃豆人
-  addPellet(p: Point, power: boolean): void;
-  addGhostHouse(p: Point): void;
-  addFruitPoint(p: Point): void;
-  addTunnel(cell: CellRef): void;
-  setGoal(p: Point): void;
 }
 export interface EnemySpawn extends Point, RoomCoord {}
 
@@ -133,10 +121,10 @@ export interface SliderSpawn extends Point {
   max: number;
 }
 
-export interface SpawnContext {
-  host: EntityHost;
-  wx: number;
-  wy: number;
+/** 物件在地图上的位置：wx/wy 是格子中心的像素坐标 */
+export interface SpawnAt {
+  x: number;
+  y: number;
   cell: CellRef & RoomCoord;
 }
 
@@ -154,11 +142,15 @@ export interface EntitySpec {
   origin?: [number, number];
   /** 物品栏里归到哪个分区（默认「物件」） */
   group?: string;
-  spawn(ctx: SpawnContext): void;
+  /** 属于哪个机制（机制 id）；不写 = 核心物件，spawn 拿到 CoreHost */
+  mechanic?: string | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- 机制物件的实例类型由 defineMechanic 那边保证
+  spawn(target: any, at: SpawnAt): void;
 }
 
 export interface EntityDef extends Required<Omit<EntitySpec, 'spawn'>> {
-  spawn(ctx: SpawnContext): void;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  spawn(target: any, at: SpawnAt): void;
   index: number;
 }
 

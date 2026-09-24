@@ -1,8 +1,9 @@
-// ===== 所有砖块与物件的注册 =====
+// ===== 基础砖块与核心物件的注册 =====
 // 想加新砖块：照着写一个 defineTile，其余系统自动认识它（地形、爆炸、掉落、贴图、编辑器物品栏）。
+// 属于某个机制的砖块 / 物件（门、Boss、豆子……）在 game/mechanics/<机制>/index.ts 里注册。
 import { TILE_FRAMES } from '@/asset';
-import { defineEntity, defineItem, defineTile, Items, Traits } from './registry';
-import { DIALOGUES } from './dialogues';
+import type { CoreHost, SpawnAt } from '@/type';
+import { defineEntity, defineTile, Traits } from './registry';
 
 // ---------- 砖块 ----------
 defineTile({ id: '.', name: '空气 / 橡皮', desc: '什么都没有', color: 0x000000 });
@@ -41,59 +42,13 @@ defineTile(
   Traits.Solid, Traits.Anchor, Traits.Destructible(0),
 );
 
-// ---------- 物件 ----------
+// ---------- 核心物件 ----------
 defineEntity({
   id: 'P', name: '出生点', desc: '玩家从这里开始（全图唯一）', texture: 'player', unique: true, color: 0x4cc9f0,
-  spawn({ host, wx, wy }) { host.spawnPoints.push({ x: wx, y: wy }); },
+  spawn: (host: CoreHost, at: SpawnAt) => host.addSpawnPoint({ x: at.x, y: at.y }),
 });
 
 defineEntity({
   id: 'M', name: '怪物', desc: '在房间里巡逻，碰到即死；会被落石压扁', texture: 'enemy', color: 0x9b5de5,
-  spawn({ host, wx, wy, cell }) { host.addEnemy({ x: wx, y: wy, rx: cell.rx, ry: cell.ry }); },
+  spawn: (host: CoreHost, at: SpawnAt) => host.addEnemy({ x: at.x, y: at.y, rx: at.cell.rx, ry: at.cell.ry }),
 });
-
-defineEntity({
-  id: 'K', name: 'Boss 大史莱姆', desc: '放进哪个房间，那个房间就是 Boss 战：进门封门、出血条，Boss 从这里落下。只有落石和引线能伤它', texture: 'boss', color: 0x9b5de5,
-  spawn({ host, wx, wy, cell }) { host.addBoss({ x: wx, y: wy, rx: cell.rx, ry: cell.ry }); },
-});
-
-defineEntity({
-  id: 'T', name: '小城堡', desc: '走进城门到下一层', texture: 'castle', color: 0x4cc9f0, origin: [0.5, 1],
-  spawn({ host, wx, wy }) { host.addPortal({ x: wx, y: wy }); },
-});
-
-defineEntity({
-  id: 'G', name: '终点', desc: '碰到即通关，上面会画一座建筑', texture: 'door', color: 0xffd166,
-  spawn({ host, wx, wy }) { host.setGoal({ x: wx, y: wy }); },
-});
-
-defineEntity({
-  id: 'N', name: '骷髅', desc: '挡在路上的小角色。走近强制对话，每跳一次说下一句，说完就消失', texture: 'skeleton', color: 0xf1efe6, origin: [0.5, 1],
-  spawn({ host, wx, wy }) { host.addNpc({ x: wx, y: wy, name: '骷髅', texture: 'skeleton', avatar: 'default', lines: DIALOGUES.skeleton, sound: 'bossLaugh' }); },
-});
-
-defineTile(
-  { id: '%', name: '门', desc: '锁着的门：拿对应颜色的钥匙碰一下就开。由「钥匙与门」工具烘焙，不直接画', color: 0xbdbdbd, frame: TILE_FRAMES.door, editorVisible: false },
-  Traits.Solid, Traits.Anchor,
-);
-
-// ---------- 道具 ----------
-const candle = defineItem({ id: 'candle', name: '蜡烛', texture: 'candle', light: 8 });
-
-defineEntity({
-  id: 'C', name: '蜡烛', desc: '地上的蜡烛。捡起来拿在右手，周围 8 格被照亮', texture: 'candle', color: 0xffd166, origin: [0.5, 1],
-  spawn({ host, wx, wy }) { host.addItem({ x: wx, y: wy, item: Items.get(candle.id)! }); },
-});
-
-defineEntity({
-  id: 'V', name: '音量滑块', desc: '设置房间用：喇叭图标右边一条轨道，走过去把滑钮推到哪儿，音乐就多大', texture: 'volume', color: 0xffd166, origin: [0.5, 1],
-  spawn({ host, wx, wy }) { host.addSlider({ x: wx, y: wy, length: 8, config: 'musicVolume', min: 0, max: 1 }); },
-});
-
-// ---------- 吃豆人（俯视层用） ----------
-const PAC = '吃豆人';
-defineEntity({ id: 'o', name: '豆子', desc: '吃一颗 10 分。房间里的豆子吃光会触发后面的剧情', texture: 'pellet', color: 0xffe8b0, group: PAC, spawn({ host, wx, wy }) { host.addPellet({ x: wx, y: wy }, false); } });
-defineEntity({ id: 'O', name: '大力丸', desc: '50 分，鬼全部变蓝一段时间，可以反吃', texture: 'power', color: 0xffe8b0, group: PAC, spawn({ host, wx, wy }) { host.addPellet({ x: wx, y: wy }, true); } });
-defineEntity({ id: 'H', name: '鬼巢', desc: '四只鬼从这里出来，被吃后回这里复活。放在巢的门口那一格', texture: 'ghosthouse', color: 0xffb3c6, group: PAC, spawn({ host, wx, wy }) { host.addGhostHouse({ x: wx, y: wy }); } });
-defineEntity({ id: 'F', name: '葡萄点', desc: '吃到 70 颗和 170 颗豆子时在这里出现葡萄，9 秒内吃到加分', texture: 'grapes', color: 0x9b5de5, group: PAC, spawn({ host, wx, wy }) { host.addFruitPoint({ x: wx, y: wy }); } });
-defineEntity({ id: '~', name: '隧道格', desc: '鬼经过这里减速；配合房间开关「左右打通」做穿屏隧道。游戏里不可见', texture: 'tunnel', color: 0x4cc9f0, group: PAC, spawn({ host, cell }) { host.addTunnel({ x: cell.x, y: cell.y }); } });

@@ -2,6 +2,7 @@
 import Phaser from 'phaser';
 import '@/game/registry/tiles';    // 注册所有砖块与物件（副作用导入）
 import '@/game/registry/skills';   // 注册所有角色技能
+import '@/game/mechanics';         // 注册所有机制和它们的物件
 import { BootScene } from './scenes/BootScene';
 import { GameScene } from './scenes/GameScene';
 import { EditorScene } from './scenes/EditorScene';

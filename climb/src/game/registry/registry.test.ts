@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import '@/game/registry/tiles';
+import '@/game/mechanics';
 import { classify, Entities, Tiles } from './registry';
 
 describe('注册表', () => {

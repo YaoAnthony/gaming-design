@@ -108,21 +108,21 @@ const editorSlice = createSlice({
       state.room = roomOfStart(m(state));
       state.version++;
     },
-    addFloor(state, action: PayloadAction<{ name: string; roomW: number; roomH: number; place?: string; mode?: 'platform' | 'topdown' }>) {
+    addFloor(state, action: PayloadAction<{ name: string; roomW: number; roomH: number; place?: string; /** 层机制 id；不写 / platform = 默认 */ mode?: string }>) {
       const f = newFloor(state.project, action.payload.name, action.payload.roomW, action.payload.roomH);
       if (action.payload.place) f.place = action.payload.place;
-      if (action.payload.mode === 'topdown') f.mode = 'topdown';
+      if (action.payload.mode && action.payload.mode !== 'platform') f.mode = action.payload.mode;
       state.project.floors.push(f);
       state.floor = state.project.floors.length - 1;
       state.room = { rx: 0, ry: 0 };
       state.version++;
     },
-    renameFloor(state, action: PayloadAction<{ index: number; name: string; place?: string; mode?: 'platform' | 'topdown' }>) {
+    renameFloor(state, action: PayloadAction<{ index: number; name: string; place?: string; mode?: string }>) {
       const f = state.project.floors[action.payload.index];
       if (!f) return;
       f.name = action.payload.name;
       if (action.payload.place !== undefined) { if (action.payload.place) f.place = action.payload.place; else delete f.place; }
-      if (action.payload.mode !== undefined) { if (action.payload.mode === 'topdown') f.mode = 'topdown'; else delete f.mode; }
+      if (action.payload.mode !== undefined) { if (action.payload.mode && action.payload.mode !== 'platform') f.mode = action.payload.mode; else delete f.mode; }
       state.version++;
     },
     deleteFloor(state, action: PayloadAction<number>) {

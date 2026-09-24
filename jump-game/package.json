@@ -1,8 +1,0 @@
-{
-  "name": "jump-game",
-  "version": "0.1.0",
-  "private": true,
-  "scripts": {
-    "start": "npx serve -l 8080 ."
-  }
-}

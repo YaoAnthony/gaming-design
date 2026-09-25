@@ -5,7 +5,7 @@ import { Terrain } from '@/game/terrain/Terrain';
 import { FUSE_CHANNELS, fuseHas } from '@/game/fuse/channels';
 import { DOOR_CHAR, fuseRows, lockGroup, nextFloorId, roomKeyAt, worldRows } from '@/game/world/WorldModel';
 import { layoutText, textSize } from '@/game/world/font';
-import { bridge, EVT, SCENE } from '@/game/bridge';
+import { bridge, EVT, SCENE, type PickedCell } from '@/game/bridge';
 import { store } from '@/redux/store';
 import { resizeGame } from '@/game/resize';
 import { addText, currentModel, paintCell, paintDoor, paintEntity, paintFog, paintFuse, paintKey, removeText } from '@/redux/slices/editorSlice';
@@ -52,8 +52,12 @@ export class EditorScene extends Phaser.Scene {
     this.cursor = this.add.rectangle(0, 0, T, T).setOrigin(0).setStrokeStyle(2, 0xffffff, 0.9).setDepth(4).setVisible(false);
 
     this.input.mouse?.disableContextMenu();
-    this.input.on('pointerdown', (p: Phaser.Input.Pointer) => { if (this.state().brush === 'text') this.placeText(p); else this.paint(p); });
-    this.input.on('pointermove', (p: Phaser.Input.Pointer) => { this.moveCursor(p); if (p.isDown && this.state().brush !== 'text') this.paint(p); });
+    this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
+      if (this.state().picking) this.pickStart(p);   // 选试玩起点：不画东西
+      else if (this.state().brush === 'text') this.placeText(p);
+      else this.paint(p);
+    });
+    this.input.on('pointermove', (p: Phaser.Input.Pointer) => { this.moveCursor(p); if (p.isDown && !this.state().picking && this.state().brush !== 'text') this.paint(p); });
     this.input.on('pointerout', () => this.cursor.setVisible(false));
 
     const reload = () => this.refreshAll();
@@ -86,10 +90,20 @@ export class EditorScene extends Phaser.Scene {
     return { x, y };
   }
 
+  /** 选试玩起点：把点的格子交给 React（它来判断能不能站、然后开始试玩） */
+  private pickStart(p: Phaser.Input.Pointer): void {
+    const c = this.cellAt(p), key = this.key();
+    if (!c || !key || p.rightButtonDown()) return;
+    const s = this.state(), m = currentModel(s);
+    const cell: PickedCell = { key, x: c.x, y: c.y, wx: s.room.rx * m.roomW + c.x, wy: s.room.ry * m.roomH + c.y };
+    bridge.emit(EVT.editorPickStart, cell);
+  }
+
   private moveCursor(p: Phaser.Input.Pointer): void {
     const c = this.cellAt(p);
     this.cursor.setVisible(!!c);
     if (!c) return;
+    this.cursor.setStrokeStyle(this.state().picking ? 3 : 2, this.state().picking ? 0x80ed99 : 0xffffff, 0.9);   // 选起点时是绿框
     this.cursor.setPosition(c.x * this.T, c.y * this.T);
     const key = this.key();
     const tile = classify(this.rows()[c.y]?.[c.x] ?? '.').def;

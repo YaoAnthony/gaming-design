@@ -28,6 +28,9 @@ export interface StartGameData {
   origin?: StartGameData;
 }
 
+/** 编辑器地图上点的一格：key 是房间，x/y 是房间里的格子，wx/wy 是整层地图上的格子 */
+export interface PickedCell { key: string; x: number; y: number; wx: number; wy: number }
+
 export const SCENE = { boot: 'Boot', game: 'Game', editor: 'Editor' } as const;
 
 export const EVT = {
@@ -36,6 +39,8 @@ export const EVT = {
   playtestExit: 'playtest:exit',
   /** 编辑器的「返回编辑器」按钮：试玩中请求退出（和 ESC 一样） */
   requestPlaytestExit: 'playtest:request-exit',
+  /** 选试玩起点时在编辑器地图上点了一格：参数是 PickedCell */
+  editorPickStart: 'editor:pick-start',
   requestReset: 'game:reset',
   /** 通关弹窗关掉：继续玩 */
   continueGame: 'game:continue',

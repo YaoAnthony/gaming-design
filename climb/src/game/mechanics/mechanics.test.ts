@@ -4,6 +4,7 @@ import '@/game/mechanics';
 import type { Floor, WorldModel } from '@/type';
 import { Entities } from '@/game/registry/registry';
 import { floorMechanicOf, globalMechanicsOf, Mechanics } from './define';
+import { blastRadius, fuseIgniteRadius } from './platform/Platform';
 
 /** 一个房间的小层：entities 那一行放物件字符 */
 function floorWith(entityRow: string, extra: Partial<Floor> = {}, model: Partial<WorldModel> = {}): Floor {
@@ -56,5 +57,20 @@ describe('机制注册表', () => {
   it('层机制的物件默认按机制名分区，通用机制的归「物件」', () => {
     expect(Entities.get('o')?.group).toBe('吃豆人');
     expect(Entities.get('K')?.group).toBe('物件');
+  });
+});
+
+describe('起跳爆炸半径和点引线的半径', () => {
+  const cfg = { explosionRadius: 1.5, explosionRadiusByStage: [null, null, 5], fuseIgniteRadius: 2.5 };
+
+  it('按阶段单独设的半径优先，没设用 explosionRadius', () => {
+    expect(blastRadius(cfg, 0)).toBe(1.5);
+    expect(blastRadius(cfg, 1)).toBe(1.5);
+    expect(blastRadius(cfg, 2)).toBe(5);
+  });
+
+  it('点引线：爆炸范围里的端点都点得着，爆炸小的时候不低于 fuseIgniteRadius', () => {
+    expect(fuseIgniteRadius(cfg, 0)).toBe(2.5);
+    expect(fuseIgniteRadius(cfg, 2)).toBe(5);   // 第 3 关：头顶上方几格的引线头也点得着
   });
 });

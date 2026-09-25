@@ -1,6 +1,6 @@
 // ===== 平台跳：左右走、起跳即爆炸（技能注册表决定炸哪里）、爆炸预览 =====
 import type Phaser from 'phaser';
-import type { SkillContext, SkillDef } from '@/type';
+import type { GameConfig, SkillContext, SkillDef } from '@/type';
 import { Skills } from '@/game/registry/registry';
 import { playExplosion } from '@/particle';
 import type { JumpEvent } from '@/sprite';
@@ -41,7 +41,7 @@ export class Platform implements FloorMechanic {
   private skillContext(jump: JumpEvent): SkillContext {
     const { ctx } = this;
     return {
-      cfg: { ...ctx.cfg, explosionRadius: ctx.cfg.explosionRadiusByStage[ctx.player.stage] ?? ctx.cfg.explosionRadius },   // 长大以后炸得更大
+      cfg: { ...ctx.cfg, explosionRadius: blastRadius(ctx.cfg, ctx.player.stage) },   // 长大以后炸得更大
       jump,
       previewRadius: (c, r) => ctx.terrain.previewExplosion(c.x, c.y, r),
       previewCells: cells => ctx.terrain.previewCells(cells),
@@ -69,8 +69,8 @@ export class Platform implements FloorMechanic {
     const jump = this.aimJump(rawJump);
     this.skill.onJump(this.skillContext(jump));
     ctx.scene.sound.play('boom', { volume: 0.8 });
-    // 爆炸中心附近有引线端点就点燃
-    const ends = ctx.fuses.endsNear(jump.cell, ctx.cfg.fuseIgniteRadius);
+    // 爆炸范围里（至少 fuseIgniteRadius）有引线端点就点燃
+    const ends = ctx.fuses.endsNear(jump.cell, fuseIgniteRadius(ctx.cfg, ctx.player.stage));
     if (ends.length && ctx.igniteFuses(ends)) ctx.fx.flash('引线点燃！', '#ff7b54');
   }
 
@@ -97,4 +97,14 @@ export class Platform implements FloorMechanic {
       g.fillTriangle(c.x * T + T / 2 - 6, c.y * T + T / 2 - 4, c.x * T + T / 2 + 6, c.y * T + T / 2 - 4, c.x * T + T / 2, c.y * T + T / 2 + 6);
     });
   }
+}
+
+/** 这个长大阶段的起跳爆炸半径（格）：有按阶段单独设的就用它，否则用 explosionRadius */
+export function blastRadius(cfg: Pick<GameConfig, 'explosionRadius' | 'explosionRadiusByStage'>, stage: number): number {
+  return cfg.explosionRadiusByStage[stage] ?? cfg.explosionRadius;
+}
+
+/** 起跳点燃引线的半径（格）：爆炸范围（预览的白框）里的端点都点得着；爆炸比 fuseIgniteRadius 小的时候照旧用 fuseIgniteRadius */
+export function fuseIgniteRadius(cfg: Pick<GameConfig, 'explosionRadius' | 'explosionRadiusByStage' | 'fuseIgniteRadius'>, stage: number): number {
+  return Math.max(cfg.fuseIgniteRadius, blastRadius(cfg, stage));
 }

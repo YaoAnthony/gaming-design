@@ -19,7 +19,14 @@ export interface EditorState {
   showSupport: boolean;
   /** 每次模型变化 +1，Phaser 场景据此判断要不要重绘 */
   version: number;
+  /** 试玩时角色的起始状态（右边栏设置，三种开始方式都用它） */
+  play: PlayLoadout;
+  /** 正在等你在地图上点一格当试玩起点（「从这层开始」之后） */
+  picking: boolean;
 }
+
+/** 试玩的起始状态：长大阶段（0/1/2 = 第 1/2/3 关）、戴不戴帽子、手上拿什么（'' = 空手，道具 id，或 'key:组号'） */
+export interface PlayLoadout { stage: number; hat: boolean; held: string }
 
 /** 当前层的模型 */
 export const currentModel = (e: EditorState): WorldModel => e.project.floors[Math.min(e.floor, e.project.floors.length - 1)].model;
@@ -39,6 +46,8 @@ const initialState: EditorState = {
   brush: '#',
   showSupport: true,
   version: 0,
+  play: { stage: 0, hat: false, held: '' },
+  picking: false,
 };
 
 const m = (state: EditorState) => currentModel(state);
@@ -136,6 +145,8 @@ const editorSlice = createSlice({
       state.version++;
     },
     /** 整个项目替换（载入 / 导入） */
+    setPlayLoadout(state, action: PayloadAction<Partial<PlayLoadout>>) { Object.assign(state.play, action.payload); },
+    setPicking(state, action: PayloadAction<boolean>) { state.picking = action.payload; },
     replaceProject(state, action: PayloadAction<Project>) {
       state.project = action.payload;
       state.project.floors.forEach(f => normalizeModel(f.model));
@@ -148,6 +159,6 @@ const editorSlice = createSlice({
 
 export const {
   setBrush, setRoom, setShowSupport, paintCell, paintEntity, paintFog, paintFuse, setRoomFlag,
-  addText, updateText, removeText, addLock, removeLock, paintDoor, paintKey, addRoom, moveRoom, deleteRoom, setFloor, addFloor, renameFloor, deleteFloor, replaceProject,
+  addText, updateText, removeText, addLock, removeLock, paintDoor, paintKey, addRoom, moveRoom, deleteRoom, setFloor, addFloor, renameFloor, deleteFloor, replaceProject, setPlayLoadout, setPicking,
 } = editorSlice.actions;
 export default editorSlice.reducer;

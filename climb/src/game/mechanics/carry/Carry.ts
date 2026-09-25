@@ -4,6 +4,7 @@
 import Phaser from 'phaser';
 import type { ItemDef, SaveData } from '@/type';
 import { Items } from '@/game/registry/registry';
+import { lockGroup } from '@/game/world/WorldModel';
 import type { PlayContext } from '@/game/core/PlayContext';
 import type { Mechanic } from '../define';
 
@@ -20,6 +21,8 @@ export interface Carryable {
 interface GroundThing { carry: Carryable; x: number; y: number; sprite: Phaser.GameObjects.Image; glow?: Phaser.GameObjects.Image; /** 刚放下的：人走开之前不能再捡 */ blocked: boolean }
 
 export const carryOfItem = (d: ItemDef): Carryable => ({ id: d.id, texture: d.texture, tint: 0xffffff, light: d.light });
+/** 某一组的钥匙：id = 'key:组号'，按组的颜色染色 */
+export const keyCarryable = (group: number, tint: number): Carryable => ({ id: 'key:' + group, texture: 'key', tint, light: 0, key: group });
 
 export class Carry implements Mechanic {
   private ground: GroundThing[] = [];
@@ -60,8 +63,8 @@ export class Carry implements Mechanic {
 
   // ---------- 生命周期 ----------
   start(): void {
-    const def = this.heldId ? Items.get(this.heldId) : undefined;
-    if (def) this.hold(carryOfItem(def)); else this.heldId = null;
+    const start = this.heldId ? this.carryOf(this.heldId) : null;
+    if (start) this.hold(start); else this.heldId = null;
     // 手上的东西跟着人走：物理把人挪好之后再摆
     this.ctx.scene.events.on(Phaser.Scenes.Events.POST_UPDATE, this.placeHeld);
   }
@@ -93,6 +96,15 @@ export class Carry implements Mechanic {
   destroy(): void { this.ctx.scene.events.off(Phaser.Scenes.Events.POST_UPDATE, this.placeHeld); }
 
   // ---------- 内部 ----------
+  /** 进场时手里的东西：注册过的道具，或者这一层存在的那一组钥匙（编辑器试玩可以直接带钥匙进来） */
+  private carryOf(id: string): Carryable | null {
+    const def = Items.get(id);
+    if (def) return carryOfItem(def);
+    const m = /^key:(\d+)$/.exec(id);
+    const g = m ? lockGroup(this.ctx.model, Number(m[1])) : undefined;
+    return g ? keyCarryable(g.id, g.color) : null;
+  }
+
   private syncLightSources(): void {
     const T = this.ctx.cfg.tile;
     this.ctx.fog?.setSources(this.ground.filter(g => g.carry.light > 0).map(g => ({ x: Math.floor(g.x / T), y: Math.floor(g.y / T), r: g.carry.light })));

@@ -3,7 +3,7 @@
 import { DOOR_CHAR, lockGroup, type LockCell } from '@/game/world/WorldModel';
 import type { PlayContext } from '@/game/core/PlayContext';
 import type { Mechanic } from '../define';
-import type { Carry } from '../carry/Carry';
+import { keyCarryable, type Carry } from '../carry/Carry';
 
 export interface LockData { doors: LockCell[]; keys: LockCell[] }
 
@@ -21,7 +21,7 @@ export class Locks implements Mechanic {
 
   start(): void {
     const T = this.ctx.cfg.tile;
-    this.data.keys.forEach(c => this.carry?.spawnGround({ id: 'key:' + c.group, texture: 'key', tint: this.color(c.group), light: 0, key: c.group }, c.x * T + T / 2, c.y * T + T / 2));
+    this.data.keys.forEach(c => this.carry?.spawnGround(keyCarryable(c.group, this.color(c.group)), c.x * T + T / 2, c.y * T + T / 2));
     this.tint();
   }
 

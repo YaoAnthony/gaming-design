@@ -28,7 +28,7 @@ export const DEFAULT_CONFIG: GameConfig = {
   coyoteMs: 90,
   jumpBufferMs: 100,
   explosionRadius: 1.5,
-  explosionRadiusByStage: [null, null, 2],   // 第 3 关（2 格高）炸 2 格；null = 用 explosionRadius
+  explosionRadiusByStage: [null, null, 5],   // 第 3 关（2 格高）炸 5 格；null = 用 explosionRadius
   chunkGravity: 1400,
   chunkMaxFall: 700,
   crushMinSpeed: 250,

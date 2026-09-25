@@ -118,10 +118,14 @@ export class BossFight implements Mechanic {
     }
   }
 
-  /** 玩家离门口一格半以上就把门封上；复活点就定在关门的这个位置 */
+  /** 玩家在 Boss 房里、离门口一格半以上就把门封上；复活点就定在关门的这个位置 */
   private sealDoors(): void {
-    if (!this.doorsPending.length) return;
+    if (!this.doorsPending.length || !this.room) return;
     const { ctx } = this, T = ctx.cfg.tile, b = ctx.player.body;
+    // 人不在 Boss 房里（比如刚进来又退回门外）就不封，而且把没封的门忘掉：下次进房 startBoss 会重新记。
+    // 不能留着等：场景每帧先跑机制再判断换房间，留着的旧门会在人重新进房的那一帧先被封上，
+    // 紧接着 startBoss 又把门的记录清空，结果门封死了、Boss 也不出来
+    if (!ctx.rooms.same(ctx.rooms.of(b.center.x, b.center.y), this.room)) { this.doorsPending = []; return; }
     const clear = this.doorsPending.every(c => {
       const cx = c.x * T + T / 2, cy = c.y * T + T / 2;
       return Math.abs(b.center.x - cx) > SEAL_DISTANCE * T || Math.abs(b.center.y - cy) > SEAL_DISTANCE * T;

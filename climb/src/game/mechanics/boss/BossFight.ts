@@ -147,7 +147,7 @@ export class BossFight implements Mechanic {
     if (defeated && this.room) { const key = ctx.rooms.key(this.room); if (key) this.defeated.add(key); }
     this.room = null;
     ctx.hud.boss(null);
-    ctx.music.play('bgm');
+    ctx.music.playBase();
     ctx.fx.fogDirty();
   }
 

@@ -1,18 +1,24 @@
-// ===== 背景音乐：平时一首、Boss 一首，淡入淡出切换 =====
+// ===== 背景音乐：本层一首（层设置里选，可以是「无」）、Boss 战时临时换一首，淡入淡出切换 =====
 import type Phaser from 'phaser';
+import { NO_MUSIC } from '@/asset';
 
 export class Music {
   private current: Phaser.Sound.BaseSound | null = null;
   private currentKey = '';
 
-  constructor(private scene: Phaser.Scene, private volume: number) {}
+  /** @param base 这一层的音乐（音频 key 或 'none'） */
+  constructor(private scene: Phaser.Scene, private volume: number, private base: string) {}
 
-  /** 切到某首（已经在放就不动）；浏览器还没解锁音频时等解锁后再放 */
+  /** 回到这一层的音乐（进层、Boss 打完） */
+  playBase(): void { this.play(this.base); }
+
+  /** 切到某首（已经在放就不动）；'none' = 淡出后安静；浏览器还没解锁音频时等解锁后再放 */
   play(key: string): void {
     if (this.currentKey === key) return;
     const start = () => {
       const old = this.current;
       if (old) { this.scene.tweens.add({ targets: old, volume: 0, duration: 600, onComplete: () => { old.stop(); old.destroy(); } }); }
+      if (key === NO_MUSIC || !this.scene.cache.audio.exists(key)) { this.current = null; this.currentKey = key; return; }
       const next = this.scene.sound.add(key, { loop: true, volume: 0 });
       next.play();
       this.scene.tweens.add({ targets: next, volume: this.volume, duration: 900 });

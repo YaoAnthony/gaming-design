@@ -2,6 +2,7 @@
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
 import type { Project, RoomCoord, RoomFlags, TextBlock, WorldModel } from '@/type';
 import { DEFAULT_PROJECT } from '@/game/world/defaultWorld';
+import { DEFAULT_MUSIC } from '@/asset';
 import {
   addLockGroup as addModelLock, removeLockGroup as removeModelLock, setDoorCell, setKeyCell,
   addRoomAt, addTextBlock as addModelText, clearChar, deleteRoom as deleteModelRoom, findStart, firstRoom, moveRoom as moveModelRoom,
@@ -108,21 +109,23 @@ const editorSlice = createSlice({
       state.room = roomOfStart(m(state));
       state.version++;
     },
-    addFloor(state, action: PayloadAction<{ name: string; roomW: number; roomH: number; place?: string; /** 层机制 id；不写 / platform = 默认 */ mode?: string }>) {
+    addFloor(state, action: PayloadAction<{ name: string; roomW: number; roomH: number; place?: string; /** 层机制 id；不写 / platform = 默认 */ mode?: string; /** 背景音乐 key / 'none'；不写 = 默认 */ music?: string }>) {
       const f = newFloor(state.project, action.payload.name, action.payload.roomW, action.payload.roomH);
       if (action.payload.place) f.place = action.payload.place;
       if (action.payload.mode && action.payload.mode !== 'platform') f.mode = action.payload.mode;
+      if (action.payload.music && action.payload.music !== DEFAULT_MUSIC) f.music = action.payload.music;
       state.project.floors.push(f);
       state.floor = state.project.floors.length - 1;
       state.room = { rx: 0, ry: 0 };
       state.version++;
     },
-    renameFloor(state, action: PayloadAction<{ index: number; name: string; place?: string; mode?: string }>) {
+    renameFloor(state, action: PayloadAction<{ index: number; name: string; place?: string; mode?: string; music?: string }>) {
       const f = state.project.floors[action.payload.index];
       if (!f) return;
       f.name = action.payload.name;
       if (action.payload.place !== undefined) { if (action.payload.place) f.place = action.payload.place; else delete f.place; }
       if (action.payload.mode !== undefined) { if (action.payload.mode && action.payload.mode !== 'platform') f.mode = action.payload.mode; else delete f.mode; }
+      if (action.payload.music !== undefined) { if (action.payload.music && action.payload.music !== DEFAULT_MUSIC) f.music = action.payload.music; else delete f.music; }
       state.version++;
     },
     deleteFloor(state, action: PayloadAction<number>) {

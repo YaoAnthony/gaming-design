@@ -16,6 +16,7 @@ import { store } from '@/redux/store';
 import { resizeGame } from '@/game/resize';
 import { touch, TOUCH_ACTION, TOUCH_JUMP } from '@/game/input';
 import { Music } from '@/game/Music';
+import { DEFAULT_MUSIC } from '@/asset';
 import { flash, setBoss, setControls, setDialogue, setMode, setPlace, setRoomKey, setScore, setStats } from '@/redux/slices/hudSlice';
 import { clearSave, writeSave } from '@/redux/slices/saveSlice';
 import { floorMechanicOf, globalMechanicsOf, type FloorMechanic, type Mechanic, type MechanicDef, type MoveInput } from '@/game/mechanics/define';
@@ -133,7 +134,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.sparks = createSparkEmitter(this);
-    this.music = new Music(this, this.cfg.musicVolume);
+    this.music = new Music(this, this.cfg.musicVolume, this.floor.music ?? DEFAULT_MUSIC);
     this.dialogue = new Dialogue(() => ({ y: this.player.y - this.cameras.main.scrollY, h: this.cameras.main.height }));
     this.ctx = this.buildContext();
     this.enemies = new Enemies(this.ctx);
@@ -179,7 +180,7 @@ export class GameScene extends Phaser.Scene {
 
     this.bindInput();
 
-    this.music.play('bgm');
+    this.music.playBase();
     let lastVol = this.cfg.musicVolume;
     const unsubVol = store.subscribe(() => { const v = store.getState().config.musicVolume; if (v !== lastVol) { lastVol = v; this.music.setVolume(v); } });
     if (this.startData.announceFloor) {

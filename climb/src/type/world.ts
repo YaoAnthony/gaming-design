@@ -49,6 +49,8 @@ export interface Floor {
   place?: string;
   /** 层机制的 id（见 game/mechanics）：platform = 平台跳（默认）、pacman = 吃豆人……旧地图的 'topdown' 也认 */
   mode?: string;
+  /** 这一层的背景音乐：音频 key（见 asset 的 MUSIC_TRACKS）；'none' = 不放；不写 = 默认那首 */
+  music?: string;
   model: WorldModel;
 }
 

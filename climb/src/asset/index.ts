@@ -85,10 +85,18 @@ export const AVATARS: Record<string, string> = {
   laugh: avatarLaughUrl,
 };
 
-export interface AudioAsset { key: string; url: string }
+/** music = 背景曲的名字：写了就会出现在编辑器「背景音乐」下拉里 */
+export interface AudioAsset { key: string; url: string; music?: string }
 export const AUDIO: AudioAsset[] = [
-  { key: 'boom', url: boomUrl },            // 起跳爆炸
-  { key: 'bgm', url: bgmUrl },              // 平时的背景音乐（循环）
-  { key: 'bossMusic', url: bossMusicUrl },  // Boss 战音乐（循环）
-  { key: 'bossLaugh', url: bossLaughUrl },  // 骷髅消失时的笑声
+  { key: 'boom', url: boomUrl },                                    // 起跳爆炸
+  { key: 'bgm', url: bgmUrl, music: 'Pixelated Coffee' },           // 平时的背景音乐（循环）
+  { key: 'bossMusic', url: bossMusicUrl, music: 'Boss 战' },        // Boss 战音乐（循环）
+  { key: 'bossLaugh', url: bossLaughUrl },                          // 骷髅消失时的笑声
 ];
+
+/** 能当背景音乐的曲目 */
+export const MUSIC_TRACKS = AUDIO.filter(a => a.music);
+/** 层的背景音乐默认用哪首 */
+export const DEFAULT_MUSIC = 'bgm';
+/** 层的背景音乐设成这个 = 这一层不放音乐 */
+export const NO_MUSIC = 'none';

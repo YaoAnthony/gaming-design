@@ -3,9 +3,13 @@ import { App as AntApp, Input, InputNumber, Modal, Select } from 'antd';
 import { useAppDispatch, useAppSelector } from '@/redux/hooks';
 import { addFloor, deleteFloor, renameFloor, setFloor } from '@/redux/slices/editorSlice';
 import { DEFAULT_FLOOR_MECHANIC, floorMechanicOf, floorMechanics } from '@/game/mechanics/define';
+import { DEFAULT_MUSIC, MUSIC_TRACKS, NO_MUSIC } from '@/asset';
 
 /** 层机制下拉：选这一层怎么玩（注册表里的层机制） */
 const modeOptions = () => floorMechanics().map(m => ({ value: m.id, label: m.name, title: m.desc }));
+/** 背景音乐下拉：音频清单里标了 music 的曲目 + 「无」 */
+const musicOptions = [...MUSIC_TRACKS.map(a => ({ value: a.key, label: a.key === DEFAULT_MUSIC ? a.music + '（默认）' : a.music! })), { value: NO_MUSIC, label: '无（不放音乐）' }];
+const LABEL = { flex: 'none', alignSelf: 'center', width: 60 } as const;
 
 /** 层标签：第一层在塔外，进塔之后每层一个独立的房间网格、可以有自己的房间尺寸 */
 export function FloorTabs() {
@@ -16,16 +20,17 @@ export function FloorTabs() {
   const [name, setName] = useState('');
   const [place, setPlace] = useState('');
   const [mode, setMode] = useState(DEFAULT_FLOOR_MECHANIC);
+  const [music, setMusic] = useState(DEFAULT_MUSIC);
   const [roomW, setRoomW] = useState(20);
   const [roomH, setRoomH] = useState(20);
 
-  const openAdd = () => { setName(`第 ${project.floors.length + 1} 层`); setPlace(''); setMode(DEFAULT_FLOOR_MECHANIC); setRoomW(20); setRoomH(20); setAdding(true); };
-  const confirmAdd = () => { dispatch(addFloor({ name: name.trim(), roomW, roomH, place: place.trim(), mode })); setAdding(false); };
+  const openAdd = () => { setName(`第 ${project.floors.length + 1} 层`); setPlace(''); setMode(DEFAULT_FLOOR_MECHANIC); setMusic(DEFAULT_MUSIC); setRoomW(20); setRoomH(20); setAdding(true); };
+  const confirmAdd = () => { dispatch(addFloor({ name: name.trim(), roomW, roomH, place: place.trim(), mode, music })); setAdding(false); };
 
   const rename = (i: number) => {
     const f = project.floors[i];
-    let v = f.name, pl = f.place ?? '', md = floorMechanicOf(f).id;
-    const commit = () => dispatch(renameFloor({ index: i, name: v.trim() || f.name, place: pl.trim(), mode: md }));
+    let v = f.name, pl = f.place ?? '', md = floorMechanicOf(f).id, mu = f.music ?? DEFAULT_MUSIC;
+    const commit = () => dispatch(renameFloor({ index: i, name: v.trim() || f.name, place: pl.trim(), mode: md, music: mu }));
     modal.confirm({
       title: '这一层', icon: null, okText: '改', cancelText: '取消',
       content: (
@@ -33,6 +38,7 @@ export function FloorTabs() {
           <div className="row"><span className="hint" style={{ flex: 'none', alignSelf: 'center', width: 60 }}>名字</span><Input defaultValue={v} maxLength={20} onChange={e => { v = e.target.value; }} onPressEnter={() => { commit(); Modal.destroyAll(); }} /></div>
           <div className="row"><span className="hint" style={{ flex: 'none', alignSelf: 'center', width: 60 }}>位置</span><Input defaultValue={pl} maxLength={30} placeholder="左上角：当前位置: …" onChange={e => { pl = e.target.value; }} onPressEnter={() => { commit(); Modal.destroyAll(); }} /></div>
           <div className="row"><span className="hint" style={{ flex: 'none', alignSelf: 'center', width: 60 }}>玩法</span><Select style={{ flex: 1 }} defaultValue={md} options={modeOptions()} onChange={val => { md = val; }} /></div>
+          <div className="row"><span className="hint" style={LABEL}>背景音乐</span><Select style={{ flex: 1 }} defaultValue={mu} options={musicOptions} onChange={val => { mu = val; }} /></div>
         </>
       ),
       onOk: commit,
@@ -65,6 +71,7 @@ export function FloorTabs() {
         <div className="row"><span className="hint" style={{ flex: 'none', alignSelf: 'center', width: 60 }}>房间宽</span><InputNumber min={10} max={80} value={roomW} onChange={v => setRoomW(v ?? 20)} /></div>
         <div className="row"><span className="hint" style={{ flex: 'none', alignSelf: 'center', width: 60 }}>房间高</span><InputNumber min={10} max={60} value={roomH} onChange={v => setRoomH(v ?? 20)} /></div>
         <div className="row"><span className="hint" style={{ flex: 'none', alignSelf: 'center', width: 60 }}>玩法</span><Select style={{ flex: 1 }} value={mode} options={modeOptions()} onChange={setMode} /></div>
+        <div className="row"><span className="hint" style={LABEL}>背景音乐</span><Select style={{ flex: 1 }} value={music} options={musicOptions} onChange={setMusic} /></div>
         <div className="hint">单位：格。一层里所有房间同一个尺寸。</div>
       </Modal>
     </div>

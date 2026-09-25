@@ -1,4 +1,6 @@
 // ===== 吃豆人层：俯视移动、豆子、葡萄、分数、四只鬼；清空之后的剧本和炸弹 =====
+// 大力丸：1 阶段是经典的鬼变蓝；2 阶段（豆子吃光、鬼加速之后）变成强化道具——移速加快、能多放一颗炸弹，死了清零。
+// 4 颗大力丸在进 2 阶段时、以及每次复活时都会刷新。
 import Phaser from 'phaser';
 import type { CellRef, Point } from '@/type';
 import type { PlayContext } from '@/game/core/PlayContext';
@@ -33,6 +35,8 @@ export class PacMan implements FloorMechanic {
   private score = 0;
   private eaten = 0;
   private powerCount = 0;
+  /** 2 阶段吃了几颗大力丸（加移速、加炸弹上限）；死了清零 */
+  private boosts = 0;
   private fruit: { sprite: Phaser.GameObjects.Image; until: number; x: number; y: number } | null = null;
   private fruitShown = new Set<number>();
   private ghosts: GhostManager | null = null;
@@ -67,7 +71,7 @@ export class PacMan implements FloorMechanic {
       if (!this.pellets.length) return;
       this.pellets.forEach(pe => pe.sprite.destroy());
       this.eaten += this.pellets.length; this.pellets = [];
-      this.script.onCleared(ctx.scene.time.now);
+      this.onCleared(ctx.scene.time.now);
     });
   }
 
@@ -109,14 +113,13 @@ export class PacMan implements FloorMechanic {
 
   onClear(): void { this.bombs.clear(); }
 
-  /** 死亡 / R：鬼回巢重新按节拍出；剧情还没开始的话豆子全部复原 */
+  /** 死亡 / R：鬼回巢重新按节拍出；4 颗大力丸刷新、2 阶段的加成清零；剧情还没开始的话小豆子也全部复原 */
   onReset(): void {
     this.ghosts?.reset(this.ctx.scene.time.now);
     this.walker.reset();
-    if (!this.script.playing) return;
-    this.pellets.forEach(pe => pe.sprite.destroy());
-    this.pellets = [];
-    this.pelletSpawns.forEach(p => this.placePellet({ x: p.x, y: p.y }, p.power));
+    this.setBoosts(0);
+    if (!this.script.playing) { this.refreshPellets(true); return; }
+    this.refreshPellets(false);
     this.eaten = 0; this.fruitShown.clear();
     if (this.fruit) { this.fruit.sprite.destroy(); this.fruit = null; }
   }
@@ -131,6 +134,29 @@ export class PacMan implements FloorMechanic {
     this.pellets.push({ x: p.x, y: p.y, power, sprite });
   }
 
+  /** 把豆子放回原位：onlyPower = 只刷新大力丸（小豆子不动） */
+  private refreshPellets(onlyPower: boolean): void {
+    const keep = this.pellets.filter(pe => onlyPower && !pe.power);
+    this.pellets.filter(pe => !keep.includes(pe)).forEach(pe => pe.sprite.destroy());
+    this.pellets = keep;
+    this.pelletSpawns.filter(p => !onlyPower || p.power).forEach(p => this.placePellet({ x: p.x, y: p.y }, p.power));
+  }
+
+  /** 小豆子吃光：剧本进 2 阶段（鬼加速），4 颗大力丸刷新 */
+  private onCleared(now: number): void {
+    if (!this.script.playing) return;
+    this.script.onCleared(now);
+    this.refreshPellets(true);
+  }
+
+  /** 2 阶段的加成：吃了 n 颗 → 移速 + n 档、炸弹上限 + n（不超过 pacMaxBombs） */
+  private setBoosts(n: number): void {
+    const cfg = this.ctx.cfg;
+    this.boosts = Math.max(0, Math.min(n, cfg.pacMaxBombs - cfg.pacBaseBombs));
+    this.bombs.capacity = cfg.pacBaseBombs + this.boosts;
+    this.walker.speed = cfg.topdownSpeed + this.boosts * cfg.pacBoostSpeed;
+  }
+
   private addScore(n: number): void { this.score += n; this.ctx.hud.score(this.score); }
 
   /** 走到豆子所在格就吃掉 */
@@ -143,13 +169,18 @@ export class PacMan implements FloorMechanic {
       this.eaten++;
       this.addScore(pe.power ? POWER_SCORE : PELLET_SCORE);
       if (pe.power) this.onPowerPellet();
-      if (!this.pellets.some(q => !q.power)) this.script.onCleared(now);   // 小豆子吃光就算清空，四个角的大力丸不算
+      if (!this.pellets.some(q => !q.power)) this.onCleared(now);   // 小豆子吃光就算清空，四个角的大力丸不算
     }
   }
 
-  /** 大力丸：鬼全部变蓝；蓝的时间一次比一次短 */
+  /** 大力丸：1 阶段鬼全部变蓝（蓝的时间一次比一次短）；2 阶段不变蓝，给加成 */
   private onPowerPellet(): void {
     this.ctx.scene.cameras.main.flash(120, 255, 232, 176, false);
+    if (!this.script.playing) {
+      this.setBoosts(this.boosts + 1);
+      this.ctx.fx.flash(`加速！炸弹 ×${this.bombs.capacity}`, '#ffe8b0');
+      return;
+    }
     const ms = Math.max(FRIGHT_MIN_MS, FRIGHT_MS - this.powerCount * FRIGHT_STEP_MS);
     this.powerCount++;
     this.ghosts?.frighten(ms);

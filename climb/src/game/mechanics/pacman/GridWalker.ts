@@ -9,7 +9,8 @@ export class GridWalker {
   private dir: Dir4 = { x: 0, y: 0 };
   private want: Dir4 = { x: 0, y: 0 };
 
-  constructor(private player: Player, private T: number, private speed: number) {}
+  /** @param speed 移动速度（像素/秒），可以随时改（吃豆人 2 阶段吃大力丸会加速） */
+  constructor(private player: Player, private T: number, public speed: number) {}
 
   get heading(): Dir4 { return this.dir; }
 

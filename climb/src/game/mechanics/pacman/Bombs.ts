@@ -1,4 +1,4 @@
-// ===== 炸弹（清空豆子之后解锁）：同时一颗，人走开之后挡路，1.5 秒后炸十字 =====
+// ===== 炸弹（清空豆子之后解锁）：同时能放 capacity 颗，每颗人走开之后挡路，1.5 秒后炸十字；鬼全灭之后不伤自己 =====
 import type Phaser from 'phaser';
 import type { CellRef } from '@/type';
 import type { PlayContext } from '@/game/core/PlayContext';
@@ -9,34 +9,52 @@ const FUSE_MS = 1500;
 const REACH = 2;
 const GHOST_SCORE = 500;
 
+interface Bomb { cell: CellRef; sprite: Phaser.GameObjects.Image; explodeAt: number; armed: boolean }
+
 export class Bombs {
   unlocked = false;
-  private bomb: { cell: CellRef; sprite: Phaser.GameObjects.Image; explodeAt: number; armed: boolean } | null = null;
+  /** 同时最多几颗（2 阶段吃大力丸会加） */
+  capacity: number;
+  private bombs: Bomb[] = [];
 
-  constructor(private ctx: PlayContext, private ghosts: () => GhostManager | null, private addScore: (n: number) => void) {}
+  constructor(private ctx: PlayContext, private ghosts: () => GhostManager | null, private addScore: (n: number) => void) {
+    this.capacity = ctx.cfg.pacBaseBombs;
+  }
 
   /** 挡鬼：放下就挡 */
-  at(cx: number, cy: number): boolean { return !!this.bomb && this.bomb.cell.x === cx && this.bomb.cell.y === cy; }
+  at(cx: number, cy: number): boolean { return this.bombs.some(b => b.cell.x === cx && b.cell.y === cy); }
   /** 挡人：人走开之后才挡 */
-  blocksPlayer(cx: number, cy: number): boolean { return !!this.bomb?.armed && this.at(cx, cy); }
+  blocksPlayer(cx: number, cy: number): boolean { return this.bombs.some(b => b.armed && b.cell.x === cx && b.cell.y === cy); }
 
+  /** 放在脚下这一格：没到上限、这格还没有炸弹才放 */
   place(): void {
-    if (this.bomb) return;
+    if (this.bombs.length >= this.capacity) return;
     const { ctx } = this, T = ctx.cfg.tile, b = ctx.player.body;
     const cell = { x: Math.floor(b.center.x / T), y: Math.floor(b.center.y / T) };
+    if (this.at(cell.x, cell.y)) return;
     const sprite = ctx.scene.add.image(cell.x * T + T / 2, cell.y * T + T / 2, 'bomb').setDepth(5);
     ctx.scene.tweens.add({ targets: sprite, scale: 1.15, duration: 250, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
-    this.bomb = { cell, sprite, explodeAt: ctx.scene.time.now + FUSE_MS, armed: false };
+    this.bombs.push({ cell, sprite, explodeAt: ctx.scene.time.now + FUSE_MS, armed: false });
   }
 
   update(now: number): void {
-    const bm = this.bomb; if (!bm) return;
-    const { ctx } = this, T = ctx.cfg.tile, b = ctx.player.body, terrain = ctx.terrain;
+    if (!this.bombs.length) return;
+    const T = this.ctx.cfg.tile, b = this.ctx.player.body;
     const pc = { x: Math.floor(b.center.x / T), y: Math.floor(b.center.y / T) };
-    if (!bm.armed && (pc.x !== bm.cell.x || pc.y !== bm.cell.y)) bm.armed = true;   // 人走开之后炸弹才挡路
-    if (now < bm.explodeAt) return;
-    this.bomb = null; bm.sprite.destroy();
-    // 十字：中心 + 四个方向各 REACH 格；岩石挡住，可炸的砖炸掉并挡住后面
+    this.bombs.forEach(bm => { if (!bm.armed && (pc.x !== bm.cell.x || pc.y !== bm.cell.y)) bm.armed = true; });   // 人走开之后炸弹才挡路
+    const due = this.bombs.filter(bm => now >= bm.explodeAt);
+    if (!due.length) return;
+    this.bombs = this.bombs.filter(bm => now < bm.explodeAt);
+    due.forEach(bm => this.explode(bm));
+  }
+
+  /** 重置：地上的炸弹全拿掉（解锁状态和上限由 PacMan 管） */
+  clear(): void { this.bombs.forEach(b => b.sprite.destroy()); this.bombs = []; }
+
+  /** 十字：中心 + 四个方向各 REACH 格；岩石挡住，可炸的砖炸掉并挡住后面 */
+  private explode(bm: Bomb): void {
+    const { ctx } = this, T = ctx.cfg.tile, b = ctx.player.body, terrain = ctx.terrain;
+    bm.sprite.destroy();
     const cells: CellRef[] = [bm.cell];
     const destroy: CellRef[] = [];
     for (const d of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
@@ -60,9 +78,8 @@ export class Bombs {
     const inBlast = (x: number, y: number) => cells.some(c => c.x === Math.floor(x / T) && c.y === Math.floor(y / T));
     const gm = this.ghosts();
     gm?.ghosts.forEach(g => { if (g.alive && inBlast(g.x, g.y)) { gm.kill(g); ctx.fx.popScore(g.x, g.y, GHOST_SCORE); this.addScore(GHOST_SCORE); } });
-    if (!ctx.dead && !ctx.won && inBlast(b.center.x, b.center.y)) ctx.die('被自己的炸弹炸到了');
+    // 鬼全灭之后炸弹不再伤自己（同一次爆炸炸死最后一只鬼也算）
+    const ghostsLeft = !!gm?.anyAlive;
+    if (ghostsLeft && !ctx.dead && !ctx.won && inBlast(b.center.x, b.center.y)) ctx.die('被自己的炸弹炸到了');
   }
-
-  /** 重置：地上的炸弹拿掉（解锁状态保留） */
-  clear(): void { if (this.bomb) { this.bomb.sprite.destroy(); this.bomb = null; } }
 }

@@ -13,6 +13,12 @@ export interface GameConfig {
   maxFall: number;
   /** 俯视层的移动速度（像素/秒） */
   topdownSpeed: number;
+  /** 吃豆人 2 阶段（豆子吃光之后）：一开始能同时放几颗炸弹 */
+  pacBaseBombs: number;
+  /** 同时放炸弹的上限：每吃一颗大力丸 +1，到这里为止 */
+  pacMaxBombs: number;
+  /** 2 阶段每吃一颗大力丸，移动速度加多少（像素/秒）；死了清零 */
+  pacBoostSpeed: number;
   wallJumpLockMs: number;
   coyoteMs: number;
   jumpBufferMs: number;

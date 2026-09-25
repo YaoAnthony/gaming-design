@@ -7,12 +7,14 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   declare body: Phaser.Physics.Arcade.Body;
   dir: 1 | -1 = -1;
 
-  constructor(scene: Phaser.Scene, readonly spawn: EnemySpawn) {
-    super(scene, spawn.x, spawn.y + 2, 'enemy');
+  /** @param look 变体：texture 换贴图、scale 缩放（Arcade 的碰撞框和偏移会跟着一起缩）。Boss 吐的小史莱姆用 */
+  constructor(scene: Phaser.Scene, readonly spawn: EnemySpawn, look?: { texture?: string; scale?: number }) {
+    super(scene, spawn.x, spawn.y + 2, look?.texture ?? 'enemy');
     scene.add.existing(this);
     scene.physics.add.existing(this);
     this.setDepth(9);
     this.body.setSize(26, 22);
+    if (look?.scale) this.setScale(look.scale);
   }
 
   /** 巡逻：撞墙或前面没地就掉头。不受房间边界限制，路通就能走到隔壁房间（头上的纸跟着走） */

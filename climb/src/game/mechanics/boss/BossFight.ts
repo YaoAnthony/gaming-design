@@ -10,6 +10,7 @@ import type { PlayContext, Suckable } from '@/game/core/PlayContext';
 import type { Mechanic } from '../define';
 import { Boss } from './Boss';
 import { SparkBurst } from './SparkBurst';
+import { hueShiftedTexture } from './minionTexture';
 
 /** 玩家离门口多远（格）才封门 */
 const SEAL_DISTANCE = 1.5;
@@ -34,6 +35,10 @@ export class BossFight implements Mechanic {
   /** 打赢的 Boss：复活点（封门处）、倒下的位置、房间 key */
   private won: { entry: EntryState; at: Point; key: string | null } | null = null;
   private bursts: SparkBurst[] = [];
+  /** Boss 吐出来的小史莱姆（上限只数这些，地图上的巡逻怪不算）；Boss 死的时候一起死 */
+  private minions: Enemy[] = [];
+  /** 上次吐怪的时间：两次之间至少隔 bossSpitMs */
+  private lastSpitAt = -Infinity;
 
   constructor(private ctx: PlayContext) {}
 
@@ -144,6 +149,7 @@ export class BossFight implements Mechanic {
     // 开门：封门的格子恢复成原样
     this.doors.forEach(c => ctx.terrain.set(c.x, c.y, ctx.terrain.original[c.y][c.x]));
     this.doors = [];
+    this.minions = []; this.lastSpitAt = -Infinity;
     if (defeated && this.room) { const key = ctx.rooms.key(this.room); if (key) this.defeated.add(key); }
     this.room = null;
     ctx.hud.boss(null);
@@ -159,6 +165,7 @@ export class BossFight implements Mechanic {
     ctx.hud.boss({ hp: boss.hp, max: boss.maxHp });
     ctx.scene.cameras.main.shake(120, 0.008);
     if (!dead) return;
+    this.killMinions();
     this.explode(boss.x, boss.y);
     ctx.fx.flash('大史莱姆倒下了', '#ffd166');
     if (this.sealEntry && this.room) this.won = { entry: this.sealEntry, at: { x: boss.x, y: boss.y }, key: ctx.rooms.key(this.room) };
@@ -172,7 +179,7 @@ export class BossFight implements Mechanic {
     const feet = { x: Math.floor(boss.x / T), y: Math.floor(boss.body.bottom / T) };
     if (ev.heavyLanded) { ctx.scene.cameras.main.shake(260, 0.012); ctx.terrain.shake([feet], 2.5); }
     else if (ev.landed) { ctx.scene.cameras.main.shake(120, 0.005); ctx.terrain.shake([feet], 1.5); }
-    if (ev.spit) this.spitMinions(boss);
+    if (ev.spit) this.spitMinions(boss, now);
     // 快速下落的碎块砸中 → 扣血，碎块被吞掉
     const rect = boss.rect();
     if (!boss.invulnerable(now)) {
@@ -195,16 +202,32 @@ export class BossFight implements Mechanic {
     if (Phaser.Geom.Intersects.RectangleToRectangle(boss.lethalRect(), pr)) ctx.die('被大史莱姆吞了');
   }
 
-  private spitMinions(boss: Boss): void {
-    const { ctx } = this;
-    const alive = ctx.enemies.list().length;
+  /** 扑击落地时吐两只小史莱姆：离上次吐至少 bossSpitMs；这个房间里 Boss 吐的、还活着的不超过 bossMaxMinions */
+  private spitMinions(boss: Boss, now: number): void {
+    const { ctx } = this, cfg = ctx.cfg;
+    if (now - this.lastSpitAt < cfg.bossSpitMs) return;
     const room = this.room ?? ctx.rooms.current;
-    for (let i = 0; i < 2 && alive + i < ctx.cfg.bossMaxMinions; i++) {
-      const e = new Enemy(ctx.scene, { x: boss.x, y: boss.body.top, rx: room.rx, ry: room.ry });
+    this.minions = this.minions.filter(e => e.active);
+    const alive = this.minions.filter(e => ctx.rooms.same(ctx.rooms.of(e.x, e.y), room)).length;
+    const look = { texture: hueShiftedTexture(ctx.scene, 'enemy', cfg.bossMinionHue), scale: cfg.bossMinionScale };
+    let spat = 0;
+    for (let i = 0; i < 2 && alive + i < cfg.bossMaxMinions; i++) {
+      const e = new Enemy(ctx.scene, { x: boss.x, y: boss.body.top, rx: room.rx, ry: room.ry }, look);
       e.setVelocity((i === 0 ? -1 : 1) * (120 + Math.random() * 80), -260);
       ctx.enemies.add(e);
+      this.minions.push(e);
+      spat++;
     }
+    if (!spat) return;
+    this.lastSpitAt = now;
     ctx.sparks.explode(8, boss.x, boss.body.top);
+  }
+
+  /** Boss 倒下的一瞬间：它吐的小史莱姆全部炸掉 */
+  private killMinions(): void {
+    const { ctx } = this;
+    this.minions.forEach(e => { if (!e.active) return; playCrush(ctx.sparks, e.x, e.y); e.destroy(); });
+    this.minions = [];
   }
 
   /** 爆开：碎屑 + 一圈穿墙火花，火花唯一作用是点燃碰到的引线端点 */

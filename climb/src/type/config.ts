@@ -46,8 +46,14 @@ export interface GameConfig {
   /** Boss 参数 */
   bossHp: number;
   bossHopMs: number;
+  /** 两次吐小史莱姆之间至少隔多久（毫秒）；吐怪发生在扑击落地时 */
   bossSpitMs: number;
+  /** Boss 房里同时最多几只小史莱姆（只数 Boss 吐出来、还活着、在这个房间里的） */
   bossMaxMinions: number;
+  /** 小史莱姆的大小（相对普通怪物），碰撞框跟着一起缩 */
+  bossMinionScale: number;
+  /** 小史莱姆的颜色：把怪物贴图的色相转多少度（怪物是紫色，210 ≈ 绿色） */
+  bossMinionHue: number;
   /** Boss 死亡时射出的穿墙火花：数量 / 速度（像素/秒）/ 存活秒数。碰到引线端点就点燃 */
   bossBurstCount: number;
   bossBurstSpeed: number;

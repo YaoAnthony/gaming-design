@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAppSelector } from '@/redux/hooks';
-import { Celebration } from './Celebration';
+import { WinModal } from './WinModal';
 import { bridge, EVT } from '@/game/bridge';
 import { AVATARS } from '@/asset';
 import { Typewriter } from './Typewriter';
@@ -11,6 +11,10 @@ export function Hud() {
   const hud = useAppSelector(s => s.hud);
   const { t } = useTranslation();
   const [msgVisible, setMsgVisible] = useState(false);
+
+  // 真结束（最后一层）关掉弹窗后不能继续玩，只是把弹窗收起来；下次通关再出现
+  const [winClosed, setWinClosed] = useState(false);
+  useEffect(() => { if (hud.mode !== 'won') setWinClosed(false); }, [hud.mode]);
 
   useEffect(() => { if (!hud.message) return; setMsgVisible(true); const t = setTimeout(() => setMsgVisible(false), 1100); return () => clearTimeout(t); }, [hud.message]);
 
@@ -41,10 +45,10 @@ export function Hud() {
           <div className="death-sub">{t('deadHint')}</div>
         </div>
       )}
-      {hud.mode === 'won' && (
-        <div className="won" onPointerDown={() => { if (!hud.final) bridge.emit(EVT.continueGame); }}>
-          <Celebration title={t('won')} subtitle={[t('wonStats', { jumps: hud.jumps, destroyed: hud.destroyed }), hud.final ? '' : t('wonContinue'), hud.playtest ? t('wonEditor') : ''].filter(Boolean).join('　')} />
-        </div>
+      {hud.mode === 'won' && !winClosed && (
+        <WinModal jumps={hud.jumps} destroyed={hud.destroyed} playtest={hud.playtest}
+          onClose={() => { if (hud.final) setWinClosed(true); else bridge.emit(EVT.continueGame); }}
+          onRetry={() => bridge.emit(EVT.restartGame)} />
       )}
     </div>
   );

@@ -20,6 +20,8 @@ export interface StartGameData {
   fog?: FogState | null;
   fuse?: string[] | null;
   playtest?: boolean;
+  /** 这一局最开始的启动数据（换层时一路带着）：「再来一次」从这里重开 */
+  origin?: StartGameData;
 }
 
 export const SCENE = { boot: 'Boot', game: 'Game', editor: 'Editor' } as const;
@@ -29,8 +31,10 @@ export const EVT = {
   startGame: 'game:start',
   playtestExit: 'playtest:exit',
   requestReset: 'game:reset',
-  /** 通关画面上点一下：继续玩 */
+  /** 通关弹窗关掉：继续玩 */
   continueGame: 'game:continue',
+  /** 通关弹窗「再来一次」：从这一局的起点重开 */
+  restartGame: 'game:restart',
 } as const;
 
 export const bridge = new Phaser.Events.EventEmitter();

@@ -5,8 +5,10 @@
   "place": "当前位置: {{place}}",
   "dead": "U DEAD",
   "deadHint": "按 R 重来",
-  "won": "通关！",
-  "wonStats": "跳跃 {{jumps}} 次，摧毁 {{destroyed}} 格地形",
-  "wonContinue": "跳一下继续",
+  "won": "通关",
+  "wonJumps": "跳跃",
+  "wonDestroyed": "摧毁地形",
+  "wonRetry": "再来一次",
+  "wonClose": "关闭",
   "wonEditor": "ESC 回编辑器"
 }

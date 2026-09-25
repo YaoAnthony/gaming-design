@@ -17,7 +17,7 @@ import { resizeGame } from '@/game/resize';
 import { touch, TOUCH_ACTION, TOUCH_JUMP } from '@/game/input';
 import { Music } from '@/game/Music';
 import { flash, setBoss, setControls, setDialogue, setMode, setPlace, setRoomKey, setScore, setStats } from '@/redux/slices/hudSlice';
-import { writeSave } from '@/redux/slices/saveSlice';
+import { clearSave, writeSave } from '@/redux/slices/saveSlice';
 import { floorMechanicOf, globalMechanicsOf, type FloorMechanic, type Mechanic, type MechanicDef, type MoveInput } from '@/game/mechanics/define';
 import type { PlayContext } from '@/game/core/PlayContext';
 import { Dialogue } from '@/game/core/Dialogue';
@@ -260,11 +260,12 @@ export class GameScene extends Phaser.Scene {
     kb.on('keydown-R', () => { if (this.won) return; if (this.dead) this.resetAfterDeath(); else this.resetRoom(); });
     const requestReset = () => { if (this.dead && !this.won) this.resetAfterDeath(); };
     const continueGame = () => { if (this.won) this.continueAfterWin(); };
-    bridge.on(EVT.requestReset, requestReset); bridge.on(EVT.continueGame, continueGame);
+    const restartGame = () => this.restartRun();
+    bridge.on(EVT.requestReset, requestReset); bridge.on(EVT.continueGame, continueGame); bridge.on(EVT.restartGame, restartGame);
     if (this.playtest) kb.on('keydown-ESC', () => this.exitPlaytest());
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       bridge.off(TOUCH_JUMP, touchPress); bridge.off(TOUCH_ACTION, touchPress);
-      bridge.off(EVT.requestReset, requestReset); bridge.off(EVT.continueGame, continueGame);
+      bridge.off(EVT.requestReset, requestReset); bridge.off(EVT.continueGame, continueGame); bridge.off(EVT.restartGame, restartGame);
       touch.left = false; touch.right = false; touch.up = false; touch.down = false;
     });
   }
@@ -450,12 +451,21 @@ export class GameScene extends Phaser.Scene {
     const restart = () => {
       const carry: Partial<SaveData> = {};
       this.mechs.forEach(m => m.persist?.(carry, 'floor'));
-      const data: StartGameData = { project: this.project, floorId: id, playtest: this.playtest, announceFloor: true, stats: { ...this.stats }, held: carry.held };
+      const data: StartGameData = { project: this.project, floorId: id, playtest: this.playtest, announceFloor: true, stats: { ...this.stats }, held: carry.held, origin: this.origin };
       this.scene.restart(data);
     };
     const fade = (ms: number) => { cam.fadeOut(ms, 0, 0, 0); cam.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, restart); };
     if (!via) { fade(350); return; }
     vortex(this.ctx, via, this.mechs.flatMap(m => m.vortexTargets?.() ?? []), () => fade(250));
+  }
+
+  /** 这一局的起点（第一次进场的启动数据） */
+  private get origin(): StartGameData { return this.startData.origin ?? this.startData; }
+
+  /** 再来一次：从这一局的起点重开（正式游戏顺便清掉存档） */
+  private restartRun(): void {
+    if (!this.playtest) store.dispatch(clearSave());
+    this.scene.restart({ ...this.origin });
   }
 
   private exitPlaytest(): void {

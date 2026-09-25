@@ -5,8 +5,10 @@
   "place": "Location: {{place}}",
   "dead": "U DEAD",
   "deadHint": "Press R",
-  "won": "Cleared!",
-  "wonStats": "{{jumps}} jumps, {{destroyed}} tiles destroyed",
-  "wonContinue": "jump to continue",
+  "won": "Cleared",
+  "wonJumps": "Jumps",
+  "wonDestroyed": "Tiles destroyed",
+  "wonRetry": "Play again",
+  "wonClose": "Close",
   "wonEditor": "ESC back to editor"
 }

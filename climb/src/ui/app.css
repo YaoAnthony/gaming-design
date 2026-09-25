@@ -50,14 +50,21 @@ h2 { font-size: 12px; color: var(--muted); margin: 14px 0 6px; text-transform: u
 .app.mobile .hud .score { top: max(6px, env(safe-area-inset-top)); right: max(10px, env(safe-area-inset-right)); font-size: 14px; }
 .hud-msg { position: absolute; top: 48px; left: 0; right: 0; text-align: center; font-size: 22px; opacity: 0; transition: opacity .4s; }
 .hud-msg.show { opacity: 1; transition: none; }
-.won { position: absolute; inset: 0; pointer-events: auto; }
-.celebration { position: absolute; inset: 0; overflow: hidden; display: flex; align-items: center; justify-content: center; }
-.confetti { position: absolute; left: 50%; bottom: 20%; width: 0; height: 0; }
-.confetti-piece { position: absolute; left: 0; top: 0; display: block; border-radius: 2px; will-change: transform, opacity; }
-.confetti-piece.dot { border-radius: 50%; }
-.celebration-card { position: relative; text-align: center; background: rgba(11, 11, 20, .75); border: 1px solid #ffd166; border-radius: 14px; padding: 22px 36px; box-shadow: 0 0 40px rgba(255, 209, 102, .25); }
-.celebration-title { font-size: 40px; color: #ffd166; margin-bottom: 8px; }
-.celebration-sub { color: #e6e8f0; font-size: 15px; }
+.modal-backdrop { position: absolute; inset: 0; pointer-events: auto; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, .45); }
+/* 通关弹窗：跟对话框同一套（深底 + 米白描边），尺寸跟画面走 */
+.win-modal { position: relative; box-sizing: border-box; width: min(78cqw, 460px); background: rgba(11, 11, 20, .96); border: clamp(2px, .2cqw, 3px) solid #f1efe6; border-radius: clamp(8px, .8cqw, 12px); padding: clamp(16px, 2.2cqw, 28px) clamp(18px, 2.6cqw, 32px); color: #e6e8f0; font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
+.win-title { color: #ffd166; font-size: clamp(22px, 3cqw, 32px); font-weight: bold; line-height: 1.2; }
+.win-close { position: absolute; top: 10px; right: 10px; width: 32px; height: 32px; display: grid; place-items: center; background: transparent; border: 1px solid transparent; border-radius: 6px; cursor: pointer; }
+.win-close svg { width: 14px; height: 14px; stroke: #f1efe6; stroke-width: 2; stroke-linecap: round; }
+.win-close:hover { border-color: rgba(241, 239, 230, .4); }
+.win-close:focus-visible, .win-retry:focus-visible { outline: 2px solid #ffd166; outline-offset: 2px; }
+.win-stats { display: flex; gap: clamp(20px, 4cqw, 48px); margin: clamp(12px, 1.6cqw, 20px) 0; }
+.win-stats dt { color: #9aa0b4; font-size: 12px; margin-bottom: 2px; }
+.win-stats dd { margin: 0; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: clamp(20px, 2.6cqw, 28px); font-variant-numeric: tabular-nums; }
+.win-actions { display: flex; align-items: center; gap: 12px; }
+.win-retry { background: #f1efe6; color: #0b0b14; border: 0; border-radius: 6px; padding: 9px 20px; font-size: 15px; font-weight: bold; cursor: pointer; }
+.win-retry:hover { background: #fff; }
+.win-hint { color: #9aa0b4; font-size: 12px; }
 
 /* 编辑器 */
 .editor { display: flex; flex: 1; min-height: 0; }

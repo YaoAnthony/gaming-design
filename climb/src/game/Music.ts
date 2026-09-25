@@ -17,7 +17,8 @@ export class Music {
     if (this.currentKey === key) return;
     const start = () => {
       const old = this.current;
-      if (old) { this.scene.tweens.add({ targets: old, volume: 0, duration: 600, onComplete: () => { old.stop(); old.destroy(); } }); }
+      // 旧曲可能还在淡入（刚切过来又切走）：先停掉它身上的音量动画，否则两个动画一个销毁了它、另一个还在改它的音量 → 报错
+      if (old) { this.scene.tweens.killTweensOf(old); this.scene.tweens.add({ targets: old, volume: 0, duration: 600, onComplete: () => { old.stop(); old.destroy(); } }); }
       if (key === NO_MUSIC || !this.scene.cache.audio.exists(key)) { this.current = null; this.currentKey = key; return; }
       const next = this.scene.sound.add(key, { loop: true, volume: 0 });
       next.play();
@@ -34,6 +35,7 @@ export class Music {
   }
 
   stop(): void {
+    if (this.current) this.scene.tweens.killTweensOf(this.current);
     this.current?.stop(); this.current?.destroy();
     this.current = null; this.currentKey = '';
   }

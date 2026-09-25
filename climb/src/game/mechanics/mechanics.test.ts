@@ -38,6 +38,7 @@ describe('机制注册表', () => {
     expect(ids(floorWith('.K.'))).toEqual(['boss', 'carry', 'hat']);
     expect(ids(floorWith('NVG'))).toEqual(['goal', 'npc', 'carry', 'slider', 'hat']);
     expect(ids(floorWith('.bD'))).toEqual(['carry', 'hat', 'pushBlock']);
+    expect(ids(floorWith('.qQ'))).toEqual(['carry', 'hat', 'pushBlock']);
   });
 
   it('通用机制：旧的 roomFlags.boss 也启用 Boss；有锁组启用钥匙与门', () => {

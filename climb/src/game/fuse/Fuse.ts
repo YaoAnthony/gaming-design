@@ -75,8 +75,16 @@ export class FuseNet {
     return out;
   }
 
-  isEnd(x: number, y: number): boolean { return this.has(x, y) && FuseNet.isEnd(this.cells, this.w, this.h, x, y); }
-  endsNear(center: CellRef, radius: number): CellRef[] { return FuseNet.endsNear(this.cells, this.w, this.h, center, radius); }
+  /** 锁住的端点（比如接在压板上的那一头）：不画引线头，爆炸 / 火花点不着，只有机关带 includeLocked 才能点 */
+  private locked = new Set<number>();
+  lockEnds(cells: CellRef[]): void { cells.forEach(c => this.locked.add(c.y * this.w + c.x)); this.refreshNodes(); }
+
+  isEnd(x: number, y: number, includeLocked = false): boolean {
+    return this.has(x, y) && FuseNet.isEnd(this.cells, this.w, this.h, x, y) && (includeLocked || !this.locked.has(y * this.w + x));
+  }
+  endsNear(center: CellRef, radius: number, includeLocked = false): CellRef[] {
+    return FuseNet.endsNear(this.cells, this.w, this.h, center, radius).filter(c => includeLocked || !this.locked.has(c.y * this.w + c.x));
+  }
 
   /** 点燃：返回会烧到的格子数；烧的过程按跳数错峰，每烧一跳调用 onBurn */
   ignite(starts: CellRef[], terrain: Terrain, onBurn?: (cells: CellRef[]) => void): number {
@@ -114,11 +122,11 @@ export class FuseNet {
     this.refreshNodes();
   }
 
-  /** 游戏里只画端点 */
+  /** 游戏里只画端点（锁住的不画：压板上自己画着引线头） */
   private refreshNodes(): void {
     const T = this.opts.tile;
     const want = new Set<number>();
-    for (let y = 0; y < this.h; y++) for (let x = 0; x < this.w; x++) if (FuseNet.isEnd(this.cells, this.w, this.h, x, y)) want.add(y * this.w + x);
+    for (let y = 0; y < this.h; y++) for (let x = 0; x < this.w; x++) if (FuseNet.isEnd(this.cells, this.w, this.h, x, y) && !this.locked?.has(y * this.w + x)) want.add(y * this.w + x);
     this.nodes.forEach((img, i) => { if (!want.has(i)) { img.destroy(); this.nodes.delete(i); } });
     want.forEach(i => {
       if (this.nodes.has(i)) return;

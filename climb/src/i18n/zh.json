@@ -6,9 +6,13 @@
   "dead": "U DEAD",
   "deadHint": "按 R 重来",
   "won": "通关",
+  "wonHat0": "通关！你这帽子真好看",
+  "wonHat1": "通关！你竟然还带着这顶帽子",
+  "wonHat2": "通关！你便是帽子之王了！感谢您的参与！",
   "wonJumps": "跳跃",
   "wonDestroyed": "摧毁地形",
   "wonRetry": "再来一次",
+  "wonNext": "进入下一关",
   "wonClose": "关闭",
   "wonEditor": "ESC 回编辑器"
 }

@@ -41,7 +41,7 @@ export class Platform implements FloorMechanic {
   private skillContext(jump: JumpEvent): SkillContext {
     const { ctx } = this;
     return {
-      cfg: ctx.cfg,
+      cfg: { ...ctx.cfg, explosionRadius: ctx.cfg.explosionRadiusByStage[ctx.player.stage] ?? ctx.cfg.explosionRadius },   // 长大以后炸得更大
       jump,
       previewRadius: (c, r) => ctx.terrain.previewExplosion(c.x, c.y, r),
       previewCells: cells => ctx.terrain.previewCells(cells),

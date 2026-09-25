@@ -1,7 +1,9 @@
 // ===== 通用机制：终点（假通关） =====
-// 到达终点建筑只是假通关：彩纸 + 「通关！」，按一下就继续玩，终点不再触发。
+// 到达终点建筑：第 1、2 关是假通关，弹「通关！」弹窗，可以「进入下一关」或 X 关掉继续玩。「进入下一关」其实是
+// 画面淡出、地图复原、回到本层出生点，站着长高一阶（1 → 1.5 → 2 格），再玩一次。第 3 关（2 格高）到终点才是真正通关，「再来一次」从起点重开。
 import Phaser from 'phaser';
 import type { Point } from '@/type';
+import { MAX_STAGE } from '@/sprite/Player';
 import type { PlayContext } from '@/game/core/PlayContext';
 import { defineMechanic, type Mechanic } from '../define';
 
@@ -10,6 +12,8 @@ const REACH_PX = 24;
 
 class Goal implements Mechanic {
   private goal: Point | null = null;
+  /** 门现在能触发吗：触发一次之后要等人走远才重新武装 */
+  private armed = true;
 
   constructor(private ctx: PlayContext) {}
 
@@ -20,10 +24,14 @@ class Goal implements Mechanic {
   }
 
   updateAlive(): void {
-    const p = this.ctx.player;
-    if (!this.goal || Phaser.Math.Distance.Between(p.x, p.y, this.goal.x, this.goal.y) >= REACH_PX) return;
-    this.goal = null;   // 只触发一次
-    this.ctx.win(false);
+    const { ctx } = this, p = ctx.player;
+    if (!this.goal) return;
+    const d = Phaser.Math.Distance.Between(p.x, p.y, this.goal.x, this.goal.y);
+    if (!this.armed) { if (d >= REACH_PX * 2) this.armed = true; return; }   // 关掉弹窗继续玩：走远一点门才会再触发
+    if (d >= REACH_PX) return;
+    this.armed = false;
+    // 还没长到最高（第 1、2 关）：假通关，弹窗里可以「进入下一关」；长到最高（第 3 关）：真通关。假通关的门留着，下一关回来再碰
+    if (p.stage >= MAX_STAGE) { this.goal = null; ctx.win(true); } else ctx.win(false);
   }
 
   /** 门后面的一座剪影建筑，亮着窗 */
@@ -42,7 +50,7 @@ class Goal implements Mechanic {
 }
 
 const goal = defineMechanic({
-  id: 'goal', name: '终点', desc: '到达即假通关，按一下继续玩',
+  id: 'goal', name: '终点', desc: '第一次到达是假通关：回出生点长成 2 格高再弹通关；第二次到达真通关',
   scope: 'global',
   create: ctx => new Goal(ctx),
 });

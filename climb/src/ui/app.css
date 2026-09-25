@@ -58,7 +58,7 @@ h2 { font-size: 12px; color: var(--muted); margin: 14px 0 6px; text-transform: u
 .confetti-piece.dot { border-radius: 50%; }
 /* 通关弹窗：跟对话框同一套（深底 + 米白描边），尺寸跟画面走 */
 .win-modal { position: relative; box-sizing: border-box; width: min(78cqw, 460px); background: rgba(11, 11, 20, .96); border: clamp(2px, .2cqw, 3px) solid #f1efe6; border-radius: clamp(8px, .8cqw, 12px); padding: clamp(16px, 2.2cqw, 28px) clamp(18px, 2.6cqw, 32px); color: #e6e8f0; font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
-.win-title { color: #ffd166; font-size: clamp(22px, 3cqw, 32px); font-weight: bold; line-height: 1.2; }
+.win-title { color: #ffd166; font-size: clamp(22px, 3cqw, 32px); font-weight: bold; line-height: 1.2; padding-right: 36px; }
 .win-close { position: absolute; top: 10px; right: 10px; width: 32px; height: 32px; display: grid; place-items: center; background: transparent; border: 1px solid transparent; border-radius: 6px; cursor: pointer; }
 .win-close svg { width: 14px; height: 14px; stroke: #f1efe6; stroke-width: 2; stroke-linecap: round; }
 .win-close:hover { border-color: rgba(241, 239, 230, .4); }

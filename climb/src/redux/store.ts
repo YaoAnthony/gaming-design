@@ -3,6 +3,7 @@ import configReducer from './slices/configSlice';
 import editorReducer, { type EditorState } from './slices/editorSlice';
 import saveReducer, { type SaveState } from './slices/saveSlice';
 import hudReducer from './slices/hudSlice';
+import progressReducer from './slices/progressSlice';
 import { loadPersisted, schedulePersist } from './persist';
 import { DEFAULT_WORLD_HASH } from '@/game/world/defaultWorld';
 import type { GameConfig } from '@/type';
@@ -16,7 +17,7 @@ const preloadedState: { editor: EditorState; save: SaveState; config: GameConfig
 };
 
 export const store = configureStore({
-  reducer: { config: configReducer, editor: editorReducer, save: saveReducer, hud: hudReducer },
+  reducer: { config: configReducer, editor: editorReducer, save: saveReducer, hud: hudReducer, progress: progressReducer },
   preloadedState,
 });
 

@@ -9,11 +9,13 @@ export const DEFAULT_CONFIG: GameConfig = {
   gravity: 1200,
   playerWidth: 0.94,   // 格（主角是一格见方的方块，宽高一样）
   playerHeight: 0.94,  // 格：比一格矮一点，能稳稳钻过一格高的缝（正好 1 会贴着天花板卡住）
-  playerHitboxWidth: 0.9,    // 格：碰撞框比贴图稍窄一点
+  playerHitboxWidth: 0.75,   // 格：碰撞框比贴图窄，一格宽的洞更容易掉下去
   moveSpeed: 230,
   hatHeight: 1,
   pushSpeed: 90,
+  growMs: 2500,
   jumpVelocity: -560,
+  jumpVelocityByStage: [-490, -560, -600],   // 1 格高 ≈ 跳 3 格，1.5 格高 = 原版（≈ 3.9 格），2 格高 ≈ 跳 4.5 格
   wallJumpX: 260,
   wallJumpY: -560,
   wallSlideMaxFall: 120,
@@ -26,6 +28,7 @@ export const DEFAULT_CONFIG: GameConfig = {
   coyoteMs: 90,
   jumpBufferMs: 100,
   explosionRadius: 1.5,
+  explosionRadiusByStage: [null, null, 2],   // 第 3 关（2 格高）炸 2 格；null = 用 explosionRadius
   chunkGravity: 1400,
   chunkMaxFall: 700,
   crushMinSpeed: 250,

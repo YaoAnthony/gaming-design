@@ -129,6 +129,19 @@ player.rect(21, 10, 3, 5, 0x0b0b14);                       // 眼珠（朝右）
 player.rect(6, 28, 7, 4, 0x2a8fb8); player.rect(19, 28, 7, 4, 0x2a8fb8);   // 两只脚
 player.save('player.png');
 
+// ---- 长大后的玩家：第 2 关 32x48（1.5 格高）、第 3 关 32x64（2 格高）。同一个方块拉成长条，眼睛还在头部、脚还在底部（不是把 32x32 拉伸）----
+const tallPlayer = (h, name) => {
+  const c = new Canvas(32, h);
+  c.roundRect(1, 0, 30, h - 4, 7, 0x4cc9f0);              // 身体
+  c.rect(3, 2, 26, 3, 0x7ad8f5);                            // 顶部高光
+  c.roundRect(18, 8, 7, 8, 2, 0xffffff);                   // 眼白
+  c.rect(21, 10, 3, 5, 0x0b0b14);                           // 眼珠（朝右）
+  c.rect(6, h - 4, 7, 4, 0x2a8fb8); c.rect(19, h - 4, 7, 4, 0x2a8fb8);   // 两只脚
+  c.save(name);
+};
+tallPlayer(48, 'player_mid.png');
+tallPlayer(64, 'player_tall.png');
+
 // ---- 怪物 28x24 ----
 const enemy = new Canvas(28, 24);
 enemy.roundRect(0, 0, 28, 24, 7, 0x9b5de5);
@@ -295,3 +308,19 @@ function crate(size, name, wood, dark, band) {
 crate(32, 'crate1.png', 0xb07a45, 0x6b4423, 0x8a5a30);
 crate(64, 'crate2.png', 0x8f6a4a, 0x4a3320, 0x5d6470);    // 大箱子：深一点、铁框，一眼能分出来
 
+
+// ---- 压板：1x1（32x32）和 1x2（64x32），各一张没压 / 压下。贴在格子底部的一块踏板，正中间是红色的引线头；
+//      箱子压上去就点燃连着它的引线（引线在压板旁边的那一头不单独画，也点不着，只能靠压板） ----
+function plate(w, name, down) {
+  const c = new Canvas(w, 32), top = down ? 26 : 21, cx = w / 2;
+  c.roundRect(1, 27, w - 2, 5, 1, 0x3a3a4c);                       // 底座
+  c.roundRect(4, top, w - 8, down ? 3 : 6, 2, down ? 0xa87c30 : 0xd9a441);   // 踏板（压下去就扁、暗）
+  if (!down) c.rect(6, top, w - 12, 2, 0xf2cf7a);                  // 高光
+  c.roundRect(cx - 4, top - 5, 8, 7, 3, 0xb3263a);                  // 红色引线头
+  c.rect(cx - 2, top - 4, 2, 2, down ? 0xd9d9d9 : 0xff8f8f);        // 引线头高光（压下变灰：已经点过）
+  c.save(name);
+}
+plate(32, 'plate1.png', false);
+plate(32, 'plate1_down.png', true);
+plate(64, 'plate2.png', false);
+plate(64, 'plate2_down.png', true);

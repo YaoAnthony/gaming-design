@@ -24,6 +24,9 @@ export class Hat implements Mechanic {
     this.enabled = floorMechanicOf(ctx.floor).id === 'platform';
   }
 
+  /** 现在头上有没有戴着帽子（通关弹窗用） */
+  get wearing(): boolean { return this.worn; }
+
   /** 地图上的帽子物件：放在那一格的地面上 */
   addHat(x: number, y: number): void {
     if (this.worn) return;   // 已经戴着一顶（从上一层带来的），地上这顶就不放了
@@ -107,13 +110,16 @@ export class Hat implements Mechanic {
     return !this.anySolid(b.left, b.right, top, b.top);
   }
 
-  /** 戴着帽子撞进 1 格高的隧道：前面一列，身体那几格是空的、帽子那几格有砖 */
+  /** 戴着帽子在地上走进 1 格高的隧道：前面一列，身体那几格是空的、帽子那几格有砖 */
   private knockedOff(): boolean {
-    const { ctx } = this, T = ctx.cfg.tile, b = ctx.player.body;
+    const { ctx } = this, T = ctx.cfg.tile, p = ctx.player, b = p.body;
+    // 只在地上走进去才算：跳起来撞到台阶 / 墙角（身体下半段旁边正好是空的）不算隧道
+    if (!b.blocked.down && !b.touching.down) return false;
     const side = b.blocked.right ? 1 : b.blocked.left ? -1 : 0;
     if (!side) return false;
     const ax = side > 0 ? b.right + 1 : b.left - 2;
-    const bodyTop = b.bottom - ctx.cfg.playerHeight * T;
+    // 身体那段 = 现在的身高去掉帽子（主角长高以后身体也更高）
+    const bodyTop = b.bottom - (p.heightTiles - ctx.cfg.hatHeight) * T;
     const bodyFree = !this.anySolid(ax, ax + 1, bodyTop, b.bottom);
     const hatHits = this.anySolid(ax, ax + 1, b.top, bodyTop);
     return bodyFree && hatHits;

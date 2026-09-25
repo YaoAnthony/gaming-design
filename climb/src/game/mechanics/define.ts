@@ -22,8 +22,11 @@ export interface Mechanic {
   onRoomChanged?(r: { rx: number; ry: number }): void;
   /** 重置前：清掉正在进行的东西（临时物体、还没出场的 Boss） */
   onClear?(): void;
-  /** 地形已经复原之后：把自己的状态放回去。room = 按 R，world = 死亡重置整张图。返回复活点 = 改玩家的复活位置 */
-  onReset?(scope: 'room' | 'world'): { x: number; y: number; vx: number; vy: number } | void;
+  /**
+   * 地形已经复原之后：把自己的状态放回去。room = 按 R，world = 死亡重置整张图，
+   * level = 进入下一关（整张图重来、这一关之前打过的都不算，不要重演什么）。返回复活点 = 改玩家的复活位置
+   */
+  onReset?(scope: 'room' | 'world' | 'level'): { x: number; y: number; vx: number; vy: number } | void;
   /** 引线烧过这些格子 */
   onFuseBurn?(cells: { x: number; y: number }[]): void;
   /** 写进存档 / 带到下一层的状态。kind = save 是存档，floor 是换层 */

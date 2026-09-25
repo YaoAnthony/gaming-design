@@ -12,7 +12,15 @@ export class Registry<T extends { id: string; index: number }> {
 
   register(def: T): T {
     if (typeof def.id !== 'string' || !def.id || (this.singleChar && def.id.length !== 1)) throw new Error(`${this.kind}: id 不合法 '${def.id}'`);
-    if (this.defs.has(def.id)) throw new Error(`${this.kind}: 重复注册 '${def.id}'`);
+    const old = this.defs.get(def.id);
+    if (old) {
+      // 开发时改了注册文件，热更新会把它再执行一遍：用新定义替换旧的，免得整个游戏卡在加载
+      if (!import.meta.hot) throw new Error(`${this.kind}: 重复注册 '${def.id}'`);
+      def.index = old.index;
+      this.defs.set(def.id, def);
+      this.order[old.index] = def;
+      return def;
+    }
     def.index = this.order.length;
     this.defs.set(def.id, def);
     this.order.push(def);

@@ -46,9 +46,10 @@ export function Hud() {
         </div>
       )}
       {hud.mode === 'won' && !winClosed && (
-        <WinModal jumps={hud.jumps} destroyed={hud.destroyed} playtest={hud.playtest}
+        <WinModal jumps={hud.jumps} destroyed={hud.destroyed} playtest={hud.playtest} final={hud.final} stage={hud.wonStage} hat={hud.wonHat}
           onClose={() => { if (hud.final) setWinClosed(true); else bridge.emit(EVT.continueGame); }}
-          onRetry={() => bridge.emit(EVT.restartGame)} />
+          onRetry={() => bridge.emit(EVT.restartGame)}
+          onNext={() => bridge.emit(EVT.nextLevel)} />
       )}
     </div>
   );

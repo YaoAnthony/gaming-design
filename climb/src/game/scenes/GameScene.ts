@@ -19,6 +19,7 @@ import { Music } from '@/game/Music';
 import { DEFAULT_MUSIC } from '@/asset';
 import { flash, setBoss, setControls, setDialogue, setMode, setPlace, setRoomKey, setScore, setStats } from '@/redux/slices/hudSlice';
 import { clearSave, writeSave } from '@/redux/slices/saveSlice';
+import { resetProgress } from '@/redux/slices/progressSlice';
 import { floorMechanicOf, globalMechanicsOf, type FloorMechanic, type Mechanic, type MechanicDef, type MoveInput } from '@/game/mechanics/define';
 import type { PlayContext } from '@/game/core/PlayContext';
 import { Dialogue } from '@/game/core/Dialogue';
@@ -27,6 +28,7 @@ import { Debris } from '@/game/core/Debris';
 import { standingSpot, touchingHazard } from '@/game/core/rooms';
 import { buildBackground } from '@/game/core/backdrop';
 import { vortex } from '@/game/core/vortex';
+import { MAX_STAGE, STAGE_EXTRA } from '@/sprite/Player';
 
 type PressKey = 'SPACE' | 'UP' | 'W' | 'touch';
 
@@ -70,6 +72,11 @@ export class GameScene extends Phaser.Scene {
   private won = false;
   /** 通关画面是不是真的结束（否则按一下继续玩） */
   private wonFinal = false;
+  /** 假通关的仪式进行中：进场后先长大，长完才弹通关。期间不响应输入 */
+  private growing = false;
+  private growTween: Phaser.Tweens.Tween | null = null;
+  /** 回到出生点的时刻：落地（或最多等 1 秒）后开始长；null = 还在淡出、没回到出生点 */
+  private growSince: number | null = null;
   /** 正在切层（淡出中），不再响应输入 */
   private leaving = false;
   private stats = { jumps: 0, destroyed: 0 };
@@ -78,13 +85,14 @@ export class GameScene extends Phaser.Scene {
 
   init(data: StartGameData): void {
     this.startData = data;
+    if (!data.origin) store.dispatch(resetProgress());   // 这一局的第一个场景（开始游戏 / 再来一次 / 试玩）：进度清空；换层带着 origin，不清
     this.project = data.project;
     this.floor = (data.floorId && this.project.floors.find(f => f.id === data.floorId)) || this.project.floors[0];
     this.mechs = []; this.mechById = new Map();
     this.fog = null; this.fogTile = { x: -1, y: -1 }; this.fogDirty = true;
     this.spawnPoints = [];
     this.stats = { jumps: data.stats?.jumps ?? 0, destroyed: data.stats?.destroyed ?? 0 };
-    this.dead = false; this.won = false; this.wonFinal = false; this.leaving = false;
+    this.dead = false; this.won = false; this.wonFinal = false; this.leaving = false; this.growing = false; this.growTween = null;
     this.prevEntry = null; this.lastResetAt = null;
   }
 
@@ -162,6 +170,7 @@ export class GameScene extends Phaser.Scene {
     if (!start && startRoom) start = this.spawnPoints.find(p => this.sameRoom(this.roomOf(p.x, p.y), startRoom)) ?? standingSpot(this.terrain, startRoom, this.roomW, this.roomH, this.cfg.playerHeight);
     start ??= this.spawnPoints[0] ?? { x: 2 * T, y: 4 * T };
     this.player = new Player(this, start.x, start.y, this.cfg);
+    if (this.startData.stage) this.player.setStage(this.startData.stage);   // 上一层已经长大了：带过来
     if (this.startData.entry) this.player.setVelocity(this.startData.entry.vx, this.startData.entry.vy);
     this.physics.world.gravity.y = this.floorMech.gravity ?? this.cfg.gravity;
     if (this.floorMech.collideTerrain) this.physics.add.collider(this.player, this.terrain.layer);
@@ -264,11 +273,12 @@ export class GameScene extends Phaser.Scene {
     const requestReset = () => { if (this.dead && !this.won) this.resetAfterDeath(); };
     const continueGame = () => { if (this.won) this.continueAfterWin(); };
     const restartGame = () => this.restartRun();
-    bridge.on(EVT.requestReset, requestReset); bridge.on(EVT.continueGame, continueGame); bridge.on(EVT.restartGame, restartGame);
+    const nextLevel = () => this.fakeNextLevel();
+    bridge.on(EVT.requestReset, requestReset); bridge.on(EVT.continueGame, continueGame); bridge.on(EVT.restartGame, restartGame); bridge.on(EVT.nextLevel, nextLevel);
     if (this.playtest) kb.on('keydown-ESC', () => this.exitPlaytest());
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       bridge.off(TOUCH_JUMP, touchPress); bridge.off(TOUCH_ACTION, touchPress);
-      bridge.off(EVT.requestReset, requestReset); bridge.off(EVT.continueGame, continueGame); bridge.off(EVT.restartGame, restartGame);
+      bridge.off(EVT.requestReset, requestReset); bridge.off(EVT.continueGame, continueGame); bridge.off(EVT.restartGame, restartGame); bridge.off(EVT.nextLevel, nextLevel);
       touch.left = false; touch.right = false; touch.up = false; touch.down = false;
     });
   }
@@ -292,7 +302,8 @@ export class GameScene extends Phaser.Scene {
     this.dialogue.update(time);
     this.mechs.forEach(m => m.update?.(time, dt));
     this.updateFog();
-    if (this.dead || this.won || this.leaving) return;
+    if (this.growing && this.growSince !== null && !this.growTween && (this.player.onGround || time - this.growSince > 1000)) this.startGrowth();   // 回到出生点、落了地再开始长
+    if (this.dead || this.won || this.leaving || this.growing) return;
 
     const r = this.roomOf(this.player.x, this.player.y);
     if (!this.sameRoom(r, this.room)) { this.onRoomChanged(r); this.updateFog(); }   // 同一帧把新房间的迷雾画好，不给它露脸的机会
@@ -336,9 +347,10 @@ export class GameScene extends Phaser.Scene {
   /** 进入新房间：记录入口状态（位置 + 速度），重置时回到这里；顺便存档 */
   private onRoomChanged(r: RoomCoord): void {
     const p = this.player, T = this.cfg.tile;
-    // 重置点离房间边缘至少 1.5 格：人整个在房间里，边缘那一列被封成岩石也压不到
-    const nx = Phaser.Math.Clamp(p.x, r.rx * this.roomPxW + T * 1.5, (r.rx + 1) * this.roomPxW - T * 1.5);
-    const ny = Phaser.Math.Clamp(p.y, r.ry * this.roomPxH + T * 1.5, (r.ry + 1) * this.roomPxH - T * 1.5);
+    // 重置点 = 进来的第一格的中心（离边缘半格）：人不到一格宽，整个在房间里；再往里就会落到第二格，那里可能是陷阱。
+    // Boss 房封门时会自己把复活点改到封门处，不用在这里为它留余量
+    const nx = Phaser.Math.Clamp(p.x, r.rx * this.roomPxW + T * 0.5, (r.rx + 1) * this.roomPxW - T * 0.5);
+    const ny = Phaser.Math.Clamp(p.y, r.ry * this.roomPxH + T * 0.5, (r.ry + 1) * this.roomPxH - T * 0.5);
     this.prevEntry = this.entry;
     this.entry = { x: nx, y: ny, vx: p.body.velocity.x, vy: p.body.velocity.y };
     this.enterRoom(r, false);
@@ -350,7 +362,7 @@ export class GameScene extends Phaser.Scene {
     if (this.playtest) return;
     const out: Partial<SaveData> = {};
     this.mechs.forEach(m => m.persist?.(out, 'save'));
-    store.dispatch(writeSave({ ...out, floorId: this.floor.id, rows: this.terrain.rows(), room: this.room, entry: this.entry, stats: { ...this.stats }, fog: this.fog?.toState(), fuse: this.fuses.toState() }));
+    store.dispatch(writeSave({ ...out, floorId: this.floor.id, rows: this.terrain.rows(), room: this.room, entry: this.entry, stats: { ...this.stats }, stage: this.player.stage, fog: this.fog?.toState(), fuse: this.fuses.toState() }));
   }
 
   // ---------- 重置 ----------
@@ -431,7 +443,8 @@ export class GameScene extends Phaser.Scene {
     this.won = true; this.wonFinal = final;
     this.player.freeze(0xffffff);
     this.player.clearTint();
-    store.dispatch(setMode({ mode: 'won', final }));
+    const hat = (this.mechById.get('hat') as { wearing?: boolean } | undefined)?.wearing ?? false;
+    store.dispatch(setMode({ mode: 'won', final, stage: this.player.stage, hat }));
     store.dispatch(setStats({ ...this.stats }));
   }
 
@@ -440,6 +453,54 @@ export class GameScene extends Phaser.Scene {
     this.won = false;
     this.player.unfreeze();
     store.dispatch(setMode({ mode: 'playing', playtest: this.playtest }));
+  }
+
+  /**
+   * 假通关弹窗里点「进入下一关」：像换了一层，其实是画面淡出、整张地图复原（同死亡重置）、人回到本层出生点；
+   * 淡入后站着不动，身体长高一阶（1 → 1.5 → 2 格，startGrowth），长完就能动，再玩一次。期间不响应输入
+   */
+  private fakeNextLevel(): void {
+    if (!this.won || this.wonFinal || this.growing || this.leaving || this.dead || this.player.stage >= MAX_STAGE) return;
+    this.won = false;
+    store.dispatch(setMode({ mode: 'playing', playtest: this.playtest }));
+    this.growing = true; this.growTween = null; this.growSince = null;
+    const cam = this.cameras.main;
+    cam.fadeOut(350, 0, 0, 0);
+    cam.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
+      this.clearTransient();
+      this.terrain.resetRect(0, 0, this.terrain.w, this.terrain.h);
+      this.fuses.resetRect(0, 0, this.terrain.w, this.terrain.h);
+      this.enemies.resetAll();
+      this.mechs.forEach(m => m.onReset?.('level'));
+      // 出生点是格子中心：身体已经比一格高了，按脚底贴着那一格的底边放，别陷进地板
+      const spawn = this.spawnPoints[0] ?? this.entry, feet = spawn.y + this.cfg.tile / 2;
+      this.entry = { x: spawn.x, y: feet - this.player.displayHeight / 2, vx: 0, vy: 0 }; this.prevEntry = null;
+      this.player.respawn(this.entry);   // 活过来会动：先落到地上再冻住长大
+      const r = this.roomOf(spawn.x, spawn.y);
+      if (!this.sameRoom(r, this.room)) this.enterRoom(r, true);
+      this.mechs.forEach(m => m.onRoomChanged?.(this.room));   // 出生房间里有 Boss 之类的，重新开始
+      this.fogDirty = true;
+      this.growSince = this.time.now;
+      cam.fadeIn(350, 0, 0, 0);
+      this.flash(this.floor.name, '#ffd166');
+    });
+  }
+
+  /** 长大动画：冻住，长高一阶（多 STAGE_EXTRA 格）；长完把复活点记在长大后的身体中心（脚底不变），存档，解冻继续玩 */
+  private startGrowth(): void {
+    this.player.freeze(0xffffff); this.player.clearTint();
+    const from = this.player.stage, to = Math.min(MAX_STAGE, from + 1);
+    this.growTween = this.tweens.addCounter({
+      from: from * STAGE_EXTRA, to: to * STAGE_EXTRA, delay: 500, duration: this.cfg.growMs, ease: 'Sine.easeInOut',
+      onUpdate: tw => this.player.setGrowth(tw.getValue() ?? 0),
+      onComplete: () => {
+        this.player.setStage(to);
+        this.growing = false; this.growTween = null;
+        this.entry = { x: this.player.x, y: this.player.y, vx: 0, vy: 0 };
+        this.autosave();
+        this.player.unfreeze();
+      },
+    });
   }
 
   /** 换层。给了 via（门的位置）就先来一段旋涡：画面转着拉近门，人和东西都被吸进去 */
@@ -454,7 +515,7 @@ export class GameScene extends Phaser.Scene {
     const restart = () => {
       const carry: Partial<SaveData> = {};
       this.mechs.forEach(m => m.persist?.(carry, 'floor'));
-      const data: StartGameData = { project: this.project, floorId: id, playtest: this.playtest, announceFloor: true, stats: { ...this.stats }, held: carry.held, hat: carry.hat, origin: this.origin };
+      const data: StartGameData = { project: this.project, floorId: id, playtest: this.playtest, announceFloor: true, stats: { ...this.stats }, held: carry.held, hat: carry.hat, stage: this.player.stage, origin: this.origin };
       this.scene.restart(data);
     };
     const fade = (ms: number) => { cam.fadeOut(ms, 0, 0, 0); cam.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, restart); };

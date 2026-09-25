@@ -2,6 +2,8 @@
 // PNG 由 scripts/gen-art.mjs 生成；换成手绘美术只要替换文件、保持帧布局即可。
 import tilesUrl from './tiles.png';
 import playerUrl from './player.png';
+import playerMidUrl from './player_mid.png';
+import playerTallUrl from './player_tall.png';
 import enemyUrl from './enemy.png';
 import doorUrl from './door.png';
 import sparkUrl from './spark.png';
@@ -25,6 +27,10 @@ import bombUrl from './bomb.png';
 import hatUrl from './hat.png';
 import crate1Url from './crate1.png';
 import crate2Url from './crate2.png';
+import plate1Url from './plate1.png';
+import plate2Url from './plate2.png';
+import plate1DownUrl from './plate1_down.png';
+import plate2DownUrl from './plate2_down.png';
 import boomUrl from './boob.mp3';
 import bgmUrl from './Pixelated_Coffee.mp3';
 import bossMusicUrl from './boss.mp3';
@@ -60,6 +66,9 @@ export const SPRITESHEETS: SpriteSheetAsset[] = [
 
 export const IMAGES: ImageAsset[] = [
   { key: 'player', url: playerUrl },
+  /** 长大后的玩家：第 2 关 1.5 格高、第 3 关 2 格高；换成手绘只要覆盖同名文件 */
+  { key: 'player_mid', url: playerMidUrl },
+  { key: 'player_tall', url: playerTallUrl },
   { key: 'enemy', url: enemyUrl },
   { key: 'door', url: doorUrl },
   { key: 'spark', url: sparkUrl },
@@ -79,6 +88,10 @@ export const IMAGES: ImageAsset[] = [
   { key: 'hat', url: hatUrl },
   { key: 'crate1', url: crate1Url },
   { key: 'crate2', url: crate2Url },
+  { key: 'plate1', url: plate1Url },
+  { key: 'plate2', url: plate2Url },
+  { key: 'plate1_down', url: plate1DownUrl },
+  { key: 'plate2_down', url: plate2DownUrl },
   { key: 'ghost2', url: ghost2Url },
   { key: 'ghosteyes', url: ghostEyesUrl },
   { key: 'ghostscared', url: ghostScaredUrl },

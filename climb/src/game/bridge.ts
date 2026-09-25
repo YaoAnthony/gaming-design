@@ -19,6 +19,8 @@ export interface StartGameData {
   held?: string;
   /** 头上戴着帽子（换层时带过去） */
   hat?: boolean;
+  /** 长大阶段（0 = 1 格高，1 = 1.5 格，2 = 2 格；假通关「进入下一关」每次长一阶；换层时带过去） */
+  stage?: number;
   fog?: FogState | null;
   fuse?: string[] | null;
   playtest?: boolean;
@@ -37,6 +39,8 @@ export const EVT = {
   continueGame: 'game:continue',
   /** 通关弹窗「再来一次」：从这一局的起点重开 */
   restartGame: 'game:restart',
+  /** 假通关弹窗「进入下一关」：地图复原、回出生点、长成 2 格高再玩一次 */
+  nextLevel: 'game:next',
 } as const;
 
 export const bridge = new Phaser.Events.EventEmitter();

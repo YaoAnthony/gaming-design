@@ -1,9 +1,12 @@
 // ===== Boss 房：进门封门 → 大史莱姆落下 → 只有落石和引线能伤它 → 打赢开门、爆开一圈穿墙火花 =====
 // 打赢之后：第一层、死在别的房间 → 回到 Boss 房，Boss 在你眼前再炸一次（引线重新点、路重新开）；
 // 死在 Boss 房里、或不在第一层 → Boss 回来，重新打。
+// 「打赢过」记在 Redux 的 progress 里，按「层 + 关」分开：第 1 关打赢的不算第 2、3 关的；进入下一关 Boss 重新出场。
 import Phaser from 'phaser';
 import type { CellRef, EnemySpawn, EntryState, Point, RoomCoord } from '@/type';
 import { floorIndex } from '@/game/world/WorldModel';
+import { store } from '@/redux/store';
+import { forgetBoss, progressKey, winBoss, type BossWin } from '@/redux/slices/progressSlice';
 import { Enemy } from '@/sprite';
 import { playCrush } from '@/particle';
 import type { PlayContext, Suckable } from '@/game/core/PlayContext';
@@ -32,8 +35,9 @@ export class BossFight implements Mechanic {
   private defeated = new Set<string>();
   /** 封门时的位置：打赢之后死了就回到这里 */
   private sealEntry: EntryState | null = null;
-  /** 打赢的 Boss：复活点（封门处）、倒下的位置、房间 key */
-  private won: { entry: EntryState; at: Point; key: string | null } | null = null;
+  /** 这一层、这一关打赢的 Boss（在 Redux 里）：复活点（封门处）、倒下的位置、Boss 房 */
+  private get progressKey(): string { return progressKey(this.ctx.floor.id, this.ctx.player.stage); }
+  private get won(): BossWin | null { return store.getState().progress.bossWins[this.progressKey] ?? null; }
   private bursts: SparkBurst[] = [];
   /** Boss 吐出来的小史莱姆（上限只数这些，地图上的巡逻怪不算）；Boss 死的时候一起死 */
   private minions: Enemy[] = [];
@@ -59,8 +63,13 @@ export class BossFight implements Mechanic {
     this.bursts.forEach(b => b.destroy()); this.bursts = [];
   }
 
-  onReset(scope: 'room' | 'world'): EntryState | void {
+  onReset(scope: 'room' | 'world' | 'level'): EntryState | void {
     const { ctx } = this;
+    if (scope === 'level') {
+      // 进入下一关：这一关打赢过也不算了，Boss 在下一关重新出场（人回出生点后 onRoomChanged 会再判一次）
+      this.forgetWin();
+      return;
+    }
     if (scope === 'room') {
       // 在 Boss 房里重置：Boss 回来，重新打
       if (this.inWonRoom(ctx.rooms.current)) this.forgetWin();
@@ -71,7 +80,7 @@ export class BossFight implements Mechanic {
     const won = replay ? this.won : null;
     if (!replay) this.forgetWin();
     this.defeated.clear();
-    if (won?.key) this.defeated.add(won.key);
+    if (won?.room) this.defeated.add(won.room);
     if (won) {
       // 直接回到 Boss 房，Boss 再炸一次
       this.replayDeath(won.at);
@@ -96,7 +105,7 @@ export class BossFight implements Mechanic {
 
   private inWonRoom(r: RoomCoord): boolean { return !!this.won && this.ctx.rooms.same(this.ctx.rooms.of(this.won.entry.x, this.won.entry.y), r); }
   /** 当作没打过：Boss 会在下次进房 / 重置时回来 */
-  private forgetWin(): void { this.won = null; this.defeated.clear(); }
+  private forgetWin(): void { if (this.won) store.dispatch(forgetBoss(this.progressKey)); this.defeated.clear(); }
 
   /** 玩家进 Boss 房：先不出 Boss，只记下要封的门，等玩家走进来一点再封门、再出场 */
   private startBoss(r: RoomCoord): void {
@@ -168,7 +177,7 @@ export class BossFight implements Mechanic {
     this.killMinions();
     this.explode(boss.x, boss.y);
     ctx.fx.flash('大史莱姆倒下了', '#ffd166');
-    if (this.sealEntry && this.room) this.won = { entry: this.sealEntry, at: { x: boss.x, y: boss.y }, key: ctx.rooms.key(this.room) };
+    if (this.sealEntry && this.room) store.dispatch(winBoss({ key: this.progressKey, win: { entry: { ...this.sealEntry }, at: { x: boss.x, y: boss.y }, room: ctx.rooms.key(this.room) } }));
     this.end(true);
   }
 

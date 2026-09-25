@@ -5,8 +5,11 @@
 // - 死亡 / R：回到原位
 // - 掉得够快（≥ crushMinSpeed）砸到人头上 → 死；砸到怪物 → 怪物死
 // - 占着的格子算「地面」：掉下来的碎块落在箱子上，箱子上的砖算被它撑住；箱子挪开，上面的砖就掉下来
+// - 压板（1x1、1x2）：一个落在地上的箱子同时盖住压板的每一格才算压下（人踩没用；大箱子也能压 1x1）。
+//   压下的那一刻点燃压板格子里 / 紧挨着压板的引线端点。那些端点被锁住：不画引线头、玩家的爆炸点不着，只能靠压板。
+//   引线烧到压板这一头（压板自己点的、或者从另一头烧过来的）压板就没用了，跟着消失；死亡 / R 恢复
 import Phaser from 'phaser';
-import type { RoomCoord } from '@/type';
+import type { CellRef, RoomCoord } from '@/type';
 import type { PlayContext, Suckable } from '@/game/core/PlayContext';
 import type { Mechanic } from '../define';
 
@@ -24,6 +27,23 @@ interface Block {
   /** 上一帧的下落速度：砸到人的那一帧，物理引擎已经把速度清掉了，要用撞之前的 */
   lastVy: number;
 }
+
+interface Plate {
+  /** 压板占的格子（地图坐标），从左到右 */
+  cells: CellRef[];
+  sprite: Phaser.GameObjects.Image;
+  /** 没压 / 压下的贴图 */
+  up: string;
+  down: string;
+  pressed: boolean;
+  /** 接在这块压板上的引线端点（被锁住的那几个）：引线烧到它们，压板就跟着没了 */
+  ends: CellRef[];
+  /** 引线烧过去了：压板已经没用，消失（死亡 / R 恢复） */
+  gone: boolean;
+}
+
+/** 引线端点离压板格子多远（格）以内会被点燃：压板那一格和上下左右四格 */
+const PLATE_FUSE_RADIUS = 1;
 
 /** 身高比箱子矮这么多以内也算够高（主角本身 0.94 格，也要能推 1 格的箱子） */
 const HEIGHT_TOLERANCE = 0.1;
@@ -58,6 +78,7 @@ const syncDeltas: Phaser.Types.Physics.Arcade.ArcadePhysicsCallback = (a, b) => 
 
 export class PushBlocks implements Mechanic {
   private list: Block[] = [];
+  private plates: Plate[] = [];
   private group: Phaser.Physics.Arcade.Group;
 
   constructor(private ctx: PlayContext) {
@@ -79,9 +100,23 @@ export class PushBlocks implements Mechanic {
     this.list.push({ sprite, size, home: { x, y }, room: { rx: cell.rx, ry: cell.ry }, target: null, cells: '', lastVy: 0 });
   }
 
+  /** 放一块压板：width = 1 或 2（格），放的那一格是它的左边那格 */
+  addPlate(width: number, cell: { x: number; y: number }): void {
+    const T = this.ctx.cfg.tile, up = width === 1 ? 'plate1' : 'plate2';
+    const sprite = this.ctx.scene.add.image(cell.x * T, (cell.y + 1) * T, up).setOrigin(0, 1).setDepth(2.5);
+    const cells = Array.from({ length: width }, (_, i) => ({ x: cell.x + i, y: cell.y }));
+    this.plates.push({ cells, sprite, up, down: up + '_down', pressed: false, ends: [], gone: false });
+  }
+
   // ---------- 生命周期 ----------
   start(): void {
     const { scene, player, enemies } = this.ctx;
+    // 接在压板上的引线头交给压板：锁住（不画、爆炸点不着）
+    this.plates.forEach(pl => {
+      pl.ends = pl.cells.flatMap(c => this.ctx.fuses.endsNear(c, PLATE_FUSE_RADIUS, true));
+      this.ctx.fuses.lockEnds(pl.ends);
+    });
+    this.settlePlates();   // 一开始就压着的（箱子出生在压板上）不点引线
     scene.physics.add.collider(player, this.group, undefined, syncDeltas);
     scene.physics.add.collider(enemies.group, this.group, undefined, syncDeltas);
   }
@@ -100,6 +135,7 @@ export class PushBlocks implements Mechanic {
     const T = this.ctx.cfg.tile, speed = this.ctx.cfg.pushSpeed;
     this.crush();
     this.resupportIfMoved();
+    this.updatePlates();
     this.list.forEach(bl => {
       const s = bl.sprite, b = s.body as Phaser.Physics.Arcade.Body;
       if (!b.enable) return;
@@ -140,15 +176,35 @@ export class PushBlocks implements Mechanic {
     }
   }
 
-  /** 死亡 / R：箱子回到原位（按 R 只回当前房间的） */
-  onReset(scope: 'room' | 'world'): void {
+  /** 死亡：所有箱子回到原位。按 R：出生在这个房间的、或者现在就在这个房间里的箱子回到原位（从别的房间推过来的也回去） */
+  onReset(scope: 'room' | 'world' | 'level'): void {
+    const { rooms } = this.ctx;
     this.list.forEach(bl => {
-      if (scope === 'room' && !this.ctx.rooms.same(bl.room, this.ctx.rooms.current)) return;
       const b = bl.sprite.body as Phaser.Physics.Arcade.Body;
+      const here = rooms.same(bl.room, rooms.current) || rooms.same(rooms.of(b.center.x, b.center.y), rooms.current);
+      if (scope === 'room' && !here) return;
       bl.sprite.setAngle(0).setScale(1).setAlpha(1);
       b.enable = true;
       b.reset(bl.home.x, bl.home.y);
       bl.target = null; bl.cells = ''; bl.lastVy = 0;
+    });
+    // 烧掉的压板跟着引线一起恢复：R 只恢复这个房间的（引线也只恢复这个房间），死亡恢复全部
+    this.plates.forEach(pl => {
+      if (!pl.gone || (scope === 'room' && !pl.cells.some(c => this.ctx.rooms.same(this.ctx.rooms.of(c.x * this.ctx.cfg.tile, c.y * this.ctx.cfg.tile), this.ctx.rooms.current)))) return;
+      pl.gone = false;
+      pl.sprite.setVisible(true);
+    });
+    this.settlePlates();   // 箱子回到原位后压板跟着复原，不重新点引线（引线也复原了）
+  }
+
+  /** 引线烧到压板接的那一头（或压板本身那一格）：压板没用了，炸掉消失 */
+  onFuseBurn(cells: CellRef[]): void {
+    const T = this.ctx.cfg.tile, hit = (list: CellRef[]) => list.some(a => cells.some(c => c.x === a.x && c.y === a.y));
+    this.plates.forEach(pl => {
+      if (pl.gone || !(hit(pl.ends) || hit(pl.cells))) return;
+      pl.gone = true; pl.pressed = false;
+      pl.sprite.setVisible(false);
+      pl.cells.forEach(c => this.ctx.sparks.explode(8, c.x * T + T / 2, (c.y + 1) * T - 6));
     });
   }
 
@@ -158,6 +214,40 @@ export class PushBlocks implements Mechanic {
   }
 
   // ---------- 内部 ----------
+  /** 压板有没有被压下：有一个箱子同时盖住它的每一格（ground = 还要求箱子落在地上，掉下来路过的不算） */
+  private pressedBy(pl: Plate, ground: boolean): boolean {
+    const T = this.ctx.cfg.tile;
+    return this.list.some(bl => {
+      const b = bl.sprite.body as Phaser.Physics.Arcade.Body;
+      if (!b.enable || (ground && !b.blocked.down && !b.touching.down)) return false;
+      return pl.cells.every(c => { const px = c.x * T + T / 2, py = c.y * T + T / 2; return px > b.left && px < b.right && py > b.top && py < b.bottom; });
+    });
+  }
+
+  private showPlate(pl: Plate): void { pl.sprite.setTexture(pl.pressed ? pl.down : pl.up); }
+
+  /** 不触发，只按箱子现在的位置摆好压板（进场、重置） */
+  private settlePlates(): void {
+    this.plates.forEach(pl => { if (pl.gone) return; pl.pressed = this.pressedBy(pl, false); this.showPlate(pl); });
+  }
+
+  /** 每帧：压板状态变了就换样子；刚被压下 → 点燃旁边的引线 */
+  private updatePlates(): void {
+    const { ctx } = this, T = ctx.cfg.tile;
+    this.plates.forEach(pl => {
+      if (pl.gone) return;
+      const now = this.pressedBy(pl, true);
+      if (now === pl.pressed) return;
+      pl.pressed = now;
+      this.showPlate(pl);
+      if (!now) return;
+      const seen = new Set<string>(), ends: CellRef[] = [];
+      pl.cells.forEach(c => ctx.fuses.endsNear(c, PLATE_FUSE_RADIUS, true).forEach(e => { const k = `${e.x},${e.y}`; if (!seen.has(k)) { seen.add(k); ends.push(e); } }));
+      pl.cells.forEach(c => ctx.sparks.explode(4, c.x * T + T / 2, (c.y + 1) * T - 4));
+      if (ends.length && ctx.igniteFuses(ends)) ctx.fx.flash('引线点燃！', '#ff7b54');
+    });
+  }
+
   /** 掉得够快的箱子砸到人 / 怪物头上 */
   private crush(): void {
     const { ctx } = this;

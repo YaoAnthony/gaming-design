@@ -14,7 +14,12 @@ export interface GameConfig {
   hatHeight: number;
   /** 推箱子的速度（像素/秒），比走路慢 */
   pushSpeed: number;
+  /** 假通关进下一层后，身体从 1 格长到 2 格的动画时长（毫秒） */
+  growMs: number;
+  /** 起跳速度：这是第 2 阶段（1.5 格高）的原版手感 */
   jumpVelocity: number;
+  /** 每个长大阶段的起跳速度（像素/秒，负数向上）：[1 格高, 1.5 格高, 2 格高]。蹬墙跳按 wallJumpY / jumpVelocity 的比例一起变 */
+  jumpVelocityByStage: number[];
   wallJumpX: number;
   wallJumpY: number;
   wallSlideMaxFall: number;
@@ -33,6 +38,8 @@ export interface GameConfig {
   jumpBufferMs: number;
   /** 爆炸半径（格），也就是起跳爆炸的强度：1.5 → 3x3；2.0 → 3x3 + 上下左右各一格；2.5 → 5x5 去掉四角 */
   explosionRadius: number;
+  /** 每个长大阶段的爆炸半径（格）：[1 格高, 1.5 格高, 2 格高]；null = 用 explosionRadius */
+  explosionRadiusByStage: (number | null)[];
   chunkGravity: number;
   chunkMaxFall: number;
   /** 碎块下落速度超过这个值才会压死人 / 压死怪 */

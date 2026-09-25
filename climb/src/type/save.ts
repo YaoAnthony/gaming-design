@@ -21,6 +21,8 @@ export interface SaveData {
   held?: string;
   /** 头上戴着帽子 */
   hat?: boolean;
+  /** 长大阶段（0 = 1 格高，1 = 1.5 格，2 = 2 格） */
+  stage?: number;
   fog?: FogState;
   /** 引线层的当前状态（烧掉的不会回来），每行 '0'/'1' */
   fuse?: string[];

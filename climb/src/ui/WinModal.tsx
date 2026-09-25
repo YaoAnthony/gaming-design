@@ -1,6 +1,7 @@
-// ===== 通关弹窗：和对话框同一套样子（深底、米白描边）。右上角 X 关掉，「再来一次」从这一局的起点重开 =====
+// ===== 通关弹窗：和对话框同一套样子（深底、米白描边），后面炸一次礼花。右上角 X 关掉，「再来一次」从这一局的起点重开 =====
 import { useTranslation } from 'react-i18next';
 import { motion } from 'motion/react';
+import { Confetti } from './Confetti';
 
 interface Props {
   jumps: number;
@@ -15,6 +16,7 @@ export function WinModal({ jumps, destroyed, playtest, onClose, onRetry }: Props
   const { t } = useTranslation();
   return (
     <div className="modal-backdrop">
+      <Confetti />
       <motion.div className="win-modal" role="dialog" aria-modal="true" aria-labelledby="win-title"
         initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.18, ease: 'easeOut' }}>
         <button className="win-close" onClick={onClose} aria-label={t('wonClose')}>

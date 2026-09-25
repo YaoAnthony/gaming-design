@@ -51,6 +51,11 @@ h2 { font-size: 12px; color: var(--muted); margin: 14px 0 6px; text-transform: u
 .hud-msg { position: absolute; top: 48px; left: 0; right: 0; text-align: center; font-size: 22px; opacity: 0; transition: opacity .4s; }
 .hud-msg.show { opacity: 1; transition: none; }
 .modal-backdrop { position: absolute; inset: 0; pointer-events: auto; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, .45); }
+/* 通关礼花：从画面下方中间喷出，压在弹窗后面，不挡点击 */
+.confetti-layer { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.confetti { position: absolute; left: 50%; bottom: 20%; width: 0; height: 0; }
+.confetti-piece { position: absolute; left: 0; top: 0; display: block; border-radius: 2px; will-change: transform, opacity; }
+.confetti-piece.dot { border-radius: 50%; }
 /* 通关弹窗：跟对话框同一套（深底 + 米白描边），尺寸跟画面走 */
 .win-modal { position: relative; box-sizing: border-box; width: min(78cqw, 460px); background: rgba(11, 11, 20, .96); border: clamp(2px, .2cqw, 3px) solid #f1efe6; border-radius: clamp(8px, .8cqw, 12px); padding: clamp(16px, 2.2cqw, 28px) clamp(18px, 2.6cqw, 32px); color: #e6e8f0; font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
 .win-title { color: #ffd166; font-size: clamp(22px, 3cqw, 32px); font-weight: bold; line-height: 1.2; }

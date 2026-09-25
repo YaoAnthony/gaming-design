@@ -4,6 +4,7 @@ import { useAppDispatch, useAppSelector } from '@/redux/hooks';
 import { addLock, currentModel, removeLock, setBrush } from '@/redux/slices/editorSlice';
 import { LOCK_COLOR_NAMES, LOCK_COLORS } from '@/game/world/WorldModel';
 import { FOG_ZONES, FOG_ZONE_COLORS, fogBrush } from './fogZones';
+import { FUSE_CHANNELS } from '@/game/fuse/channels';
 
 const tilesUrl = SPRITESHEETS.find(s => s.key === 'tiles')!.url;
 const imageUrl = (key: string) => IMAGES.find(i => i.key === key)?.url ?? '';
@@ -36,12 +37,14 @@ export function Palette() {
       </div>
       <h2>引线</h2>
       <div className="palette">
-        <button className={'item' + (brush === 'fuse' ? ' active' : '')} title="叠在砖块上的一条线，不占格子。只有两端能被爆炸点燃，然后一格格烧到另一头，烧到哪格炸哪格，岩石也炸；游戏里只看得见端点" onClick={() => dispatch(setBrush('fuse'))}>
-          <div className="icon"><div className="frame" style={{ backgroundImage: `url(${tilesUrl})`, backgroundPosition: `-${(TILE_FRAMES.fuse + 6) * TILE_SIZE}px 0` }} /></div>
-          <div className="label"><b>引线</b><small>右键擦除</small></div>
-        </button>
+        {FUSE_CHANNELS.map(c => (
+          <button key={'fuse' + c.id} className={'item' + (brush === 'fuse:' + c.id ? ' active' : '')} title={`${c.name}色引线：${c.shatter ? '烧到岩石直接烧没，不留碎岩。' : ''}只和${c.name}色的引线相连。和别的颜色交叉也不相通、不一起烧。游戏里所有颜色看起来一样。右键只擦${c.name}色`} onClick={() => dispatch(setBrush('fuse:' + c.id))}>
+            <div className="icon"><span className="fuseicon" style={{ background: hex(c.color) }} /></div>
+            <div className="label"><b>{c.name}色引线</b><small>{c.shatter ? '直接烧碎岩石' : '右键擦除'}</small></div>
+          </button>
+        ))}
       </div>
-      <div className="hint">引线可以穿过空气和任何砖块，不改变地形。经过空气就只是过一下。</div>
+      <div className="hint">引线可以穿过空气和任何砖块。只有两端能点燃，烧到哪格烧哪格：岩石烧一次裂成碎岩，再烧一次才没；紫色引线一次就把岩石烧没。不同颜色互不相连，可以交叉画在同一格。</div>
 
       <h2>文字</h2>
       <div className="palette">

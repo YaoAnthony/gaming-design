@@ -11,7 +11,7 @@ export class Enemies {
 
   constructor(private ctx: PlayContext) {
     this.group = ctx.scene.physics.add.group({ classType: Enemy, runChildUpdate: false });
-    ctx.scene.physics.add.collider(this.group, ctx.terrain.layer);
+    ctx.scene.physics.add.collider(this.group, ctx.terrain.layer, undefined, ctx.terrain.landsOnOneWay);
   }
 
   /** 地图上的怪物：记下出生位置，重置时按它复原 */

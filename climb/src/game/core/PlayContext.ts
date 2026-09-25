@@ -1,9 +1,9 @@
 // ===== 机制能用的一切 =====
 // 机制只通过这里访问场景，不直接碰 GameScene 的字段。GameScene 负责实现它。
 import type Phaser from 'phaser';
-import type { CellRef, EntryState, Floor, GameConfig, Point, Project, RoomCoord, WorldModel } from '@/type';
+import type { EntryState, Floor, GameConfig, Point, Project, RoomCoord, WorldModel } from '@/type';
 import type { Terrain } from '@/game/terrain/Terrain';
-import type { FuseNet } from '@/game/fuse/Fuse';
+import type { FuseEnd, FuseNet } from '@/game/fuse/Fuse';
 import type { FogOfWar } from '@/game/fog/Fog';
 import type { Music } from '@/game/Music';
 import type { Player } from '@/sprite';
@@ -76,8 +76,8 @@ export interface PlayContext {
   goToFloor(id: string, via?: Point): void;
   /** 存档（试玩模式下什么都不做） */
   autosave(): void;
-  /** 点燃引线端点，返回点燃了几条 */
-  igniteFuses(ends: CellRef[]): number;
+  /** 点燃引线端点（带颜色：只沿这种颜色烧），返回会烧到几格；0 = 什么都没点着 */
+  igniteFuses(ends: FuseEnd[]): number;
 
   fx: {
     flash(text: string, color: string): void;

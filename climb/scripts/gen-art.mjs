@@ -68,7 +68,7 @@ class Canvas {
 const T = 32;
 
 // ---- 砖块图集：0 泥土 1 岩石 2 脆岩 3 沙土 4 尖刺 ----
-const tiles = new Canvas(T * 24, T);   // 0-4 基础砖块，5-20 引线的 16 种连接图案（只在编辑器里显示），21 纸，22 字块，23 门（白底，运行时按组染色）
+const tiles = new Canvas(T * 26, T);   // 0-4 基础砖块，5-20 引线的 16 种连接图案（只在编辑器里显示，白色，按引线颜色染色），21 纸，22 字块，23 门（白底，运行时按组染色），24 木板，25 碎岩
 // 泥土
 tiles.rect(0, 0, T, T, 0x8d5a3b);
 tiles.rect(4, 6, 6, 4, 0x6f452c); tiles.rect(18, 12, 8, 4, 0x6f452c); tiles.rect(8, 22, 6, 4, 0x6f452c); tiles.rect(22, 24, 5, 3, 0x6f452c);
@@ -88,11 +88,11 @@ tiles.rect(3 * T, 0, T, 3, 0xe8b77f);
 // 尖刺（透明背景）
 for (let k = 0; k < 4; k++) tiles.tri(4 * T + k * 8, T, 4 * T + k * 8 + 4, T - 14, 4 * T + k * 8 + 8, T, 0xef476f);
 // 引线自动拼贴（编辑器叠加层）：帧 = 5 + 位掩码（上=1 右=2 下=4 左=8）；透明底，叠在砖块上
-// 端头（只有一个邻居）和孤立格画成亮黄色节点：那是唯一能被点燃的地方
+// 画成白色，编辑器按引线颜色染色。端头（只有一个邻居）和孤立格画成带深色芯的节点：那是唯一能被点燃的地方
 for (let mask = 0; mask < 16; mask++) {
   const ox = (5 + mask) * T;
   const c = T / 2;
-  const wire = 0xff7b54, thick = 6, half = thick / 2;
+  const wire = 0xffffff, thick = 6, half = thick / 2;
   if (mask & 1) tiles.rect(ox + c - half, 0, thick, c + half, wire);          // 上
   if (mask & 2) tiles.rect(ox + c - half, c - half, T - c + half, thick, wire); // 右
   if (mask & 4) tiles.rect(ox + c - half, c - half, thick, T - c + half, wire); // 下
@@ -100,8 +100,8 @@ for (let mask = 0; mask < 16; mask++) {
   tiles.rect(ox + c - half, c - half, thick, thick, wire);                     // 中心接点
   const bits = [1, 2, 4, 8].filter(b => mask & b).length;
   if (bits <= 1) {                                                             // 端头 / 孤立：可点燃节点
-    tiles.rect(ox + c - 6, c - 6, 12, 12, 0xff9f1c);
-    tiles.rect(ox + c - 4, c - 4, 8, 8, 0xffd166);
+    tiles.rect(ox + c - 6, c - 6, 12, 12, 0xffffff);
+    tiles.rect(ox + c - 3, c - 3, 6, 6, 0x5a5a5a);
   }
 }
 // 纸：白底、淡淡的横线、一角微卷
@@ -118,6 +118,21 @@ tiles.rect(23 * T, 0, T, T, 0xbdbdbd);
 tiles.rect(23 * T + 3, 3, T - 6, T - 6, 0xefefef);
 tiles.rect(23 * T + 3, 3, T - 6, 2, 0xffffff); tiles.rect(23 * T + 3, T - 5, T - 6, 2, 0xd0d0d0);
 tiles.rect(23 * T + 13, 10, 6, 6, 0x2a2a2a); tiles.rect(23 * T + 15, 15, 2, 7, 0x2a2a2a);
+// 木板：只占格子上面一条（下面透明），两道木纹 + 两颗钉子，左右两端各一道接缝
+tiles.rect(24 * T, 0, T, 9, 0xb07a45);
+tiles.rect(24 * T, 0, T, 2, 0xd19a62);
+tiles.rect(24 * T, 7, T, 2, 0x7a5230);
+tiles.rect(24 * T + 3, 4, 10, 1, 0x93643a); tiles.rect(24 * T + 17, 3, 11, 1, 0x93643a);
+tiles.rect(24 * T + 5, 5, 2, 2, 0x4a3320); tiles.rect(24 * T + 25, 5, 2, 2, 0x4a3320);
+tiles.rect(24 * T, 0, 1, 9, 0x7a5230); tiles.rect(24 * T + T - 1, 0, 1, 9, 0x7a5230);
+// 碎岩：和岩石同一块底子，稍微亮一点，几道深色裂缝从中间炸开，缝边一点亮色
+tiles.rect(25 * T, 0, T, T, 0x6e7480);
+tiles.rect(25 * T + 2, 4, 12, 10, 0x575d68); tiles.rect(25 * T + 18, 16, 12, 12, 0x575d68); tiles.rect(25 * T + 4, 20, 8, 8, 0x575d68);
+tiles.rect(25 * T, 0, T, 2, 0x8a919e);
+tiles.line(25 * T + 16, 15, 25 * T + 5, 3, 0x23262c); tiles.line(25 * T + 16, 15, 25 * T + 28, 6, 0x23262c);
+tiles.line(25 * T + 16, 15, 25 * T + 9, 29, 0x23262c); tiles.line(25 * T + 16, 15, 25 * T + 26, 27, 0x23262c);
+tiles.line(25 * T + 9, 29, 25 * T + 3, 24, 0x23262c, 1); tiles.line(25 * T + 28, 6, 25 * T + 30, 14, 0x23262c, 1);
+tiles.rect(25 * T + 15, 13, 3, 3, 0x9aa1ad);
 tiles.save('tiles.png');
 
 // ---- 玩家 32x32（一格）：圆角方块 + 一只眼睛 + 两只小脚。游戏里按 config.playerWidth / playerHeight 缩放 ----

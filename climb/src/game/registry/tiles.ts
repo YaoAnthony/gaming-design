@@ -14,8 +14,13 @@ defineTile(
 );
 
 defineTile(
-  { id: 'R', name: '岩石', desc: '炸不动的锚点', color: 0x5d6470, frame: TILE_FRAMES.rock },
-  Traits.Solid, Traits.Anchor,
+  { id: 'R', name: '岩石', desc: '人炸不动的锚点；只有引线能烧它，烧一次裂成碎岩', color: 0x5d6470, frame: TILE_FRAMES.rock },
+  Traits.Solid, Traits.Anchor, Traits.CracksTo('r'),
+);
+
+defineTile(
+  { id: 'r', name: '碎岩', desc: '裂开的岩石：人能炸掉，引线再烧一次也碎掉；自己不会掉，也撑得住别的砖', color: 0x6e7480, frame: TILE_FRAMES.crackedRock },
+  Traits.Solid, Traits.Anchor, Traits.Destructible(0),
 );
 
 defineTile(
@@ -41,6 +46,11 @@ defineTile(
 defineTile(
   { id: '=', name: '字块', desc: '文字方块默认用它：可炸，但自己不会掉、也撑得住别的砖（悬空的字才站得住）', color: 0xb8c4e0, frame: TILE_FRAMES.letter },
   Traits.Solid, Traits.Anchor, Traits.Destructible(0),
+);
+
+defineTile(
+  { id: '_', name: '木板', desc: '薄木板：人和怪物能从上面走过去，从下面、侧面能穿过；箱子站不住，会漏下去。炸不坏，自己不会掉', color: 0xb07a45, frame: TILE_FRAMES.plank },
+  Traits.Solid, Traits.Anchor, Traits.OneWay, Traits.BoxPassThrough,
 );
 
 // ---------- 核心物件 ----------

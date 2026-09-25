@@ -94,6 +94,27 @@ export class Terrain {
   }
   def(x: number, y: number): TileDef { return Tiles.get(this.get(x, y)) ?? Tiles.get(AIR)!; }
   isSolid(x: number, y: number): boolean { return this.def(x, y).solid; }
+
+  /**
+   * 人 / 怪物和地形碰撞器的 process 回调：单向平台（木板）只在对方从上面落下来时才挡——
+   * 这一步开始时底边已经在格子顶上、并且没在往上走。从下面跳上来、从侧面走过去都直接穿过。
+   */
+  readonly landsOnOneWay: Phaser.Types.Physics.Arcade.ArcadePhysicsCallback = (obj, t) => {
+    const tile = t as Phaser.Tilemaps.Tile;
+    if (!this.def(tile.x, tile.y).oneWay) return true;
+    return Terrain.landsFromAbove((obj as Phaser.Types.Physics.Arcade.GameObjectWithBody).body as Phaser.Physics.Arcade.Body, tile.pixelY);
+  };
+
+  /** 单向平台挡不挡这具身体：没在往上走，并且这一步开始时底边不低于平台顶（留 1px 余量） */
+  static landsFromAbove(body: { velocity: { y: number }; prev: { y: number }; height: number }, top: number): boolean {
+    return body.velocity.y >= 0 && body.prev.y + body.height <= top + 1;
+  }
+
+  /** 箱子和地形碰撞器的 process 回调：箱子不跟"箱子穿过"的砖（木板）碰撞 */
+  readonly blocksBoxes: Phaser.Types.Physics.Arcade.ArcadePhysicsCallback = (_obj, t) => {
+    const tile = t as Phaser.Tilemaps.Tile;
+    return !this.def(tile.x, tile.y).boxPassThrough;
+  };
   rows(): string[] { return this.grid.map(r => r.join('')); }
 
   set(x: number, y: number, id: string): void {
@@ -304,7 +325,28 @@ export class Terrain {
     return groups.reduce((n, g) => n + g.length, 0);
   }
 
-  /** 无条件摧毁（引线用）：不管可不可炸、是不是岩石，实心的就炸掉，然后做支撑检测 */
+  /** 引线烧到一格之后它变成什么：会裂的（岩石）变成裂开的砖，其它实心的烧没，空气 / 不实心的不变。shatter = 猛火（紫色引线），会裂的也直接烧没 */
+  static burnedTo(id: string, shatter = false): string {
+    const d = Tiles.get(id);
+    if (!d || !d.solid) return id;
+    return shatter ? AIR : d.crackTo ?? AIR;
+  }
+
+  /** 引线烧到这些格子：岩石裂成碎岩（还是实心、还撑着东西），其它实心的烧没；shatter（紫色引线）连岩石也直接烧没。然后做支撑检测。返回烧没的格子 */
+  burnCells(cells: CellRef[], shatter = false): RemovedCell[] {
+    const removed: RemovedCell[] = [];
+    cells.forEach(c => {
+      if (c.x < 0 || c.y < 0 || c.x >= this.w || c.y >= this.h) return;
+      const def = this.def(c.x, c.y), to = Terrain.burnedTo(def.id, shatter);
+      if (to === def.id) return;
+      this.set(c.x, c.y, to);
+      if (to === AIR) removed.push({ x: c.x, y: c.y, id: def.id, def, hop: 0 });
+    });
+    if (removed.length) { this.breakMounted(removed); this.resolveSupport(); }
+    return removed;
+  }
+
+  /** 无条件摧毁（开门、吃豆人炸弹用）：不管可不可炸、是不是岩石，实心的就炸掉，然后做支撑检测 */
   destroyCellsForce(cells: CellRef[]): RemovedCell[] {
     const removed: RemovedCell[] = [];
     cells.forEach(c => {

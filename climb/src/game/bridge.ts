@@ -34,6 +34,8 @@ export const EVT = {
   editorReload: 'editor:reload',
   startGame: 'game:start',
   playtestExit: 'playtest:exit',
+  /** 编辑器的「返回编辑器」按钮：试玩中请求退出（和 ESC 一样） */
+  requestPlaytestExit: 'playtest:request-exit',
   requestReset: 'game:reset',
   /** 通关弹窗关掉：继续玩 */
   continueGame: 'game:continue',

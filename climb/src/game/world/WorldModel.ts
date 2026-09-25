@@ -2,6 +2,7 @@
 import type { LockGroup, Locks, CellRef, Floor, Project, RoomCoord, RoomFlags, TextBlock, WorldModel } from '@/type';
 import { layoutText } from './font';
 import { Entities } from '@/game/registry/registry';
+import { decodeFuse, encodeFuse, fuseBit } from '@/game/fuse/channels';
 
 export function cloneModel(m: WorldModel): WorldModel { return JSON.parse(JSON.stringify(m)); }
 
@@ -156,11 +157,13 @@ export function fuseRows(m: WorldModel): string[] {
   return out;
 }
 
-export function setFuseCell(m: WorldModel, key: string, x: number, y: number, on: boolean): void {
+/** 画 / 擦一格里的某一种颜色的引线，同一格的其它颜色不动 */
+export function setFuseCell(m: WorldModel, key: string, x: number, y: number, ch: number, on: boolean): void {
   m.fuse ??= {};
   m.fuse[key] ??= Array.from({ length: m.roomH }, () => '.'.repeat(m.roomW));
   const r = m.fuse[key][y];
-  m.fuse[key][y] = r.substring(0, x) + (on ? 'W' : '.') + r.substring(x + 1);
+  const mask = on ? decodeFuse(r[x]) | fuseBit(ch) : decodeFuse(r[x]) & ~fuseBit(ch);
+  m.fuse[key][y] = r.substring(0, x) + encodeFuse(mask) + r.substring(x + 1);
 }
 
 export function setRoomFlags(m: WorldModel, key: string, flags: Partial<RoomFlags>): void {

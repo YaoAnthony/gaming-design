@@ -20,7 +20,7 @@ import { DEFAULT_MUSIC } from '@/asset';
 import { flash, setBoss, setControls, setDialogue, setMode, setPlace, setRoomKey, setScore, setStats } from '@/redux/slices/hudSlice';
 import { clearSave, writeSave } from '@/redux/slices/saveSlice';
 import { resetProgress } from '@/redux/slices/progressSlice';
-import { floorMechanicOf, globalMechanicsOf, type FloorMechanic, type Mechanic, type MechanicDef, type MoveInput } from '@/game/mechanics/define';
+import { floorMechanicOf, globalMechanicsOf, type FloorMechanic, type FuseBurnCell, type Mechanic, type MechanicDef, type MoveInput } from '@/game/mechanics/define';
 import type { PlayContext } from '@/game/core/PlayContext';
 import { Dialogue } from '@/game/core/Dialogue';
 import { Enemies } from '@/game/core/Enemies';
@@ -173,7 +173,7 @@ export class GameScene extends Phaser.Scene {
     if (this.startData.stage) this.player.setStage(this.startData.stage);   // 上一层已经长大了：带过来
     if (this.startData.entry) this.player.setVelocity(this.startData.entry.vx, this.startData.entry.vy);
     this.physics.world.gravity.y = this.floorMech.gravity ?? this.cfg.gravity;
-    if (this.floorMech.collideTerrain) this.physics.add.collider(this.player, this.terrain.layer);
+    if (this.floorMech.collideTerrain) this.physics.add.collider(this.player, this.terrain.layer, undefined, this.terrain.landsOnOneWay);
     this.physics.add.collider(this.player, this.debris.platforms);
 
     this.cameras.main.setBounds(0, 0, levelW, levelH);
@@ -275,8 +275,11 @@ export class GameScene extends Phaser.Scene {
     const restartGame = () => this.restartRun();
     const nextLevel = () => this.fakeNextLevel();
     bridge.on(EVT.requestReset, requestReset); bridge.on(EVT.continueGame, continueGame); bridge.on(EVT.restartGame, restartGame); bridge.on(EVT.nextLevel, nextLevel);
-    if (this.playtest) kb.on('keydown-ESC', () => this.exitPlaytest());
+    const exitPlaytest = () => { if (this.playtest) this.exitPlaytest(); };
+    if (this.playtest) kb.on('keydown-ESC', exitPlaytest);
+    bridge.on(EVT.requestPlaytestExit, exitPlaytest);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      bridge.off(EVT.requestPlaytestExit, exitPlaytest);
       bridge.off(TOUCH_JUMP, touchPress); bridge.off(TOUCH_ACTION, touchPress);
       bridge.off(EVT.requestReset, requestReset); bridge.off(EVT.continueGame, continueGame); bridge.off(EVT.restartGame, restartGame); bridge.off(EVT.nextLevel, nextLevel);
       touch.left = false; touch.right = false; touch.up = false; touch.down = false;
@@ -539,7 +542,7 @@ export class GameScene extends Phaser.Scene {
 
   // ---------- 引线 / 效果 ----------
   /** 引线每烧一跳：火花 + 迷雾要重算 + 通知机制（Boss 被烧到会扣血） */
-  private onFuseBurn(cells: CellRef[]): void {
+  private onFuseBurn(cells: FuseBurnCell[]): void {
     this.fogDirty = true;
     const T = this.cfg.tile;
     cells.forEach(c => this.sparks.explode(5, c.x * T + T / 2, c.y * T + T / 2));

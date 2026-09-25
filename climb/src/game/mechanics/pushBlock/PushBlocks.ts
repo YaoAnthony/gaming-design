@@ -4,6 +4,7 @@
 // - 前面被砖或别的箱子挡住就推不动（不能连推）
 // - 死亡 / R：回到原位
 // - 掉得够快（≥ crushMinSpeed）砸到人头上 → 死；砸到怪物 → 怪物死
+// - 木板（boxPassThrough）挡不住箱子：站不住会漏下去，也能推着穿过去
 // - 占着的格子算「地面」：掉下来的碎块落在箱子上，箱子上的砖算被它撑住；箱子挪开，上面的砖就掉下来
 // - 压板（1x1、1x2）：一个落在地上的箱子同时盖住压板的每一格才算压下（人踩没用；大箱子也能压 1x1）。
 //   压下的那一刻点燃压板格子里 / 紧挨着压板的引线端点。那些端点被锁住：不画引线头、玩家的爆炸点不着，只能靠压板。
@@ -11,7 +12,8 @@
 import Phaser from 'phaser';
 import type { CellRef, RoomCoord } from '@/type';
 import type { PlayContext, Suckable } from '@/game/core/PlayContext';
-import type { Mechanic } from '../define';
+import type { FuseEnd } from '@/game/fuse/Fuse';
+import type { FuseBurnCell, Mechanic } from '../define';
 
 interface Block {
   sprite: Phaser.Physics.Arcade.Image;
@@ -36,8 +38,8 @@ interface Plate {
   up: string;
   down: string;
   pressed: boolean;
-  /** 接在这块压板上的引线端点（被锁住的那几个）：引线烧到它们，压板就跟着没了 */
-  ends: CellRef[];
+  /** 接在这块压板上的引线端点（被锁住的那几个，带颜色）：同色引线烧到它们，压板就跟着没了 */
+  ends: FuseEnd[];
   /** 引线烧过去了：压板已经没用，消失（死亡 / R 恢复） */
   gone: boolean;
 }
@@ -83,7 +85,7 @@ export class PushBlocks implements Mechanic {
 
   constructor(private ctx: PlayContext) {
     this.group = ctx.scene.physics.add.group();
-    ctx.scene.physics.add.collider(this.group, ctx.terrain.layer);
+    ctx.scene.physics.add.collider(this.group, ctx.terrain.layer, undefined, ctx.terrain.blocksBoxes);   // 木板：箱子漏下去
     ctx.scene.physics.add.collider(this.group, this.group, undefined, syncDeltas);
   }
 
@@ -198,10 +200,13 @@ export class PushBlocks implements Mechanic {
   }
 
   /** 引线烧到压板接的那一头（或压板本身那一格）：压板没用了，炸掉消失 */
-  onFuseBurn(cells: CellRef[]): void {
-    const T = this.ctx.cfg.tile, hit = (list: CellRef[]) => list.some(a => cells.some(c => c.x === a.x && c.y === a.y));
+  onFuseBurn(cells: FuseBurnCell[]): void {
+    const T = this.ctx.cfg.tile;
+    // 接着的端点：要同色的引线烧到才算（交叉路过的别的颜色不算）；压板自己的格子：什么火烧到都算
+    const endHit = (pl: Plate) => pl.ends.some(e => cells.some(c => c.x === e.x && c.y === e.y && (c.ch === undefined || c.ch === e.ch)));
+    const cellHit = (pl: Plate) => pl.cells.some(a => cells.some(c => c.x === a.x && c.y === a.y));
     this.plates.forEach(pl => {
-      if (pl.gone || !(hit(pl.ends) || hit(pl.cells))) return;
+      if (pl.gone || !(endHit(pl) || cellHit(pl))) return;
       pl.gone = true; pl.pressed = false;
       pl.sprite.setVisible(false);
       pl.cells.forEach(c => this.ctx.sparks.explode(8, c.x * T + T / 2, (c.y + 1) * T - 6));
@@ -241,8 +246,8 @@ export class PushBlocks implements Mechanic {
       pl.pressed = now;
       this.showPlate(pl);
       if (!now) return;
-      const seen = new Set<string>(), ends: CellRef[] = [];
-      pl.cells.forEach(c => ctx.fuses.endsNear(c, PLATE_FUSE_RADIUS, true).forEach(e => { const k = `${e.x},${e.y}`; if (!seen.has(k)) { seen.add(k); ends.push(e); } }));
+      const seen = new Set<string>(), ends: FuseEnd[] = [];
+      pl.cells.forEach(c => ctx.fuses.endsNear(c, PLATE_FUSE_RADIUS, true).forEach(e => { const k = `${e.x},${e.y},${e.ch}`; if (!seen.has(k)) { seen.add(k); ends.push(e); } }));
       pl.cells.forEach(c => ctx.sparks.explode(4, c.x * T + T / 2, (c.y + 1) * T - 4));
       if (ends.length && ctx.igniteFuses(ends)) ctx.fx.flash('引线点燃！', '#ff7b54');
     });
@@ -291,7 +296,7 @@ export class PushBlocks implements Mechanic {
     const ax = dir > 0 ? bb.right + 1 : bb.left - 2;
     const cx = Math.floor(ax / T);
     for (let cy = Math.floor(bb.top / T); cy <= Math.floor((bb.bottom - 1) / T); cy++)
-      if (cx < 0 || cy < 0 || cx >= t.w || cy >= t.h || t.isSolid(cx, cy)) return false;
+      if (cx < 0 || cy < 0 || cx >= t.w || cy >= t.h || (t.isSolid(cx, cy) && !t.def(cx, cy).boxPassThrough)) return false;
     const ahead = new Phaser.Geom.Rectangle(dir > 0 ? bb.right : bb.left - 3, bb.top + 2, 3, bb.height - 4);
     return !this.list.some(o => {
       if (o === bl) return false;

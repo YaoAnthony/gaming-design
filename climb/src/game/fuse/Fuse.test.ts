@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { FuseNet } from './Fuse';
-import { fuseRows } from '@/game/world/WorldModel';
+import { fuseRows, setFuseCell } from '@/game/world/WorldModel';
+import { decodeFuse, encodeFuse, encodeFuseState, FUSE_ALL, FUSE_CHANNELS, fuseBit } from './channels';
 import type { WorldModel } from '@/type';
 
 const grid = (rows: string[]) => {
@@ -50,5 +51,75 @@ describe('引线跨房间', () => {
     expect(FuseNet.isEnd(cells, w, h, 4, 0)).toBe(true);
     const plan = FuseNet.plan(cells, w, h, [{ x: 1, y: 0 }]);
     expect(plan.find(c => c.x === 4 && c.y === 0)?.hop).toBe(3);
+  });
+});
+
+describe('引线颜色（通道）', () => {
+  // 0 号色（橙）横着一条，1 号色（蓝）竖着一条，在 (2,1) 交叉：那一格是 1|2 = 3
+  const rows = ['..2..', 'WW3WW', '..2..'];
+  const { w, h } = { w: 5, h: 3 };
+  const cells = FuseNet.parse(rows, w, h);
+  const ORANGE = fuseBit(0), BLUE = fuseBit(1);
+
+  it('地图字符 ↔ 位掩码：W = 0 号色，老地图不变；十六进制写多色', () => {
+    expect(decodeFuse('.')).toBe(0);
+    expect(decodeFuse('W')).toBe(1);
+    expect(decodeFuse('3')).toBe(3);
+    expect(decodeFuse('?')).toBe(0);
+    expect(encodeFuse(0)).toBe('.');
+    expect(encodeFuse(1)).toBe('W');
+    expect(encodeFuse(3)).toBe('3');
+    for (let m = 0; m <= FUSE_ALL; m++) expect(decodeFuse(encodeFuse(m))).toBe(m);
+    for (let m = 0; m <= FUSE_ALL; m++) expect(decodeFuse(encodeFuseState(m))).toBe(m);
+    expect(decodeFuse('0')).toBe(0);   // 老存档
+  });
+
+  it('交叉点不连通：每种颜色只数同色邻居', () => {
+    expect(FuseNet.neighbours(cells, w, h, 2, 1, ORANGE)).toBe(2);   // 左右两格橙
+    expect(FuseNet.neighbours(cells, w, h, 2, 1, BLUE)).toBe(2);     // 上下两格蓝
+    expect(FuseNet.isEnd(cells, w, h, 0, 1, ORANGE)).toBe(true);
+    expect(FuseNet.isEnd(cells, w, h, 2, 0, BLUE)).toBe(true);
+    expect(FuseNet.isEnd(cells, w, h, 2, 0, ORANGE)).toBe(false);    // 那一格没有橙色
+  });
+
+  it('从橙色一头点，只烧橙色：烧过交叉点但不拐进蓝色', () => {
+    const plan = FuseNet.plan(cells, w, h, [{ x: 0, y: 1 }], ORANGE);
+    expect(plan.map(c => `${c.x},${c.y}`).sort()).toEqual(['0,1', '1,1', '2,1', '3,1', '4,1']);
+  });
+
+  it('在另一种颜色的格子上点：什么都不烧', () => {
+    expect(FuseNet.plan(cells, w, h, [{ x: 2, y: 0 }], ORANGE)).toEqual([]);
+  });
+
+  it('端点只找同色的', () => {
+    expect(FuseNet.endsNear(cells, w, h, { x: 1, y: 0 }, 1.5, ORANGE)).toEqual([{ x: 0, y: 1 }]);
+    expect(FuseNet.endsNear(cells, w, h, { x: 1, y: 0 }, 1.5, BLUE)).toEqual([{ x: 2, y: 0 }]);
+  });
+
+  it('只有紫色会直接烧碎岩石', () => {
+    expect(FUSE_CHANNELS.filter(c => c.shatter).map(c => c.name)).toEqual(['紫']);
+  });
+
+  it('两种颜色并排挨着也不相连', () => {
+    const side = FuseNet.parse(['WW22'], 4, 1);
+    expect(FuseNet.isEnd(side, 4, 1, 1, 0, ORANGE)).toBe(true);
+    expect(FuseNet.isEnd(side, 4, 1, 2, 0, BLUE)).toBe(true);
+    expect(FuseNet.plan(side, 4, 1, [{ x: 0, y: 0 }], ORANGE)).toHaveLength(2);
+  });
+});
+
+describe('编辑器画引线：只动这一种颜色', () => {
+  const model = (): WorldModel => ({ roomW: 3, roomH: 1, layout: [['A']], rooms: { A: ['...'] }, fuse: { A: ['...'] } });
+
+  it('画两种颜色叠成交叉，擦一种另一种还在', () => {
+    const m = model();
+    setFuseCell(m, 'A', 1, 0, 0, true);
+    expect(m.fuse!.A[0]).toBe('.W.');
+    setFuseCell(m, 'A', 1, 0, 1, true);
+    expect(m.fuse!.A[0]).toBe('.3.');
+    setFuseCell(m, 'A', 1, 0, 0, false);
+    expect(m.fuse!.A[0]).toBe('.2.');
+    setFuseCell(m, 'A', 1, 0, 1, false);
+    expect(m.fuse!.A[0]).toBe('...');
   });
 });

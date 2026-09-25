@@ -53,6 +53,10 @@ export const TILE_FRAMES = {
   letter: 22,
   /** 锁着的门（白底，游戏里按组染色） */
   door: 23,
+  /** 薄木板（只画在格子上面一条，下面透明） */
+  plank: 24,
+  /** 碎岩（岩石被引线烧过一次之后的样子） */
+  crackedRock: 25,
 } as const;
 
 export const AUTOTILE_VARIANTS = 16;

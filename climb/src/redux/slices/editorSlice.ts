@@ -67,9 +67,9 @@ const editorSlice = createSlice({
       setFogCell(m(state), key, x, y, zone);
       state.version++;
     },
-    paintFuse(state, action: PayloadAction<{ key: string; x: number; y: number; on: boolean }>) {
-      const { key, x, y, on } = action.payload;
-      setFuseCell(m(state), key, x, y, on);
+    paintFuse(state, action: PayloadAction<{ key: string; x: number; y: number; ch: number; on: boolean }>) {
+      const { key, x, y, ch, on } = action.payload;
+      setFuseCell(m(state), key, x, y, ch, on);
       state.version++;
     },
     setRoomFlag(state, action: PayloadAction<{ key: string; flags: Partial<RoomFlags> }>) {

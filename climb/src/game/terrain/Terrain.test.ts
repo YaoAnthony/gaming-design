@@ -179,3 +179,52 @@ describe('Terrain.findLooseGroups（脆岩松脱）', () => {
     expect(Terrain.findLooseGroups([['#', '#']], [{ x: 0, y: 0 }], 2)).toEqual([]);
   });
 });
+
+describe('木板（单向平台，箱子漏下去）', () => {
+  const body = (prevTop: number, vy: number) => ({ velocity: { y: vy }, prev: { y: prevTop }, height: 30 });
+  const TOP = 64;   // 木板那一格的顶边（像素）
+
+  it('木板注册了单向和箱子穿过；普通砖两样都没有', () => {
+    const plank = Tiles.get('_')!;
+    expect(plank.solid && plank.oneWay && plank.boxPassThrough).toBe(true);
+    expect(plank.destructible).toBe(false);
+    expect(Tiles.get('#')!.oneWay || Tiles.get('#')!.boxPassThrough).toBe(false);
+  });
+
+  it('从上面落下来 / 站在上面 → 挡住', () => {
+    expect(Terrain.landsFromAbove(body(TOP - 30 - 5, 300), TOP)).toBe(true);   // 这一步开始时在上方 5px，往下掉
+    expect(Terrain.landsFromAbove(body(TOP - 30, 0), TOP)).toBe(true);         // 正好站在上面
+  });
+
+  it('往上跳、或者身体已经低于木板顶（从下面 / 侧面进来）→ 穿过', () => {
+    expect(Terrain.landsFromAbove(body(TOP + 10, -200), TOP)).toBe(false);     // 从下面往上跳
+    expect(Terrain.landsFromAbove(body(TOP - 30 - 5, -50), TOP)).toBe(false);  // 在上方但还在往上走
+    expect(Terrain.landsFromAbove(body(TOP - 20, 0), TOP)).toBe(false);        // 侧面走进来：底边已经在木板顶下面
+  });
+});
+
+describe('引线烧岩石：先裂成碎岩，再烧才没', () => {
+  it('岩石 → 碎岩 → 空气；其它实心的一次烧没；空气和尖刺不变', () => {
+    expect(Terrain.burnedTo('R')).toBe('r');
+    expect(Terrain.burnedTo('r')).toBe('.');
+    expect(Terrain.burnedTo('#')).toBe('.');
+    expect(Terrain.burnedTo('.')).toBe('.');
+    expect(Terrain.burnedTo('X')).toBe('X');
+  });
+
+  it('紫色（shatter）：岩石一次烧没；其它砖和普通火一样', () => {
+    expect(Terrain.burnedTo('R', true)).toBe('.');
+    expect(Terrain.burnedTo('r', true)).toBe('.');
+    expect(Terrain.burnedTo('#', true)).toBe('.');
+    expect(Terrain.burnedTo('.', true)).toBe('.');
+    expect(Terrain.burnedTo('X', true)).toBe('X');
+  });
+
+  it('碎岩人能炸（岩石不能），也还是锚点、撑得住别的砖', () => {
+    const rock = Tiles.get('R')!, cracked = Tiles.get('r')!;
+    expect(rock.destructible).toBe(false);
+    expect(cracked.destructible && cracked.solid && cracked.anchor).toBe(true);
+    expect(Tiles.get(rock.crackTo!)).toBe(cracked);
+    expect(Terrain.findUnsupported(['RRRRR', 'R...R', 'R.S.R', 'R.r.R', 'R...R', 'RRRRR'])).toEqual([]);   // 沙土坐在悬空的碎岩上也不掉
+  });
+});

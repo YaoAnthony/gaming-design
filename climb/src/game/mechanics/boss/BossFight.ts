@@ -260,8 +260,9 @@ export class BossFight implements Mechanic {
     const { ctx } = this;
     let lit = 0;
     this.bursts.forEach(b => b.update(dt, cell => {
-      if (!ctx.fuses.isEnd(cell.x, cell.y)) return false;
-      if (ctx.igniteFuses([cell])) lit++;
+      const ends = ctx.fuses.endsAt(cell.x, cell.y);   // 这一格上是端点的那几种颜色（中间段的颜色不点）
+      if (!ends.length) return false;
+      if (ctx.igniteFuses(ends)) lit++;
       return true;
     }));
     if (lit) ctx.fx.flash('引线点燃！', '#ff7b54');

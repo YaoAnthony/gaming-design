@@ -2,6 +2,7 @@
 import Phaser from 'phaser';
 import { classify } from '@/game/registry/registry';
 import { Terrain } from '@/game/terrain/Terrain';
+import { FUSE_CHANNELS, fuseHas } from '@/game/fuse/channels';
 import { DOOR_CHAR, fuseRows, lockGroup, nextFloorId, roomKeyAt, worldRows } from '@/game/world/WorldModel';
 import { layoutText, textSize } from '@/game/world/font';
 import { bridge, EVT, SCENE } from '@/game/bridge';
@@ -16,7 +17,8 @@ export class EditorScene extends Phaser.Scene {
   private entityImgs = new Map<string, Phaser.GameObjects.Image>();
   private overlay!: Phaser.GameObjects.Graphics;
   private fogLayer!: Phaser.GameObjects.Graphics;
-  private fuseTiles!: Phaser.Tilemaps.TilemapLayer;
+  /** 引线：每种颜色一层（白色贴图按颜色染色），交叉的格子两层叠着都看得见 */
+  private fuseTiles: Phaser.Tilemaps.TilemapLayer[] = [];
   private cursor!: Phaser.GameObjects.Rectangle;
   private grid!: Phaser.GameObjects.Graphics;
   private textLayer!: Phaser.GameObjects.Graphics;
@@ -41,8 +43,7 @@ export class EditorScene extends Phaser.Scene {
     const map = this.make.tilemap({ tileWidth: T, tileHeight: T, width: model.roomW, height: model.roomH });
     const ts = map.addTilesetImage('tiles', 'tiles', T, T, 0, 0)!;
     this.layer = map.createBlankLayer('room', ts, 0, 0)!;
-    this.fuseTiles = map.createBlankLayer('fuse', ts, 0, 0)!;
-    this.fuseTiles.setDepth(2.2);
+    this.fuseTiles = FUSE_CHANNELS.map(c => map.createBlankLayer('fuse' + c.id, ts, 0, 0)!.setDepth(2.2 + c.id * 0.01));
 
     this.grid = this.add.graphics().setDepth(1);
     this.overlay = this.add.graphics().setDepth(3);
@@ -101,11 +102,12 @@ export class EditorScene extends Phaser.Scene {
     const key = this.key();
     if (!c || !key) return;
     const brush = this.state().brush;
-    if (brush === 'fuse') {
+    if (brush.startsWith('fuse:')) {
+      // 引线：左键画这种颜色，右键只擦这种颜色（同一格别的颜色不动）
+      const ch = Number(brush.slice(5));
       const on = !p.rightButtonDown();
-      const cur = this.model().fuse?.[key]?.[c.y]?.[c.x] === 'W';
-      if (cur === on) return;
-      store.dispatch(paintFuse({ key, x: c.x, y: c.y, on }));
+      if (fuseHas(this.model().fuse?.[key]?.[c.y]?.[c.x], ch) === on) return;
+      store.dispatch(paintFuse({ key, x: c.x, y: c.y, ch, on }));
       return;
     }
     if (brush.startsWith('door:') || brush.startsWith('key:')) {
@@ -231,12 +233,17 @@ export class EditorScene extends Phaser.Scene {
    *  掩码用整张大地图算，所以房间边缘的引线会显示成"连到隔壁房间"，而不是端头。 */
   private drawFuse(): void {
     const s = this.state(), m = currentModel(s);
-    const world = fuseRows(m).map(r => r.split(''));
+    const rows = fuseRows(m);
     const ox = s.room.rx * m.roomW, oy = s.room.ry * m.roomH;
-    for (let y = 0; y < m.roomH; y++) for (let x = 0; x < m.roomW; x++) {
-      if (world[oy + y]?.[ox + x] !== 'W') { this.fuseTiles.removeTileAt(x, y); continue; }
-      this.fuseTiles.putTileAt(TILE_FRAMES.fuse + Terrain.maskAt(world, ox + x, oy + y), x, y);
-    }
+    FUSE_CHANNELS.forEach((c, i) => {
+      const layer = this.fuseTiles[i];
+      // 只看这一种颜色：拼贴按同色邻居算，交叉的别的颜色不会被画成连着
+      const world = rows.map(r => [...r].map(ch => (fuseHas(ch, c.id) ? 'W' : '.')));
+      for (let y = 0; y < m.roomH; y++) for (let x = 0; x < m.roomW; x++) {
+        if (world[oy + y]?.[ox + x] !== 'W') { layer.removeTileAt(x, y); continue; }
+        layer.putTileAt(TILE_FRAMES.fuse + Terrain.maskAt(world, ox + x, oy + y), x, y).tint = c.color;
+      }
+    });
   }
 
   /** 迷雾区叠加：按区号上色，编辑时能看见，游戏里是黑的 */

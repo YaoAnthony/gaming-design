@@ -28,6 +28,12 @@ export interface TileCaps {
   hazardBox: { x: number; y: number; w: number; h: number } | null;
   /** 挂在下面那一格上（比如尖刺）：下面那格被炸掉 / 掉下去、不再是实心，它就跟着碎掉 */
   mounted: boolean;
+  /** 单向平台：玩家和怪物只能从上面落到它上面站着，从下面、侧面都能穿过去（薄木板） */
+  oneWay: boolean;
+  /** 箱子不和它碰撞：箱子会从它上面漏下去、也能被推着穿过它 */
+  boxPassThrough: boolean;
+  /** 被引线烧到时不消失，变成这种砖（岩石 → 碎岩）；null = 照常烧掉 */
+  crackTo: string | null;
 }
 
 /** 一条能力特征（Trait），可组合 */

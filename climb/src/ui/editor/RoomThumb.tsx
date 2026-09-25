@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { classify } from '@/game/registry/registry';
+import { decodeFuse, FUSE_CHANNELS, fuseBit } from '@/game/fuse/channels';
 
 interface Props { rows: string[]; entities?: string[]; fuse?: string[]; doors?: string[]; keys?: string[]; colors?: Record<number, number>; roomW: number; roomH: number; scale?: number }
 
@@ -32,10 +33,13 @@ export function RoomThumb({ rows, entities, fuse, doors, keys, colors, roomW, ro
       ctx.fillRect(x * scale, y * scale, scale, scale);
     })));
     // 引线画在最上面，跨房间时一眼能看出两边对不对得上
+    // 按颜色画；同一格有几种颜色就竖着分成几条
     fuse?.forEach((row, y) => [...row].forEach((ch, x) => {
-      if (ch !== 'W') return;
-      ctx.fillStyle = '#ff7b54';
-      ctx.fillRect(x * scale, y * scale, scale, scale);
+      const on = FUSE_CHANNELS.filter(c => decodeFuse(ch) & fuseBit(c.id));
+      on.forEach((c, i) => {
+        ctx.fillStyle = hex(c.color);
+        ctx.fillRect(x * scale + (i * scale) / on.length, y * scale, scale / on.length, scale);
+      });
     }));
   }, [rows, entities, fuse, doors, keys, colors, roomW, roomH, scale]);
   return <canvas ref={ref} width={roomW * scale} height={roomH * scale} className="thumb" />;

@@ -6,6 +6,9 @@ import type { EntitySpec, Floor, SaveData, SpawnAt, WorldModel } from '@/type';
 import { defineEntity, Entities, Registry } from '@/game/registry/registry';
 import type { PlayContext, Suckable } from '@/game/core/PlayContext';
 
+/** 引线烧过的一格。ch = 哪种颜色的引线在烧；导火索类砖块（连锁延迟）烧的没有 ch */
+export interface FuseBurnCell { x: number; y: number; ch?: number }
+
 /** 机制实例：每次进层 create 一个新的，离层 destroy。钩子都是可选的 */
 export interface Mechanic {
   /** 玩家已经建好、物件都放完之后调用一次（构造时 ctx.player 还不存在） */
@@ -28,7 +31,7 @@ export interface Mechanic {
    */
   onReset?(scope: 'room' | 'world' | 'level'): { x: number; y: number; vx: number; vy: number } | void;
   /** 引线烧过这些格子 */
-  onFuseBurn?(cells: { x: number; y: number }[]): void;
+  onFuseBurn?(cells: FuseBurnCell[]): void;
   /** 写进存档 / 带到下一层的状态。kind = save 是存档，floor 是换层 */
   persist?(out: Partial<SaveData>, kind: 'save' | 'floor'): void;
   /** 旋涡（进城堡门）时要一起吸进去的东西 */

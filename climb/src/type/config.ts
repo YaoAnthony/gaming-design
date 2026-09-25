@@ -7,6 +7,8 @@ export interface GameConfig {
   /** 玩家的宽 / 高（单位：格，1 = 一格）：贴图按这个缩放，碰撞框就是这个大小。高度小于 1 才能钻过一格高的缝 */
   playerWidth: number;
   playerHeight: number;
+  /** 碰撞框的宽（格），比贴图窄：宽度接近一格时，走过一格宽的洞一帧就跨过去了，掉不下去 */
+  playerHitboxWidth: number;
   moveSpeed: number;
   /** 戴帽子加多高（格）：主角 1 格 + 帽子 1 格 = 2 格高，能推 2x2 的箱子，但钻 1 格高的隧道时帽子会被撞掉 */
   hatHeight: number;

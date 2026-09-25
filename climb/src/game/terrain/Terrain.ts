@@ -25,6 +25,8 @@ export interface TerrainHost {
   catchChunk?(chunk: Chunk): boolean;
   /** 挂着的砖（尖刺）因为下面没了而碎掉，用来播特效 */
   onCellsBroken?(cells: RemovedCell[]): void;
+  /** 这个格子被地形以外的东西占着（比如箱子）：碎块落在它上面，它上面的砖算被撑住 */
+  occupied?(x: number, y: number): boolean;
 }
 
 export class Terrain {
@@ -345,13 +347,16 @@ export class Terrain {
 
   // ---- 支撑检测（纯函数，编辑器和单元测试也用）----
   /** 从所有锚点出发 4 邻域漫延，返回"被撑住"标记数组 */
-  static computeSupport(grid: string[][]): Uint8Array {
+  /** @param restsOn 额外的锚点：这一格下面有东西托着（比如箱子），它自己是实心的就算锚点 */
+  static computeSupport(grid: string[][], restsOn?: (x: number, y: number) => boolean): Uint8Array {
     const h = grid.length, w = grid[0].length;
     const seen = new Uint8Array(w * h);
     const stack: [number, number][] = [];
     for (let y = 0; y < h; y++)
-      for (let x = 0; x < w; x++)
-        if (Tiles.get(grid[y][x])?.anchor) { seen[y * w + x] = 1; stack.push([x, y]); }
+      for (let x = 0; x < w; x++) {
+        const def = Tiles.get(grid[y][x]);
+        if (def?.anchor || (def?.solid && restsOn?.(x, y))) { seen[y * w + x] = 1; stack.push([x, y]); }
+      }
     while (stack.length) {
       const [x, y] = stack.pop()!;
       for (const [dx, dy] of NEIGHBORS) {
@@ -376,7 +381,7 @@ export class Terrain {
 
   /** 没被撑住的可掉落格子 → 按连通块分组变成碎块 */
   resolveSupport(): void {
-    const seen = Terrain.computeSupport(this.grid);
+    const seen = Terrain.computeSupport(this.grid, (x, y) => !!this.host.occupied?.(x, y + 1));
     const idx = (x: number, y: number) => y * this.w + x;
     const grouped = new Uint8Array(this.w * this.h);
     for (let y = 0; y < this.h; y++)
@@ -432,7 +437,7 @@ export class Terrain {
       // 慢慢飘的纸尤其明显，站在上面的人会被一起带进地里）。下面是另一块还在掉的碎块，则按整格对齐。
       let landed = false;
       for (;;) {
-        if (ch.cells.some(c => this.isSolid(c.x, c.y + 1))) { landed = true; break; }
+        if (ch.cells.some(c => this.isSolid(c.x, c.y + 1) || this.host.occupied?.(c.x, c.y + 1))) { landed = true; break; }
         if (ch.cells.some(c => this.chunkCellAt(c.x, c.y + 1, ch))) { landed = ch.py >= this.T; break; }
         if (ch.py < this.T) break;
         ch.cells.forEach(c => { c.y += 1; });

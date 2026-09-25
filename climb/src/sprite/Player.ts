@@ -22,9 +22,10 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     scene.add.existing(this);
     scene.physics.add.existing(this);
     this.setDepth(10);
-    // 碰撞框 = 整张贴图；再把精灵缩放到配置的宽高，Arcade 的碰撞框会跟着一起缩放
-    this.body.setSize(this.width, this.height);
-    this.setScale(cfg.playerWidth * cfg.tile / this.width, cfg.playerHeight * cfg.tile / this.height);   // 配置是格数，换成像素
+    // 贴图缩放到配置的宽高（格数换成像素）；碰撞框高 = 贴图高，宽 = playerHitboxWidth（居中、比贴图窄）。
+    // 碰撞框按贴图原始像素设，Arcade 会跟着精灵的缩放一起缩
+    this.setScale(cfg.playerWidth * cfg.tile / this.width, cfg.playerHeight * cfg.tile / this.height);
+    this.setExtraHeight(0);
     this.body.setMaxVelocityY(cfg.maxFall);
   }
 
@@ -37,8 +38,9 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   setExtraHeight(tiles: number): void {
     this.extra = tiles;
     const fw = this.width, fh = this.height, k = (this.cfg.playerHeight + tiles) / this.cfg.playerHeight;
-    this.body.setSize(fw, fh * k, false);
-    this.body.setOffset(0, fh - fh * k);   // 往上长：偏移是负的，底边还在贴图底边
+    const hw = fw * Math.min(1, this.cfg.playerHitboxWidth / this.cfg.playerWidth);   // 碰撞框宽（贴图原始像素）
+    this.body.setSize(hw, fh * k, false);
+    this.body.setOffset((fw - hw) / 2, fh - fh * k);   // 左右居中；往上长：偏移是负的，底边还在贴图底边
   }
   pressJump(now: number): void { this.jumpPressedAt = now; }
 

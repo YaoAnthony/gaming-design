@@ -114,6 +114,7 @@ export class GameScene extends Phaser.Scene {
       onChunkLand: ch => this.debris.onChunkLand(ch),
       catchChunk: ch => this.debris.catchChunk(ch),
       onCellsBroken: cells => this.onCellsBroken(cells),
+      occupied: (x, y) => this.mechs.some(m => m.occupies?.(x, y)),
     }, rows, { tile: T, explosionRadius: this.cfg.explosionRadius, chunkGravity: this.cfg.chunkGravity, chunkMaxFall: this.cfg.chunkMaxFall });
     const saved = this.startData.rows;
     if (saved && saved.length === rows.length) {

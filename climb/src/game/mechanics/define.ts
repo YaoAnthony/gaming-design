@@ -16,6 +16,8 @@ export interface Mechanic {
   updateAlive?(now: number, dt: number): void;
   /** 这个格子额外被挡住吗（比如放下的炸弹） */
   blocks?(cx: number, cy: number): boolean;
+  /** 这个格子被机制的实体占着吗（比如箱子）：掉下来的碎块会落在上面，上面的砖算被它撑住 */
+  occupies?(cx: number, cy: number): boolean;
   /** 进入新房间（进层时也会对出生房间调用一次） */
   onRoomChanged?(r: { rx: number; ry: number }): void;
   /** 重置前：清掉正在进行的东西（临时物体、还没出场的 Boss） */

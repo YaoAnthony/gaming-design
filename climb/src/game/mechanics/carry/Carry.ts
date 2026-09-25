@@ -127,7 +127,7 @@ export class Carry implements Mechanic {
   private place(): void {
     if (!this.held) return;
     const p = this.ctx.player, side = p.flipX ? -1 : 1, b = p.body;
-    const x = b.center.x + side * 13, y = b.center.y + 8;
+    const x = b.center.x + side * 13, y = p.y + p.displayHeight * 0.2;   // 大约在腰间：按贴图算，戴帽子加高的碰撞框不影响
     this.held.sprite.setPosition(x, y).setFlipX(side < 0);
     this.held.glow.setPosition(x, y - this.held.sprite.height / 2);
   }

@@ -19,6 +19,8 @@ export interface SaveData {
   floorId?: string;
   /** 手里拿着的东西 */
   held?: string;
+  /** 头上戴着帽子 */
+  hat?: boolean;
   fog?: FogState;
   /** 引线层的当前状态（烧掉的不会回来），每行 '0'/'1' */
   fuse?: string[];

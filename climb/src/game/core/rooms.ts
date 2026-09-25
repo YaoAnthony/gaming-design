@@ -3,7 +3,8 @@ import type { CellRef, Point, RoomCoord } from '@/type';
 import type { Terrain } from '@/game/terrain/Terrain';
 
 /** 在房间里找一个"脚下是实心、头顶两格是空气"的位置：离房间入口（边上的缺口）最近的那个，没有缺口就离中心最近；找不到就房间中央 */
-export function standingSpot(terrain: Terrain, r: RoomCoord, roomW: number, roomH: number): Point {
+/** @param playerH 玩家身高（格）：返回的是玩家中心点，脚正好贴着地面 */
+export function standingSpot(terrain: Terrain, r: RoomCoord, roomW: number, roomH: number, playerH: number): Point {
   const T = terrain.T, x0 = r.rx * roomW, y0 = r.ry * roomH;
   const cx = x0 + roomW / 2, cy = y0 + roomH / 2;
   const openings: CellRef[] = [];
@@ -19,7 +20,7 @@ export function standingSpot(terrain: Terrain, r: RoomCoord, roomW: number, room
       if (d < bestD) { bestD = d; best = { x, y }; }
     }
   if (!best) return { x: cx * T, y: (y0 + roomH * 0.3) * T };
-  return { x: best.x * T + T / 2, y: best.y * T + T - 19 };   // 脚贴着地面
+  return { x: best.x * T + T / 2, y: best.y * T + T - playerH * T / 2 };   // 脚贴着地面
 }
 
 /** 碰到危险格才死：用玩家碰撞框（往里收 3 像素）和危险格的致命区域做矩形相交，不按格子粗判。返回死亡提示 */

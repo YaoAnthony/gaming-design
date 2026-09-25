@@ -17,6 +17,8 @@ export interface StartGameData {
   stats?: { jumps: number; destroyed: number } | null;
   /** 手里拿着的东西（换层时带过去；钥匙不带） */
   held?: string;
+  /** 头上戴着帽子（换层时带过去） */
+  hat?: boolean;
   fog?: FogState | null;
   fuse?: string[] | null;
   playtest?: boolean;

@@ -23,6 +23,8 @@ export interface TerrainHost {
   onFuseBurn?(cells: ChunkCell[]): void;
   /** 飘落的碎块每帧问一次：有没有人把它接住（比如落到怪物头上）。返回 true 表示接管了它 */
   catchChunk?(chunk: Chunk): boolean;
+  /** 挂着的砖（尖刺）因为下面没了而碎掉，用来播特效 */
+  onCellsBroken?(cells: RemovedCell[]): void;
 }
 
 export class Terrain {
@@ -220,11 +222,12 @@ export class Terrain {
       else immediate.push(r);
     });
     immediate.forEach(c => this.set(c.x, c.y, AIR));
-    if (immediate.length) { this.resolveSupport(); this.shake(immediate, 0); }
+    if (immediate.length) { this.breakMounted(immediate); this.resolveSupport(); this.shake(immediate, 0); }
     [...delayed.entries()].sort((a, b) => a[0] - b[0]).forEach(([hop, group]) => {
       const delayMs = hop * group[0].def.chainDelayMs;
       this.pending.push(this.host.scene.time.delayedCall(delayMs, () => {
         group.forEach(c => this.set(c.x, c.y, AIR));
+        this.breakMounted(group);
         this.resolveSupport();
         this.shake(group, 0);
         this.host.onFuseBurn?.(group);
@@ -309,8 +312,35 @@ export class Terrain {
       removed.push({ x: c.x, y: c.y, id: def.id, def, hop: 0 });
       this.set(c.x, c.y, AIR);
     });
-    if (removed.length) this.resolveSupport();
+    if (removed.length) { this.breakMounted(removed); this.resolveSupport(); }
     return removed;
+  }
+
+  // ---- 挂着的砖（尖刺）----
+  /** 纯函数：这些格子刚被清空，正上方挂着的砖（mounted）里，下面已经不是实心的那些 */
+  static findUnmounted(grid: string[][], cleared: CellRef[]): CellRef[] {
+    const out: CellRef[] = [];
+    const seen = new Set<string>();
+    cleared.forEach(c => {
+      const x = c.x, y = c.y - 1;
+      if (y < 0 || seen.has(`${x},${y}`)) return;
+      if (!Tiles.get(grid[y]?.[x])?.mounted) return;
+      if (Tiles.get(grid[c.y]?.[x])?.solid) return;   // 下面还是实心的（比如同一格马上又被填上）
+      seen.add(`${x},${y}`);
+      out.push({ x, y });
+    });
+    return out;
+  }
+
+  /** 下面没了的尖刺一起碎掉 */
+  private breakMounted(cleared: CellRef[]): void {
+    const broken: RemovedCell[] = Terrain.findUnmounted(this.grid, cleared).map(c => {
+      const def = this.def(c.x, c.y);
+      return { x: c.x, y: c.y, id: def.id, def, hop: 0 };
+    });
+    if (!broken.length) return;
+    broken.forEach(c => this.set(c.x, c.y, AIR));
+    this.host.onCellsBroken?.(broken);
   }
 
   // ---- 支撑检测（纯函数，编辑器和单元测试也用）----
@@ -371,6 +401,7 @@ export class Terrain {
 
   private spawnChunk(cells: ChunkCell[]): void {
     cells.forEach(c => this.set(c.x, c.y, AIR));
+    this.breakMounted(cells);
     const scene = this.host.scene;
     const container = scene.add.container(0, 0).setDepth(5);
     cells.forEach(c => container.add(scene.add.image(c.x * this.T + this.T / 2, c.y * this.T + this.T / 2, 'tiles', Terrain.frameOf(c.id))));

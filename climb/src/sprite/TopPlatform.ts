@@ -21,12 +21,16 @@ export class TopPlatform {
 
   get body(): Phaser.Physics.Arcade.Body { return this.image.body as Phaser.Physics.Arcade.Body; }
 
-  /** 放到某个包围盒的位置 */
-  place(x: number, y: number, w: number, h: number, dt: number): void {
+  /**
+   * 放到某个包围盒的位置。vy = 它自己正在往下掉的速度（碎块的速度）：
+   * 物理引擎让站在不可推动平台上的人继承平台的速度，所以带上 vy，人就跟着一起往下降，而不是每帧被清零、落在后面
+   */
+  place(x: number, y: number, w: number, h: number, dt: number, vy = 0): void {
     const cx = x + w / 2, cy = y + h / 2;
     this.vx = this.lastX === null || dt <= 0 ? 0 : (cx - this.lastX) / dt;
     this.lastX = cx;
     this.image.setPosition(cx, cy);
+    this.body.velocity.y = vy;
   }
 
   /** 有人站在上面吗 */

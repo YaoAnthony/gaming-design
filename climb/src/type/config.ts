@@ -4,7 +4,14 @@ export interface GameConfig {
   viewW: number;
   viewH: number;
   gravity: number;
+  /** 玩家的宽 / 高（单位：格，1 = 一格）：贴图按这个缩放，碰撞框就是这个大小。高度小于 1 才能钻过一格高的缝 */
+  playerWidth: number;
+  playerHeight: number;
   moveSpeed: number;
+  /** 戴帽子加多高（格）：主角 1 格 + 帽子 1 格 = 2 格高，能推 2x2 的箱子，但钻 1 格高的隧道时帽子会被撞掉 */
+  hatHeight: number;
+  /** 推箱子的速度（像素/秒），比走路慢 */
+  pushSpeed: number;
   jumpVelocity: number;
   wallJumpX: number;
   wallJumpY: number;
@@ -22,7 +29,7 @@ export interface GameConfig {
   wallJumpLockMs: number;
   coyoteMs: number;
   jumpBufferMs: number;
-  /** 爆炸半径（格）：1.5 → 3x3；2.0 → 3x3 + 上下左右各一格 */
+  /** 爆炸半径（格），也就是起跳爆炸的强度：1.5 → 3x3；2.0 → 3x3 + 上下左右各一格；2.5 → 5x5 去掉四角 */
   explosionRadius: number;
   chunkGravity: number;
   chunkMaxFall: number;

@@ -28,7 +28,7 @@ export class Registry<T extends { id: string; index: number }> {
 }
 
 const TILE_CAP_DEFAULTS: TileCaps = {
-  solid: false, anchor: false, destructible: false, blastSensitivity: 0, chainCollapse: false, looseOnBlast: false, floatSpeed: 0, rideable: false, chainDelayMs: 0, igniteAtEndsOnly: false, hazard: null, hazardBox: null,
+  solid: false, anchor: false, destructible: false, blastSensitivity: 0, chainCollapse: false, looseOnBlast: false, floatSpeed: 0, rideable: false, chainDelayMs: 0, igniteAtEndsOnly: false, hazard: null, hazardBox: null, mounted: false,
 };
 
 /** 可复用的能力特征 */
@@ -50,6 +50,8 @@ export const Traits = {
   /** 碰到即死；box 是格内真正致命的区域（像素），不给就是整格 */
   Hazard: (reason: string, box?: { x: number; y: number; w: number; h: number }): TileTrait => ({ hazard: reason, hazardBox: box ?? null }),
   Hidden: { editorVisible: false } as TileTrait,
+  /** 挂在下面那一格上：下面那格不再是实心（被炸、被烧、掉下去），它就一起碎掉 */
+  Mounted: { mounted: true } as TileTrait,
 };
 
 export const Tiles = new Registry<TileDef>('砖块');

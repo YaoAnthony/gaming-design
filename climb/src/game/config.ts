@@ -7,7 +7,11 @@ export const DEFAULT_CONFIG: GameConfig = {
   viewW: 640,
   viewH: 640,
   gravity: 1200,
+  playerWidth: 0.94,   // 格（主角是一格见方的方块，宽高一样）
+  playerHeight: 0.94,  // 格：比一格矮一点，能稳稳钻过一格高的缝（正好 1 会贴着天花板卡住）
   moveSpeed: 230,
+  hatHeight: 1,
+  pushSpeed: 90,
   jumpVelocity: -560,
   wallJumpX: 260,
   wallJumpY: -560,

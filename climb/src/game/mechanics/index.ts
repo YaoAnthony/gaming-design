@@ -18,5 +18,7 @@ import './npc';
 import './carry';
 import './slider';
 import './locks';
+import './hat';
+import './pushBlock';
 
 export { Mechanics, floorMechanicOf, floorMechanics, globalMechanicsOf } from './define';

@@ -35,6 +35,33 @@ describe('Terrain 支撑检测', () => {
   });
 });
 
+describe('Terrain.findUnmounted（尖刺挂在下面那一格上）', () => {
+  const grid = (rows: string[]) => rows.map(r => r.split(''));
+
+  it('撑着尖刺的方块被清空了 → 尖刺要碎', () => {
+    // (2,2) 尖刺，(2,3) 泥土刚被炸掉（已经是空气）
+    const g = grid(['RRRRR', 'R...R', 'R.X.R', 'R...R', 'RRRRR']);
+    expect(Terrain.findUnmounted(g, [{ x: 2, y: 3 }])).toEqual([{ x: 2, y: 2 }]);
+  });
+
+  it('清空的格子上面不是尖刺 / 下面还是实心的 → 不碎', () => {
+    const g = grid(['RRRRR', 'R...R', 'R.X.R', 'R.#.R', 'RRRRR']);
+    expect(Terrain.findUnmounted(g, [{ x: 1, y: 3 }])).toEqual([]);   // 上面是空气
+    expect(Terrain.findUnmounted(g, [{ x: 2, y: 3 }])).toEqual([]);   // (2,3) 还是泥土（又被填上了）
+  });
+
+  it('只看正上方一格：旁边的尖刺不受影响；同一格重复传入只算一次', () => {
+    const g = grid(['RRRRRR', 'R....R', 'R.XX.R', 'R.#..R', 'RRRRRR']);
+    // (3,3) 被清空 → 只有 (3,2) 碎；(2,2) 下面的泥土还在
+    expect(Terrain.findUnmounted(g, [{ x: 3, y: 3 }, { x: 3, y: 3 }])).toEqual([{ x: 3, y: 2 }]);
+  });
+
+  it('尖刺注册了 mounted 能力，普通砖没有', () => {
+    expect(Tiles.get('X')?.mounted).toBe(true);
+    expect(Tiles.get('#')?.mounted).toBe(false);
+  });
+});
+
 describe('Terrain.computeChain（导火索连锁）', () => {
   const cell = (x: number, y: number, id: string) => ({ x, y, id, def: Tiles.get(id)! });
 

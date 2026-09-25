@@ -120,10 +120,13 @@ tiles.rect(23 * T + 3, 3, T - 6, 2, 0xffffff); tiles.rect(23 * T + 3, T - 5, T -
 tiles.rect(23 * T + 13, 10, 6, 6, 0x2a2a2a); tiles.rect(23 * T + 15, 15, 2, 7, 0x2a2a2a);
 tiles.save('tiles.png');
 
-// ---- 玩家 22x38 ----
-const player = new Canvas(22, 38);
-player.roundRect(0, 0, 22, 38, 5, 0x4cc9f0);
-player.rect(13, 9, 5, 5, 0x0b0b14);
+// ---- 玩家 32x32（一格）：圆角方块 + 一只眼睛 + 两只小脚。游戏里按 config.playerWidth / playerHeight 缩放 ----
+const player = new Canvas(32, 32);
+player.roundRect(1, 0, 30, 28, 7, 0x4cc9f0);             // 身体
+player.rect(3, 2, 26, 3, 0x7ad8f5);                        // 顶部高光
+player.roundRect(18, 8, 7, 8, 2, 0xffffff);               // 眼白
+player.rect(21, 10, 3, 5, 0x0b0b14);                       // 眼珠（朝右）
+player.rect(6, 28, 7, 4, 0x2a8fb8); player.rect(19, 28, 7, 4, 0x2a8fb8);   // 两只脚
 player.save('player.png');
 
 // ---- 怪物 28x24 ----
@@ -267,3 +270,28 @@ const bo = new Canvas(22, 22);
 bo.roundRect(1, 5, 18, 17, 8, 0x1b1b24); bo.roundRect(4, 8, 6, 5, 2, 0x4a4a5c);   // 球体 + 高光
 bo.rect(9, 2, 4, 4, 0x5a3a1e); bo.rect(13, 0, 3, 3, 0xffd166); bo.rect(14, 1, 1, 1, 0xffffff);   // 引信 + 火星
 bo.save('bomb.png');
+
+// ---- 帽子 32x32（一格）：黑色高脚帽，戴上后主角算两格高 ----
+const hat = new Canvas(32, 32);
+hat.roundRect(1, 26, 30, 6, 2, 0x16161e);                 // 帽檐
+hat.roundRect(7, 2, 18, 25, 3, 0x1e1e28);                 // 帽筒
+hat.rect(7, 19, 18, 4, 0xb3263a);                          // 红色帽带
+hat.rect(9, 4, 3, 14, 0x3a3a4c);                           // 高光
+hat.rect(8, 2, 16, 2, 0x2c2c3a);                           // 帽顶边
+hat.save('hat.png');
+
+// ---- 木箱：1x1（32x32）和 2x2（64x64）。可以推，有重力 ----
+function crate(size, name, wood, dark, band) {
+  const c = new Canvas(size, size), e = Math.max(3, size / 10) | 0;
+  c.rect(0, 0, size, size, dark);
+  c.rect(1, 1, size - 2, size - 2, wood);
+  for (let y = e + size / 4; y < size - e; y += size / 4) c.rect(e, y | 0, size - 2 * e, 1, dark);   // 木板缝
+  c.line(e, e, size - e, size - e, dark, Math.max(2, e - 1));                                        // 对角撑
+  c.rect(0, 0, size, e, band); c.rect(0, size - e, size, e, band);                                    // 上下框
+  c.rect(0, 0, e, size, band); c.rect(size - e, 0, e, size, band);                                    // 左右框
+  for (const [x, y] of [[1, 1], [size - e + 1, 1], [1, size - e + 1], [size - e + 1, size - e + 1]]) c.rect(x, y, e - 2, e - 2, 0xd9d9d9);   // 四角钉
+  c.save(name);
+}
+crate(32, 'crate1.png', 0xb07a45, 0x6b4423, 0x8a5a30);
+crate(64, 'crate2.png', 0x8f6a4a, 0x4a3320, 0x5d6470);    // 大箱子：深一点、铁框，一眼能分出来
+

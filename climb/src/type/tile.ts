@@ -26,6 +26,8 @@ export interface TileCaps {
   hazard: string | null;
   /** 危险格真正致命的区域（格内像素坐标）；不设 = 整格 */
   hazardBox: { x: number; y: number; w: number; h: number } | null;
+  /** 挂在下面那一格上（比如尖刺）：下面那格被炸掉 / 掉下去、不再是实心，它就跟着碎掉 */
+  mounted: boolean;
 }
 
 /** 一条能力特征（Trait），可组合 */

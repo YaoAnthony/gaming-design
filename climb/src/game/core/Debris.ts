@@ -7,6 +7,11 @@ import { CarriedPaper, TopPlatform } from '@/sprite';
 import { playLand } from '@/particle';
 import type { PlayContext } from './PlayContext';
 
+/** 碎块格子的上沿离人脚底不到这么多像素，就算在脚下（人正落在它上面），不算压到人 */
+const FEET_TOLERANCE = 12;
+/** 人和脚下碎块的距离在这个像素以内，就算「一起往下掉」，人的下落速度压到碎块的速度 */
+const RIDE_GAP = 16;   // 至少一帧碎块能掉的距离（chunkMaxFall / 60 ≈ 12）
+
 export class Debris {
   /** 被怪物驮着的纸 */
   private carried: CarriedPaper[] = [];
@@ -83,22 +88,47 @@ export class Debris {
       // 站在纸上的人跟着怪物走：给速度而不是直接挪位置，这样撞墙照样会被挡住
       if (player.body.touching.down && c.platform.ridden) player.rideVx = c.enemy.body.velocity.x;
     }
+    this.matchFallSpeed();
     // 飘落中的纸：平台跟着碎块走，站在上面就一起飘
     ctx.terrain.chunks.forEach(ch => {
       const p = this.falling.get(ch.id);
       if (!p) return;
       const b = ctx.terrain.chunkBounds(ch);
-      p.place(b.x, b.y, b.w, b.h, dt);
+      p.place(b.x, b.y, b.w, b.h, dt, ch.vy);
       if (player.body.touching.down && p.ridden) player.rideVx = p.vx;
     });
   }
 
-  /** 玩家与下落碎块：快的压死；慢的（刚断裂）把玩家顶开，当作天花板 */
+  /**
+   * 人和脚下的碎块一起往下掉时，人的下落速度不能超过碎块（慢于或等于）：
+   * 人的最大下落速度（maxFall）比碎块（chunkMaxFall）快，不限制就会追上、穿进碎块里。
+   * 碎块在人正下方、上沿离脚底不到 RIDE_GAP 像素（或人已经陷进去一点）时，速度压到碎块的速度，脚贴回碎块上沿。
+   */
+  private matchFallSpeed(): void {
+    const { ctx } = this, p = ctx.player, b = p.body;
+    if (b.velocity.y <= 0) return;
+    let top = Infinity, vy = Infinity;
+    ctx.terrain.forEachChunkCell((ch, cx, cy, w) => {
+      if (cx + w <= b.left || cx >= b.right) return;                                   // 不在正下方
+      if (cy < b.bottom - FEET_TOLERANCE || cy > b.bottom + RIDE_GAP) return;           // 没贴着脚
+      if (cy < top) { top = cy; vy = ch.vy; }
+    });
+    if (top === Infinity || b.velocity.y <= vy) return;
+    p.setVelocityY(vy);
+    if (b.bottom > top) p.y -= b.bottom - top;   // 已经陷进去一点：贴回上沿
+  }
+
+  /**
+   * 玩家与下落碎块：快的压死；慢的（刚断裂）把玩家顶开，当作天花板。
+   * 只算在人头顶 / 身体高度上的格子：人从上面落到还在掉的碎块上（人最快 maxFall，碎块最快 chunkMaxFall，会追上）
+   * 是站在它上面，由物理平台接住，不是被压。
+   */
   handlePlayerContact(): void {
     const { ctx } = this, b = ctx.player.body, rect = ctx.player.rect();
     let crushed = false;
     ctx.terrain.forEachChunkCell((ch, cx, cy, w, h) => {
       if (crushed) return;
+      if (cy >= b.bottom - FEET_TOLERANCE) return;   // 这一格在脚下：人是站在 / 落在它上面
       if (!Phaser.Geom.Intersects.RectangleToRectangle(new Phaser.Geom.Rectangle(cx, cy, w, h), rect)) return;
       if (ch.vy >= ctx.cfg.crushMinSpeed) { crushed = true; return; }
       const overlapY = cy + h - b.y;

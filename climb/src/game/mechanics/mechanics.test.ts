@@ -33,10 +33,11 @@ describe('机制注册表', () => {
     expect(floorMechanicOf(floorWith('.o.', { mode: 'platform' })).id).toBe('platform');
   });
 
-  it('通用机制：放了物件才启用；携带每层都启用', () => {
-    expect(ids(floorWith('...'))).toEqual(['carry']);
-    expect(ids(floorWith('.K.'))).toEqual(['boss', 'carry']);
-    expect(ids(floorWith('NVG'))).toEqual(['goal', 'npc', 'carry', 'slider']);
+  it('通用机制：放了物件才启用；携带、帽子每层都启用', () => {
+    expect(ids(floorWith('...'))).toEqual(['carry', 'hat']);
+    expect(ids(floorWith('.K.'))).toEqual(['boss', 'carry', 'hat']);
+    expect(ids(floorWith('NVG'))).toEqual(['goal', 'npc', 'carry', 'slider', 'hat']);
+    expect(ids(floorWith('.bD'))).toEqual(['carry', 'hat', 'pushBlock']);
   });
 
   it('通用机制：旧的 roomFlags.boss 也启用 Boss；有锁组启用钥匙与门', () => {

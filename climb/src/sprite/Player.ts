@@ -14,17 +14,32 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   private lastGroundCell: CellRef | null = null;
   /** 脚下平台（比如被怪物驮着的纸）的水平速度，叠加到自己的速度上——走物理，撞墙会被挡 */
   rideVx = 0;
+  /** 头上额外的高度（格），戴帽子时是 hatHeight */
+  private extra = 0;
 
   constructor(scene: Phaser.Scene, x: number, y: number, private cfg: GameConfig) {
     super(scene, x, y, 'player');
     scene.add.existing(this);
     scene.physics.add.existing(this);
     this.setDepth(10);
-    this.body.setSize(22, 38);
+    // 碰撞框 = 整张贴图；再把精灵缩放到配置的宽高，Arcade 的碰撞框会跟着一起缩放
+    this.body.setSize(this.width, this.height);
+    this.setScale(cfg.playerWidth * cfg.tile / this.width, cfg.playerHeight * cfg.tile / this.height);   // 配置是格数，换成像素
     this.body.setMaxVelocityY(cfg.maxFall);
   }
 
   setConfig(cfg: GameConfig): void { this.cfg = cfg; }
+
+  /** 现在的身高（格）：本身 + 头上戴的 */
+  get heightTiles(): number { return this.cfg.playerHeight + this.extra; }
+
+  /** 碰撞框往上加高 tiles 格（戴帽子）或恢复（0）。脚底位置不变，贴图不变（帽子另画） */
+  setExtraHeight(tiles: number): void {
+    this.extra = tiles;
+    const fw = this.width, fh = this.height, k = (this.cfg.playerHeight + tiles) / this.cfg.playerHeight;
+    this.body.setSize(fw, fh * k, false);
+    this.body.setOffset(0, fh - fh * k);   // 往上长：偏移是负的，底边还在贴图底边
+  }
   pressJump(now: number): void { this.jumpPressedAt = now; }
 
   get onGround(): boolean { return this.body.blocked.down; }

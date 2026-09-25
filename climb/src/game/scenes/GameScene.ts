@@ -113,6 +113,7 @@ export class GameScene extends Phaser.Scene {
       onChunkFall: ch => this.debris.onChunkFall(ch),
       onChunkLand: ch => this.debris.onChunkLand(ch),
       catchChunk: ch => this.debris.catchChunk(ch),
+      onCellsBroken: cells => this.onCellsBroken(cells),
     }, rows, { tile: T, explosionRadius: this.cfg.explosionRadius, chunkGravity: this.cfg.chunkGravity, chunkMaxFall: this.cfg.chunkMaxFall });
     const saved = this.startData.rows;
     if (saved && saved.length === rows.length) {
@@ -157,7 +158,7 @@ export class GameScene extends Phaser.Scene {
     // ---- 玩家：读档入口 > 指定起始房间（里面的出生点，否则找个能站的地方）> 全图出生点 > 兜底 ----
     const startRoom = this.startData.startRoom ?? null;
     let start: Point | null = this.startData.entry ?? null;
-    if (!start && startRoom) start = this.spawnPoints.find(p => this.sameRoom(this.roomOf(p.x, p.y), startRoom)) ?? standingSpot(this.terrain, startRoom, this.roomW, this.roomH);
+    if (!start && startRoom) start = this.spawnPoints.find(p => this.sameRoom(this.roomOf(p.x, p.y), startRoom)) ?? standingSpot(this.terrain, startRoom, this.roomW, this.roomH, this.cfg.playerHeight);
     start ??= this.spawnPoints[0] ?? { x: 2 * T, y: 4 * T };
     this.player = new Player(this, start.x, start.y, this.cfg);
     if (this.startData.entry) this.player.setVelocity(this.startData.entry.vx, this.startData.entry.vy);
@@ -208,7 +209,7 @@ export class GameScene extends Phaser.Scene {
       same: (a, b) => this.sameRoom(a, b),
       key: r => roomKeyAt(this.model, r.rx, r.ry),
       flag: (r, flag) => { const k = roomKeyAt(this.model, r.rx, r.ry); return !!k && !!this.model.roomFlags?.[k]?.[flag]; },
-      standingSpot: r => standingSpot(this.terrain, r, this.roomW, this.roomH),
+      standingSpot: r => standingSpot(this.terrain, r, this.roomW, this.roomH, this.cfg.playerHeight),
       enter: (r, instant) => this.enterRoom(r, instant),
     };
     return {
@@ -452,7 +453,7 @@ export class GameScene extends Phaser.Scene {
     const restart = () => {
       const carry: Partial<SaveData> = {};
       this.mechs.forEach(m => m.persist?.(carry, 'floor'));
-      const data: StartGameData = { project: this.project, floorId: id, playtest: this.playtest, announceFloor: true, stats: { ...this.stats }, held: carry.held, origin: this.origin };
+      const data: StartGameData = { project: this.project, floorId: id, playtest: this.playtest, announceFloor: true, stats: { ...this.stats }, held: carry.held, hat: carry.hat, origin: this.origin };
       this.scene.restart(data);
     };
     const fade = (ms: number) => { cam.fadeOut(ms, 0, 0, 0); cam.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, restart); };
@@ -482,6 +483,13 @@ export class GameScene extends Phaser.Scene {
     cells.forEach(c => this.sparks.explode(5, c.x * T + T / 2, c.y * T + T / 2));
     this.mechs.forEach(m => m.onFuseBurn?.(cells));
     store.dispatch(setStats({ ...this.stats }));
+  }
+
+  /** 挂着的砖（尖刺）因为下面没了而碎掉：一点碎屑，迷雾重算 */
+  private onCellsBroken(cells: CellRef[]): void {
+    const T = this.cfg.tile;
+    cells.forEach(c => this.sparks.explode(6, c.x * T + T / 2, c.y * T + T * 0.75));
+    this.fogDirty = true;
   }
 
   private flash(text: string, color: string): void { store.dispatch(flash({ text, color })); }

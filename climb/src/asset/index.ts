@@ -22,6 +22,9 @@ import ghost2Url from './ghost2.png';
 import ghostEyesUrl from './ghosteyes.png';
 import ghostScaredUrl from './ghostscared.png';
 import bombUrl from './bomb.png';
+import hatUrl from './hat.png';
+import crate1Url from './crate1.png';
+import crate2Url from './crate2.png';
 import boomUrl from './boob.mp3';
 import bgmUrl from './Pixelated_Coffee.mp3';
 import bossMusicUrl from './boss.mp3';
@@ -73,6 +76,9 @@ export const IMAGES: ImageAsset[] = [
   { key: 'grapes', url: grapesUrl },
   { key: 'tunnel', url: tunnelUrl },
   { key: 'ghost', url: ghostUrl },
+  { key: 'hat', url: hatUrl },
+  { key: 'crate1', url: crate1Url },
+  { key: 'crate2', url: crate2Url },
   { key: 'ghost2', url: ghost2Url },
   { key: 'ghosteyes', url: ghostEyesUrl },
   { key: 'ghostscared', url: ghostScaredUrl },

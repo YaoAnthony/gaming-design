@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { WorldModel } from '@/type';
 import '@/game/registry/tiles';
 import '@/game/mechanics';
-import { addRoomAt, clearChar, deleteRoom, entityRows, findStart, moveRoom, normalizeModel, positionOf, roomKeyAt, setEntityCell, worldRows } from './WorldModel';
+import { addRoomAt, clearChar, clearRoom, deleteRoom, resizeRooms, entityRows, findStart, moveRoom, normalizeModel, positionOf, roomKeyAt, setEntityCell, worldRows } from './WorldModel';
 
 const small = (): WorldModel => ({
   roomW: 3, roomH: 2,
@@ -136,5 +136,43 @@ describe('locks', () => {
     removeLockGroup(m, g.id);
     expect(bakeLocks(m).doors).toEqual([]);
     expect(m.locks!.keys.A[1]).toBe('.....');
+  });
+});
+
+describe('改房间尺寸 / 清空房间', () => {
+  const m = (): WorldModel => ({
+    roomW: 3, roomH: 2, layout: [['A']],
+    rooms: { A: ['R#R', 'RRR'] },
+    entities: { A: ['.P.', '...'] },
+    fuse: { A: ['W..', '...'] },
+    roomFlags: { A: { fog: true } },
+    texts: { A: [{ id: 't', x: 0, y: 0, text: 'A', tile: '=', target: 'f1' }] },
+  });
+
+  it('变大：左上角不动，右边和下边补空气 / 空白，各图层一起改', () => {
+    const w = m();
+    resizeRooms(w, 4, 3);
+    expect([w.roomW, w.roomH]).toEqual([4, 3]);
+    expect(w.rooms.A).toEqual(['R#R.', 'RRR.', '....']);
+    expect(w.entities!.A).toEqual(['.P..', '....', '....']);
+    expect(w.fuse!.A).toEqual(['W...', '....', '....']);
+  });
+
+  it('变小：从右边和下边裁掉', () => {
+    const w = m();
+    resizeRooms(w, 2, 1);
+    expect(w.rooms.A).toEqual(['R#']);
+    expect(w.entities!.A).toEqual(['.P']);
+  });
+
+  it('清空：砖块变回四周岩石，其余图层和开关删掉，房间还在', () => {
+    const w = m();
+    clearRoom(w, 'A');
+    expect(w.rooms.A).toEqual(['RRR', 'RRR']);
+    expect(w.entities!.A).toBeUndefined();
+    expect(w.fuse!.A).toBeUndefined();
+    expect(w.roomFlags!.A).toBeUndefined();
+    expect(w.texts!.A).toBeUndefined();
+    expect(w.layout).toEqual([['A']]);
   });
 });

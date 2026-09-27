@@ -8,7 +8,7 @@ import { Locks, type LockData } from './Locks';
 
 defineTile(
   { id: '%', name: '门', desc: '锁着的门：拿对应颜色的钥匙碰一下就开。由「钥匙与门」工具烘焙，不直接画', color: 0xbdbdbd, frame: TILE_FRAMES.door, editorVisible: false },
-  Traits.Solid, Traits.Anchor,
+  Traits.Solid, Traits.Anchor, Traits.Fireproof,   // 门只能用钥匙开，引线烧不开
 );
 
 defineMechanic({

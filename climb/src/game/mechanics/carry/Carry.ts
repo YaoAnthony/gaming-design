@@ -2,7 +2,7 @@
 // 蜡烛、钥匙都是"拿在手上"的东西：碰到就捡，手里已经有东西时两者交换，旧的留在原地（人走开之后才能再捡）。
 // 有照明的东西在地上自己发光（迷雾里的光源），拿在手上把视野撑开。
 import Phaser from 'phaser';
-import type { ItemDef, SaveData } from '@/type';
+import type { CarryOver, ItemDef } from '@/type';
 import { Items } from '@/game/registry/registry';
 import { lockGroup } from '@/game/world/WorldModel';
 import type { PlayContext } from '@/game/core/PlayContext';
@@ -84,12 +84,11 @@ export class Carry implements Mechanic {
       if (old) this.spawnGround(old, g.x, g.y, true);
       this.syncLightSources();
       this.ctx.sparks.explode(8, g.x, g.y);
-      this.ctx.autosave();
     }
   }
 
-  /** 只有注册过的道具能带走（存档、换层）；钥匙留在本层 */
-  persist(out: Partial<SaveData>): void {
+  /** 只有注册过的道具能带到下一层；钥匙留在本层 */
+  persist(out: CarryOver): void {
     if (this.heldId && Items.has(this.heldId)) out.held = this.heldId;
   }
 

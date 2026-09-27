@@ -2,7 +2,7 @@
 // React → Phaser：通过这个事件总线（编辑器重载、开始游戏）
 // Phaser → React：直接 dispatch 到 Redux（hud / save slice）
 import Phaser from 'phaser';
-import type { FogState, Project, RoomCoord } from '@/type';
+import type { Project, RoomCoord } from '@/type';
 
 export interface StartGameData {
   /** 整个项目（多层）；游戏从 floorId 那层开始，缺省第一层 */
@@ -10,8 +10,6 @@ export interface StartGameData {
   floorId?: string;
   /** 进场时闪一下层名（换层用） */
   announceFloor?: boolean;
-  /** 读档时整张地图的格子状态 */
-  rows?: string[];
   startRoom?: RoomCoord | null;
   entry?: { x: number; y: number; vx: number; vy: number } | null;
   stats?: { jumps: number; destroyed: number } | null;
@@ -21,8 +19,6 @@ export interface StartGameData {
   hat?: boolean;
   /** 长大阶段（0 = 1 格高，1 = 1.5 格，2 = 2 格；假通关「进入下一关」每次长一阶；换层时带过去） */
   stage?: number;
-  fog?: FogState | null;
-  fuse?: string[] | null;
   playtest?: boolean;
   /** 这一局最开始的启动数据（换层时一路带着）：「再来一次」从这里重开 */
   origin?: StartGameData;

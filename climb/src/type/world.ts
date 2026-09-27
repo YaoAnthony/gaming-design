@@ -54,7 +54,7 @@ export interface Floor {
   model: WorldModel;
 }
 
-/** 整个项目 = 若干层，第一层是塔外 */
+/** 整个项目 = 若干层，游戏从第一层开始；小城堡去下一层 */
 export interface Project {
   floors: Floor[];
 }

@@ -1,11 +1,8 @@
-// ===== 存档 =====
-import type { RoomCoord } from './tile';
-
-export interface SaveStats { jumps: number; destroyed: number }
+// ===== 跨场景带着走的状态 =====
 
 export interface EntryState { x: number; y: number; vx: number; vy: number }
 
-/** 迷雾的探索记忆：见过的格子 + 已揭开的迷雾区 */
+/** 迷雾的探索记忆：见过的格子 + 已揭开的迷雾区（FogOfWar.toState / 构造参数；将来做「继续游戏」时用） */
 export interface FogState {
   /** 每行一串 '0'/'1'，和整张地图同尺寸 */
   explored: string[];
@@ -13,23 +10,10 @@ export interface FogState {
   revealedZones: string[];
 }
 
-export interface SaveData {
-  version: 1;
-  /** 在第几层（层 id） */
-  floorId?: string;
-  /** 手里拿着的东西 */
+/** 换层时各机制交出来、带到下一层的东西（Mechanic.persist 往里写） */
+export interface CarryOver {
+  /** 手里拿着的道具（Items 注册表的 id） */
   held?: string;
   /** 头上戴着帽子 */
   hat?: boolean;
-  /** 长大阶段（0 = 1 格高，1 = 1.5 格，2 = 2 格） */
-  stage?: number;
-  fog?: FogState;
-  /** 引线层的当前状态（烧掉的不会回来），每格一位十六进制的颜色位掩码 */
-  fuse?: string[];
-  /** 存档时整张地图的格子状态（含被炸掉 / 掉落后的样子） */
-  rows: string[];
-  room: RoomCoord;
-  entry: EntryState;
-  stats: SaveStats;
-  savedAt: number;
 }

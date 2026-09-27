@@ -1,4 +1,7 @@
 // ===== 手感与规则参数 =====
+
+/** 玩家出现在地图上的几种场合：开局（开始游戏 / 再来一次 / 编辑器试玩）、换层、死后复活、按 R 重置房间、进入下一关 */
+export type AppearReason = 'start' | 'floor' | 'death' | 'reset' | 'level';
 export interface GameConfig {
   tile: number;
   viewW: number;
@@ -74,6 +77,10 @@ export interface GameConfig {
   bossBurstCount: number;
   bossBurstSpeed: number;
   bossBurstTtl: number;
+  /** 骷髅手把玩家放进来的动画总时长（毫秒）；0 = 全都不播，直接出现 */
+  respawnHandMs: number;
+  /** 哪些场合由骷髅手放进来（false = 那种场合直接出现） */
+  respawnHandOn: Record<AppearReason, boolean>;
   /** 迷雾开关 */
   /** 光照传播半径（格）：从玩家出发沿空气逐格衰减，实心格挡光 */
   fogRadius: number;

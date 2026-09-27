@@ -36,7 +36,7 @@ export class Registry<T extends { id: string; index: number }> {
 }
 
 const TILE_CAP_DEFAULTS: TileCaps = {
-  solid: false, anchor: false, destructible: false, blastSensitivity: 0, chainCollapse: false, looseOnBlast: false, floatSpeed: 0, rideable: false, chainDelayMs: 0, igniteAtEndsOnly: false, hazard: null, hazardBox: null, mounted: false, oneWay: false, boxPassThrough: false, crackTo: null,
+  solid: false, anchor: false, destructible: false, blastSensitivity: 0, chainCollapse: false, looseOnBlast: false, floatSpeed: 0, rideable: false, chainDelayMs: 0, igniteAtEndsOnly: false, hazard: null, hazardBox: null, mounted: false, oneWay: false, boxPassThrough: false, crackTo: null, fireproof: false,
 };
 
 /** 可复用的能力特征 */
@@ -66,6 +66,8 @@ export const Traits = {
   BoxPassThrough: { boxPassThrough: true } as TileTrait,
   /** 引线烧到时裂成另一种砖而不是直接没了（岩石 → 碎岩） */
   CracksTo: (id: string): TileTrait => ({ crackTo: id }),
+  /** 防火：引线烧不动（门、封门这类要靠机关打开的东西） */
+  Fireproof: { fireproof: true } as TileTrait,
 };
 
 export const Tiles = new Registry<TileDef>('砖块');

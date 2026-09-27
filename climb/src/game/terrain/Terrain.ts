@@ -9,7 +9,8 @@ export type TileView = 'game' | 'editor';
 
 export interface BlastCell extends CellRef { d: number }
 export interface RemovedCell extends CellRef { id: string; def: TileDef; /** 连锁传导的跳数：0 = 直接命中，n = 沿链条传导了 n 格 */ hop?: number }
-export interface ChunkCell extends CellRef { id: string }
+/** from = 这块材料原本在地图上哪一格（格子序号 y * w + x）；-1 / 不写 = 不是地图原有的。房间重置按它判断材料归哪个房间 */
+export interface ChunkCell extends CellRef { id: string; from?: number }
 export interface Chunk { id: number; cells: ChunkCell[]; container: Phaser.GameObjects.Container; vy: number; py: number; /** >0 = 匀速飘落 */ floatSpeed: number; t: number }
 
 export interface TerrainOptions { tile: number; explosionRadius: number; chunkGravity: number; chunkMaxFall: number }
@@ -27,6 +28,8 @@ export interface TerrainHost {
   onCellsBroken?(cells: RemovedCell[]): void;
   /** 这个格子被地形以外的东西占着（比如箱子）：碎块落在它上面，它上面的砖算被撑住 */
   occupied?(x: number, y: number): boolean;
+  /** 碎块没落地就被拿掉了（房间重置、被吞掉）：挂在它身上的东西（物理平台）一起清 */
+  onChunkRemoved?(chunk: Chunk): void;
 }
 
 export class Terrain {
@@ -40,6 +43,8 @@ export class Terrain {
   readonly layer: Phaser.Tilemaps.TilemapLayer;
   private readonly map: Phaser.Tilemaps.Tilemap;
   private readonly boundaryId: string;
+  /** 每格材料的来源格（格子序号）；-1 = 空气或来历不明。碎块掉下去落地时带着来源走 */
+  private readonly origin: Int32Array;
 
   constructor(private readonly host: TerrainHost, rows: string[], private opts: TerrainOptions) {
     this.T = opts.tile;
@@ -47,6 +52,8 @@ export class Terrain {
     this.h = rows.length;
     this.grid = rows.map(r => r.split('').map(c => (Tiles.has(c) ? c : AIR)));
     this.original = this.grid.map(r => r.slice());
+    this.origin = new Int32Array(this.w * this.h);
+    this.grid.forEach((r, y) => r.forEach((c, x) => { this.origin[y * this.w + x] = c === AIR ? -1 : y * this.w + x; }));
     this.boundaryId = (Tiles.filter(d => d.anchor)[0] ?? { id: AIR }).id;
 
     const data = this.grid.map((r, y) => r.map((_, x) => Terrain.frameAt(this.grid, x, y)));
@@ -117,8 +124,10 @@ export class Terrain {
   };
   rows(): string[] { return this.grid.map(r => r.join('')); }
 
-  set(x: number, y: number, id: string): void {
+  /** @param from 这块材料的来源格；不写 = 就是这一格本身（空气是 -1） */
+  set(x: number, y: number, id: string, from?: number): void {
     this.grid[y][x] = id;
+    this.origin[y * this.w + x] = id === AIR ? -1 : from ?? y * this.w + x;
     this.refreshFrame(x, y);
     // 自动拼贴的邻居要跟着换图案
     for (const [dx, dy] of NEIGHBORS) {
@@ -165,7 +174,7 @@ export class Terrain {
   /** 圆形爆炸预览：返回会被摧毁的格子（脆岩多一圈感应，含连锁） */
   previewExplosion(cx: number, cy: number, radius = this.opts.explosionRadius): RemovedCell[] {
     const R = radius;
-    const maxBonus = Math.max(0, ...Tiles.list().map(d => d.blastSensitivity));
+    const maxBonus = Tiles.list().reduce((m, d) => Math.max(m, d.blastSensitivity), 0);
     const seeds: RemovedCell[] = [];
     this.blastCells(cx, cy, R + maxBonus).forEach(c => {
       if (!this.canIgnite(c.x, c.y)) return;
@@ -233,6 +242,7 @@ export class Terrain {
   destroyCells(cells: CellRef[]): RemovedCell[] {
     const removed: RemovedCell[] = [];
     const immediate: RemovedCell[] = [];
+    /** 按"多少毫秒后摧毁"分组：同一跳里不同材料的延迟可以不一样 */
     const delayed = new Map<number, RemovedCell[]>();
     cells.forEach(c => {
       if (c.x < 0 || c.y < 0 || c.x >= this.w || c.y >= this.h) return;
@@ -241,27 +251,31 @@ export class Terrain {
       if (hop === 0 ? !this.canIgnite(c.x, c.y) : !def.destructible) return;
       const r: RemovedCell = { x: c.x, y: c.y, id: def.id, def, hop };
       removed.push(r);
-      if (def.chainDelayMs > 0 && hop > 0) { const arr = delayed.get(hop) ?? []; arr.push(r); delayed.set(hop, arr); }
+      if (def.chainDelayMs > 0 && hop > 0) { const ms = hop * def.chainDelayMs; const arr = delayed.get(ms) ?? []; arr.push(r); delayed.set(ms, arr); }
       else immediate.push(r);
     });
     immediate.forEach(c => this.set(c.x, c.y, AIR));
-    if (immediate.length) { this.breakMounted(immediate); this.resolveSupport(); this.shake(immediate, 0); }
-    [...delayed.entries()].sort((a, b) => a[0] - b[0]).forEach(([hop, group]) => {
-      const delayMs = hop * group[0].def.chainDelayMs;
-      this.pending.push(this.host.scene.time.delayedCall(delayMs, () => {
-        group.forEach(c => this.set(c.x, c.y, AIR));
-        this.breakMounted(group);
-        this.resolveSupport();
-        this.shake(group, 0);
-        this.host.onFuseBurn?.(group);
-      }));
+    if (immediate.length) { this.breakMounted(immediate); this.resolveSupportNear(immediate); this.shake(immediate, 0); }
+    [...delayed.entries()].sort((a, b) => a[0] - b[0]).forEach(([delayMs, group]) => {
+      const timer: Phaser.Time.TimerEvent = this.host.scene.time.delayedCall(delayMs, () => {
+        this.pending = this.pending.filter(t => t !== timer);
+        // 等的这段时间里格子可能已经变了（被别的爆炸炸掉、被重置）：只烧还是原来那种材料的
+        const still = group.filter(c => this.grid[c.y][c.x] === c.id);
+        if (!still.length) return;
+        still.forEach(c => this.set(c.x, c.y, AIR));
+        this.breakMounted(still);
+        this.resolveSupportNear(still);
+        this.shake(still, 0);
+        this.host.onFuseBurn?.(still);
+      });
+      this.pending.push(timer);
     });
-    this.pending = this.pending.filter(t => !t.hasDispatched);
     return removed;
   }
 
   /** 还没执行的延迟摧毁 */
   private pending: Phaser.Time.TimerEvent[] = [];
+  /** 取消全部延迟摧毁（整张图的，不分房间） */
   cancelPending(): void {
     this.pending.forEach(t => t.remove(false));
     this.pending = [];
@@ -270,9 +284,10 @@ export class Terrain {
   // ---- 松脱（脆岩）----
   /** 纯函数：距任一中心 ≤ radius + 材质感应距离 的"会松脱"格子，按相连同类分组 */
   static findLooseGroups(grid: string[][], centers: CellRef[], radius: number): CellRef[][] {
+    // 每帧的起跳预览都会调：只看爆炸附近的种子和从它们连出去的格子，不扫整张地图
     const h = grid.length, w = grid[0]?.length ?? 0;
-    const seed = new Uint8Array(w * h);
-    const maxBonus = Math.max(0, ...Tiles.list().filter(d => d.looseOnBlast).map(d => d.blastSensitivity));
+    const seeds = new Set<number>();
+    const maxBonus = Tiles.list().reduce((m, d) => (d.looseOnBlast ? Math.max(m, d.blastSensitivity) : m), 0);
     const r = Math.ceil(radius + maxBonus);
     centers.forEach(c => {
       for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
@@ -280,16 +295,16 @@ export class Terrain {
         if (x < 0 || y < 0 || x >= w || y >= h) continue;
         const def = Tiles.get(grid[y][x]);
         if (!def?.looseOnBlast) continue;
-        if (Math.sqrt(dx * dx + dy * dy) <= radius + def.blastSensitivity) seed[y * w + x] = 1;
+        if (Math.sqrt(dx * dx + dy * dy) <= radius + def.blastSensitivity) seeds.add(y * w + x);
       }
     });
-    const seen = new Uint8Array(w * h);
+    const seen = new Set<number>();
     const groups: CellRef[][] = [];
-    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-      const i = y * w + x;
-      if (!seed[i] || seen[i]) continue;
+    for (const i of [...seeds].sort((a, b) => a - b)) {   // 按行优先的顺序出组，结果稳定
+      if (seen.has(i)) continue;
+      const x = i % w, y = (i - x) / w;
       const id = grid[y][x];
-      const group: CellRef[] = []; const st: [number, number][] = [[x, y]]; seen[i] = 1;
+      const group: CellRef[] = []; const st: [number, number][] = [[x, y]]; seen.add(i);
       while (st.length) {
         const [px, py] = st.pop()!;
         group.push({ x: px, y: py });
@@ -297,8 +312,8 @@ export class Terrain {
           const nx = px + dx, ny = py + dy;
           if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
           const ni = ny * w + nx;
-          if (seen[ni] || grid[ny][nx] !== id) continue;
-          seen[ni] = 1; st.push([nx, ny]);
+          if (seen.has(ni) || grid[ny][nx] !== id) continue;
+          seen.add(ni); st.push([nx, ny]);
         }
       }
       groups.push(group);
@@ -328,7 +343,7 @@ export class Terrain {
   /** 引线烧到一格之后它变成什么：会裂的（岩石）变成裂开的砖，其它实心的烧没，空气 / 不实心的不变。shatter = 猛火（紫色引线），会裂的也直接烧没 */
   static burnedTo(id: string, shatter = false): string {
     const d = Tiles.get(id);
-    if (!d || !d.solid) return id;
+    if (!d || !d.solid || d.fireproof) return id;
     return shatter ? AIR : d.crackTo ?? AIR;
   }
 
@@ -339,10 +354,10 @@ export class Terrain {
       if (c.x < 0 || c.y < 0 || c.x >= this.w || c.y >= this.h) return;
       const def = this.def(c.x, c.y), to = Terrain.burnedTo(def.id, shatter);
       if (to === def.id) return;
-      this.set(c.x, c.y, to);
+      this.set(c.x, c.y, to, this.origin[c.y * this.w + c.x]);   // 裂开的还是原来那块材料
       if (to === AIR) removed.push({ x: c.x, y: c.y, id: def.id, def, hop: 0 });
     });
-    if (removed.length) { this.breakMounted(removed); this.resolveSupport(); }
+    if (removed.length) { this.breakMounted(removed); this.resolveSupportNear(removed); }
     return removed;
   }
 
@@ -356,7 +371,7 @@ export class Terrain {
       removed.push({ x: c.x, y: c.y, id: def.id, def, hop: 0 });
       this.set(c.x, c.y, AIR);
     });
-    if (removed.length) { this.breakMounted(removed); this.resolveSupport(); }
+    if (removed.length) { this.breakMounted(removed); this.resolveSupportNear(removed); }
     return removed;
   }
 
@@ -421,6 +436,15 @@ export class Terrain {
     return out;
   }
 
+  /**
+   * 这些格子刚被拿掉之后的支撑检测。会因此掉下去的东西一定挨着被拿掉的格子，而且是会掉的材料
+   * （锚点自己撑自己）：四周一个会掉的格子都没有，就不用对整张地图做一遍漫延
+   */
+  resolveSupportNear(cleared: CellRef[]): void {
+    const risky = cleared.some(c => NEIGHBORS.some(([dx, dy]) => Tiles.get(this.grid[c.y + dy]?.[c.x + dx])?.canFall));
+    if (risky) this.resolveSupport();
+  }
+
   /** 没被撑住的可掉落格子 → 按连通块分组变成碎块 */
   resolveSupport(): void {
     const seen = Terrain.computeSupport(this.grid, (x, y) => !!this.host.occupied?.(x, y + 1));
@@ -434,7 +458,7 @@ export class Terrain {
         grouped[idx(x, y)] = 1;
         while (st.length) {
           const [px, py] = st.pop()!;
-          cells.push({ x: px, y: py, id: this.grid[py][px] });
+          cells.push({ x: px, y: py, id: this.grid[py][px], from: this.origin[idx(px, py)] });
           for (const [dx, dy] of NEIGHBORS) {
             const nx = px + dx, ny = py + dy;
             if (nx < 0 || ny < 0 || nx >= this.w || ny >= this.h) continue;
@@ -447,7 +471,7 @@ export class Terrain {
   }
 
   private spawnChunk(cells: ChunkCell[]): void {
-    cells.forEach(c => this.set(c.x, c.y, AIR));
+    cells.forEach(c => { c.from ??= this.origin[c.y * this.w + c.x]; this.set(c.x, c.y, AIR); });
     this.breakMounted(cells);
     const scene = this.host.scene;
     const container = scene.add.container(0, 0).setDepth(5);
@@ -476,11 +500,17 @@ export class Terrain {
       ch.py += ch.vy * dt;
       if (ch.floatSpeed > 0 && this.host.catchChunk?.(ch)) { this.chunks.splice(i, 1); continue; }
       // 落地判定：下面是砖块就立刻落地（以前要等 py 走满一格才检查，碎块会先陷进地里一整格再弹回来；
-      // 慢慢飘的纸尤其明显，站在上面的人会被一起带进地里）。下面是另一块还在掉的碎块，则按整格对齐。
+      // 慢慢飘的纸尤其明显，站在上面的人会被一起带进地里）。下面是另一块还在掉的碎块，就贴着它一起掉。
       let landed = false;
       for (;;) {
         if (ch.cells.some(c => this.isSolid(c.x, c.y + 1) || this.host.occupied?.(c.x, c.y + 1))) { landed = true; break; }
-        if (ch.cells.some(c => this.chunkCellAt(c.x, c.y + 1, ch))) { landed = ch.py >= this.T; break; }
+        const below = this.chunkBelow(ch);
+        if (below) {
+          // 下面是另一块还在掉的碎块：贴着它一起掉（不超过它、不比它快），等它落地了自己再落地。不能在半空并进地形
+          if (ch.py > below.py) ch.py = below.py;
+          ch.vy = Math.min(ch.vy, below.vy);
+          break;
+        }
         if (ch.py < this.T) break;
         ch.cells.forEach(c => { c.y += 1; });
         ch.py -= this.T;
@@ -488,7 +518,7 @@ export class Terrain {
       if (landed) {
         ch.py = 0;
         ch.container.destroy();
-        ch.cells.forEach(c => this.set(c.x, c.y, c.id));
+        ch.cells.forEach(c => this.set(c.x, c.y, c.id, c.from ?? -1));
         this.chunks.splice(i, 1);
         this.host.onChunkLand?.(ch);
         this.resolveSupport();
@@ -500,22 +530,63 @@ export class Terrain {
     }
   }
 
-  private chunkCellAt(x: number, y: number, except: Chunk): boolean {
-    return this.chunks.some(ch => ch !== except && ch.cells.some(c => c.x === x && c.y === y));
+  /** 紧贴在这块碎块下面的另一块碎块（它的某一格正下方是那一块的格子） */
+  private chunkBelow(ch: Chunk): Chunk | undefined {
+    return this.chunks.find(o => o !== ch && ch.cells.some(c => o.cells.some(d => d.x === c.x && d.y === c.y + 1)));
   }
 
-  /** 房间重置：恢复矩形内的格子，清掉范围内的碎块 */
-  /** 把矩形内恢复成初始地形；keep 返回 true 的格子保持现状（比如 Boss 炸开的通道） */
+  /**
+   * 把矩形（一个房间，或整张图）恢复成初始地形；keep 返回 true 的格子保持现状（比如 Boss 炸开的通道）。
+   * 按材料的来源算，不按它现在在哪：
+   * - 这个房间的材料掉到别的房间去了（落了地的、还在掉的），一起收回来，不会一边恢复一边在隔壁留一份
+   * - 别的房间的材料现在在这个房间里（落在这里的、正从这里掉过的），放回它原来的位置（原位空着才放），不会凭空消失
+   * - 延迟连锁（一跳一跳往下烧的）不管在哪个房间，全部停掉
+   */
   resetRect(x0: number, y0: number, w: number, h: number, keep?: (x: number, y: number) => boolean): void {
+    const inRect = (x: number, y: number) => x >= x0 && x < x0 + w && y >= y0 && y < y0 + h;
+    const fromRect = (from: number | undefined) => from !== undefined && from >= 0 && inRect(from % this.w, Math.floor(from / this.w));
     this.cancelPending();
+    /** 要放回原处的外来材料：来源格 + 材料 */
+    const goHome: { from: number; id: string }[] = [];
     for (let i = this.chunks.length - 1; i >= 0; i--) {
       const ch = this.chunks[i];
-      if (ch.cells.some(c => c.x >= x0 && c.x < x0 + w && c.y >= y0 && c.y < y0 + h)) { ch.container.destroy(); this.chunks.splice(i, 1); }
+      const mine = ch.cells.some(c => fromRect(c.from));
+      if (!mine && !ch.cells.some(c => inRect(c.x, c.y))) continue;
+      if (!mine) ch.cells.forEach(c => { if (c.from !== undefined && c.from >= 0) goHome.push({ from: c.from, id: c.id }); });
+      this.dropChunk(i);
     }
-    for (let y = y0; y < y0 + h; y++)
-      for (let x = x0; x < x0 + w; x++)
-        if (this.grid[y][x] !== this.original[y][x] && !keep?.(x, y)) this.set(x, y, this.original[y][x]);
+    for (let y = 0; y < this.h; y++)
+      for (let x = 0; x < this.w; x++) {
+        const i = y * this.w + x, o = this.origin[i];
+        if (!inRect(x, y)) {
+          if (fromRect(o) && this.grid[y][x] !== AIR) this.set(x, y, AIR);   // 这个房间的材料落在了别处：收回来
+          continue;
+        }
+        if (keep?.(x, y)) continue;
+        const orig = this.original[y][x], origFrom = orig === AIR ? -1 : i;
+        if (this.grid[y][x] === orig && o === origFrom) continue;
+        if (this.grid[y][x] !== AIR && o >= 0 && !fromRect(o)) goHome.push({ from: o, id: this.grid[y][x] });
+        this.set(x, y, orig);
+      }
+    goHome.forEach(g => {
+      const x = g.from % this.w, y = Math.floor(g.from / this.w);
+      if (this.grid[y][x] === AIR) this.set(x, y, g.id, g.from);
+    });
     this.resolveSupport();
+  }
+
+  /** 拿掉第 i 块碎块（不并回地形），通知场景 */
+  private dropChunk(i: number): void {
+    const [ch] = this.chunks.splice(i, 1);
+    ch.container.destroy();
+    this.host.onChunkRemoved?.(ch);
+  }
+
+  /** 这块材料的来源格在不在这个矩形里（重置时判断东西归不归这个房间） */
+  originIn(from: number | undefined, x0: number, y0: number, w: number, h: number): boolean {
+    if (from === undefined || from < 0) return false;
+    const x = from % this.w, y = Math.floor(from / this.w);
+    return x >= x0 && x < x0 + w && y >= y0 && y < y0 + h;
   }
 
   /** 碎块当前在世界里的包围盒（含下落的小数偏移和飘落的左右晃动） */
@@ -529,9 +600,7 @@ export class Terrain {
   /** 直接拿掉一块正在下落的碎块（比如被 Boss 吞了），不并回地形 */
   removeChunk(ch: Chunk): void {
     const i = this.chunks.indexOf(ch);
-    if (i < 0) return;
-    ch.container.destroy();
-    this.chunks.splice(i, 1);
+    if (i >= 0) this.dropChunk(i);
   }
 
   forEachChunkCell(fn: (ch: Chunk, px: number, py: number, w: number, h: number) => void): void {

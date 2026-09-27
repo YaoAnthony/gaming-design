@@ -98,7 +98,7 @@ export function Palette() {
               </button>
             ))}
           </div>
-          {g === '吃豆人' && <div className="hint">这些放在「俯视」层里用（层设置里勾）。</div>}
+          {g === '吃豆人' && <div className="hint">放在「玩法」是吃豆人的层里用（层设置里选，没选过的层放了就自动是）。</div>}
         </div>
       ))}
     </>

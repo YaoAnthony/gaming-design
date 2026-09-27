@@ -4,7 +4,6 @@ import type { Project } from '@/type';
 import { asProject } from './WorldModel';
 
 export const DEFAULT_PROJECT: Project = asProject(JSON.parse(JSON.stringify(worldJson)))!;
-export const DEFAULT_WORLD = DEFAULT_PROJECT.floors[0].model;
 
 /** 简单字符串哈希，用来判断打包的地图有没有变 */
 export function modelHash(m: unknown): string {

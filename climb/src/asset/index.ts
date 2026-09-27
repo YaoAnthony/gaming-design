@@ -31,6 +31,8 @@ import plate1Url from './plate1.png';
 import plate2Url from './plate2.png';
 import plate1DownUrl from './plate1_down.png';
 import plate2DownUrl from './plate2_down.png';
+import handHoldUrl from './hand_hold.png';
+import handOpenUrl from './hand_open.png';
 import boomUrl from './boob.mp3';
 import bgmUrl from './Pixelated_Coffee.mp3';
 import bossMusicUrl from './boss.mp3';
@@ -100,7 +102,24 @@ export const IMAGES: ImageAsset[] = [
   { key: 'ghosteyes', url: ghostEyesUrl },
   { key: 'ghostscared', url: ghostScaredUrl },
   { key: 'bomb', url: bombUrl },
+  { key: 'hand_hold', url: handHoldUrl },
+  { key: 'hand_open', url: handOpenUrl },
 ];
+
+/**
+ * 复活时把玩家放回来的骷髅手（game/core/respawnHand.ts）。两帧同样大小：hold = 捏着玩家，open = 松开。
+ * 手臂从贴图左上角伸进来（从右边进场时游戏里会左右翻转）。
+ * pinch = 捏合点在贴图里的位置（0~1，相对宽高）：玩家的身体中心就放在这一点。换成手绘图时改这里对上新图
+ */
+export const RESPAWN_HAND = {
+  hold: 'hand_hold',
+  open: 'hand_open',
+  pinch: [104 / 160, 120 / 160] as [number, number],
+  /** 手周围的光雾 / 落地火花的颜色 */
+  glow: [0x9b5de5, 0xc77dff, 0x6a2fbf],
+  /** 手臂末端那团烟雾（裂隙）的颜色：暗一些，盖住手臂的断口 */
+  smoke: [0x3c1a6e, 0x5a2a9a, 0x7b3fc4],
+};
 
 /** 对话框头像（React 里用 URL 显示，不进 Phaser）。同一个角色不同表情 = 不同 key，台词里按句指定 */
 export const AVATARS: Record<string, string> = {

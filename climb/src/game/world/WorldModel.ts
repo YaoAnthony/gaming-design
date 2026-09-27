@@ -138,6 +138,15 @@ export function nextFloorId(p: Project): string {
   return 'f' + n;
 }
 
+/** 房间尺寸（格）的范围：编辑器的输入框和 reducer 都按这个限制 */
+export const ROOM_SIZE = { minW: 10, maxW: 80, minH: 10, maxH: 60 } as const;
+
+/** 把输入的房间尺寸整理成合法的整数（小数四舍五入、超出范围夹回来、不是数字用 fallback） */
+export function fitRoomSize(w: unknown, h: unknown, fallback: { w: number; h: number }): { w: number; h: number } {
+  const fit = (v: unknown, min: number, max: number, dflt: number) => (typeof v === 'number' && Number.isFinite(v) ? Math.min(max, Math.max(min, Math.round(v))) : dflt);
+  return { w: fit(w, ROOM_SIZE.minW, ROOM_SIZE.maxW, fallback.w), h: fit(h, ROOM_SIZE.minH, ROOM_SIZE.maxH, fallback.h) };
+}
+
 export function newFloor(p: Project, name: string, roomW: number, roomH: number): Floor {
   const id = nextFloorId(p);
   const model: WorldModel = { roomW, roomH, layout: [['A']], rooms: { A: emptyRoom(roomW, roomH) } };
@@ -262,6 +271,30 @@ export function deleteRoom(m: WorldModel, key: string): void {
   trimLayout(m);
 }
 
+/** 按新尺寸裁 / 补一组房间行（左上角不动）：多出来的补 fill，超出的裁掉 */
+function fitRows(rows: string[], w: number, h: number, fill: string): string[] {
+  return Array.from({ length: h }, (_, y) => (rows[y] ?? '').substring(0, w).padEnd(w, fill));
+}
+
+/** 改这一层所有房间的尺寸：左上角不动，变大补空气 / 空白，变小从右边和下边裁掉。每个按房间存的图层一起改 */
+export function resizeRooms(m: WorldModel, w: number, h: number): void {
+  const layers: (Record<string, string[]> | undefined)[] = [m.rooms, m.entities, m.fog, m.fuse, m.locks?.doors, m.locks?.keys];
+  layers.forEach(layer => { if (layer) Object.keys(layer).forEach(k => { layer[k] = fitRows(layer[k], w, h, '.'); }); });
+  m.roomW = w; m.roomH = h;
+}
+
+/** 清空一个房间：砖块回到四周岩石的空房间，物件、迷雾区、引线、门、钥匙、文字方块、房间开关都删掉。房间本身留着 */
+export function clearRoom(m: WorldModel, key: string): void {
+  if (!m.rooms[key]) return;
+  m.rooms[key] = emptyRoom(m.roomW, m.roomH);
+  if (m.fog) delete m.fog[key];
+  if (m.fuse) delete m.fuse[key];
+  if (m.entities) delete m.entities[key];
+  if (m.roomFlags) delete m.roomFlags[key];
+  if (m.texts) delete m.texts[key];
+  if (m.locks) { delete m.locks.doors[key]; delete m.locks.keys[key]; }
+}
+
 export function setCell(m: WorldModel, key: string, x: number, y: number, ch: string): void {
   const r = m.rooms[key][y];
   m.rooms[key][y] = r.substring(0, x) + ch + r.substring(x + 1);
@@ -320,6 +353,7 @@ export function removeLockGroup(m: WorldModel, id: number): void {
 }
 
 function setLockCell(m: WorldModel, layer: 'doors' | 'keys', key: string, x: number, y: number, id: number): void {
+  if (id > 0 && !lockGroup(m, id)) return;   // 这一组不存在（删掉了、或者是别的层的）：不写，免得留下看不见的门 / 钥匙
   const locks: Locks = (m.locks ??= { groups: [], doors: {}, keys: {} });
   locks[layer][key] ??= Array.from({ length: m.roomH }, () => '.'.repeat(m.roomW));
   const r = locks[layer][key][y];

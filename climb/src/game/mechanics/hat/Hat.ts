@@ -5,7 +5,7 @@
 // - 换层、死亡都不掉；只在平台层生效（俯视层的身体大小由层机制管）
 import Phaser from 'phaser';
 import type { PlayContext, Suckable } from '@/game/core/PlayContext';
-import type { SaveData } from '@/type';
+import type { CarryOver } from '@/type';
 import { floorMechanicOf, type Mechanic } from '../define';
 
 interface GroundHat { sprite: Phaser.GameObjects.Image; /** 刚放下 / 刚被撞掉：人走开之前不能再戴 */ blocked: boolean }
@@ -57,12 +57,11 @@ export class Hat implements Mechanic {
       g.sprite.destroy(); this.ground.splice(i, 1);
       this.wear();
       this.ctx.sparks.explode(6, this.ctx.player.x, this.ctx.player.y - this.ctx.cfg.tile);
-      this.ctx.autosave();
       return;
     }
   }
 
-  persist(out: Partial<SaveData>): void { if (this.worn) out.hat = true; }
+  persist(out: CarryOver): void { if (this.worn) out.hat = true; }
 
   vortexTargets(): Suckable[] { return this.head ? [this.head] : []; }
 
@@ -103,10 +102,10 @@ export class Hat implements Mechanic {
     this.ground.push({ sprite, blocked });
   }
 
-  /** 头顶那 hatHeight 格没有实心砖，才戴得上 */
+  /** 头顶那 hatHeight 格没有实心砖，才戴得上。身高按现在的算（长大以后更高）；只在没戴着的时候问，身高里还没有帽子 */
   private hasHeadroom(): boolean {
-    const { ctx } = this, T = ctx.cfg.tile, b = ctx.player.body;
-    const top = b.bottom - (ctx.cfg.playerHeight + ctx.cfg.hatHeight) * T;
+    const { ctx } = this, T = ctx.cfg.tile, p = ctx.player, b = p.body;
+    const top = b.bottom - (p.heightTiles + ctx.cfg.hatHeight) * T;
     return !this.anySolid(b.left, b.right, top, b.top);
   }
 

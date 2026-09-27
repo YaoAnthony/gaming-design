@@ -24,7 +24,8 @@ export class BootScene extends Phaser.Scene {
 
     SPRITESHEETS.forEach(s => this.load.spritesheet(s.key, s.url, { frameWidth: s.frameWidth, frameHeight: s.frameHeight }));
     IMAGES.forEach(i => this.load.image(i.key, i.url));
-    AUDIO.forEach(a => this.load.audio(a.key, a.url));
+    // 背景曲（标了 music 的）很大，不在这里等：Music 第一次要放时才下载，加载条只等音效
+    AUDIO.filter(a => !a.music).forEach(a => this.load.audio(a.key, a.url));
   }
 
   create(): void {

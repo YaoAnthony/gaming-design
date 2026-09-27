@@ -50,6 +50,8 @@ export const DEFAULT_CONFIG: GameConfig = {
   bossBurstCount: 24,
   bossBurstSpeed: 380,
   bossBurstTtl: 2.5,
+  respawnHandMs: 2000,
+  respawnHandOn: { start: true, floor: true, death: true, reset: true, level: true },   // 玩家每次出现都由骷髅手放进来
   fogRadius: 1.5,   // 没有光源时只看得见身边；蜡烛等道具的照明半径在道具上（Items）
   fogMemoryAlpha: 0.6,
 };

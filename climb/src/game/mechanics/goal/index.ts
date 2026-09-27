@@ -10,28 +10,37 @@ import { defineMechanic, type Mechanic } from '../define';
 /** 离门多近（像素）算到达 */
 const REACH_PX = 24;
 
-class Goal implements Mechanic {
-  private goal: Point | null = null;
+interface GoalSpot extends Point {
   /** 门现在能触发吗：触发一次之后要等人走远才重新武装 */
-  private armed = true;
+  armed: boolean;
+  /** 真通关用过了，不再触发 */
+  done: boolean;
+}
+
+class Goal implements Mechanic {
+  /** 一层可以放好几个终点，哪个都算 */
+  private goals: GoalSpot[] = [];
 
   constructor(private ctx: PlayContext) {}
 
-  setGoal(p: Point): void {
-    this.goal = p;
+  addGoal(p: Point): void {
+    this.goals.push({ x: p.x, y: p.y, armed: true, done: false });
     this.ctx.scene.add.image(p.x, p.y, 'door').setDepth(2);
     this.drawBuilding(p.x, p.y + this.ctx.cfg.tile / 2);
   }
 
   updateAlive(): void {
     const { ctx } = this, p = ctx.player;
-    if (!this.goal) return;
-    const d = Phaser.Math.Distance.Between(p.x, p.y, this.goal.x, this.goal.y);
-    if (!this.armed) { if (d >= REACH_PX * 2) this.armed = true; return; }   // 关掉弹窗继续玩：走远一点门才会再触发
-    if (d >= REACH_PX) return;
-    this.armed = false;
-    // 还没长到最高（第 1、2 关）：假通关，弹窗里可以「进入下一关」；长到最高（第 3 关）：真通关。假通关的门留着，下一关回来再碰
-    if (p.stage >= MAX_STAGE) { this.goal = null; ctx.win(true); } else ctx.win(false);
+    for (const g of this.goals) {
+      if (g.done) continue;
+      const d = Phaser.Math.Distance.Between(p.x, p.y, g.x, g.y);
+      if (!g.armed) { if (d >= REACH_PX * 2) g.armed = true; continue; }   // 关掉弹窗继续玩：走远一点门才会再触发
+      if (d >= REACH_PX) continue;
+      g.armed = false;
+      // 还没长到最高（第 1、2 关）：假通关，弹窗里可以「进入下一关」；长到最高（第 3 关）：真通关。假通关的门留着，下一关回来再碰
+      if (p.stage >= MAX_STAGE) { g.done = true; ctx.win(true); } else ctx.win(false);
+      return;
+    }
   }
 
   /** 门后面的一座剪影建筑，亮着窗 */
@@ -57,5 +66,5 @@ const goal = defineMechanic({
 
 goal.entity({
   id: 'G', name: '终点', desc: '碰到即通关，上面会画一座建筑', texture: 'door', color: 0xffd166,
-  spawn: (g, at) => g.setGoal({ x: at.x, y: at.y }),
+  spawn: (g, at) => g.addGoal({ x: at.x, y: at.y }),
 });

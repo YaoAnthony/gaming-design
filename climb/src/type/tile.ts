@@ -34,6 +34,8 @@ export interface TileCaps {
   boxPassThrough: boolean;
   /** 被引线烧到时不消失，变成这种砖（岩石 → 碎岩）；null = 照常烧掉 */
   crackTo: string | null;
+  /** 防火：引线烧过这一格时它不受影响（锁着的门、Boss 封门）。引线本身照样烧过去 */
+  fireproof: boolean;
 }
 
 /** 一条能力特征（Trait），可组合 */

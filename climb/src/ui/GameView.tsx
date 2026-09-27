@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useAppDispatch, useAppSelector } from '@/redux/hooks';
-import { clearSave } from '@/redux/slices/saveSlice';
+import { useAppSelector } from '@/redux/hooks';
 import type { StartGameData } from '@/game/bridge';
 import { PhaserCanvas } from './PhaserCanvas';
 import { Hud } from './Hud';
@@ -12,7 +11,6 @@ import { roomPx } from '@/game/PhaserGame';
 
 /** 游戏页：一个「开始游戏」，从头开始 */
 export function GameView() {
-  const dispatch = useAppDispatch();
   const { t } = useTranslation();
   // 线上版本永远玩打包进去的地图；本地开发玩编辑器里的当前地图
   const editorProject = useAppSelector(s => s.editor.project);
@@ -21,7 +19,7 @@ export function GameView() {
   const touch = useTouch();
   const controls = useAppSelector(s => s.hud.controls);
 
-  const start = () => { dispatch(clearSave()); setData({ project, playtest: false }); };
+  const start = () => setData({ project, playtest: false });
 
   return (
     <div className="view">

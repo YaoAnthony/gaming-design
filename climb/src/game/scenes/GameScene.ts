@@ -3,7 +3,7 @@
 // 玩法都在 game/mechanics/ 里：一个层机制（这一层怎么动）+ 若干通用机制（Boss、钥匙、角色……），
 // 这里按生命周期调用它们的钩子，不认识具体机制。
 import Phaser from 'phaser';
-import type { CellRef, CoreHost, EnemySpawn, EntryState, Floor, GameConfig, Point, Project, RoomCoord, SaveData, WorldModel } from '@/type';
+import type { AppearReason, CarryOver, CellRef, CoreHost, EnemySpawn, EntryState, Floor, GameConfig, Point, Project, RoomCoord, WorldModel } from '@/type';
 import { classify } from '@/game/registry/registry';
 import { Terrain } from '@/game/terrain/Terrain';
 import { entityRows, fogRows, fuseRows, roomKeyAt, worldRows } from '@/game/world/WorldModel';
@@ -18,7 +18,6 @@ import { touch, TOUCH_ACTION, TOUCH_JUMP } from '@/game/input';
 import { Music } from '@/game/Music';
 import { DEFAULT_MUSIC } from '@/asset';
 import { flash, setBoss, setControls, setDialogue, setMode, setPlace, setRoomKey, setScore, setStats } from '@/redux/slices/hudSlice';
-import { clearSave, writeSave } from '@/redux/slices/saveSlice';
 import { resetProgress } from '@/redux/slices/progressSlice';
 import { floorMechanicOf, globalMechanicsOf, type FloorMechanic, type FuseBurnCell, type Mechanic, type MechanicDef, type MoveInput } from '@/game/mechanics/define';
 import type { PlayContext } from '@/game/core/PlayContext';
@@ -28,6 +27,7 @@ import { Debris } from '@/game/core/Debris';
 import { standingSpot, touchingHazard } from '@/game/core/rooms';
 import { buildBackground } from '@/game/core/backdrop';
 import { vortex } from '@/game/core/vortex';
+import { playRespawnHand } from '@/game/core/respawnHand';
 import { MAX_STAGE, STAGE_EXTRA } from '@/sprite/Player';
 
 type PressKey = 'SPACE' | 'UP' | 'W' | 'touch';
@@ -79,6 +79,8 @@ export class GameScene extends Phaser.Scene {
   private growSince: number | null = null;
   /** 正在切层（淡出中），不再响应输入 */
   private leaving = false;
+  /** 出场动画中（骷髅手把人放进来）：人冻着，不响应输入、R，也不会死 */
+  private respawning = false;
   private stats = { jumps: 0, destroyed: 0 };
 
   constructor() { super(SCENE.game); }
@@ -92,7 +94,7 @@ export class GameScene extends Phaser.Scene {
     this.fog = null; this.fogTile = { x: -1, y: -1 }; this.fogDirty = true;
     this.spawnPoints = [];
     this.stats = { jumps: data.stats?.jumps ?? 0, destroyed: data.stats?.destroyed ?? 0 };
-    this.dead = false; this.won = false; this.wonFinal = false; this.leaving = false; this.growing = false; this.growTween = null;
+    this.dead = false; this.won = false; this.wonFinal = false; this.leaving = false; this.growing = false; this.growTween = null; this.respawning = false;
     this.prevEntry = null; this.lastResetAt = null;
   }
 
@@ -114,7 +116,7 @@ export class GameScene extends Phaser.Scene {
     this.cameras.main.setSize(this.roomPxW, this.roomPxH);
     this.cameras.main.setZoom(1).setRotation(0);
 
-    // ---- 地形：读档时用存档里的格子状态，但"原始状态"仍是地图本身（R 重置用） ----
+    // ---- 地形：地图本身就是"原始状态"（R 重置用） ----
     const rows = worldRows(model);
     this.terrain = new Terrain({
       scene: this,
@@ -123,15 +125,12 @@ export class GameScene extends Phaser.Scene {
       catchChunk: ch => this.debris.catchChunk(ch),
       onCellsBroken: cells => this.onCellsBroken(cells),
       occupied: (x, y) => this.mechs.some(m => m.occupies?.(x, y)),
+      onChunkRemoved: ch => this.debris.onChunkRemoved(ch),
     }, rows, { tile: T, explosionRadius: this.cfg.explosionRadius, chunkGravity: this.cfg.chunkGravity, chunkMaxFall: this.cfg.chunkMaxFall });
-    const saved = this.startData.rows;
-    if (saved && saved.length === rows.length) {
-      saved.forEach((r, y) => [...r].forEach((c, x) => { if (this.terrain.grid[y][x] !== c && (c === '.' || this.terrain.def(0, 0) !== undefined)) this.terrain.set(x, y, c); }));
-    }
     const levelW = this.terrain.w * T, levelH = this.terrain.h * T;
     this.physics.world.setBounds(0, 0, levelW, levelH);
     buildBackground(this, levelW, levelH);
-    this.fuses = new FuseNet(this, fuseRows(model), { tile: T, delayMs: this.cfg.fuseDelayMs }, this.startData.fuse ?? undefined);
+    this.fuses = new FuseNet(this, fuseRows(model), { tile: T, delayMs: this.cfg.fuseDelayMs });
 
     // 迷雾按房间开启：只要有一个房间开了就建迷雾层，其余房间全亮
     const fogRooms = new Set(Object.entries(model.roomFlags ?? {}).filter(([, f]) => f.fog).map(([k]) => k));
@@ -140,7 +139,7 @@ export class GameScene extends Phaser.Scene {
       this.fog = new FogOfWar(this, this.terrain.grid, fogRows(model).map(r => r.split('')), {
         tile: T, roomW: this.roomW, roomH: this.roomH, radius: this.cfg.fogRadius, memoryAlpha: this.cfg.fogMemoryAlpha,
         keyAt: (rx, ry) => roomKeyAt(model, rx, ry), noFogRooms: noFog,
-      }, this.startData.fog ?? undefined);
+      });
     }
 
     this.sparks = createSparkEmitter(this);
@@ -190,6 +189,8 @@ export class GameScene extends Phaser.Scene {
     this.mechs.forEach(m => m.onRoomChanged?.(this.room));
 
     this.bindInput();
+    // 玩家出场：换层带着 origin（这一局早就开始了），没有就是这一局的第一次出现
+    this.appear(this.startData.origin ? 'floor' : 'start');
 
     this.music.playBase();
     let lastVol = this.cfg.musicVolume;
@@ -231,6 +232,7 @@ export class GameScene extends Phaser.Scene {
       get dead() { return s.dead; },
       get won() { return s.won; },
       get leaving() { return s.leaving; },
+      get appearing() { return s.respawning; },
       get playtest() { return s.playtest; },
       get entry() { return s.entry; },
       set entry(e) { s.entry = e; },
@@ -239,7 +241,6 @@ export class GameScene extends Phaser.Scene {
       die: reason => this.die(reason),
       win: final => this.win(final),
       goToFloor: (id, via) => this.goToFloor(id, via),
-      autosave: () => this.autosave(),
       igniteFuses: ends => this.fuses.ignite(ends, this.terrain, cells => this.onFuseBurn(cells)),
       fx: {
         flash: (text, color) => this.flash(text, color),
@@ -263,13 +264,14 @@ export class GameScene extends Phaser.Scene {
     const kb = this.input.keyboard!;
     this.cursors = kb.createCursorKeys();
     this.keys = kb.addKeys({ A: 'A', D: 'D', W: 'W', S: 'S' }) as GameScene['keys'];
-    const press = (key: PressKey) => { if (this.won) this.continueAfterWin(); else this.floorMech.onPress(key, this.time.now); };
+    const press = (key: PressKey) => { if (this.respawning) return; if (this.won) this.continueAfterWin(); else this.floorMech.onPress(key, this.time.now); };
     const touchPress = () => press('touch');
     kb.on('keydown-SPACE', () => press('SPACE'));
     kb.on('keydown-UP', () => press('UP'));
     kb.on('keydown-W', () => press('W'));
     bridge.on(TOUCH_JUMP, touchPress); bridge.on(TOUCH_ACTION, touchPress);
-    kb.on('keydown-R', () => { if (this.won) return; if (this.dead) this.resetAfterDeath(); else this.resetRoom(); });
+    // 换层（旋涡、淡出）和长大的过程中不响应 R：重置会清掉它们正在等的计时器和镜头，画面就卡在半路
+    kb.on('keydown-R', () => { if (this.won || this.leaving || this.growing || this.respawning) return; if (this.dead) this.resetAfterDeath(); else this.resetRoom(); });
     const requestReset = () => { if (this.dead && !this.won) this.resetAfterDeath(); };
     const continueGame = () => { if (this.won) this.continueAfterWin(); };
     const restartGame = () => this.restartRun();
@@ -306,7 +308,7 @@ export class GameScene extends Phaser.Scene {
     this.mechs.forEach(m => m.update?.(time, dt));
     this.updateFog();
     if (this.growing && this.growSince !== null && !this.growTween && (this.player.onGround || time - this.growSince > 1000)) this.startGrowth();   // 回到出生点、落了地再开始长
-    if (this.dead || this.won || this.leaving || this.growing) return;
+    if (this.dead || this.won || this.leaving || this.growing || this.respawning) return;
 
     const r = this.roomOf(this.player.x, this.player.y);
     if (!this.sameRoom(r, this.room)) { this.onRoomChanged(r); this.updateFog(); }   // 同一帧把新房间的迷雾画好，不给它露脸的机会
@@ -357,43 +359,40 @@ export class GameScene extends Phaser.Scene {
     this.prevEntry = this.entry;
     this.entry = { x: nx, y: ny, vx: p.body.velocity.x, vy: p.body.velocity.y };
     this.enterRoom(r, false);
-    this.autosave();
     this.mechs.forEach(m => m.onRoomChanged?.(r));
   }
 
-  private autosave(): void {
-    if (this.playtest) return;
-    const out: Partial<SaveData> = {};
-    this.mechs.forEach(m => m.persist?.(out, 'save'));
-    store.dispatch(writeSave({ ...out, floorId: this.floor.id, rows: this.terrain.rows(), room: this.room, entry: this.entry, stats: { ...this.stats }, stage: this.player.stage, fog: this.fog?.toState(), fuse: this.fuses.toState() }));
-  }
-
   // ---------- 重置 ----------
-  /** 重置前把所有"正在发生"的东西清掉：对话、定时器、镜头、火花、碎块平台，以及各机制的临时物体 */
-  private clearTransient(): void {
+  /**
+   * 重置前把"正在发生"的东西清掉：对话、镜头、火花，以及各机制的临时物体。
+   * 整张图重置还清掉所有计时器和碎块平台；只重置一个房间时，别的房间里正在烧的引线、在掉的碎块、被驮着的纸照常进行
+   * （地形和引线的计时器由它们自己的 resetRect 按房间取消，机制的计时器由机制在 onClear 里自己取消）
+   */
+  private clearTransient(scope: 'room' | 'world'): void {
     this.dialogue.end();
     this.mechs.forEach(m => m.onClear?.());
-    this.time.removeAllEvents();
+    if (scope === 'world') this.time.removeAllEvents();
     this.tweens.killTweensOf(this.cameras.main);
     this.cameras.main.shakeEffect.reset();
     this.sparks.killAll();
-    this.debris.clear();
+    if (scope === 'world') this.debris.clear();
+    else this.debris.clearRoom(this.room.rx * this.roomW, this.room.ry * this.roomH, this.roomW, this.roomH);
   }
 
-  /** R：当前房间的地形、引线、怪物恢复，玩家回到入口 */
-  private resetRoom(): void {
-    this.clearTransient();
+  /** R：当前房间的地形、引线、怪物恢复，玩家回到入口。revive = 死了之后的复活 */
+  private resetRoom(revive = false): void {
+    this.clearTransient('room');
     const x0 = this.room.rx * this.roomW, y0 = this.room.ry * this.roomH;
     this.terrain.resetRect(x0, y0, this.roomW, this.roomH);
     this.fuses.resetRect(x0, y0, this.roomW, this.roomH);
     this.enemies.resetRoom(this.room);
     this.mechs.forEach(m => m.onReset?.('room'));
-    this.respawn('房间已重置');
+    this.respawn('房间已重置', revive ? 'death' : 'reset');
   }
 
   /** 死亡重置整张地图：所有房间的地形、引线、怪物恢复，玩家回到重置点；探索记忆保留。机制可以改复活点（Boss 重演） */
-  private resetWorld(): void {
-    this.clearTransient();
+  private resetWorld(revive = false): void {
+    this.clearTransient('world');
     this.terrain.resetRect(0, 0, this.terrain.w, this.terrain.h);
     this.fuses.resetRect(0, 0, this.terrain.w, this.terrain.h);
     this.enemies.resetAll();
@@ -404,27 +403,44 @@ export class GameScene extends Phaser.Scene {
       const r = this.roomOf(this.entry.x, this.entry.y);
       if (!this.sameRoom(r, this.room)) this.enterRoom(r, true);
     }
-    this.respawn('地图已重置');
+    this.respawn('地图已重置', revive ? 'death' : 'reset');
   }
 
-  private respawn(message: string): void {
-    this.player.respawn(this.entry);
+  /** 重置之后玩家回到复活点 */
+  private respawn(message: string, reason: AppearReason): void {
     this.dead = false;
     this.fogDirty = true;
-    this.lastResetAt = this.time.now;
     this.flash(message, '#9ad1ff');
+    this.appear(reason);
+  }
+
+  /**
+   * 玩家出现在 this.entry（开局、换层、复活、R、进入下一关都走这里）。
+   * config.respawnHandOn[reason] 开着就由骷髅手捏着放进来：放下之前人冻着、不响应输入、不会死；关着就直接出现。
+   * then = 落地、能动了之后
+   */
+  private appear(reason: AppearReason, then?: () => void): void {
+    const entry = this.entry;
+    const land = () => { this.player.respawn(entry); this.lastResetAt = this.time.now; this.fogDirty = true; then?.(); };
+    if (this.cfg.respawnHandMs <= 0 || !this.cfg.respawnHandOn[reason]) { land(); return; }
+    this.respawning = true;
+    const x0 = this.room.rx * this.roomPxW;
+    playRespawnHand(this, this.player, entry, { tile: this.cfg.tile, durationMs: this.cfg.respawnHandMs, roomLeft: x0, roomRight: x0 + this.roomPxW }, () => {
+      this.respawning = false;
+      land();
+    });
   }
 
   /** 死亡画面里按 R（或点一下）：按设置重置整张地图或当前房间 */
   private resetAfterDeath(): void {
     if (!this.dead || this.time.now - this.diedAt < 300) return;   // 刚死的一瞬间不响应，免得误触
-    if (this.cfg.deathResetsWorld) this.resetWorld(); else this.resetRoom();
+    if (this.cfg.deathResetsWorld) this.resetWorld(true); else this.resetRoom(true);
     store.dispatch(setMode({ mode: 'playing' }));
   }
 
   // ---------- 死亡 / 通关 / 换层 ----------
   private die(reason: string): void {
-    if (this.dead || this.leaving) return;
+    if (this.dead || this.leaving || this.growing || this.respawning) return;   // 换层、进入下一关（淡出 + 长大）的过程中人是冻住的，不会死
     this.dead = true;
     this.dialogue.end();
     // 刚重置就死 = 入口本身致命 → 退回上一个房间的入口
@@ -470,7 +486,7 @@ export class GameScene extends Phaser.Scene {
     const cam = this.cameras.main;
     cam.fadeOut(350, 0, 0, 0);
     cam.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
-      this.clearTransient();
+      this.clearTransient('world');
       this.terrain.resetRect(0, 0, this.terrain.w, this.terrain.h);
       this.fuses.resetRect(0, 0, this.terrain.w, this.terrain.h);
       this.enemies.resetAll();
@@ -478,18 +494,18 @@ export class GameScene extends Phaser.Scene {
       // 出生点是格子中心：身体已经比一格高了，按脚底贴着那一格的底边放，别陷进地板
       const spawn = this.spawnPoints[0] ?? this.entry, feet = spawn.y + this.cfg.tile / 2;
       this.entry = { x: spawn.x, y: feet - this.player.displayHeight / 2, vx: 0, vy: 0 }; this.prevEntry = null;
-      this.player.respawn(this.entry);   // 活过来会动：先落到地上再冻住长大
       const r = this.roomOf(spawn.x, spawn.y);
       if (!this.sameRoom(r, this.room)) this.enterRoom(r, true);
       this.mechs.forEach(m => m.onRoomChanged?.(this.room));   // 出生房间里有 Boss 之类的，重新开始
       this.fogDirty = true;
-      this.growSince = this.time.now;
+      // 放回出生点（骷髅手放下来，或者直接出现），落了地再冻住长大
+      this.appear('level', () => { this.growSince = this.time.now; });
       cam.fadeIn(350, 0, 0, 0);
       this.flash(this.floor.name, '#ffd166');
     });
   }
 
-  /** 长大动画：冻住，长高一阶（多 STAGE_EXTRA 格）；长完把复活点记在长大后的身体中心（脚底不变），存档，解冻继续玩 */
+  /** 长大动画：冻住，长高一阶（多 STAGE_EXTRA 格）；长完把复活点记在长大后的身体中心（脚底不变），解冻继续玩 */
   private startGrowth(): void {
     this.player.freeze(0xffffff); this.player.clearTint();
     const from = this.player.stage, to = Math.min(MAX_STAGE, from + 1);
@@ -500,7 +516,6 @@ export class GameScene extends Phaser.Scene {
         this.player.setStage(to);
         this.growing = false; this.growTween = null;
         this.entry = { x: this.player.x, y: this.player.y, vx: 0, vy: 0 };
-        this.autosave();
         this.player.unfreeze();
       },
     });
@@ -516,8 +531,8 @@ export class GameScene extends Phaser.Scene {
     this.player.clearTint();
     const cam = this.cameras.main;
     const restart = () => {
-      const carry: Partial<SaveData> = {};
-      this.mechs.forEach(m => m.persist?.(carry, 'floor'));
+      const carry: CarryOver = {};
+      this.mechs.forEach(m => m.persist?.(carry));
       const data: StartGameData = { project: this.project, floorId: id, playtest: this.playtest, announceFloor: true, stats: { ...this.stats }, held: carry.held, hat: carry.hat, stage: this.player.stage, origin: this.origin };
       this.scene.restart(data);
     };
@@ -529,9 +544,8 @@ export class GameScene extends Phaser.Scene {
   /** 这一局的起点（第一次进场的启动数据） */
   private get origin(): StartGameData { return this.startData.origin ?? this.startData; }
 
-  /** 再来一次：从这一局的起点重开（正式游戏顺便清掉存档） */
+  /** 再来一次：从这一局的起点重开 */
   private restartRun(): void {
-    if (!this.playtest) store.dispatch(clearSave());
     this.scene.restart({ ...this.origin });
   }
 

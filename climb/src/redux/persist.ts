@@ -1,19 +1,29 @@
-// localStorage 持久化：编辑器项目（多层）+ 存档
-import type { EditorState } from './slices/editorSlice';
-import type { SaveState } from './slices/saveSlice';
-import type { GameConfig, Project, WorldModel } from '@/type';
-import { asProject } from '@/game/world/WorldModel';
+// localStorage 持久化：编辑器项目（多层）、试玩起始状态、玩家自己的设置（音量）
+import type { EditorState, PlayLoadout } from './slices/editorSlice';
+import type { GameConfig, Project, RoomCoord, WorldModel } from '@/type';
+import { asProject, roomKeyAt } from '@/game/world/WorldModel';
 import { DEFAULT_WORLD_HASH } from '@/game/world/defaultWorld';
 
 const KEY = 'climb:v1';
 
 export interface PersistedState {
   editor?: Partial<EditorState> & { model?: WorldModel };   // model 是旧格式（单层）
-  save?: SaveState;
   /** 玩家自己的设置（音量） */
   config?: Partial<GameConfig>;
   /** 存这份编辑副本时打包地图的指纹 */
   defaultHash?: string;
+}
+
+const isRoom = (r: unknown): r is RoomCoord => !!r && typeof r === 'object' && Number.isInteger((r as RoomCoord).rx) && Number.isInteger((r as RoomCoord).ry);
+
+/** 试玩起始状态：字段不对就丢掉那个字段（用默认值） */
+function readLoadout(v: unknown): Partial<PlayLoadout> | undefined {
+  if (!v || typeof v !== 'object') return undefined;
+  const o = v as Record<string, unknown>, out: Partial<PlayLoadout> = {};
+  if (Number.isInteger(o.stage)) out.stage = o.stage as number;
+  if (typeof o.hat === 'boolean') out.hat = o.hat;
+  if (typeof o.held === 'string') out.held = o.held;
+  return out;
 }
 
 export function loadPersisted(): PersistedState {
@@ -26,9 +36,15 @@ export function loadPersisted(): PersistedState {
     const stale = import.meta.env.PROD && p.defaultHash !== DEFAULT_WORLD_HASH;
     if (!stale && p.editor) {
       const project: Project | null = asProject(p.editor.project ?? p.editor.model);
-      if (project) out.editor = { project, floor: Math.min(p.editor.floor ?? 0, project.floors.length - 1), room: p.editor.room };
+      if (project) {
+        const floor = Math.max(0, Math.min(Number.isInteger(p.editor.floor) ? p.editor.floor! : 0, project.floors.length - 1));
+        // 存下来的房间在这一层不存在了（比如文件被改过）就不要它，编辑器会选出生点所在的房间
+        const room = isRoom(p.editor.room) && roomKeyAt(project.floors[floor].model, p.editor.room.rx, p.editor.room.ry) ? p.editor.room : undefined;
+        out.editor = { project, floor, ...(room ? { room } : {}) };
+      }
     }
-    if (p.save?.current?.version === 1) out.save = p.save;
+    const play = readLoadout(p.editor?.play);
+    if (play) out.editor = { ...out.editor, play: play as PlayLoadout };
     if (typeof p.config?.musicVolume === 'number') out.config = { musicVolume: Math.max(0, Math.min(1, p.config.musicVolume)) };
     return out;
   } catch { return {}; }

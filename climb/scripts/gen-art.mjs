@@ -1,5 +1,6 @@
 // 生成占位美术：纯 JS 写 PNG（不依赖任何绘图库），输出到 src/asset/
-// 运行：npm run gen-art
+// 运行：npm run gen-art                                 （全部重新生成，会覆盖手绘替换过的同名文件）
+//       npm run gen-art -- hand_hold.png hand_open.png  （只生成列出的文件）
 import { deflateSync } from 'node:zlib';
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -7,6 +8,8 @@ import { fileURLToPath } from 'node:url';
 
 const OUT = join(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'asset');
 mkdirSync(OUT, { recursive: true });
+/** 命令行给了文件名就只写这些 */
+const ONLY = new Set(process.argv.slice(2));
 
 // ---- PNG 编码 ----
 const CRC_TABLE = new Uint32Array(256).map((_, n) => {
@@ -62,7 +65,10 @@ class Canvas {
     const n = Math.max(Math.abs(x2 - x1), Math.abs(y2 - y1)) * 2;
     for (let i = 0; i <= n; i++) { const x = x1 + (x2 - x1) * i / n, y = y1 + (y2 - y1) * i / n; this.rect(Math.round(x - t / 2), Math.round(y - t / 2), t, t, c); }
   }
-  save(name) { writeFileSync(join(OUT, name), encodePNG(this)); console.log('wrote', name, `${this.w}x${this.h}`); }
+  save(name) {
+    if (ONLY.size && !ONLY.has(name)) return;
+    writeFileSync(join(OUT, name), encodePNG(this)); console.log('wrote', name, `${this.w}x${this.h}`);
+  }
 }
 
 const T = 32;
@@ -339,3 +345,29 @@ plate(32, 'plate1.png', false);
 plate(32, 'plate1_down.png', true);
 plate(64, 'plate2.png', false);
 plate(64, 'plate2_down.png', true);
+
+// ---- 复活时把玩家放回来的骷髅手：160x160，两帧（捏着 / 张开）。手臂从左上角伸进来，
+//      捏合点（玩家身体中心放的位置）在 (104, 120)，和 asset/index.ts 的 RESPAWN_HAND.pinch 一致。紫色光雾在游戏里用粒子画 ----
+{
+  const HB = 0xe8dfc9, HS = 0xb9ad94, HO = 0x2a1f35;   // 骨头、阴影、描边
+  const boneSeg = (c, pts, t) => {
+    for (let i = 1; i < pts.length; i++) c.line(pts[i - 1][0], pts[i - 1][1], pts[i][0], pts[i][1], HO, t + 4);
+    for (let i = 1; i < pts.length; i++) c.line(pts[i - 1][0], pts[i - 1][1], pts[i][0], pts[i][1], HB, t);
+    for (let i = 1; i < pts.length; i++) c.line(pts[i - 1][0] + 1, pts[i - 1][1] + 1, pts[i][0] + 1, pts[i][1] + 1, HS, Math.max(1, t - 4));
+    pts.slice(0, -1).forEach(([x, y]) => { c.roundRect(x - t / 2 - 1, y - t / 2 - 1, t + 2, t + 2, (t + 2) / 2, HO); c.roundRect(x - t / 2, y - t / 2, t, t, t / 2, HB); });
+  };
+  const knuckles = [[84, 84], [98, 74], [106, 74], [114, 80], [120, 88]];
+  const hand = (fingers, name) => {
+    const c = new Canvas(160, 160);
+    boneSeg(c, [[-6, 12], [60, 64]], 8);                       // 尺骨
+    boneSeg(c, [[6, -4], [68, 56]], 7);                        // 桡骨
+    [[64, 60], [72, 58], [68, 68], [76, 66], [72, 76]].forEach(([x, y]) => { c.roundRect(x - 6, y - 6, 12, 12, 6, HO); c.roundRect(x - 5, y - 5, 10, 10, 5, HB); });   // 腕骨
+    knuckles.forEach(k => boneSeg(c, [[72, 68], k], 5));      // 掌骨
+    fingers.forEach((f, i) => boneSeg(c, [knuckles[i], ...f], i === 0 ? 6 : 5));
+    c.save(name);
+  };
+  // 捏着：拇指在玩家左边，四根手指从右上绕下来扣住右边
+  hand([[[84, 100], [88, 114]], [[112, 80], [124, 92], [122, 106]], [[122, 84], [130, 100], [126, 116]], [[128, 94], [132, 112], [126, 126]], [[130, 106], [128, 122], [122, 132]]], 'hand_hold.png');
+  // 张开：拇指往左下、四指往右下散开
+  hand([[[78, 98], [70, 112]], [[118, 74], [136, 80], [146, 90]], [[126, 80], [144, 92], [152, 106]], [[132, 92], [146, 108], [150, 124]], [[134, 104], [140, 120], [138, 136]]], 'hand_open.png');
+}

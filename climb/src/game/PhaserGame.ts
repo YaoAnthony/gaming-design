@@ -44,7 +44,16 @@ export function createGame(parent: HTMLElement, mode: GameMode, data?: StartGame
   return game;
 }
 
+/**
+ * 销毁前先把跑着的场景都停掉：game.destroy 只发 DESTROY，不发 SHUTDOWN，
+ * 场景挂在 SHUTDOWN 上的清理（store / bridge 的订阅、音乐、HUD 复位）就不会跑，旧场景会一直挂在全局事件上
+ */
 export function destroyGame(game: Phaser.Game): void {
   if (current === game) current = null;
+  const { START, SHUTDOWN } = Phaser.Scenes;
+  game.scene.getScenes(false).forEach(s => {
+    const status = s.sys.settings.status;
+    if (status >= START && status < SHUTDOWN) game.scene.stop(s.sys.settings.key);
+  });
   game.destroy(true);
 }

@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { lazy, Suspense, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { GameView } from './GameView';
-import { EditorView } from './EditorView';
 import { DevFps } from './DevFps';
 import { useTouch } from './useTouch';
 import './app.css';
+
+/** 编辑器（连同 antd）按需加载：只有本地开发的电脑端会打开它 */
+const EditorRoot = lazy(() => import('./editor/EditorRoot'));
 
 type Tab = 'game' | 'editor';
 
@@ -28,7 +30,7 @@ export function App() {
         <button className={tab === 'game' ? 'active' : ''} onClick={() => setTab('game')}>游戏</button>
         <button className={tab === 'editor' ? 'active' : ''} onClick={() => setTab('editor')}>地图编辑器</button>
       </nav>
-      {tab === 'game' ? <GameView /> : <EditorView />}
+      {tab === 'game' ? <GameView /> : <Suspense fallback={null}><EditorRoot /></Suspense>}
       <DevFps />
     </div>
   );

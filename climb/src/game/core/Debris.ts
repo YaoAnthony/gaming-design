@@ -24,10 +24,12 @@ export class Debris {
     this.platforms = ctx.scene.physics.add.group({ allowGravity: false, immovable: true });
   }
 
-  /** 碎块被别的东西吃掉了（比如砸中 Boss）：平台一起删 */
-  removeChunk(ch: Chunk): void {
+  /** 碎块被别的东西吃掉了（比如砸中 Boss）：平台由 onChunkRemoved 一起删 */
+  removeChunk(ch: Chunk): void { this.ctx.terrain.removeChunk(ch); }
+
+  /** Terrain 的回调：碎块没落地就被拿掉了（重置、被吞），它的物理平台一起删 */
+  onChunkRemoved(ch: Chunk): void {
     this.falling.get(ch.id)?.destroy(); this.falling.delete(ch.id);
-    this.ctx.terrain.removeChunk(ch);
   }
 
   // ---------- Terrain 的回调 ----------
@@ -137,9 +139,21 @@ export class Debris {
     if (crushed) ctx.die('被落石压住了');
   }
 
-  /** 重置前：飘纸、掉落平台全清 */
+  /** 整张图重置前：飘纸、掉落平台全清 */
   clear(): void {
     this.carried.forEach(c => c.destroy()); this.carried = [];
     this.falling.forEach(p => p.destroy()); this.falling.clear();
+  }
+
+  /**
+   * 一个房间重置前：只清材料来自这个房间的纸（它会在原位恢复）；别的房间的纸照样被怪物驮着。
+   * 还在掉的碎块由 Terrain.resetRect 按同样的规则拿掉，平台跟着 onChunkRemoved 删
+   */
+  clearRoom(x0: number, y0: number, w: number, h: number): void {
+    this.carried = this.carried.filter(c => {
+      if (!c.cells.some(cell => this.ctx.terrain.originIn(cell.from, x0, y0, w, h))) return true;
+      c.destroy();
+      return false;
+    });
   }
 }

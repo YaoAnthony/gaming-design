@@ -1,6 +1,6 @@
-import { useState, type DragEvent } from 'react';
+import { useMemo, useState, type DragEvent } from 'react';
 import { useAppDispatch, useAppSelector } from '@/redux/hooks';
-import { addRoom, deleteRoom, moveRoom, setRoom, setRoomFlag, currentModel } from '@/redux/slices/editorSlice';
+import { addRoom, clearRoom, deleteRoom, moveRoom, setRoom, setRoomFlag, currentModel } from '@/redux/slices/editorSlice';
 import { roomKeyAt, worldCols, worldRowsCount } from '@/game/world/WorldModel';
 import type { RoomCoord } from '@/type';
 import { App as AntApp } from 'antd';
@@ -15,7 +15,9 @@ export function RoomMap() {
   // 机制声明的房间开关：这一层的层机制 + 所有通用机制
   const floorMech = floor ? floorMechanicOf(floor) : null;
   const roomFlagOptions = Mechanics.filter(m => m === floorMech || m.scope === 'global').flatMap(m => m.roomFlags);
-  const lockColors = Object.fromEntries((model.locks?.groups ?? []).map(g => [g.id, g.color]));
+  // 缩略图的重画依赖它：只在锁组变了时换新对象，不然每次编辑所有缩略图都要重画
+  const lockGroups = model.locks?.groups;
+  const lockColors = useMemo(() => Object.fromEntries((lockGroups ?? []).map(g => [g.id, g.color])), [lockGroups]);
   const dispatch = useAppDispatch();
   const { modal } = AntApp.useApp();
   const [dragging, setDragging] = useState<RoomCoord | null>(null);
@@ -71,9 +73,15 @@ export function RoomMap() {
             <label key={f.key} className="check"><input type="checkbox" checked={!!model.roomFlags?.[key]?.[f.key]} onChange={e => dispatch(setRoomFlag({ key, flags: { [f.key]: e.target.checked } }))} /> {f.label}</label>
           ))}
           <div className="row">
+            <button className="btn" onClick={() => modal.confirm({
+              title: `清空房间 ${key}？`,
+              content: '砖块变回四周岩石的空房间，物件、引线、迷雾区、门、钥匙、文字都删掉。可以撤销。',
+              okText: '清空', okButtonProps: { danger: true }, cancelText: '取消',
+              onOk: () => dispatch(clearRoom(key)),
+            })}>清空房间 {key}</button>
             <button className="btn danger" onClick={() => modal.confirm({
               title: `删除房间 ${key}？`,
-              content: '不能撤销。',
+              content: '可以撤销。',
               okText: '删除', okButtonProps: { danger: true }, cancelText: '取消',
               onOk: () => dispatch(deleteRoom(key)),
             })}>删除房间 {key}</button>

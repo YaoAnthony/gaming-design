@@ -32,11 +32,30 @@ export class FogOfWar {
   private glows: Phaser.GameObjects.Image[] = [];
   private room: RoomCoord = { rx: -1, ry: -1 };
   private dirty = true;
+  /** 每格属于哪个迷雾区（zoneKeys 的下标，-1 = 不在区里）；建的时候算一次 */
+  private readonly zoneOf: Int32Array;
+  private readonly zoneKeys: string[] = [];
+  /** 不启用迷雾的房间里的格子：永远亮、永远算见过 */
+  private readonly alwaysLit: Uint8Array;
+  /** 上一次照亮的格子：下一次重算只把这些清零，不清整张图 */
+  private lit: number[] = [];
 
-  constructor(scene: Phaser.Scene, private grid: string[][], private zones: string[][], private opts: FogOptions, saved?: FogState) {
+  constructor(scene: Phaser.Scene, private grid: string[][], zones: string[][], private opts: FogOptions, saved?: FogState) {
     this.h = grid.length; this.w = grid[0].length;
     this.explored = new Uint8Array(this.w * this.h);
     this.light = new Float32Array(this.w * this.h);
+    this.zoneOf = new Int32Array(this.w * this.h).fill(-1);
+    this.alwaysLit = new Uint8Array(this.w * this.h);
+    const zoneIds = new Map<string, number>();
+    for (let y = 0; y < this.h; y++) for (let x = 0; x < this.w; x++) {
+      const i = y * this.w + x, key = opts.keyAt(Math.floor(x / opts.roomW), Math.floor(y / opts.roomH));
+      if (key && opts.noFogRooms.has(key)) { this.alwaysLit[i] = 1; this.light[i] = 1; this.explored[i] = 1; continue; }
+      const c = zones[y]?.[x];
+      if (!key || !c || c === '.') continue;
+      const zk = `${key}:${c}`;
+      if (!zoneIds.has(zk)) { zoneIds.set(zk, this.zoneKeys.length); this.zoneKeys.push(zk); }
+      this.zoneOf[i] = zoneIds.get(zk)!;
+    }
     if (saved && saved.explored.length === this.h) {
       saved.explored.forEach((row, y) => [...row].forEach((c, x) => { if (c === '1') this.explored[y * this.w + x] = 1; }));
       saved.revealedZones.forEach(z => this.revealed.add(z));
@@ -55,14 +74,24 @@ export class FogOfWar {
   /** 光照传播（纯函数）：返回每格亮度 0..1。
    *  形状是圆：亮度按到玩家的直线距离衰减，超过 radius 就不亮；沿空气八方向扩散，实心格被照亮但不再传播 */
   static computeLight(grid: string[][], sx: number, sy: number, radius: number): Float32Array {
+    const w = grid[0].length;
+    const light = new Float32Array(w * grid.length);
+    FogOfWar.forEachLit(grid, sx, sy, radius, (i, v) => { light[i] = v; });
+    return light;
+  }
+
+  /** 同上，但只把照亮的格子（格子序号 + 亮度）交给 fn：只在光的半径范围里做事，不分配整张图大小的数组 */
+  static forEachLit(grid: string[][], sx: number, sy: number, radius: number, fn: (i: number, v: number) => void): void {
     const h = grid.length, w = grid[0].length;
-    const light = new Float32Array(w * h);
-    if (sx < 0 || sy < 0 || sx >= w || sy >= h) return light;
-    const seen = new Uint8Array(w * h);
+    if (sx < 0 || sy < 0 || sx >= w || sy >= h) return;
+    // 光只会落在以光源为中心、半径 radius 的方框里：已访问标记只开这么大
+    const r = Math.ceil(radius) + 1, bw = 2 * r + 1;
+    const seen = new Uint8Array(bw * bw);
+    const local = (x: number, y: number) => (y - sy + r) * bw + (x - sx + r);
     const solid = (x: number, y: number) => !!Tiles.get(grid[y][x])?.solid;
     const value = (x: number, y: number) => { const d = Math.hypot(x - sx, y - sy); return d > radius ? 0 : 1 - d / (radius + 1); };
     const q: number[] = [sy * w + sx];
-    seen[sy * w + sx] = 1; light[sy * w + sx] = 1;
+    seen[local(sx, sy)] = 1; fn(sy * w + sx, 1);
     let qi = 0;
     while (qi < q.length) {
       const i = q[qi++]; const x = i % w, y = (i - x) / w;
@@ -70,17 +99,16 @@ export class FogOfWar {
         if (!dx && !dy) continue;
         const nx = x + dx, ny = y + dy;
         if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
-        const ni = ny * w + nx;
-        if (seen[ni]) continue;
         const v = value(nx, ny);
-        if (v <= 0) continue;
+        if (v <= 0) continue;   // 超出半径：也就不会出方框
+        const li = local(nx, ny);
+        if (seen[li]) continue;
         // 斜向不能从两块墙的夹缝里钻过去
         if (dx && dy && solid(x + dx, y) && solid(x, y + dy)) continue;
-        seen[ni] = 1; light[ni] = v;
-        if (!solid(nx, ny)) q.push(ni);   // 墙被照亮，但挡住后面
+        seen[li] = 1; fn(ny * w + nx, v);
+        if (!solid(nx, ny)) q.push(ny * w + nx);   // 墙被照亮，但挡住后面
       }
     }
-    return light;
   }
 
   /** 玩家站在 (px, py) 格：重算视野、揭开迷雾区、更新记忆 */
@@ -88,34 +116,32 @@ export class FogOfWar {
   private sources: { x: number; y: number; r: number }[] = [];
   setSources(list: { x: number; y: number; r: number }[]): void { this.sources = list; this.dirty = true; }
 
+  /** 只处理这一次被照亮的格子：上一次亮的清零，玩家和每个光源各扩散一次（每格取最亮的），再按迷雾区过滤 */
   compute(px: number, py: number): void {
-    const { w, h } = this;
-    this.light = FogOfWar.computeLight(this.grid, px, py, this.opts.radius);
-    // 其他光源叠加：每格取最亮的那个
-    this.sources.forEach(s => {
-      const l = FogOfWar.computeLight(this.grid, s.x, s.y, s.r);
-      for (let i = 0; i < l.length; i++) if (l[i] > this.light[i]) this.light[i] = l[i];
-    });
+    this.lit.forEach(i => { if (!this.alwaysLit[i]) this.light[i] = 0; });
+    const lit: number[] = [];
+    const add = (i: number, v: number) => {
+      if (this.alwaysLit[i]) return;
+      if (this.light[i] === 0) lit.push(i);
+      if (v > this.light[i]) this.light[i] = v;
+    };
+    FogOfWar.forEachLit(this.grid, px, py, this.opts.radius, add);
+    this.sources.forEach(s => FogOfWar.forEachLit(this.grid, s.x, s.y, s.r, add));
     // 踏进迷雾区就揭开整个区
-    const z = this.zoneKey(px, py);
-    if (z) this.revealed.add(z);
-    for (let y = 0; y < h; y++)
-      for (let x = 0; x < w; x++) {
-        const i = y * w + x;
-        const key = this.opts.keyAt(Math.floor(x / this.opts.roomW), Math.floor(y / this.opts.roomH));
-        if (key && this.opts.noFogRooms.has(key)) { this.light[i] = 1; this.explored[i] = 1; continue; }
-        const zk = this.zoneKey(x, y);
-        if (zk && !this.revealed.has(zk)) { this.light[i] = 0; continue; }   // 没揭开的区：全黑，也不记
-        if (this.light[i] > 0) this.explored[i] = 1;
-      }
+    const z = this.zoneAt(px, py);
+    if (z >= 0) this.revealed.add(this.zoneKeys[z]);
+    lit.forEach(i => {
+      const zone = this.zoneOf[i];
+      if (zone >= 0 && !this.revealed.has(this.zoneKeys[zone])) { this.light[i] = 0; return; }   // 没揭开的区：全黑，也不记
+      this.explored[i] = 1;
+    });
+    this.lit = lit;
     this.dirty = true;
   }
 
-  private zoneKey(x: number, y: number): string | null {
-    const c = this.zones[y]?.[x];
-    if (!c || c === '.') return null;
-    const key = this.opts.keyAt(Math.floor(x / this.opts.roomW), Math.floor(y / this.opts.roomH));
-    return key ? `${key}:${c}` : null;
+  private zoneAt(x: number, y: number): number {
+    if (x < 0 || y < 0 || x >= this.w || y >= this.h) return -1;
+    return this.zoneOf[y * this.w + x];
   }
 
   /** 这个格子玩家知道吗（预览、UI 用） */

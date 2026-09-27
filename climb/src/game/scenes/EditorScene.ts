@@ -8,7 +8,7 @@ import { layoutText, textSize } from '@/game/world/font';
 import { bridge, EVT, SCENE, type PickedCell } from '@/game/bridge';
 import { store } from '@/redux/store';
 import { resizeGame } from '@/game/resize';
-import { addText, currentModel, paintCell, paintDoor, paintEntity, paintFog, paintFuse, paintKey, removeText } from '@/redux/slices/editorSlice';
+import { addText, beginStroke, currentModel, paintCell, paintDoor, paintEntity, paintFog, paintFuse, paintKey, removeText } from '@/redux/slices/editorSlice';
 import { TILE_FRAMES } from '@/asset';
 import { FOG_ZONE_COLORS } from '@/ui/editor/fogZones';
 
@@ -27,6 +27,11 @@ export class EditorScene extends Phaser.Scene {
   private T = 32;
   private lastVersion = -1;
   private lastRoomKey: string | null = null;
+  /** 瓦片层按建场景时的房间尺寸建的；尺寸变了（改房间尺寸、切到另一种尺寸的层）就重启场景，不能在旧瓦片层上画 */
+  private builtSize = { w: 0, h: 0 };
+  private restarting = false;
+  /** 这一笔是在画布里按下的：从画布外（侧栏、滚动条）按住拖进来不算画 */
+  private stroking = false;
 
   constructor() { super(SCENE.editor); }
 
@@ -34,6 +39,9 @@ export class EditorScene extends Phaser.Scene {
     const model = currentModel(store.getState().editor);
     this.T = store.getState().config.tile;
     const T = this.T;
+    this.builtSize = { w: model.roomW, h: model.roomH };
+    this.restarting = false;
+    this.stroking = false;
     // 画布 = 一个房间；试玩回来时尺寸可能被游戏场景改过
     resizeGame(this.game, model.roomW * T, model.roomH * T);
     this.cameras.main.setSize(model.roomW * T, model.roomH * T);
@@ -53,11 +61,16 @@ export class EditorScene extends Phaser.Scene {
 
     this.input.mouse?.disableContextMenu();
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
+      store.dispatch(beginStroke());   // 按下到松开画的所有格子算一步撤销
+      this.stroking = true;
       if (this.state().picking) this.pickStart(p);   // 选试玩起点：不画东西
       else if (this.state().brush === 'text') this.placeText(p);
       else this.paint(p);
     });
-    this.input.on('pointermove', (p: Phaser.Input.Pointer) => { this.moveCursor(p); if (p.isDown && !this.state().picking && this.state().brush !== 'text') this.paint(p); });
+    this.input.on('pointermove', (p: Phaser.Input.Pointer) => { this.moveCursor(p); if (this.stroking && p.isDown && !this.state().picking && this.state().brush !== 'text') this.paint(p); });
+    const endStroke = () => { this.stroking = false; };
+    this.input.on('pointerup', endStroke);
+    this.input.on('pointerupoutside', endStroke);
     this.input.on('pointerout', () => this.cursor.setVisible(false));
 
     const reload = () => this.refreshAll();
@@ -197,6 +210,10 @@ export class EditorScene extends Phaser.Scene {
     const s = this.state();
     this.lastVersion = s.version; this.lastRoomKey = this.key();
     const T = this.T, m = currentModel(s);
+    if (m.roomW !== this.builtSize.w || m.roomH !== this.builtSize.h) {
+      if (!this.restarting) { this.restarting = true; this.scene.restart(); }
+      return;
+    }
     this.grid.clear(); this.grid.lineStyle(1, 0xffffff, 0.12);
     for (let x = 0; x <= m.roomW; x++) this.grid.lineBetween(x * T, 0, x * T, m.roomH * T);
     for (let y = 0; y <= m.roomH; y++) this.grid.lineBetween(0, y * T, m.roomW * T, y * T);

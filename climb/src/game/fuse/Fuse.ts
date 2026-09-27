@@ -144,13 +144,14 @@ export class FuseNet {
           group.forEach(c => { const i = c.y * this.w + c.x; this.cells[i] &= ~bit; this.claimed[i] &= ~bit; });
           terrain.burnCells(group, shatter);   // 烧到哪格烧哪格：岩石裂成碎岩（紫色直接烧没），其它实心的烧没
           terrain.shake(group, 0);    // 周围的脆岩松脱（经过空气也算爆炸）
-          this.refreshNodes();
+          this.refreshNodes(group);
           onBurn?.(group);
         };
-        if (hop === 0) burn(); else this.pending.push(this.scene.time.delayedCall(hop * this.opts.delayMs, burn));
+        if (hop === 0) { burn(); return; }
+        const timer: Phaser.Time.TimerEvent = this.scene.time.delayedCall(hop * this.opts.delayMs, () => { this.pending = this.pending.filter(t => t !== timer); burn(); });
+        this.pending.push(timer);
       });
     });
-    this.pending = this.pending.filter(t => !t.hasDispatched);
     return total;
   }
 
@@ -161,7 +162,7 @@ export class FuseNet {
     this.claimed.fill(0);
   }
 
-  /** 房间重置：矩形内恢复成初始引线 */
+  /** 房间重置：矩形内恢复成初始引线。正在烧的引线不管在哪个房间，全部停掉（排上的位放掉，之后还能再点） */
   resetRect(x0: number, y0: number, w: number, h: number, keep?: (x: number, y: number) => boolean): void {
     this.cancelPending();
     for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) {
@@ -176,16 +177,27 @@ export class FuseNet {
    * 默认都是同一个小黄点；这一格的端点里有设了 node 的颜色（紫色）就画成那种特别的样子。
    * 同一格的样子变了（比如交叉的紫线烧完了、只剩橙色端点）就拆掉重画。
    */
-  private refreshNodes(): void {
-    const want = new Map<number, number>();   // 格子序号 → 样子（-1 = 普通；其它 = 用哪个颜色的 node）
-    for (let y = 0; y < this.h; y++) for (let x = 0; x < this.w; x++) {
-      if (!this.cells[y * this.w + x]) continue;
+  /** @param changed 只有这些格子变了：只重看它们和四邻（端点只取决于自己和四邻）。不给 = 整张图重看 */
+  private refreshNodes(changed?: CellRef[]): void {
+    const look = (i: number): number | undefined => {   // 这一格该画成什么样：undefined = 不画；-1 = 普通；其它 = 用哪个颜色的 node
+      if (!this.cells[i]) return undefined;
+      const x = i % this.w, y = (i - x) / this.w;
       const ends = CHANNELS.filter(ch => this.endOk(x, y, ch, false));
-      if (!ends.length) continue;
-      want.set(y * this.w + x, ends.find(ch => FUSE_CHANNELS[ch].node) ?? -1);
-    }
-    this.nodes.forEach((n, i) => { if (want.get(i) !== n.style) { destroyNode(n); this.nodes.delete(i); } });
-    want.forEach((style, i) => { if (!this.nodes.has(i)) this.nodes.set(i, this.makeNode(i, style)); });
+      return ends.length ? ends.find(ch => FUSE_CHANNELS[ch].node) ?? -1 : undefined;
+    };
+    const sync = (i: number) => {
+      const style = look(i), n = this.nodes.get(i);
+      if (n && n.style === style) return;
+      if (n) { destroyNode(n); this.nodes.delete(i); }
+      if (style !== undefined) this.nodes.set(i, this.makeNode(i, style));
+    };
+    if (!changed) { for (let i = 0; i < this.w * this.h; i++) sync(i); return; }
+    const todo = new Set<number>();
+    changed.forEach(c => [[0, 0] as const, ...NEIGHBORS].forEach(([dx, dy]) => {
+      const x = c.x + dx, y = c.y + dy;
+      if (x >= 0 && y >= 0 && x < this.w && y < this.h) todo.add(y * this.w + x);
+    }));
+    todo.forEach(sync);
   }
 
   private makeNode(i: number, style: number): NodeGfx {

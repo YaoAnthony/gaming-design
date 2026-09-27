@@ -1,4 +1,4 @@
-// ===== Boss 房：进门封门 → 大史莱姆落下 → 只有落石和引线能伤它 → 打赢开门、爆开一圈穿墙火花 =====
+// ===== Boss 房：进门封门（房间四边的开口，见 seal.ts）→ 大史莱姆落下 → 只有落石和引线能伤它 → 打赢开门、爆开一圈穿墙火花 =====
 // 打赢之后：第一层、死在别的房间 → 回到 Boss 房，Boss 在你眼前再炸一次（引线重新点、路重新开）；
 // 死在 Boss 房里、或不在第一层 → Boss 回来，重新打。
 // 「打赢过」记在 Redux 的 progress 里，按「层 + 关」分开：第 1 关打赢的不算第 2、3 关的；进入下一关 Boss 重新出场。
@@ -14,7 +14,10 @@ import type { Mechanic } from '../define';
 import { Boss } from './Boss';
 import { SparkBurst } from './SparkBurst';
 import { hueShiftedTexture } from './minionTexture';
+import { SEAL } from './seal';
 
+/** Boss 战的音乐（音频清单里的 key） */
+const BOSS_MUSIC = 'bossMusic';
 /** 玩家离门口多远（格）才封门 */
 const SEAL_DISTANCE = 1.5;
 /** 封门之后多久 Boss 落下 */
@@ -43,10 +46,15 @@ export class BossFight implements Mechanic {
   private minions: Enemy[] = [];
   /** 上次吐怪的时间：两次之间至少隔 bossSpitMs */
   private lastSpitAt = -Infinity;
+  /** 封门后等 Boss 落下的计时器：重置时要取消（只重置一个房间时场景不会清掉所有计时器） */
+  private spawnTimer: Phaser.Time.TimerEvent | null = null;
 
   constructor(private ctx: PlayContext) {}
 
-  addBoss(spawn: EnemySpawn): void { this.spawns.push(spawn); }
+  addBoss(spawn: EnemySpawn): void {
+    this.spawns.push(spawn);
+    this.ctx.music.preload(BOSS_MUSIC);   // 这一层有 Boss：进层就开始下 Boss 曲，打起来的时候已经有了
+  }
 
   // ---------- 生命周期 ----------
   /** 进层时也会对出生房间调一次 */
@@ -59,6 +67,7 @@ export class BossFight implements Mechanic {
   }
 
   onClear(): void {
+    this.spawnTimer?.remove(false); this.spawnTimer = null;
     if (this.boss || this.doors.length || this.doorsPending.length) this.end(false);
     this.bursts.forEach(b => b.destroy()); this.bursts = [];
   }
@@ -107,14 +116,16 @@ export class BossFight implements Mechanic {
   /** 当作没打过：Boss 会在下次进房 / 重置时回来 */
   private forgetWin(): void { if (this.won) store.dispatch(forgetBoss(this.progressKey)); this.defeated.clear(); }
 
-  /** 玩家进 Boss 房：先不出 Boss，只记下要封的门，等玩家走进来一点再封门、再出场 */
+  /** 玩家进 Boss 房：先不出 Boss，只记下要封的门（房间四条边上所有不是实心的格子），等玩家走进来一点再封门、再出场 */
   private startBoss(r: RoomCoord): void {
+    if (this.boss || this.doors.length) return;   // 已经在打了（比如从没封上的口子出去又进来）：别把封门的记录清掉
     const { rooms, terrain } = this.ctx;
-    const x0 = r.rx * rooms.w, y0 = r.ry * rooms.h;
+    const x0 = r.rx * rooms.w, y0 = r.ry * rooms.h, x1 = x0 + rooms.w - 1, y1 = y0 + rooms.h - 1;
     this.room = r;
-    this.doors = []; this.doorsPending = [];
-    for (let y = y0; y < y0 + rooms.h; y++) for (const x of [x0, x0 + rooms.w - 1]) {
-      if (!terrain.isSolid(x, y)) this.doorsPending.push({ x, y });
+    this.doorsPending = [];
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+      const edge = x === x0 || x === x1 || y === y0 || y === y1;
+      if (edge && !terrain.isSolid(x, y)) this.doorsPending.push({ x, y });
     }
   }
 
@@ -122,6 +133,7 @@ export class BossFight implements Mechanic {
   private sealDoors(): void {
     if (!this.doorsPending.length || !this.room) return;
     const { ctx } = this, T = ctx.cfg.tile, b = ctx.player.body;
+    if (ctx.appearing) return;   // 人还被骷髅手捏着在空中：等放下了再判断，复活点才不会记在半空
     // 人不在 Boss 房里（比如刚进来又退回门外）就不封，而且把没封的门忘掉：下次进房 startBoss 会重新记。
     // 不能留着等：场景每帧先跑机制再判断换房间，留着的旧门会在人重新进房的那一帧先被封上，
     // 紧接着 startBoss 又把门的记录清空，结果门封死了、Boss 也不出来
@@ -131,13 +143,13 @@ export class BossFight implements Mechanic {
       return Math.abs(b.center.x - cx) > SEAL_DISTANCE * T || Math.abs(b.center.y - cy) > SEAL_DISTANCE * T;
     });
     if (!clear) return;
-    this.doorsPending.forEach(c => { this.doors.push(c); ctx.terrain.set(c.x, c.y, 'R'); });
+    this.doorsPending.forEach(c => { this.doors.push(c); ctx.terrain.set(c.x, c.y, SEAL.id); });
     this.doorsPending = [];
     ctx.scene.cameras.main.shake(120, 0.005);
     ctx.fx.fogDirty();
     ctx.entry = { x: ctx.player.x, y: ctx.player.y, vx: 0, vy: 0 };
     this.sealEntry = ctx.entry;
-    ctx.scene.time.delayedCall(SPAWN_DELAY_MS, () => { if (this.room && !this.boss && this.doors.length) this.spawnBoss(this.room); });
+    this.spawnTimer = ctx.scene.time.delayedCall(SPAWN_DELAY_MS, () => { this.spawnTimer = null; if (this.room && !this.boss && this.doors.length) this.spawnBoss(this.room); });
   }
 
   /** 门关上之后 Boss 才从放物件的位置落下 */
@@ -148,7 +160,7 @@ export class BossFight implements Mechanic {
     this.boss = new Boss(ctx.scene, bx, by, { hp: ctx.cfg.bossHp, hopMs: ctx.cfg.bossHopMs, spitMs: ctx.cfg.bossSpitMs, tile: T });
     this.collider = ctx.scene.physics.add.collider(this.boss, ctx.terrain.layer);
     ctx.hud.boss({ hp: this.boss.hp, max: this.boss.maxHp });
-    ctx.music.play('bossMusic');
+    ctx.music.play(BOSS_MUSIC);
     ctx.scene.cameras.main.shake(300, 0.012);
     ctx.fx.flash('大史莱姆！', '#9b5de5');
     ctx.fx.fogDirty();

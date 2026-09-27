@@ -2,7 +2,7 @@
 // 层机制（scope: 'floor'）：决定这一层怎么玩，每层一个，接管玩家移动和按键。平台跳、吃豆人……
 // 通用机制（scope: 'global'）：哪一层都能用，默认地图里出现它的物件就自动启用。Boss、钥匙、滑块……
 // 新机制 = mechanics/ 下一个文件夹 + mechanics/index.ts 里一行 import，GameScene 不用改。
-import type { EntitySpec, Floor, SaveData, SpawnAt, WorldModel } from '@/type';
+import type { CarryOver, EntitySpec, Floor, SpawnAt, WorldModel } from '@/type';
 import { defineEntity, Entities, Registry } from '@/game/registry/registry';
 import type { PlayContext, Suckable } from '@/game/core/PlayContext';
 
@@ -32,8 +32,8 @@ export interface Mechanic {
   onReset?(scope: 'room' | 'world' | 'level'): { x: number; y: number; vx: number; vy: number } | void;
   /** 引线烧过这些格子 */
   onFuseBurn?(cells: FuseBurnCell[]): void;
-  /** 写进存档 / 带到下一层的状态。kind = save 是存档，floor 是换层 */
-  persist?(out: Partial<SaveData>, kind: 'save' | 'floor'): void;
+  /** 换层时要带到下一层的状态（手上的道具、帽子……） */
+  persist?(out: CarryOver): void;
   /** 旋涡（进城堡门）时要一起吸进去的东西 */
   vortexTargets?(): Suckable[];
   destroy?(): void;

@@ -62,6 +62,8 @@ export interface PlayContext {
   readonly dead: boolean;
   readonly won: boolean;
   readonly leaving: boolean;
+  /** 正在出场（骷髅手把人放进来）：人还不在自己手里，别按玩家位置触发东西 */
+  readonly appearing: boolean;
   readonly playtest: boolean;
   /** 复活点：重置时回到这里（Boss 封门时会改它） */
   entry: EntryState;
@@ -74,8 +76,6 @@ export interface PlayContext {
   win(final: boolean): void;
   /** 换层；给了 via（门的位置）就先来一段旋涡 */
   goToFloor(id: string, via?: Point): void;
-  /** 存档（试玩模式下什么都不做） */
-  autosave(): void;
   /** 点燃引线端点（带颜色：只沿这种颜色烧），返回会烧到几格；0 = 什么都没点着 */
   igniteFuses(ends: FuseEnd[]): number;
 

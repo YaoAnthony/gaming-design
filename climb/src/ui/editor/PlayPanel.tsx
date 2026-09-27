@@ -5,7 +5,7 @@ import { currentFloor, setPicking, setPlayLoadout } from '@/redux/slices/editorS
 import { getGame } from '@/game/PhaserGame';
 import { bridge, EVT, SCENE, type PickedCell, type StartGameData } from '@/game/bridge';
 import { Items, Tiles } from '@/game/registry/registry';
-import { LOCK_COLOR_NAMES, LOCK_COLORS } from '@/game/world/WorldModel';
+import { findStart, LOCK_COLOR_NAMES, LOCK_COLORS } from '@/game/world/WorldModel';
 
 const STAGES = [
   { value: 0, label: '第1关', title: '1 格高' },
@@ -39,10 +39,12 @@ export function PlayPanel({ playing, onStart }: Props) {
     ...(floor.model.locks?.groups ?? []).map(g => ({ value: 'key:' + g.id, label: colorName(g.color) + '钥匙' })),
   ];
   const held = heldOptions.some(o => o.value === loadout.held) ? loadout.held : '';
+  const hasSpawn = !!findStart(floor.model);
 
   const start = (where: Pick<StartGameData, 'startRoom' | 'entry'>) => {
     const game = getGame();
-    if (!game) return;
+    // 资源还在加载（编辑器场景还没开始）就开试玩，Boot 加载完会再启动编辑器场景，两个场景叠在一起跑
+    if (!game || !game.scene.isActive(SCENE.editor)) { void message.info('还在加载，稍等一下'); return; }
     dispatch(setPicking(false));
     const data: StartGameData = { project, floorId: floor.id, playtest: true, stage: loadout.stage, hat: loadout.hat, held: held || undefined, ...where };
     game.scene.getScene(SCENE.editor).scene.start(SCENE.game, data);
@@ -91,7 +93,7 @@ export function PlayPanel({ playing, onStart }: Props) {
         ? <>
             <div className="pick-hint">点地图上一格，从那里开始</div>
             <div className="row">
-              <button className="btn" onClick={() => start({ startRoom: null })}>▶ 从出生点开始</button>
+              <button className="btn" disabled={!hasSpawn} title={hasSpawn ? undefined : '这一层没有出生点'} onClick={() => start({ startRoom: null })}>▶ 从出生点开始</button>
               <button className="btn" onClick={() => dispatch(setPicking(false))}>取消</button>
             </div>
           </>
@@ -99,6 +101,7 @@ export function PlayPanel({ playing, onStart }: Props) {
             <div className="row"><button className="btn primary" onClick={() => dispatch(setPicking(true))}>▶ 从这层开始</button></div>
             <div className="hint">ESC 回编辑器，R 重置房间。</div>
           </>}
+      {!hasSpawn && <div className="hint" style={{ color: '#ef476f' }}>这一层没有出生点：物品栏「物件」里放一个。</div>}
     </>
   );
 }

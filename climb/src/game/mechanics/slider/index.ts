@@ -61,7 +61,7 @@ class Sliders implements Mechanic {
     if (t <= 0) { g.lineStyle(2, 0xef476f, 0.9); g.lineBetween(cx + 4, cy - 5, cx + 12, cy + 5); g.lineBetween(cx + 12, cy - 5, cx + 4, cy + 5); return; }
     const n = t < 0.34 ? 1 : t < 0.67 ? 2 : 3;
     g.lineStyle(2, 0xffd166, 0.9);
-    for (let i = 1; i <= n; i++) g.beginPath(), g.arc(cx, cy, 5 + i * 5, -0.9, 0.9, false), g.strokePath();
+    for (let i = 1; i <= n; i++) { g.beginPath(); g.arc(cx, cy, 5 + i * 5, -0.9, 0.9, false); g.strokePath(); }
   }
 }
 

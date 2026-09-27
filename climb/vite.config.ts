@@ -1,4 +1,4 @@
-/// <reference types="vitest" />
+/// <reference types="vitest/config" />
 import { defineConfig, normalizePath, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { fileURLToPath, URL } from 'node:url';
@@ -54,6 +54,16 @@ export default defineConfig({
   plugins: [react(), saveMapPlugin()],
   resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
   server: { port: 5174, strictPort: true },
+  build: {
+    rollupOptions: {
+      output: {
+        // 引擎和 React 单独成包：改游戏代码后，浏览器缓存里的这两个大包还能用
+        manualChunks: { phaser: ['phaser'], react: ['react', 'react-dom', 'react-redux', '@reduxjs/toolkit'] },
+      },
+    },
+    // Phaser 压缩后本身就一百多万字节，拆不开；其它包超过这个大小才提醒
+    chunkSizeWarningLimit: 1500,
+  },
   test: {
     environment: 'node',
     // 机制文件夹里的运行时类 import 了 Phaser；测试只用注册表，换成替身（见 src/test/phaser-stub.ts）

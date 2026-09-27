@@ -32,7 +32,7 @@ export function TextPanel() {
               <Select size="small" value={b.target} placeholder="跳到" onChange={v => dispatch(updateText({ key, id: b.id, patch: { target: v } }))} options={floors} status={floors.some(f => f.value === b.target) ? undefined : 'error'} />
               <button className="btn" style={{ flex: 'none' }} onClick={() => dispatch(removeText({ key, id: b.id }))}>✕</button>
             </div>
-            <div className="hint">({b.x}, {b.y})　{sz.w}×{sz.h} 格　全炸完 → 跳层</div>
+            <div className="hint">({b.x}, {b.y}){'\u3000'}{sz.w}×{sz.h} 格{'\u3000'}全炸完 → 跳层</div>
           </div>
         );
       })}

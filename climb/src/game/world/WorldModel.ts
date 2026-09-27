@@ -175,6 +175,24 @@ export function setFuseCell(m: WorldModel, key: string, x: number, y: number, ch
   m.fuse[key][y] = r.substring(0, x) + encodeFuse(mask) + r.substring(x + 1);
 }
 
+/** 移动标记拼成整张图（'.' = 无） */
+export function moverRows(m: WorldModel): string[] {
+  const out: string[] = [];
+  const blank = '.'.repeat(m.roomW);
+  m.layout.forEach(layoutRow => {
+    for (let y = 0; y < m.roomH; y++) out.push(layoutRow.map(k => (k && m.movers?.[k]?.[y]) || blank).join(''));
+  });
+  return out;
+}
+
+/** 画 / 擦一格的移动标记（ch = '.' 擦掉） */
+export function setMoverCell(m: WorldModel, key: string, x: number, y: number, ch: string): void {
+  m.movers ??= {};
+  m.movers[key] ??= Array.from({ length: m.roomH }, () => '.'.repeat(m.roomW));
+  const r = m.movers[key][y];
+  m.movers[key][y] = r.substring(0, x) + ch + r.substring(x + 1);
+}
+
 export function setRoomFlags(m: WorldModel, key: string, flags: Partial<RoomFlags>): void {
   m.roomFlags ??= {};
   m.roomFlags[key] = { ...m.roomFlags[key], ...flags };
@@ -264,6 +282,7 @@ export function deleteRoom(m: WorldModel, key: string): void {
   delete m.rooms[key];
   if (m.fog) delete m.fog[key];
   if (m.fuse) delete m.fuse[key];
+  if (m.movers) delete m.movers[key];
   if (m.entities) delete m.entities[key];
   if (m.roomFlags) delete m.roomFlags[key];
   if (m.texts) delete m.texts[key];
@@ -278,7 +297,7 @@ function fitRows(rows: string[], w: number, h: number, fill: string): string[] {
 
 /** 改这一层所有房间的尺寸：左上角不动，变大补空气 / 空白，变小从右边和下边裁掉。每个按房间存的图层一起改 */
 export function resizeRooms(m: WorldModel, w: number, h: number): void {
-  const layers: (Record<string, string[]> | undefined)[] = [m.rooms, m.entities, m.fog, m.fuse, m.locks?.doors, m.locks?.keys];
+  const layers: (Record<string, string[]> | undefined)[] = [m.rooms, m.entities, m.fog, m.fuse, m.movers, m.locks?.doors, m.locks?.keys];
   layers.forEach(layer => { if (layer) Object.keys(layer).forEach(k => { layer[k] = fitRows(layer[k], w, h, '.'); }); });
   m.roomW = w; m.roomH = h;
 }
@@ -289,6 +308,7 @@ export function clearRoom(m: WorldModel, key: string): void {
   m.rooms[key] = emptyRoom(m.roomW, m.roomH);
   if (m.fog) delete m.fog[key];
   if (m.fuse) delete m.fuse[key];
+  if (m.movers) delete m.movers[key];
   if (m.entities) delete m.entities[key];
   if (m.roomFlags) delete m.roomFlags[key];
   if (m.texts) delete m.texts[key];

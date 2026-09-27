@@ -77,6 +77,12 @@ export interface GameConfig {
   bossBurstCount: number;
   bossBurstSpeed: number;
   bossBurstTtl: number;
+  /** 移动方块的速度（像素/秒） */
+  moverSpeed: number;
+  /** 移动方块撞到东西掉头前停多久（毫秒） */
+  moverPauseMs: number;
+  /** 钥匙门连锁：开门后传到相邻一扇同色门的间隔（毫秒）；0 = 相连的一片同时开 */
+  lockChainDelayMs: number;
   /** 骷髅手把玩家放进来的动画总时长（毫秒）；0 = 全都不播，直接出现 */
   respawnHandMs: number;
   /** 哪些场合由骷髅手放进来（false = 那种场合直接出现） */

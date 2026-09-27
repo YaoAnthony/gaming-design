@@ -126,6 +126,7 @@ export class GameScene extends Phaser.Scene {
       onCellsBroken: cells => this.onCellsBroken(cells),
       occupied: (x, y) => this.mechs.some(m => m.occupies?.(x, y)),
       onChunkRemoved: ch => this.debris.onChunkRemoved(ch),
+      drawnElsewhere: (x, y) => this.mechs.some(m => m.drawsCell?.(x, y)),
     }, rows, { tile: T, explosionRadius: this.cfg.explosionRadius, chunkGravity: this.cfg.chunkGravity, chunkMaxFall: this.cfg.chunkMaxFall });
     const levelW = this.terrain.w * T, levelH = this.terrain.h * T;
     this.physics.world.setBounds(0, 0, levelW, levelH);
@@ -254,6 +255,11 @@ export class GameScene extends Phaser.Scene {
       mech: <T extends Mechanic>(id: string) => this.mechById.get(id) as T | undefined,
       blocked: (cx, cy) => cx < 0 || cy < 0 || cx >= this.terrain.w || cy >= this.terrain.h || this.terrain.isSolid(cx, cy) || this.blockedByMechanics(cx, cy),
       blockedByMechanics: (cx, cy) => this.blockedByMechanics(cx, cy),
+      occupied: (cx, cy) => this.mechs.some(m => m.occupies?.(cx, cy)),
+      addTerrainCollider: group => {
+        const others = [this.player, this.enemies.group, ...this.mechs.flatMap(m => m.terrainBodies?.() ?? [])];
+        others.forEach(o => this.physics.add.collider(o, group));
+      },
     };
   }
 

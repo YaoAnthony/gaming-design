@@ -8,7 +8,8 @@ import { layoutText, textSize } from '@/game/world/font';
 import { bridge, EVT, SCENE, type PickedCell } from '@/game/bridge';
 import { store } from '@/redux/store';
 import { resizeGame } from '@/game/resize';
-import { addText, beginStroke, currentModel, paintCell, paintDoor, paintEntity, paintFog, paintFuse, paintKey, removeText } from '@/redux/slices/editorSlice';
+import { addText, beginStroke, currentModel, paintCell, paintDoor, paintEntity, paintFog, paintFuse, paintKey, paintMover, removeText } from '@/redux/slices/editorSlice';
+import { canCarry, moverKind } from '@/game/mechanics/mover/kinds';
 import { TILE_FRAMES } from '@/asset';
 import { FOG_ZONE_COLORS } from '@/ui/editor/fogZones';
 
@@ -22,6 +23,8 @@ export class EditorScene extends Phaser.Scene {
   private cursor!: Phaser.GameObjects.Rectangle;
   private grid!: Phaser.GameObjects.Graphics;
   private textLayer!: Phaser.GameObjects.Graphics;
+  /** 移动标记：每格画一个双向箭头；底下的砖不能动时画红叉 */
+  private moverLayer!: Phaser.GameObjects.Graphics;
   private textLabels: Phaser.GameObjects.Text[] = [];
   private keyImgs: Phaser.GameObjects.Image[] = [];
   private T = 32;
@@ -57,6 +60,7 @@ export class EditorScene extends Phaser.Scene {
     this.overlay = this.add.graphics().setDepth(3);
     this.fogLayer = this.add.graphics().setDepth(2.5);
     this.textLayer = this.add.graphics().setDepth(2.6);
+    this.moverLayer = this.add.graphics().setDepth(2.65);
     this.cursor = this.add.rectangle(0, 0, T, T).setOrigin(0).setStrokeStyle(2, 0xffffff, 0.9).setDepth(4).setVisible(false);
 
     this.input.mouse?.disableContextMenu();
@@ -135,6 +139,19 @@ export class EditorScene extends Phaser.Scene {
       const on = !p.rightButtonDown();
       if (fuseHas(this.model().fuse?.[key]?.[c.y]?.[c.x], ch) === on) return;
       store.dispatch(paintFuse({ key, x: c.x, y: c.y, ch, on }));
+      return;
+    }
+    if (brush.startsWith('mover:')) {
+      // 移动标记：只能画在能动的砖上（实心、自己不会掉）；右键擦掉这一格的任何移动标记
+      const kind = moverKind(brush.slice(6));
+      const ch = p.rightButtonDown() || !kind ? '.' : kind.ch;
+      const cur = this.model().movers?.[key]?.[c.y]?.[c.x] ?? '.';
+      if (cur === ch) return;
+      if (ch !== '.' && !canCarry(this.rows()[c.y]?.[c.x])) {
+        this.game.events.emit('editor:status', `(${c.x}, ${c.y})  这里的砖不能移动：要实心、自己不会掉的砖（沙土、脆岩、纸不行）`);
+        return;
+      }
+      store.dispatch(paintMover({ key, x: c.x, y: c.y, ch }));
       return;
     }
     if (brush.startsWith('door:') || brush.startsWith('key:')) {
@@ -231,6 +248,7 @@ export class EditorScene extends Phaser.Scene {
     this.drawTextBlocks(blocks);
     this.drawFogZones();
     this.drawFuse();
+    this.drawMovers(grid);
     this.updateSupport();
   }
 
@@ -275,6 +293,34 @@ export class EditorScene extends Phaser.Scene {
         layer.putTileAt(TILE_FRAMES.fuse + Terrain.maskAt(world, ox + x, oy + y), x, y).tint = c.color;
       }
     });
+  }
+
+  /** 移动标记：按种类画双向箭头（左右 / 上下）；底下的砖不能动（后来换成了沙土之类）画红叉，游戏里会忽略 */
+  private drawMovers(grid: string[][]): void {
+    const T = this.T, g = this.moverLayer, key = this.key();
+    g.clear();
+    const rows = key ? this.model().movers?.[key] : undefined;
+    rows?.forEach((row, y) => [...row].forEach((ch, x) => {
+      const kind = moverKind(ch);
+      if (!kind) return;
+      const cx = x * T + T / 2, cy = y * T + T / 2, a = T * 0.32, hd = T * 0.14;
+      if (!canCarry(grid[y]?.[x])) {
+        g.lineStyle(3, 0xef476f, 0.95);
+        g.lineBetween(cx - a, cy - a, cx + a, cy + a); g.lineBetween(cx + a, cy - a, cx - a, cy + a);
+        return;
+      }
+      g.fillStyle(0x0b0b14, 0.45); g.fillRect(x * T + 2, y * T + 2, T - 4, T - 4);
+      g.lineStyle(3, kind.color, 1); g.fillStyle(kind.color, 1);
+      if (kind.axis === 'x') {
+        g.lineBetween(cx - a, cy, cx + a, cy);
+        g.fillTriangle(cx - a - hd, cy, cx - a + hd, cy - hd, cx - a + hd, cy + hd);
+        g.fillTriangle(cx + a + hd, cy, cx + a - hd, cy - hd, cx + a - hd, cy + hd);
+      } else {
+        g.lineBetween(cx, cy - a, cx, cy + a);
+        g.fillTriangle(cx, cy - a - hd, cx - hd, cy - a + hd, cx + hd, cy - a + hd);
+        g.fillTriangle(cx, cy + a + hd, cx - hd, cy + a - hd, cx + hd, cy + a - hd);
+      }
+    }));
   }
 
   /** 迷雾区叠加：按区号上色，编辑时能看见，游戏里是黑的 */

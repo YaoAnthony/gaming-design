@@ -30,6 +30,8 @@ export interface TerrainHost {
   occupied?(x: number, y: number): boolean;
   /** 碎块没落地就被拿掉了（房间重置、被吞掉）：挂在它身上的东西（物理平台）一起清 */
   onChunkRemoved?(chunk: Chunk): void;
+  /** 这一格的砖由别人画、别人做碰撞（比如正在移动的方块）：瓦片层不放这一格。格子本身还在网格里，爆炸、支撑照常算 */
+  drawnElsewhere?(x: number, y: number): boolean;
 }
 
 export class Terrain {
@@ -138,8 +140,29 @@ export class Terrain {
   }
 
   private refreshFrame(x: number, y: number): void {
-    const f = Terrain.frameAt(this.grid, x, y);
+    const f = this.host.drawnElsewhere?.(x, y) ? -1 : Terrain.frameAt(this.grid, x, y);
     if (f < 0) this.layer.removeTileAt(x, y); else this.layer.putTileAt(f, x, y);
+  }
+
+  /** 这些格子重新按 drawnElsewhere 决定画不画（接管 / 交还某些格子的时候调） */
+  refreshCells(cells: CellRef[]): void {
+    cells.forEach(c => { if (c.x >= 0 && c.y >= 0 && c.x < this.w && c.y < this.h) this.refreshFrame(c.x, c.y); });
+  }
+
+  /**
+   * 一整组格子一起平移 (dx, dy)，每格的材料和来源跟着走（移动方块用）。先全部腾空再放下，组内互相覆盖没关系；
+   * 目标格原来有的东西会被盖掉，调用方负责先检查。腾出来的格子上挂着的砖（尖刺）碎掉，靠它撑着的东西重新判支撑
+   */
+  moveCells(cells: CellRef[], dx: number, dy: number): void {
+    const moving = cells
+      .filter(c => c.x >= 0 && c.y >= 0 && c.x < this.w && c.y < this.h && this.grid[c.y][c.x] !== AIR)
+      .map(c => ({ x: c.x, y: c.y, id: this.grid[c.y][c.x], from: this.origin[c.y * this.w + c.x] }));
+    moving.forEach(c => this.set(c.x, c.y, AIR));
+    moving.forEach(c => { const x = c.x + dx, y = c.y + dy; if (x >= 0 && y >= 0 && x < this.w && y < this.h) this.set(x, y, c.id, c.from); });
+    const landed = new Set(moving.map(c => `${c.x + dx},${c.y + dy}`));
+    const vacated = moving.filter(c => !landed.has(`${c.x},${c.y}`));
+    this.breakMounted(vacated);
+    this.resolveSupportNear(vacated);
   }
 
   /** 圆形模板内的格子，附带到中心的距离 */

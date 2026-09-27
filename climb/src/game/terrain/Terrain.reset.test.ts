@@ -118,3 +118,23 @@ describe('重置时延迟连锁全图一起停', () => {
     expect(terrain.grid[2].slice(1, 9).join('')).toBe('...YYYYY');
   });
 });
+
+describe('整组平移（移动方块）', () => {
+  it('平移一格：材料跟着走；腾出来的格子上挂着的尖刺碎掉，靠它撑着的沙土掉下去', () => {
+    const { terrain } = make(['RRRRRRR', 'R.XS..R', 'R.##..R', 'R.....R', 'RRRRRRR']);
+    terrain.moveCells([{ x: 2, y: 2 }, { x: 3, y: 2 }], 1, 0);
+    expect(terrain.grid[2].join('')).toBe('R..##.R');
+    expect(terrain.grid[1][2]).toBe('.');              // 尖刺下面那格空了：碎掉
+    expect(terrain.chunks.map(ch => ch.cells.map(c => c.id).join(''))).toEqual([]);   // 沙土 (3,1) 下面还是泥土（(3,2) 被右移的那块补上了）
+  });
+
+  it('平移之后重置：按来源，挪走的方块回到原位，新位置清空', () => {
+    const { terrain } = make(['RRRRRR', 'R....R', 'R.#..R', 'RRRRRR']);
+    terrain.moveCells([{ x: 2, y: 2 }], 1, 0);
+    terrain.moveCells([{ x: 3, y: 2 }], 1, 0);
+    expect(terrain.grid[2].join('')).toBe('R...#R');
+    terrain.resetRect(0, 0, 6, 4);
+    expect(terrain.grid[2].join('')).toBe('R.#..R');
+  });
+});
+

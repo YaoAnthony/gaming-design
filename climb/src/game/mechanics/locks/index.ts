@@ -12,7 +12,7 @@ defineTile(
 );
 
 defineMechanic({
-  id: 'locks', name: '钥匙与门', desc: '同色钥匙开同色的门，一把钥匙开一组',
+  id: 'locks', name: '钥匙与门', desc: '同色钥匙碰到同色的门就开，并沿相连的同色门连锁打开；一把钥匙开连在一起的一片',
   scope: 'global',
   activeOn: floor => !!floor.model.locks?.groups.length,
   /** 门烘成 % 砖（只占空气格），钥匙位置记下来 */

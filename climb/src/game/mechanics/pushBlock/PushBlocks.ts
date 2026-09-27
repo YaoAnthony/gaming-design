@@ -123,6 +123,9 @@ export class PushBlocks implements Mechanic {
     scene.physics.add.collider(enemies.group, this.group, undefined, syncDeltas);
   }
 
+  /** 箱子要和会动的地形（移动方块）碰撞 */
+  terrainBodies(): Phaser.Physics.Arcade.Group[] { return [this.group]; }
+
   /** 格子被哪个箱子占着：箱子的碰撞框盖住了这一格的中心 */
   occupies(cx: number, cy: number): boolean {
     const T = this.ctx.cfg.tile, px = cx * T + T / 2, py = cy * T + T / 2;

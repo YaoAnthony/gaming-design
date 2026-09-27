@@ -8,7 +8,7 @@ import {
   addLockGroup as addModelLock, removeLockGroup as removeModelLock, setDoorCell, setKeyCell,
   addRoomAt, addTextBlock as addModelText, fitRoomSize, lockGroup, clearChar, clearRoom as clearModelRoom, resizeRooms, deleteRoom as deleteModelRoom, findStart, firstRoom, moveRoom as moveModelRoom,
   newFloor, normalizeModel, positionOf, removeTextBlock as removeModelText, roomKeyAt, setCell as setModelCell, setEntityCell, setFogCell,
-  setFuseCell, setRoomFlags, updateTextBlock as updateModelText,
+  setFuseCell, setMoverCell, setRoomFlags, updateTextBlock as updateModelText,
 } from '@/game/world/WorldModel';
 
 export interface EditorState {
@@ -129,6 +129,13 @@ const editorSlice = createSlice({
       setFuseCell(m(state), key, x, y, ch, on);
       state.version++;
     },
+    /** 移动标记：ch = 种类字符，'.' = 擦掉 */
+    paintMover(state, action: PayloadAction<{ key: string; x: number; y: number; ch: string }>) {
+      record(state, 'stroke');
+      const { key, x, y, ch } = action.payload;
+      setMoverCell(m(state), key, x, y, ch);
+      state.version++;
+    },
     setRoomFlag(state, action: PayloadAction<{ key: string; flags: Partial<RoomFlags> }>) {
       record(state);
       setRoomFlags(m(state), action.payload.key, action.payload.flags);
@@ -245,7 +252,7 @@ const editorSlice = createSlice({
 });
 
 export const {
-  setBrush, setRoom, setShowSupport, paintCell, paintEntity, paintFog, paintFuse, setRoomFlag,
+  setBrush, setRoom, setShowSupport, paintCell, paintEntity, paintFog, paintFuse, paintMover, setRoomFlag,
   addText, updateText, removeText, addLock, removeLock, paintDoor, paintKey, addRoom, moveRoom, deleteRoom, clearRoom, setFloor, addFloor, renameFloor, deleteFloor, replaceProject, setPlayLoadout, setPicking,
   beginStroke, undo, redo,
 } = editorSlice.actions;

@@ -19,6 +19,9 @@ export interface WorldModel {
   texts?: Record<string, TextBlock[]>;
   /** 钥匙与门（可选）：每组一个颜色；doors / keys 每个房间 roomH 行，'.' = 无，'1'-'9' = 组号 */
   locks?: Locks;
+  /** 移动标记（可选）：每个房间 roomH 行，'.' = 无，其它字符 = 哪种移动（见 game/mechanics/mover/kinds.ts 的 MOVER_KINDS）。
+   *  叠在砖块上：相连的同种标记连同底下的砖一起来回移动 */
+  movers?: Record<string, string[]>;
 }
 
 export interface LockGroup { id: number; color: number }

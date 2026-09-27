@@ -20,5 +20,6 @@ import './slider';
 import './locks';
 import './hat';
 import './pushBlock';
+import './mover';
 
 export { Mechanics, floorMechanicOf, floorMechanics, globalMechanicsOf } from './define';

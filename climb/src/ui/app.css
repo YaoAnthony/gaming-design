@@ -86,6 +86,7 @@ h2 { font-size: 12px; color: var(--muted); margin: 14px 0 6px; text-transform: u
 .item .icon img { max-width: 32px; max-height: 32px; image-rendering: pixelated; }
 .item .icon .keyicon { width: 24px; height: 24px; display: block; -webkit-mask: url('../asset/key.png') center / 24px 24px no-repeat; mask: url('../asset/key.png') center / 24px 24px no-repeat; image-rendering: pixelated; }
 .item .icon .fuseicon { width: 22px; height: 6px; display: block; border-radius: 3px; box-shadow: 0 0 0 1px #0006; }
+.item .icon .movericon { font-size: 22px; font-weight: 700; line-height: 1; }
 .item.add { border-style: dashed; }
 .item:disabled { opacity: .4; cursor: default; }
 .item .label .mini { margin-top: 2px; align-self: flex-start; background: transparent; border: 1px solid var(--line); color: var(--muted); border-radius: 4px; padding: 0 5px; cursor: pointer; font-size: 11px; }

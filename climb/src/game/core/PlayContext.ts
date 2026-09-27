@@ -97,4 +97,8 @@ export interface PlayContext {
   blocked(cx: number, cy: number): boolean;
   /** 机制额外挡住的格子（不含地形） */
   blockedByMechanics(cx: number, cy: number): boolean;
+  /** 格子被机制的实体占着（比如箱子） */
+  occupied(cx: number, cy: number): boolean;
+  /** 让这组物理体和所有会和地形碰撞的东西碰撞（玩家、怪物、各机制的 terrainBodies）：会动的地形用 */
+  addTerrainCollider(group: Phaser.Physics.Arcade.Group): void;
 }

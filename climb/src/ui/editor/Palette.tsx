@@ -5,6 +5,7 @@ import { addLock, currentModel, removeLock, setBrush } from '@/redux/slices/edit
 import { LOCK_COLOR_NAMES, LOCK_COLORS } from '@/game/world/WorldModel';
 import { FOG_ZONES, FOG_ZONE_COLORS, fogBrush } from './fogZones';
 import { FUSE_CHANNELS } from '@/game/fuse/channels';
+import { MOVER_KINDS, moverBrush } from '@/game/mechanics/mover/kinds';
 
 const tilesUrl = SPRITESHEETS.find(s => s.key === 'tiles')!.url;
 const imageUrl = (key: string) => IMAGES.find(i => i.key === key)?.url ?? '';
@@ -45,6 +46,17 @@ export function Palette() {
         ))}
       </div>
       <div className="hint">引线可以穿过空气和任何砖块。只有两端能点燃，烧到哪格烧哪格：岩石烧一次裂成碎岩，再烧一次才没；紫色引线一次就把岩石烧没。不同颜色互不相连，可以交叉画在同一格。</div>
+
+      <h2>移动方块</h2>
+      <div className="palette">
+        {MOVER_KINDS.map(k => (
+          <button key={k.ch} className={'item' + (brush === moverBrush(k) ? ' active' : '')} title={k.desc + '。右键擦掉'} onClick={() => dispatch(setBrush(moverBrush(k)))}>
+            <div className="icon"><span className="movericon" style={{ color: hex(k.color) }}>{k.axis === 'x' ? '⟷' : '↕'}</span></div>
+            <div className="label"><b>{k.name}</b><small>右键擦除</small></div>
+          </button>
+        ))}
+      </div>
+      <div className="hint">画在方块上（实心、自己不会掉的砖；沙土、脆岩、纸不行）。相连的同一种标记连同底下的方块一起来回走，任何一格撞到东西就停一下掉头；站在上面的会被带着走。方块被炸没了那一格就不走了，岩石裂成碎岩还在。</div>
 
       <h2>文字</h2>
       <div className="palette">

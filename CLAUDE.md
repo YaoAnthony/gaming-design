@@ -5,22 +5,19 @@ Each agent owns a specific domain, enforcing separation of concerns and quality.
 
 ## Technology Stack
 
-- **Engine**: [CHOOSE: Godot 4 / Unity / Unreal Engine 5]
-- **Language**: [CHOOSE: GDScript / C# / C++ / Blueprint]
+- **Engine**: Phaser 3.90 (web, Arcade physics), game lives in `climb/`
+- **Language**: TypeScript 5 + React 18 (UI) + Redux Toolkit (state)
 - **Version Control**: Git with trunk-based development
-- **Build System**: [SPECIFY after choosing engine]
-- **Asset Pipeline**: [SPECIFY after choosing engine]
+- **Build System**: Vite 6 (`npm run build` in `climb/`), Vitest for tests, ESLint for lint
+- **Asset Pipeline**: PNG / MP3 in `climb/src/asset/` (placeholder art from `npm run gen-art`), manifest in `climb/src/asset/index.ts`
 
-> **Note**: Engine-specialist agents exist for Godot, Unity, and Unreal with
-> dedicated sub-specialists. Use the set matching your engine.
+> **Note**: The Godot / Unity / Unreal specialist agents and the files under
+> `docs/engine-reference/` do not apply to this project. See `climb/README.md`
+> for architecture, registries and mechanics.
 
 ## Project Structure
 
 @.claude/docs/directory-structure.md
-
-## Engine Version Reference
-
-@docs/engine-reference/godot/VERSION.md
 
 ## Technical Preferences
 

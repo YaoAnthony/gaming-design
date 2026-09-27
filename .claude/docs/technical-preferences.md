@@ -1,87 +1,72 @@
 # Technical Preferences
 
-<!-- Populated by /setup-engine. Updated as the user makes decisions throughout development. -->
-<!-- All agents reference this file for project-specific standards and conventions. -->
-
 ## Engine & Language
 
-- **Engine**: [TO BE CONFIGURED — run /setup-engine]
-- **Language**: [TO BE CONFIGURED]
-- **Rendering**: [TO BE CONFIGURED]
-- **Physics**: [TO BE CONFIGURED]
+- **Engine**: Phaser 3.90 (web)
+- **Language**: TypeScript 5 (strict), React 18 for UI, Redux Toolkit for state
+- **Rendering**: Phaser AUTO (WebGL, canvas fallback), pixel art, one room per canvas
+- **Physics**: Phaser Arcade physics + custom tile-grid terrain (`climb/src/game/terrain/`)
 
 ## Input & Platform
 
-<!-- Written by /setup-engine. Read by /ux-design, /ux-review, /test-setup, /team-ui, and /dev-story -->
-<!-- to scope interaction specs, test helpers, and implementation to the correct input methods. -->
-
-- **Target Platforms**: [TO BE CONFIGURED — e.g., PC, Console, Mobile, Web]
-- **Input Methods**: [TO BE CONFIGURED — e.g., Keyboard/Mouse, Gamepad, Touch, Mixed]
-- **Primary Input**: [TO BE CONFIGURED — the dominant input for this game]
-- **Gamepad Support**: [TO BE CONFIGURED — Full / Partial / None]
-- **Touch Support**: [TO BE CONFIGURED — Full / Partial / None]
-- **Platform Notes**: [TO BE CONFIGURED — any platform-specific UX constraints]
+- **Target Platforms**: Web (GitHub Pages), desktop and mobile browsers
+- **Input Methods**: Keyboard + touch
+- **Primary Input**: Keyboard
+- **Gamepad Support**: None
+- **Touch Support**: Partial (on-screen jump / d-pad buttons, landscape only)
+- **Platform Notes**: The map editor is dev-only and desktop-only; the published build only has the game
 
 ## Naming Conventions
 
-- **Classes**: [TO BE CONFIGURED]
-- **Variables**: [TO BE CONFIGURED]
-- **Signals/Events**: [TO BE CONFIGURED]
-- **Files**: [TO BE CONFIGURED]
-- **Scenes/Prefabs**: [TO BE CONFIGURED]
-- **Constants**: [TO BE CONFIGURED]
+- **Classes**: PascalCase
+- **Variables**: camelCase
+- **Signals/Events**: bridge events in `EVT` (`area:action` strings), Redux actions via slices
+- **Files**: PascalCase for classes and React components, camelCase for modules
+- **Scenes/Prefabs**: Phaser scenes named in `SCENE` (`climb/src/game/bridge.ts`)
+- **Constants**: UPPER_SNAKE_CASE
 
 ## Performance Budgets
 
-- **Target Framerate**: [TO BE CONFIGURED]
-- **Frame Budget**: [TO BE CONFIGURED]
+- **Target Framerate**: 60 fps
+- **Frame Budget**: 16.6 ms
 - **Draw Calls**: [TO BE CONFIGURED]
 - **Memory Ceiling**: [TO BE CONFIGURED]
 
 ## Testing
 
-- **Framework**: [TO BE CONFIGURED]
+- **Framework**: Vitest (Phaser stubbed via `climb/src/test/phaser-stub.ts`), tests next to the code as `*.test.ts`
 - **Minimum Coverage**: [TO BE CONFIGURED]
 - **Required Tests**: Balance formulas, gameplay systems, networking (if applicable)
 
 ## Forbidden Patterns
 
-<!-- Add patterns that should never appear in this project's codebase -->
-- [None configured yet — add as architectural decisions are made]
+- Hardcoding tile or entity characters in systems: ask the registries (`Tiles`, `Entities`, `Mechanics`) about capabilities instead
+- Mechanics reaching into GameScene fields: go through `PlayContext`
 
 ## Allowed Libraries / Addons
 
-<!-- Add approved third-party dependencies here -->
-- [None configured yet — add as dependencies are approved]
+- phaser, react, react-dom, @reduxjs/toolkit, react-redux, antd (editor only), motion, i18next, react-i18next
 
 ## Architecture Decisions Log
 
-<!-- Quick reference linking to full ADRs in docs/architecture/ -->
 - [No ADRs yet — use /architecture-decision to create one]
 
 ## Engine Specialists
 
-<!-- Written by /setup-engine when engine is configured. -->
-<!-- Read by /code-review, /architecture-decision, /architecture-review, and team skills -->
-<!-- to know which specialist to spawn for engine-specific validation. -->
-
-- **Primary**: [TO BE CONFIGURED — run /setup-engine]
-- **Language/Code Specialist**: [TO BE CONFIGURED]
-- **Shader Specialist**: [TO BE CONFIGURED]
-- **UI Specialist**: [TO BE CONFIGURED]
-- **Additional Specialists**: [TO BE CONFIGURED]
-- **Routing Notes**: [TO BE CONFIGURED]
+- **Primary**: none (no Phaser specialist agent; use general-purpose / gameplay-programmer)
+- **Language/Code Specialist**: none
+- **Shader Specialist**: none
+- **UI Specialist**: ui-programmer
+- **Additional Specialists**: none
+- **Routing Notes**: Godot / Unity / Unreal specialists do not apply
 
 ### File Extension Routing
 
-<!-- Skills use this table to select the right specialist per file type. -->
-<!-- If a row says [TO BE CONFIGURED], fall back to Primary for that file type. -->
-
 | File Extension / Type | Specialist to Spawn |
 |-----------------------|---------------------|
-| Game code (primary language) | [TO BE CONFIGURED] |
-| Shader / material files | [TO BE CONFIGURED] |
-| UI / screen files | [TO BE CONFIGURED] |
-| Scene / prefab / level files | [TO BE CONFIGURED] |
-| Native extension / plugin files | [TO BE CONFIGURED] |
-| General architecture review | Primary |
+| Game code (primary language) | gameplay-programmer |
+| Shader / material files | n/a |
+| UI / screen files | ui-programmer |
+| Scene / prefab / level files | level-designer (map is `climb/src/map/world.json`, edited in the in-game editor) |
+| Native extension / plugin files | n/a |
+| General architecture review | lead-programmer |

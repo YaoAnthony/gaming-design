@@ -6,6 +6,7 @@ import { Hud } from './Hud';
 import { TouchControls } from './TouchControls';
 import { useTouch } from './useTouch';
 import { TitleScreen } from './TitleScreen';
+import { CrumpleOverlay } from './crumple/CrumpleOverlay';
 import { DEFAULT_PROJECT } from '@/game/world/defaultWorld';
 import { roomPx } from '@/game/PhaserGame';
 
@@ -24,7 +25,7 @@ export function GameView() {
     <div className="view">
       <div className="stage">
         {data
-          ? <><PhaserCanvas mode="game" data={data} size={roomPx(project.floors[0].model)} /><Hud />{touch && <TouchControls layout={controls} />}</>
+          ? <><PhaserCanvas mode="game" data={data} size={roomPx(project.floors[0].model)} /><Hud />{touch && <TouchControls layout={controls} />}<CrumpleOverlay /></>
           : <TitleScreen onStart={start} touch={touch} />}
       </div>
     </div>

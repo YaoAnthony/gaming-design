@@ -9,7 +9,7 @@ import { Terrain } from '@/game/terrain/Terrain';
 import { entityRows, fogRows, fuseRows, roomKeyAt, worldRows } from '@/game/world/WorldModel';
 import { FuseNet } from '@/game/fuse/Fuse';
 import { FogOfWar } from '@/game/fog/Fog';
-import { bridge, EVT, SCENE, type StartGameData } from '@/game/bridge';
+import { bridge, EVT, SCENE, type CrumpleDone, type StartGameData } from '@/game/bridge';
 import { Player } from '@/sprite';
 import { createSparkEmitter, type SparkEmitter } from '@/particle';
 import { store } from '@/redux/store';
@@ -82,6 +82,11 @@ export class GameScene extends Phaser.Scene {
   private leaving = false;
   /** 出场动画中（骷髅手把人放进来）：人冻着，不响应输入、R，也不会死 */
   private respawning = false;
+  /** 第四面墙特效放着 / 已经冻住了 */
+  private crumpling = false;
+  private crumpleFrozen = false;
+  /** 特效放完要做的事 */
+  private crumpleAfter: ((fadeMs: number) => void) | null = null;
   private stats = { jumps: 0, destroyed: 0 };
 
   constructor() { super(SCENE.game); }
@@ -279,7 +284,7 @@ export class GameScene extends Phaser.Scene {
     kb.on('keydown-W', () => press('W'));
     bridge.on(TOUCH_JUMP, touchPress); bridge.on(TOUCH_ACTION, touchPress);
     // 换层（旋涡、淡出）和长大的过程中不响应 R：重置会清掉它们正在等的计时器和镜头，画面就卡在半路
-    kb.on('keydown-R', () => { if (this.won || this.leaving || this.growing || this.respawning) return; if (this.dead) this.resetAfterDeath(); else this.resetRoom(); });
+    kb.on('keydown-R', () => { if (this.won || this.leaving || this.growing || this.respawning || this.crumpling) return; if (this.dead) this.resetAfterDeath(); else this.requestRoomReset(); });
     const requestReset = () => { if (this.dead && !this.won) this.resetAfterDeath(); };
     const continueGame = () => { if (this.won) this.continueAfterWin(); };
     const restartGame = () => this.restartRun();
@@ -288,8 +293,12 @@ export class GameScene extends Phaser.Scene {
     const exitPlaytest = () => { if (this.playtest) this.exitPlaytest(); };
     if (this.playtest) kb.on('keydown-ESC', exitPlaytest);
     bridge.on(EVT.requestPlaytestExit, exitPlaytest);
+    const crumpleFreeze = () => this.freezeForCrumple();
+    const crumpleDone = (d: CrumpleDone) => this.endCrumple(d);
+    bridge.on(EVT.crumpleFreeze, crumpleFreeze); bridge.on(EVT.crumpleDone, crumpleDone);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       bridge.off(EVT.requestPlaytestExit, exitPlaytest);
+      bridge.off(EVT.crumpleFreeze, crumpleFreeze); bridge.off(EVT.crumpleDone, crumpleDone);
       bridge.off(TOUCH_JUMP, touchPress); bridge.off(TOUCH_ACTION, touchPress);
       bridge.off(EVT.requestReset, requestReset); bridge.off(EVT.continueGame, continueGame); bridge.off(EVT.restartGame, restartGame); bridge.off(EVT.nextLevel, nextLevel);
       touch.left = false; touch.right = false; touch.up = false; touch.down = false;
@@ -388,14 +397,15 @@ export class GameScene extends Phaser.Scene {
   }
 
   /** R：当前房间的地形、引线、怪物恢复，玩家回到入口。revive = 死了之后的复活 */
-  private resetRoom(revive = false): void {
+  /** @param appearDelayMs 人多久之后才由骷髅手放进来（这段时间藏着，等画面淡入） */
+  private resetRoom(revive = false, appearDelayMs = 0): void {
     this.clearTransient('room');
     const x0 = this.room.rx * this.roomW, y0 = this.room.ry * this.roomH;
     this.terrain.resetRect(x0, y0, this.roomW, this.roomH);
     this.fuses.resetRect(x0, y0, this.roomW, this.roomH);
     this.enemies.resetRoom(this.room);
     this.mechs.forEach(m => m.onReset?.('room'));
-    this.respawn('msg.roomReset', revive ? 'death' : 'reset');
+    this.respawn('msg.roomReset', revive ? 'death' : 'reset', appearDelayMs);
   }
 
   /** 死亡重置整张地图：所有房间的地形、引线、怪物恢复，玩家回到重置点；探索记忆保留。机制可以改复活点（Boss 重演） */
@@ -414,12 +424,19 @@ export class GameScene extends Phaser.Scene {
     this.respawn('msg.mapReset', revive ? 'death' : 'reset');
   }
 
-  /** 重置之后玩家回到复活点 */
-  private respawn(message: string, reason: AppearReason): void {
+  /** 重置之后玩家回到复活点。delayMs > 0：人（连同帽子、手上的东西）先藏起来冻着，过这么久再出现 */
+  private respawn(message: string, reason: AppearReason, delayMs = 0): void {
     this.dead = false;
     this.fogDirty = true;
     this.flash(message, '#9ad1ff');
-    this.appear(reason);
+    if (delayMs <= 0) { this.appear(reason); return; }
+    this.respawning = true;   // 藏着的时候不响应按键、不会死、不换房间
+    this.player.freeze(0xffffff); this.player.clearTint(); this.player.setVisible(false);
+    this.time.delayedCall(delayMs, () => {
+      this.respawning = false;
+      this.player.setVisible(true);
+      this.appear(reason);
+    });
   }
 
   /**
@@ -444,6 +461,54 @@ export class GameScene extends Phaser.Scene {
     if (!this.dead || this.time.now - this.diedAt < 300) return;   // 刚死的一瞬间不响应，免得误触
     if (this.cfg.deathResetsWorld) this.resetWorld(true); else this.resetRoom(true);
     store.dispatch(setMode({ mode: 'playing' }));
+  }
+
+  // ---------- 第四面墙：整个画面被攥成纸团 ----------
+  /** R 键重置房间：config.resetCrumple 开着就先放攥纸团特效，纸团扔掉后重置，新房间淡入完再把人放下来 */
+  private requestRoomReset(): void {
+    if (this.cfg.resetCrumple && this.crumpleWorld(fadeMs => this.resetRoom(false, fadeMs))) return;
+    this.resetRoom();
+  }
+
+  /**
+   * 放攥纸团特效（React 的 CrumpleOverlay）：游戏照常跑，骷髅手先伸进来；手碰到画面时特效发 EVT.crumpleFreeze，这里才冻住；
+   * 纸团扔掉后特效发 EVT.crumpleDone，这里恢复并调 after(fadeMs)（fadeMs = 新画面淡入要多久）。
+   * grab = 攥住的位置（画面的比例坐标）。没放成（状态不对、没有挂特效层）返回 false
+   */
+  crumpleWorld(after?: (fadeMs: number) => void, grab = { x: 0.5, y: 0.5 }): boolean {
+    if (this.crumpling || this.dead || this.won || this.leaving || this.growing || this.respawning) return false;
+    if (bridge.listenerCount(EVT.crumple) === 0) return false;
+    this.crumpling = true;
+    this.crumpleAfter = after ?? null;
+    bridge.emit(EVT.crumple, { grab });
+    return true;
+  }
+
+  /**
+   * 冻住：场景暂停、声音停；等下一帧画完，把游戏画布原样复制一份交给特效。
+   * 特效把它当成纸，摆在原位和冻住的画面一模一样，换上去看不出来
+   */
+  private freezeForCrumple(): void {
+    if (this.crumpleFrozen) return;
+    this.crumpling = true; this.crumpleFrozen = true;
+    this.dialogue.end();
+    this.sound.pauseAll();
+    this.scene.pause();
+    this.game.events.once(Phaser.Core.Events.POST_RENDER, () => {
+      const src = this.game.canvas, image = document.createElement('canvas');
+      image.width = src.width; image.height = src.height;
+      image.getContext('2d')!.drawImage(src, 0, 0);   // 刚画完、还没交给浏览器合成，WebGL 画布这时读得到
+      bridge.emit(EVT.crumpleFrozen, { image });
+    });
+  }
+
+  private endCrumple(d: CrumpleDone): void {
+    if (!this.crumpling) return;
+    this.crumpling = false;
+    if (this.crumpleFrozen) { this.crumpleFrozen = false; this.sound.resumeAll(); this.scene.resume(); }
+    const after = this.crumpleAfter;
+    this.crumpleAfter = null;
+    after?.(d.fadeMs);
   }
 
   // ---------- 死亡 / 通关 / 换层 ----------

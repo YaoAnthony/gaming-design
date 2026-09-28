@@ -65,6 +65,18 @@ class Canvas {
     const n = Math.max(Math.abs(x2 - x1), Math.abs(y2 - y1)) * 2;
     for (let i = 0; i <= n; i++) { const x = x1 + (x2 - x1) * i / n, y = y1 + (y2 - y1) * i / n; this.rect(Math.round(x - t / 2), Math.round(y - t / 2), t, t, c); }
   }
+  /** 把另一张画布整张贴到 (dx, dy) */
+  blit(src, dx, dy) {
+    for (let y = 0; y < src.h; y++) {
+      const ty = y + dy;
+      if (ty < 0 || ty >= this.h) continue;
+      for (let x = 0; x < src.w; x++) {
+        const tx = x + dx, si = (y * src.w + x) * 4;
+        if (tx < 0 || tx >= this.w || !src.buf[si + 3]) continue;
+        src.buf.copy(this.buf, (ty * this.w + tx) * 4, si, si + 4);
+      }
+    }
+  }
   save(name) {
     if (ONLY.size && !ONLY.has(name)) return;
     writeFileSync(join(OUT, name), encodePNG(this)); console.log('wrote', name, `${this.w}x${this.h}`);
@@ -346,16 +358,20 @@ plate(32, 'plate1_down.png', true);
 plate(64, 'plate2.png', false);
 plate(64, 'plate2_down.png', true);
 
+// ---- 骷髅手的骨头：骨头、阴影、描边三色；一串点连成一节节骨头，关节处画圆 ----
+const HB = 0xe8dfc9, HS = 0xb9ad94, HO = 0x2a1f35;
+const boneSeg = (c, pts, t) => {
+  for (let i = 1; i < pts.length; i++) c.line(pts[i - 1][0], pts[i - 1][1], pts[i][0], pts[i][1], HO, t + 4);
+  for (let i = 1; i < pts.length; i++) c.line(pts[i - 1][0], pts[i - 1][1], pts[i][0], pts[i][1], HB, t);
+  for (let i = 1; i < pts.length; i++) c.line(pts[i - 1][0] + 1, pts[i - 1][1] + 1, pts[i][0] + 1, pts[i][1] + 1, HS, Math.max(1, t - 4));
+  pts.slice(0, -1).forEach(([x, y]) => { c.roundRect(x - t / 2 - 1, y - t / 2 - 1, t + 2, t + 2, (t + 2) / 2, HO); c.roundRect(x - t / 2, y - t / 2, t, t, t / 2, HB); });
+};
+/** 圆的小骨头（腕骨、骨头末端的疙瘩） */
+const boneKnob = (c, x, y, r) => { c.roundRect(x - r - 1, y - r - 1, 2 * r + 2, 2 * r + 2, r + 1, HO); c.roundRect(x - r, y - r, 2 * r, 2 * r, r, HB); };
+
 // ---- 复活时把玩家放回来的骷髅手：160x160，两帧（捏着 / 张开）。手臂从左上角伸进来，
 //      捏合点（玩家身体中心放的位置）在 (104, 120)，和 asset/index.ts 的 RESPAWN_HAND.pinch 一致。紫色光雾在游戏里用粒子画 ----
 {
-  const HB = 0xe8dfc9, HS = 0xb9ad94, HO = 0x2a1f35;   // 骨头、阴影、描边
-  const boneSeg = (c, pts, t) => {
-    for (let i = 1; i < pts.length; i++) c.line(pts[i - 1][0], pts[i - 1][1], pts[i][0], pts[i][1], HO, t + 4);
-    for (let i = 1; i < pts.length; i++) c.line(pts[i - 1][0], pts[i - 1][1], pts[i][0], pts[i][1], HB, t);
-    for (let i = 1; i < pts.length; i++) c.line(pts[i - 1][0] + 1, pts[i - 1][1] + 1, pts[i][0] + 1, pts[i][1] + 1, HS, Math.max(1, t - 4));
-    pts.slice(0, -1).forEach(([x, y]) => { c.roundRect(x - t / 2 - 1, y - t / 2 - 1, t + 2, t + 2, (t + 2) / 2, HO); c.roundRect(x - t / 2, y - t / 2, t, t, t / 2, HB); });
-  };
   const knuckles = [[84, 84], [98, 74], [106, 74], [114, 80], [120, 88]];
   const hand = (fingers, name) => {
     const c = new Canvas(160, 160);
@@ -370,4 +386,62 @@ plate(64, 'plate2_down.png', true);
   hand([[[84, 100], [88, 114]], [[112, 80], [124, 92], [122, 106]], [[122, 84], [130, 100], [126, 116]], [[128, 94], [132, 112], [126, 126]], [[130, 106], [128, 122], [122, 132]]], 'hand_hold.png');
   // 张开：拇指往左下、四指往右下散开
   hand([[[78, 98], [70, 112]], [[118, 74], [136, 80], [146, 90]], [[126, 80], [144, 92], [152, 106]], [[132, 92], [146, 108], [150, 124]], [[134, 104], [140, 120], [138, 136]]], 'hand_open.png');
+}
+
+// ---- 第四面墙那只抓画面的骷髅手：手心朝镜头，手臂从左边水平伸进来，拇指朝上、四指朝右（右手）。
+//      grab_hand.png：6 帧横排（每帧 380x200），从张开一路攥成拳头。手臂伸到画布左边外面，放大后手臂末端在屏幕外。
+//      拳心（纸团放的位置）在每帧的 (248, 102)，和 asset/index.ts 的 GRAB_HAND.grip 一致 ----
+{
+  const FW = 380, FH = 200, CURL = [0, 0.2, 0.42, 0.65, 0.85, 1];
+  const rad = (d) => d * Math.PI / 180;
+  /** 朝镜头弯过来的那部分在画面上往右下偏一点，看着有前后 */
+  const DEPTH = [0.14, 0.1];
+  /**
+   * 一根手指：从指根关节 base 沿 dir 度方向伸出去，三节长 lens；curl 0..1 时每个关节弯 flex·curl 度（朝镜头弯），
+   * 弯过 90° 的部分就折回来盖在手掌上
+   */
+  const finger = (base, dir, lens, curl, flex = [85, 100, 60]) => {
+    const pts = [base], ca = Math.cos(rad(dir)), sa = Math.sin(rad(dir));
+    let [x, y] = base, phi = 0;
+    lens.forEach((L, i) => {
+      phi += rad(flex[i] * curl);
+      const along = Math.cos(phi) * L, depth = Math.sin(phi) * L;
+      x += along * ca + depth * DEPTH[0]; y += along * sa + depth * DEPTH[1];
+      pts.push([x, y]);
+    });
+    return pts;
+  };
+  /** 拇指：每节 [长度, 张开时的方向, 握拳时的方向]（度）：张开朝右上翘，握拳时折下来压在四指上 */
+  const thumb = (base, curl) => {
+    const pts = [base];
+    let [x, y] = base;
+    for (const [L, a0, a1] of [[30, -56, -16], [24, -60, 10], [18, -64, 38]]) {
+      const a = rad(a0 + (a1 - a0) * curl);
+      x += Math.cos(a) * L; y += Math.sin(a) * L;
+      pts.push([x, y]);
+    }
+    return pts;
+  };
+  // 四根手指（食指在上，小指在下）：掌骨起点、指根关节、方向、三节长度
+  const FINGERS = [
+    { from: [212, 86], knuckle: [262, 76], dir: -7, lens: [40, 24, 18] },
+    { from: [214, 97], knuckle: [268, 93], dir: -2, lens: [44, 27, 19] },
+    { from: [214, 109], knuckle: [265, 110], dir: 3, lens: [41, 25, 18] },
+    { from: [211, 120], knuckle: [256, 126], dir: 9, lens: [32, 20, 15] },
+  ];
+  const CARPALS = [[196, 84], [207, 81], [198, 96], [210, 94], [199, 108], [210, 107], [200, 120], [211, 119]];
+  const sheet = new Canvas(FW * CURL.length, FH);
+  CURL.forEach((curl, f) => {
+    // 每帧单独画再贴上去：画出这一帧边界的部分（前臂从画布左边外面伸进来）就裁掉了，不会渗到隔壁帧
+    const c = new Canvas(FW, FH);
+    // 前臂：桡骨（拇指那侧，上）、尺骨（下），手腕那头有个疙瘩；画布左边外面还有，放大后在屏幕外
+    boneSeg(c, [[-8, 88], [188, 88]], 11); boneKnob(c, 186, 88, 9);
+    boneSeg(c, [[-8, 116], [186, 116]], 10); boneKnob(c, 184, 116, 8);
+    CARPALS.forEach(([x, y]) => boneKnob(c, x, y, 7));                     // 腕骨
+    FINGERS.forEach(g => boneSeg(c, [g.from, g.knuckle], 7));              // 掌骨
+    [...FINGERS].reverse().forEach(g => boneSeg(c, finger(g.knuckle, g.dir, g.lens, curl), 7));   // 手指：从小指画到食指
+    boneSeg(c, thumb([206, 82], curl), 7);                                 // 拇指最后画，握拳时横压在食指、中指上
+    sheet.blit(c, f * FW, 0);
+  });
+  sheet.save('grab_hand.png');
 }

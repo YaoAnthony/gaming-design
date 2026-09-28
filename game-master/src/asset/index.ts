@@ -33,6 +33,7 @@ import plate1DownUrl from './plate1_down.png';
 import plate2DownUrl from './plate2_down.png';
 import handHoldUrl from './hand_hold.png';
 import handOpenUrl from './hand_open.png';
+import grabHandUrl from './grab_hand.png';
 import boomUrl from './boob.mp3';
 import bgmUrl from './Pixelated_Coffee.mp3';
 import bossMusicUrl from './boss.mp3';
@@ -119,6 +120,19 @@ export const RESPAWN_HAND = {
   glow: [0x9b5de5, 0xc77dff, 0x6a2fbf],
   /** 手臂末端那团烟雾（裂隙）的颜色：暗一些，盖住手臂的断口 */
   smoke: [0x3c1a6e, 0x5a2a9a, 0x7b3fc4],
+};
+
+/**
+ * 第四面墙那只攥住整个画面的骷髅手（ui/crumple，React 里用，不进 Phaser）。手心朝镜头、手臂从左边伸进来。
+ * 一张横排的帧条：frames 帧，每帧 frameW × frameH，从张开一路攥成拳头。
+ * grip = 拳心在一帧里的位置（0~1，相对宽高）：纸团攥在这里，手伸进来时这一点对准捏住的地方。
+ * fistHeight = 握拳那一帧拳头有多高（贴图像素），用来按纸团大小放大手
+ */
+export const GRAB_HAND = {
+  url: grabHandUrl,
+  frames: 6, frameW: 380, frameH: 200,
+  grip: [248 / 380, 102 / 200] as [number, number],
+  fistHeight: 70,
 };
 
 /** 对话框头像（React 里用 URL 显示，不进 Phaser）。同一个角色不同表情 = 不同 key，台词里按句指定 */

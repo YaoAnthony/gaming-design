@@ -85,6 +85,8 @@ export interface GameConfig {
   moverPauseMs: number;
   /** 钥匙门连锁：开门后传到相邻一扇同色门的间隔（毫秒）；0 = 相连的一片同时开 */
   lockChainDelayMs: number;
+  /** 按 R 重置房间时，先放第四面墙特效：骷髅手攥住整个画面揉成纸团扔掉，重置好的房间淡入，再把人放下来 */
+  resetCrumple: boolean;
   /** 骷髅手把玩家放进来的动画总时长（毫秒）；0 = 全都不播，直接出现 */
   respawnHandMs: number;
   /** 哪些场合由骷髅手放进来（false = 那种场合直接出现） */

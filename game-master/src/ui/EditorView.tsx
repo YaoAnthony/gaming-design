@@ -3,6 +3,7 @@ import { useAppDispatch, useAppSelector } from '@/redux/hooks';
 import { getGame } from '@/game/PhaserGame';
 import { bridge, EVT } from '@/game/bridge';
 import { PhaserCanvas } from './PhaserCanvas';
+import { CrumpleOverlay } from './crumple/CrumpleOverlay';
 import { Hud } from './Hud';
 import { Palette } from './editor/Palette';
 import { RoomMap } from './editor/RoomMap';
@@ -63,7 +64,7 @@ export function EditorView() {
         {!playing && <FloorTabs />}
         <div className="stage">
           <PhaserCanvas mode="editor" size={roomPx(floor.model)} />
-          {playing && <Hud />}
+          {playing && <><Hud /><CrumpleOverlay /></>}
         </div>
       </main>
       <aside className="side side-right">

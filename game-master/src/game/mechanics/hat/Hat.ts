@@ -90,7 +90,7 @@ export class Hat implements Mechanic {
     p.setExtraHeight(0);
     this.head?.destroy(); this.head = null;
     this.putOnGround(p.x, p.body.bottom, true);
-    if (why === 'knock') ctx.fx.flash('帽子被撞掉了', '#f1efe6');
+    if (why === 'knock') ctx.fx.flash('msg.hatKnocked', '#f1efe6');
   }
 
   /** 放一顶帽子到地上：从给定位置往下找到第一块实心砖，站在它上面 */

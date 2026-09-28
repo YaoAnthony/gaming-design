@@ -18,6 +18,7 @@ import { touch, TOUCH_ACTION, TOUCH_JUMP } from '@/game/input';
 import { Music } from '@/game/Music';
 import { DEFAULT_MUSIC } from '@/asset';
 import { flash, setBoss, setControls, setDialogue, setMode, setPlace, setRoomKey, setScore, setStats } from '@/redux/slices/hudSlice';
+import { mapText, tr } from '@/i18n';
 import { resetProgress } from '@/redux/slices/progressSlice';
 import { floorMechanicOf, globalMechanicsOf, type FloorMechanic, type FuseBurnCell, type Mechanic, type MechanicDef, type MoveInput } from '@/game/mechanics/define';
 import type { PlayContext } from '@/game/core/PlayContext';
@@ -182,7 +183,7 @@ export class GameScene extends Phaser.Scene {
 
     // ---- HUD（机制 start 里可能会改，比如吃豆人显示分数） ----
     store.dispatch(setMode({ mode: 'playing', playtest: this.playtest }));
-    store.dispatch(setPlace(this.floor.place ?? ''));
+    store.dispatch(setPlace(mapText(this.floor.place ?? '')));
     store.dispatch(setControls(defs[0].controls)); store.dispatch(setScore(null));
     store.dispatch(setStats(this.stats));
 
@@ -198,7 +199,7 @@ export class GameScene extends Phaser.Scene {
     const unsubVol = store.subscribe(() => { const v = store.getState().config.musicVolume; if (v !== lastVol) { lastVol = v; this.music.setVolume(v); } });
     if (this.startData.announceFloor) {
       this.cameras.main.fadeIn(350, 0, 0, 0);
-      this.flash(this.floor.name, '#ffd166');
+      this.flash(mapText(this.floor.name), '#ffd166');
     }
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.mechs.forEach(m => m.destroy?.());
@@ -244,7 +245,7 @@ export class GameScene extends Phaser.Scene {
       goToFloor: (id, via) => this.goToFloor(id, via),
       igniteFuses: ends => this.fuses.ignite(ends, this.terrain, cells => this.onFuseBurn(cells)),
       fx: {
-        flash: (text, color) => this.flash(text, color),
+        flash: (text, color, params) => this.flash(text, color, params),
         popScore: (x, y, n) => this.popScore(x, y, n),
         fogDirty: () => { this.fogDirty = true; },
       },
@@ -256,6 +257,7 @@ export class GameScene extends Phaser.Scene {
       blocked: (cx, cy) => cx < 0 || cy < 0 || cx >= this.terrain.w || cy >= this.terrain.h || this.terrain.isSolid(cx, cy) || this.blockedByMechanics(cx, cy),
       blockedByMechanics: (cx, cy) => this.blockedByMechanics(cx, cy),
       occupied: (cx, cy) => this.mechs.some(m => m.occupies?.(cx, cy)),
+      weighs: (cx, cy) => this.mechs.some(m => m.weighs?.(cx, cy)),
       addTerrainCollider: group => {
         const others = [this.player, this.enemies.group, ...this.mechs.flatMap(m => m.terrainBodies?.() ?? [])];
         others.forEach(o => this.physics.add.collider(o, group));
@@ -393,7 +395,7 @@ export class GameScene extends Phaser.Scene {
     this.fuses.resetRect(x0, y0, this.roomW, this.roomH);
     this.enemies.resetRoom(this.room);
     this.mechs.forEach(m => m.onReset?.('room'));
-    this.respawn('房间已重置', revive ? 'death' : 'reset');
+    this.respawn('msg.roomReset', revive ? 'death' : 'reset');
   }
 
   /** 死亡重置整张地图：所有房间的地形、引线、怪物恢复，玩家回到重置点；探索记忆保留。机制可以改复活点（Boss 重演） */
@@ -409,7 +411,7 @@ export class GameScene extends Phaser.Scene {
       const r = this.roomOf(this.entry.x, this.entry.y);
       if (!this.sameRoom(r, this.room)) this.enterRoom(r, true);
     }
-    this.respawn('地图已重置', revive ? 'death' : 'reset');
+    this.respawn('msg.mapReset', revive ? 'death' : 'reset');
   }
 
   /** 重置之后玩家回到复活点 */
@@ -507,7 +509,7 @@ export class GameScene extends Phaser.Scene {
       // 放回出生点（骷髅手放下来，或者直接出现），落了地再冻住长大
       this.appear('level', () => { this.growSince = this.time.now; });
       cam.fadeIn(350, 0, 0, 0);
-      this.flash(this.floor.name, '#ffd166');
+      this.flash(mapText(this.floor.name), '#ffd166');
     });
   }
 
@@ -530,7 +532,7 @@ export class GameScene extends Phaser.Scene {
   /** 换层。给了 via（门的位置）就先来一段旋涡：画面转着拉近门，人和东西都被吸进去 */
   private goToFloor(id: string, via?: Point): void {
     if (this.leaving) return;
-    if (!this.project.floors.some(f => f.id === id)) { this.flash('没有这一层', '#ef476f'); return; }
+    if (!this.project.floors.some(f => f.id === id)) { this.flash('msg.noFloor', '#ef476f'); return; }
     this.leaving = true;
     this.dialogue.end();
     this.player.freeze(0xffffff);
@@ -577,7 +579,8 @@ export class GameScene extends Phaser.Scene {
     this.fogDirty = true;
   }
 
-  private flash(text: string, color: string): void { store.dispatch(flash({ text, color })); }
+  /** text 是 i18n key；地图里的文字（层名）先过 mapText 再传进来，tr 找不到 key 会原样显示 */
+  private flash(text: string, color: string, params?: Record<string, unknown>): void { store.dispatch(flash({ text: tr(text, params), color })); }
 
   /** 飘起来的分数 */
   private popScore(x: number, y: number, n: number): void {

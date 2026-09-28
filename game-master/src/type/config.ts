@@ -77,6 +77,8 @@ export interface GameConfig {
   bossBurstCount: number;
   bossBurstSpeed: number;
   bossBurstTtl: number;
+  /** 压板也被掉下来的碎石（任何落在上面的实心地形）压下；关着时只认箱子和移动方块 */
+  platePressedByRubble: boolean;
   /** 移动方块的速度（像素/秒） */
   moverSpeed: number;
   /** 移动方块撞到东西掉头前停多久（毫秒） */

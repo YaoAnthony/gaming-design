@@ -35,7 +35,7 @@ defineTile(
 
 defineTile(
   { id: 'X', name: '尖刺', desc: '碰到即死；掉下来的地块会把它盖住；下面撑着它的方块没了，它也一起碎', color: 0xef476f, frame: TILE_FRAMES.spikes },
-  Traits.Hazard('扎到尖刺了', { x: 2, y: 20, w: 28, h: 12 }),   // 只有尖刺本体那一条会扎人，上面的空档不算
+  Traits.Hazard('death.spikes', { x: 2, y: 20, w: 28, h: 12 }),   // 只有尖刺本体那一条会扎人，上面的空档不算
   Traits.Mounted,
 );
 defineTile(

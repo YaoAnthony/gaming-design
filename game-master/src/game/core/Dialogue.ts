@@ -5,6 +5,7 @@
 import type { DialogueLine } from '@/type';
 import { store } from '@/redux/store';
 import { setDialogue } from '@/redux/slices/hudSlice';
+import { tr } from '@/i18n';
 
 export interface Speaker { name: string; avatar?: string; lines: DialogueLine[] }
 
@@ -65,13 +66,13 @@ export class Dialogue {
   private showTalk(): void {
     const t = this.talk_; if (!t) return;
     const line = t.who.lines[t.index];
-    store.dispatch(setDialogue({ speaker: t.who.name, text: line.text, avatar: line.avatar ?? t.who.avatar, index: t.index, total: t.who.lines.length, pos: this.pos(line) }));
+    store.dispatch(setDialogue({ speaker: tr(t.who.name), text: tr(line.text), avatar: line.avatar ?? t.who.avatar, index: t.index, total: t.who.lines.length, pos: this.pos(line) }));
   }
 
   private showScene(now: number): void {
     const c = this.scene_; if (!c) return;
     const line = c.lines[c.index];
     c.until = now + (line.autoMs ?? 2500);
-    store.dispatch(setDialogue({ speaker: c.speaker, text: line.text, avatar: line.avatar ?? 'default', index: c.index, total: c.lines.length, auto: true, pos: this.pos(line) }));
+    store.dispatch(setDialogue({ speaker: tr(c.speaker), text: tr(line.text), avatar: line.avatar ?? 'default', index: c.index, total: c.lines.length, auto: true, pos: this.pos(line) }));
   }
 }

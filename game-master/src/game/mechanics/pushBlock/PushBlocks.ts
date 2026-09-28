@@ -14,6 +14,7 @@ import type { CellRef, RoomCoord } from '@/type';
 import type { PlayContext, Suckable } from '@/game/core/PlayContext';
 import type { FuseEnd } from '@/game/fuse/Fuse';
 import type { FuseBurnCell, Mechanic } from '../define';
+import { pressedByWeight } from './plates';
 
 interface Block {
   sprite: Phaser.Physics.Arcade.Image;
@@ -223,8 +224,10 @@ export class PushBlocks implements Mechanic {
 
   // ---------- 内部 ----------
   /** 压板有没有被压下：有一个箱子同时盖住它的每一格（ground = 还要求箱子落在地上，掉下来路过的不算） */
+  /** 压板被压着：落了地的箱子盖满它，或者别的重物（移动方块；开关打开时还有掉下来的碎石）压满它 */
   private pressedBy(pl: Plate, ground: boolean): boolean {
-    const T = this.ctx.cfg.tile;
+    const { ctx } = this, T = ctx.cfg.tile;
+    if (pressedByWeight(pl.cells, { weighs: ctx.weighs, solid: (x, y) => ctx.terrain.isSolid(x, y), rubbleCounts: ctx.cfg.platePressedByRubble })) return true;
     return this.list.some(bl => {
       const b = bl.sprite.body as Phaser.Physics.Arcade.Body;
       if (!b.enable || (ground && !b.blocked.down && !b.touching.down)) return false;
@@ -252,7 +255,7 @@ export class PushBlocks implements Mechanic {
       const seen = new Set<string>(), ends: FuseEnd[] = [];
       pl.cells.forEach(c => ctx.fuses.endsNear(c, PLATE_FUSE_RADIUS, true).forEach(e => { const k = `${e.x},${e.y},${e.ch}`; if (!seen.has(k)) { seen.add(k); ends.push(e); } }));
       pl.cells.forEach(c => ctx.sparks.explode(4, c.x * T + T / 2, (c.y + 1) * T - 4));
-      if (ends.length && ctx.igniteFuses(ends)) ctx.fx.flash('引线点燃！', '#ff7b54');
+      if (ends.length && ctx.igniteFuses(ends)) ctx.fx.flash('msg.fuseLit', '#ff7b54');
     });
   }
 
@@ -266,7 +269,7 @@ export class PushBlocks implements Mechanic {
       if (!b.enable || vy < ctx.cfg.crushMinSpeed) return;
       const hits = (r: { x: number; y: number; width: number; height: number }) =>
         b.bottom >= r.y - 2 && b.top < r.y && b.right > r.x + 2 && b.left < r.x + r.width - 2;   // 箱子底边压到对方头顶
-      if (!ctx.dead && !ctx.won && hits(ctx.player.body)) ctx.die('被箱子砸扁了');
+      if (!ctx.dead && !ctx.won && hits(ctx.player.body)) ctx.die('death.crushedByCrate');
       ctx.enemies.list().forEach(e => { if (hits(e.body)) ctx.enemies.kill(e); });
     });
   }

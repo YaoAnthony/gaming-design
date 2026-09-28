@@ -22,6 +22,8 @@ export interface Mechanic {
   blocks?(cx: number, cy: number): boolean;
   /** 这个格子被机制的实体占着吗（比如箱子）：掉下来的碎块会落在上面，上面的砖算被它撑住 */
   occupies?(cx: number, cy: number): boolean;
+  /** 这一格上压着机制的重物（比如移动方块）：压板这类机关把它当成"有东西压上来了" */
+  weighs?(cx: number, cy: number): boolean;
   /** 这一格的砖由机制自己画、自己做碰撞（比如正在移动的方块），地形的瓦片层不放它 */
   drawsCell?(cx: number, cy: number): boolean;
   /** 机制自己的、要和地形碰撞的物理体（比如箱子）：别的机制做出来的"会动的地形"也要和它们碰撞 */

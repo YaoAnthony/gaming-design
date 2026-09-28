@@ -1,5 +1,6 @@
 {
-  "start": "开始游戏",
+  "startKey": "按空格开始",
+  "startTouch": "点击开始",
   "rotate": "横屏玩",
   "loading": "加载中 {{pct}}%",
   "place": "当前位置: {{place}}",
@@ -14,5 +15,66 @@
   "wonRetry": "再来一次",
   "wonNext": "进入下一关",
   "wonClose": "关闭",
-  "wonEditor": "ESC 回编辑器"
+  "wonEditor": "ESC 回编辑器",
+  "lang": "English",
+  "loadFailed": "加载失败：{{key}}",
+  "msg": {
+    "roomReset": "房间已重置",
+    "mapReset": "地图已重置",
+    "noFloor": "没有这一层",
+    "terrainBreak": "地形断裂！",
+    "paperOnMonster": "纸落在怪物背上了",
+    "monsterSquashed": "怪物被压扁了",
+    "fuseLit": "引线点燃！",
+    "bombsReady": "空格",
+    "speedUp": "加速！炸弹 ×{{n}}",
+    "bossAppears": "大史莱姆！",
+    "bossDefeated": "大史莱姆倒下了",
+    "hatKnocked": "帽子被撞掉了"
+  },
+  "death": {
+    "buriedByRock": "被落石埋住了",
+    "crushedByRock": "被落石压住了",
+    "caughtByMonster": "被怪物抓住了",
+    "ownBomb": "被自己的炸弹炸到了",
+    "crushedByCrate": "被箱子砸扁了",
+    "caughtByGhost": "被鬼抓住了",
+    "swallowedByBoss": "被大史莱姆吞了",
+    "spikes": "扎到尖刺了"
+  },
+  "npc": {
+    "skeleton": "骷髅",
+    "skeletonKing": "骷髅王"
+  },
+  "dialogue": {
+    "skeleton": [
+      "哇！！吓死我了，你怎么走路没有声音啊",
+      "喂，你怎么还炸我一下，很疼啊",
+      "嗯.... 这是你表达回复的方式？",
+      "怎么你对后面的建筑感兴趣？",
+      "那是我的小家，没什么好看的，你已经通关了，恭喜你，你可以回家了",
+      "我跟你说别炸了，time to go home!",
+      "这么想去我家看看？",
+      "哈哈哈，那你可别后悔"
+    ],
+    "pacTaunt": [
+      "哈哈哈，你是不是以为吃完东西就赢了？",
+      "接着被追下去吧"
+    ],
+    "pacKing": [
+      "嗯~ 这葡萄真好吃，也不知道这小子被追的怎么样了",
+      "诶？！怎么全没了"
+    ]
+  },
+  "map": {
+    "Floor 1": "第一层",
+    "Dungeon": "地下城"
+  },
+  "touch": {
+    "up": "上",
+    "left": "左",
+    "right": "右",
+    "down": "下",
+    "action": "动作"
+  }
 }

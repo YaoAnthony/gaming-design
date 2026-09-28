@@ -51,6 +51,7 @@ export const DEFAULT_CONFIG: GameConfig = {
   bossBurstSpeed: 380,
   bossBurstTtl: 2.5,
   lockChainDelayMs: 70,
+  platePressedByRubble: false,
   moverSpeed: 64,       // 两格 / 秒
   moverPauseMs: 300,
   respawnHandMs: 2000,

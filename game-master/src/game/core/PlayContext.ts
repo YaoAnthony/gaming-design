@@ -80,7 +80,8 @@ export interface PlayContext {
   igniteFuses(ends: FuseEnd[]): number;
 
   fx: {
-    flash(text: string, color: string): void;
+    /** text 是 i18n key（msg.* / death.*），params 填进 {{…}} */
+    flash(text: string, color: string, params?: Record<string, unknown>): void;
     popScore(x: number, y: number, n: number): void;
     /** 迷雾要重算（地形 / 光源变了） */
     fogDirty(): void;
@@ -99,6 +100,8 @@ export interface PlayContext {
   blockedByMechanics(cx: number, cy: number): boolean;
   /** 格子被机制的实体占着（比如箱子） */
   occupied(cx: number, cy: number): boolean;
+  /** 格子上压着机制的重物（比如移动方块），见 Mechanic.weighs */
+  weighs(cx: number, cy: number): boolean;
   /** 让这组物理体和所有会和地形碰撞的东西碰撞（玩家、怪物、各机制的 terrainBodies）：会动的地形用 */
   addTerrainCollider(group: Phaser.Physics.Arcade.Group): void;
 }

@@ -23,7 +23,7 @@ export class Enemies {
   kill(e: Enemy): void {
     if (!e.active) return;
     playCrush(this.ctx.sparks, e.x, e.y);
-    this.ctx.fx.flash('怪物被压扁了', '#9b5de5');
+    this.ctx.fx.flash('msg.monsterSquashed', '#9b5de5');
     e.destroy();
   }
 
@@ -52,7 +52,7 @@ export class Enemies {
         if (ch.vy >= cfg.crushMinSpeed && Phaser.Geom.Intersects.RectangleToRectangle(new Phaser.Geom.Rectangle(cx, cy, w, h), r)) crushed = true;
       });
       if (crushed) this.kill(e);
-      else if (!ctx.dead && !ctx.won && Phaser.Geom.Intersects.RectangleToRectangle(r, playerRect)) ctx.die('被怪物抓住了');
+      else if (!ctx.dead && !ctx.won && Phaser.Geom.Intersects.RectangleToRectangle(r, playerRect)) ctx.die('death.caughtByMonster');
     });
   }
 

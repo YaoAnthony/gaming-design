@@ -27,7 +27,6 @@ html, body, #root { margin: 0; height: 100%; background: var(--bg); color: var(-
 .btn:hover { border-color: var(--accent); }
 .btn:disabled { opacity: .5; cursor: default; }
 .btn.primary { background: #1b6f8a; border-color: #4cc9f0; font-weight: bold; }
-.btn.start { font-size: 20px; padding: 14px 40px; border-radius: 10px; }
 .hint { color: var(--muted); font-size: 12px; line-height: 1.5; }
 h1 { font-size: 16px; margin: 0 0 10px; color: var(--accent); }
 h2 { font-size: 12px; color: var(--muted); margin: 14px 0 6px; text-transform: uppercase; letter-spacing: .5px; }
@@ -149,3 +148,31 @@ label.check { display: flex; align-items: center; gap: 6px; margin: 8px 0; color
 .death-title { font-size: 56px; font-weight: bold; letter-spacing: 6px; color: #ffb3c1; text-shadow: 0 0 24px rgba(239,71,111,.8); }
 .death-sub { font-size: 16px; color: #e6e8f0; opacity: .85; }
 @keyframes death-in { from { opacity: 0; } to { opacity: 1; } }
+
+/* ---- 标题页 ---- */
+/* 字体放在项目里（src/asset/fonts，只含拉丁字符，OFL 协议），离线也能用；中文走系统字体 */
+@font-face { font-family: "Press Start 2P"; src: url("../asset/fonts/PressStart2P.woff2") format("woff2"); font-display: block; }
+@font-face { font-family: "Space Grotesk"; font-weight: 700; src: url("../asset/fonts/SpaceGrotesk-Bold.woff2") format("woff2"); font-display: swap; }
+.title-screen { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: clamp(28px, 7vh, 72px); cursor: pointer; user-select: none; -webkit-user-select: none; container-type: size;
+  background:
+    radial-gradient(ellipse at center, rgba(30, 60, 90, .45) 0%, transparent 65%),
+    linear-gradient(rgba(76, 201, 240, .05) 1px, transparent 1px) 0 0 / 40px 40px,
+    linear-gradient(90deg, rgba(76, 201, 240, .05) 1px, transparent 1px) 0 0 / 40px 40px,
+    #0b0b14; }
+.title-logo { margin: 0; display: flex; flex-direction: column; align-items: center; gap: .35em; font-family: "Press Start 2P", ui-monospace, monospace; font-weight: normal; font-size: min(11cqw, 17cqh); line-height: 1; color: #f1efe6;
+  text-shadow: 0 .07em 0 #9a6a3c, 0 0 .35em rgba(76, 201, 240, .45); }
+.title-line2 { position: relative; }
+/* 小人站在 R 右边，脚和字底对齐，一直跳 */
+.title-hero { position: absolute; left: 100%; bottom: 0; margin-left: .3em; height: .75em; image-rendering: pixelated; transform-origin: 50% 100%; animation: hero-jump .9s cubic-bezier(.3, 0, .4, 1) infinite; }
+@keyframes hero-jump {
+  0%, 100% { transform: translateY(0) scale(1.12, .88); }
+  12% { transform: translateY(0) scale(1, 1); }
+  45% { transform: translateY(-.9em) scale(.92, 1.08); }
+  55% { transform: translateY(-.9em) scale(1, 1); }
+  88% { transform: translateY(0) scale(1, 1); }
+}
+.title-prompt { font-family: "Space Grotesk", -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; font-weight: 700; font-size: clamp(16px, 3.2cqw, 40px); color: #ffd166; letter-spacing: .02em; animation: prompt-blink 1.4s ease-in-out infinite; }
+@keyframes prompt-blink { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+.title-lang { position: absolute; top: max(14px, env(safe-area-inset-top)); right: max(16px, env(safe-area-inset-right)); background: transparent; border: 1px solid rgba(241, 239, 230, .35); border-radius: 6px; color: #f1efe6; padding: 6px 12px; font-size: 13px; cursor: pointer; }
+.title-lang:hover { border-color: #4cc9f0; color: #4cc9f0; }
+@media (prefers-reduced-motion: reduce) { .title-hero, .title-prompt { animation: none; } }

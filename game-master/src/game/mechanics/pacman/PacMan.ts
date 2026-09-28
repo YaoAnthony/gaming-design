@@ -178,7 +178,7 @@ export class PacMan implements FloorMechanic {
     this.ctx.scene.cameras.main.flash(120, 255, 232, 176, false);
     if (!this.script.playing) {
       this.setBoosts(this.boosts + 1);
-      this.ctx.fx.flash(`加速！炸弹 ×${this.bombs.capacity}`, '#ffe8b0');
+      this.ctx.fx.flash('msg.speedUp', '#ffe8b0', { n: this.bombs.capacity });
       return;
     }
     const ms = Math.max(FRIGHT_MIN_MS, FRIGHT_MS - this.powerCount * FRIGHT_STEP_MS);
@@ -231,6 +231,6 @@ export class PacMan implements FloorMechanic {
       ctx.fx.popScore(hit.eaten.x, hit.eaten.y, score);
       ctx.sparks.explode(10, hit.eaten.x, hit.eaten.y);
       ctx.scene.cameras.main.shake(80, 0.004);
-    } else if (hit.caught) ctx.die('被鬼抓住了');
+    } else if (hit.caught) ctx.die('death.caughtByGhost');
   }
 }

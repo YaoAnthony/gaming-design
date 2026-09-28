@@ -8,7 +8,7 @@ import { PAC_DIALOGUES } from './dialogues';
 
 export type PacPhase = 'play' | 'chase' | 'taunt' | 'bombs' | 'kingWait' | 'king' | 'done';
 
-const KING = '骷髅王';
+const KING = 'npc.skeletonKing';
 /** 清空后多久开始画外音 */
 const TAUNT_AFTER_MS = 6000;
 /** 画外音结束后多久解锁炸弹 */
@@ -42,7 +42,7 @@ export class PacScript {
         if (now - this.at >= TAUNT_AFTER_MS) { this.phase = 'taunt'; ctx.dialogue.cutscene(KING, PAC_DIALOGUES.taunt, now, () => { this.phase = 'bombs'; this.at = ctx.scene.time.now; }); }
         break;
       case 'bombs': {
-        if (!this.bombs.unlocked && now - this.at >= BOMBS_AFTER_MS) { this.bombs.unlocked = true; ctx.fx.flash('空格', '#ffd166'); }
+        if (!this.bombs.unlocked && now - this.at >= BOMBS_AFTER_MS) { this.bombs.unlocked = true; ctx.fx.flash('msg.bombsReady', '#ffd166'); }
         const gm = this.ghosts();
         if (this.bombs.unlocked && (!gm || !gm.anyAlive)) { this.phase = 'kingWait'; this.at = now; }
         break;

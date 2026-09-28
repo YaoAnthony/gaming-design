@@ -1,5 +1,6 @@
 {
-  "start": "Start",
+  "startKey": "Press Space to start",
+  "startTouch": "Tap to start",
   "rotate": "Rotate to landscape",
   "loading": "Loading {{pct}}%",
   "place": "Location: {{place}}",
@@ -14,5 +15,63 @@
   "wonRetry": "Play again",
   "wonNext": "Next level",
   "wonClose": "Close",
-  "wonEditor": "ESC back to editor"
+  "wonEditor": "ESC back to editor",
+  "lang": "中文",
+  "loadFailed": "Failed to load: {{key}}",
+  "msg": {
+    "roomReset": "Room reset",
+    "mapReset": "Map reset",
+    "noFloor": "No such floor",
+    "terrainBreak": "The ground gives way!",
+    "paperOnMonster": "Paper landed on the monster",
+    "monsterSquashed": "Monster squashed",
+    "fuseLit": "Fuse lit!",
+    "bombsReady": "SPACE",
+    "speedUp": "Speed up! Bombs ×{{n}}",
+    "bossAppears": "Giant Slime!",
+    "bossDefeated": "Giant Slime defeated",
+    "hatKnocked": "Hat knocked off"
+  },
+  "death": {
+    "buriedByRock": "Buried by falling rock",
+    "crushedByRock": "Crushed by falling rock",
+    "caughtByMonster": "Caught by a monster",
+    "ownBomb": "Blown up by your own bomb",
+    "crushedByCrate": "Flattened by a crate",
+    "caughtByGhost": "Caught by a ghost",
+    "swallowedByBoss": "Swallowed by the Giant Slime",
+    "spikes": "Impaled on spikes"
+  },
+  "npc": {
+    "skeleton": "Skeleton",
+    "skeletonKing": "Skeleton King"
+  },
+  "dialogue": {
+    "skeleton": [
+      "Whoa!! You scared me! Why don't your feet make any noise?",
+      "Hey, why'd you blast me? That hurts!",
+      "Hmm... is that how you say hello?",
+      "What, you're curious about the building back there?",
+      "That's just my little home, nothing to see. You've cleared the level, congrats. You can go home now.",
+      "I told you to stop blasting. Time to go home!",
+      "You really want to see my place that badly?",
+      "Hahaha, don't say I didn't warn you."
+    ],
+    "pacTaunt": [
+      "Hahaha, did you think eating everything meant you'd win?",
+      "Keep running, then."
+    ],
+    "pacKing": [
+      "Mmm~ these grapes are delicious. Wonder how the kid's doing with the chase.",
+      "Huh?! Where'd they all go?"
+    ]
+  },
+  "map": {},
+  "touch": {
+    "up": "Up",
+    "left": "Left",
+    "right": "Right",
+    "down": "Down",
+    "action": "Action"
+  }
 }

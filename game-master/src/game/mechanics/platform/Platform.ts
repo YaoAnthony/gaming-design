@@ -71,7 +71,7 @@ export class Platform implements FloorMechanic {
     ctx.scene.sound.play('boom', { volume: 0.8 });
     // 爆炸范围里（至少 fuseIgniteRadius）有引线端点就点燃
     const ends = ctx.fuses.endsNear(jump.cell, fuseIgniteRadius(ctx.cfg, ctx.player.stage));
-    if (ends.length && ctx.igniteFuses(ends)) ctx.fx.flash('引线点燃！', '#ff7b54');
+    if (ends.length && ctx.igniteFuses(ends)) ctx.fx.flash('msg.fuseLit', '#ff7b54');
   }
 
   private drawPreview(jump: JumpEvent | null): void {

@@ -26,7 +26,7 @@ export function App() {
   return (
     <div className="app">
       <nav className="tabs">
-        <span className="brand">Climb</span>
+        <span className="brand">Game Master</span>
         <button className={tab === 'game' ? 'active' : ''} onClick={() => setTab('game')}>游戏</button>
         <button className={tab === 'editor' ? 'active' : ''} onClick={() => setTab('editor')}>地图编辑器</button>
       </nav>

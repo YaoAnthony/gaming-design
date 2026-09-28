@@ -80,6 +80,6 @@ export class Bombs {
     gm?.ghosts.forEach(g => { if (g.alive && inBlast(g.x, g.y)) { gm.kill(g); ctx.fx.popScore(g.x, g.y, GHOST_SCORE); this.addScore(GHOST_SCORE); } });
     // 鬼全灭之后炸弹不再伤自己（同一次爆炸炸死最后一只鬼也算）
     const ghostsLeft = !!gm?.anyAlive;
-    if (ghostsLeft && !ctx.dead && !ctx.won && inBlast(b.center.x, b.center.y)) ctx.die('被自己的炸弹炸到了');
+    if (ghostsLeft && !ctx.dead && !ctx.won && inBlast(b.center.x, b.center.y)) ctx.die('death.ownBomb');
   }
 }

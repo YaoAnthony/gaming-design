@@ -162,7 +162,7 @@ export class BossFight implements Mechanic {
     ctx.hud.boss({ hp: this.boss.hp, max: this.boss.maxHp });
     ctx.music.play(BOSS_MUSIC);
     ctx.scene.cameras.main.shake(300, 0.012);
-    ctx.fx.flash('大史莱姆！', '#9b5de5');
+    ctx.fx.flash('msg.bossAppears', '#9b5de5');
     ctx.fx.fogDirty();
   }
 
@@ -192,7 +192,7 @@ export class BossFight implements Mechanic {
     if (!dead) return;
     this.killMinions();
     this.explode(boss.x, boss.y);
-    ctx.fx.flash('大史莱姆倒下了', '#ffd166');
+    ctx.fx.flash('msg.bossDefeated', '#ffd166');
     if (this.sealEntry && this.room) store.dispatch(winBoss({ key: this.progressKey, win: { entry: { ...this.sealEntry }, at: { x: boss.x, y: boss.y }, room: ctx.rooms.key(this.room) } }));
     this.end(true);
   }
@@ -224,7 +224,7 @@ export class BossFight implements Mechanic {
     if (ctx.dead || ctx.won) return;
     const pb = ctx.player.body;
     const pr = new Phaser.Geom.Rectangle(pb.x + 3, pb.y + 3, pb.width - 6, pb.height - 6);
-    if (Phaser.Geom.Intersects.RectangleToRectangle(boss.lethalRect(), pr)) ctx.die('被大史莱姆吞了');
+    if (Phaser.Geom.Intersects.RectangleToRectangle(boss.lethalRect(), pr)) ctx.die('death.swallowedByBoss');
   }
 
   /** 扑击落地时吐两只小史莱姆：离上次吐至少 bossSpitMs；这个房间里 Boss 吐的、还活着的不超过 bossMaxMinions */
@@ -281,7 +281,7 @@ export class BossFight implements Mechanic {
       if (ctx.igniteFuses(ends)) lit++;
       return true;
     }));
-    if (lit) ctx.fx.flash('引线点燃！', '#ff7b54');
+    if (lit) ctx.fx.flash('msg.fuseLit', '#ff7b54');
     this.bursts = this.bursts.filter(b => b.alive);
   }
 }

@@ -34,7 +34,7 @@ export class Debris {
 
   // ---------- Terrain 的回调 ----------
   onChunkFall(ch: Chunk): void {
-    this.ctx.fx.flash('地形断裂！', '#ffd166');
+    this.ctx.fx.flash('msg.terrainBreak', '#ffd166');
     // 材质说了"下落时能站"就给它一块物理平台
     if (Tiles.get(ch.cells[0].id)?.rideable) {
       const b = this.ctx.terrain.chunkBounds(ch);
@@ -51,7 +51,7 @@ export class Debris {
     playLand(ctx.scene);
     // 飘落的东西（纸）不会砸死任何东西，落地时也不算"埋住"
     if (cells.some(c => (Tiles.get(c.id)?.floatSpeed ?? 0) > 0)) return;
-    if (!ctx.dead && !ctx.won && ctx.terrain.cellsOverlapRect(cells, ctx.player.body)) ctx.die('被落石埋住了');
+    if (!ctx.dead && !ctx.won && ctx.terrain.cellsOverlapRect(cells, ctx.player.body)) ctx.die('death.buriedByRock');
     ctx.enemies.list().forEach(e => { if (ctx.terrain.cellsOverlapRect(cells, e.body)) ctx.enemies.kill(e); });
   }
 
@@ -73,7 +73,7 @@ export class Debris {
       this.carried.push(paper);
       // 人正站在上面：纸贴到怪物头顶会往上挪几像素，把人一起放稳
       if (riding) { ctx.player.y = paper.platform.body.top - ctx.player.body.height / 2 - 1; ctx.player.setVelocityY(0); }
-      ctx.fx.flash('纸落在怪物背上了', '#f4f1e8');
+      ctx.fx.flash('msg.paperOnMonster', '#f4f1e8');
       return true;
     }
     return false;
@@ -136,7 +136,7 @@ export class Debris {
       const overlapY = cy + h - b.y;
       if (overlapY > 0 && overlapY < h) { ctx.player.y += overlapY; if (b.velocity.y < 0) ctx.player.setVelocityY(0); }
     });
-    if (crushed) ctx.die('被落石压住了');
+    if (crushed) ctx.die('death.crushedByRock');
   }
 
   /** 整张图重置前：飘纸、掉落平台全清 */

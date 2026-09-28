@@ -58,6 +58,7 @@ export class Movers implements Mechanic {
       shift: { x: 0, y: 0 }, dir: s.kind.startDir, pos: 0, waitUntil: 0, reserved: new Set(),
       view: ctx.scene.add.container(0, 0).setDepth(0.5), images: [], bodies: [],
     }));
+    this.syncDrawn();   // 一开始就知道自己占哪些格：别的机制 start 时（比如压板摆初始状态）就能问到
   }
 
   // ---------- 生命周期 ----------
@@ -69,6 +70,9 @@ export class Movers implements Mechanic {
   }
 
   drawsCell(cx: number, cy: number): boolean { return this.drawn.has(cy * this.ctx.terrain.w + cx); }
+
+  /** 移动方块是重物：停在（或滑过）压板那一格时，压板算被压下。按网格里的位置算，走满一格才算进了那一格 */
+  weighs(cx: number, cy: number): boolean { return this.drawsCell(cx, cy); }
 
   update(now: number, dt: number): void { this.groups.forEach(g => this.tick(g, now, dt)); }
 

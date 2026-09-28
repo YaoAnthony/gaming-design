@@ -20,7 +20,7 @@ export class BootScene extends Phaser.Scene {
       fill.clear().fillStyle(0x4cc9f0, 1).fillRect(x, y, barW * v, barH);
       label.setText(i18n.t('loading', { pct: Math.round(v * 100) }));
     });
-    this.load.on(Phaser.Loader.Events.FILE_LOAD_ERROR, (f: Phaser.Loader.File) => label.setText(`加载失败：${f.key}`).setColor('#ef476f'));
+    this.load.on(Phaser.Loader.Events.FILE_LOAD_ERROR, (f: Phaser.Loader.File) => label.setText(i18n.t('loadFailed', { key: f.key })).setColor('#ef476f'));
 
     SPRITESHEETS.forEach(s => this.load.spritesheet(s.key, s.url, { frameWidth: s.frameWidth, frameHeight: s.frameHeight }));
     IMAGES.forEach(i => this.load.image(i.key, i.url));

@@ -5,14 +5,14 @@ Each agent owns a specific domain, enforcing separation of concerns and quality.
 
 ## Technology Stack
 
-- **Engine**: Phaser 3.90 (web, Arcade physics), game lives in `climb/`
+- **Engine**: Phaser 3.90 (web, Arcade physics), game lives in `game-master/`
 - **Language**: TypeScript 5 + React 18 (UI) + Redux Toolkit (state)
 - **Version Control**: Git with trunk-based development
-- **Build System**: Vite 6 (`npm run build` in `climb/`), Vitest for tests, ESLint for lint
-- **Asset Pipeline**: PNG / MP3 in `climb/src/asset/` (placeholder art from `npm run gen-art`), manifest in `climb/src/asset/index.ts`
+- **Build System**: Vite 6 (`npm run build` in `game-master/`), Vitest for tests, ESLint for lint
+- **Asset Pipeline**: PNG / MP3 in `game-master/src/asset/` (placeholder art from `npm run gen-art`), manifest in `game-master/src/asset/index.ts`
 
 > **Note**: The Godot / Unity / Unreal specialist agents and the files under
-> `docs/engine-reference/` do not apply to this project. See `climb/README.md`
+> `docs/engine-reference/` do not apply to this project. See `game-master/README.md`
 > for architecture, registries and mechanics.
 
 ## Project Structure

@@ -1,9 +1,9 @@
-name: Deploy climb to GitHub Pages
+name: Deploy game-master to GitHub Pages
 
 on:
   push:
     branches: [main]
-    paths: ['climb/**', '.github/workflows/pages.yml']
+    paths: ['game-master/**', '.github/workflows/pages.yml']
   workflow_dispatch:
 
 permissions:
@@ -18,19 +18,19 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    defaults: { run: { working-directory: climb } }
+    defaults: { run: { working-directory: game-master } }
     steps:
       - uses: actions/checkout@v4
       - uses: actions/configure-pages@v5
       - uses: actions/setup-node@v4
-        with: { node-version-file: climb/.nvmrc, cache: npm, cache-dependency-path: climb/package-lock.json }
+        with: { node-version-file: game-master/.nvmrc, cache: npm, cache-dependency-path: game-master/package-lock.json }
       - run: npm ci
       - run: npm run lint
       - run: npm test
       - run: npm run build
         env: { GITHUB_PAGES: 'true' }
       - uses: actions/upload-pages-artifact@v3
-        with: { path: climb/dist }
+        with: { path: game-master/dist }
 
   deploy:
     needs: build

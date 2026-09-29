@@ -7,7 +7,7 @@ export interface WorldModel {
   layout: (string | null)[][];
   /** 每个房间 roomH 行、每行 roomW 个字符 */
   rooms: Record<string, string[]>;
-  /** 迷雾区（可选）：每个房间 roomH 行，'.' = 无区，'1'-'4' = 区号；玩家进入区内任一格，整个区永久揭开 */
+  /** 迷雾区（可选，任何房间都能画）：每个房间 roomH 行，'.' = 无区，'1'-'4' = 区号；揭开前伪装成周围的墙，玩家进入区内任一格，整个区永久揭开 */
   fog?: Record<string, string[]>;
   /** 物件层（可选）：出生点 / 怪物 / 终点，和砖块分开，所以怪物可以放在尖刺上。'.' = 无 */
   entities?: Record<string, string[]>;
@@ -63,7 +63,7 @@ export interface Project {
 }
 
 export interface RoomFlags {
-  /** 这个房间启用迷雾（默认不启用） */
+  /** 全屋暗：整个房间只看得见光照到的地方（默认不开）。迷雾区不用开这个也能用 */
   fog?: boolean;
   /** @deprecated 旧字段：以前迷雾是全局开关，这里标记例外房间。normalizeModel 会删掉 */
   noFog?: boolean;

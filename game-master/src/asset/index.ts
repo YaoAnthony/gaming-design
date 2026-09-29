@@ -38,12 +38,20 @@ import boomUrl from './boob.mp3';
 import bgmUrl from './Pixelated_Coffee.mp3';
 import bossMusicUrl from './boss.mp3';
 import bossLaughUrl from './boss_laughing.mp3';
+import keyPickupUrl from './key_pickup.mp3';
 import avatarDefaultUrl from './re/avatar_default.png';
 import avatarLaughUrl from './re/avatar_la.png';
 
 export const TILE_SIZE = 32;
 
 /** 图集帧序号（tiles.png 横排） */
+/**
+ * 墙的手画模板，每张 5×3 格：8 个方向 + 中间（被围住的黑色内部）+ 4 个折角，格子位置见 game/terrain/walls.ts。
+ * 游戏里按周围 8 格拼出每块砖（朝外的表面有纹理，被围住的内部是黑的）。现在没有砖这样画；
+ * 要用：画好模板放进 asset，import 进来加到这里和 IMAGES，砖块定义里写 wall: WALL_TEXTURES.xxx
+ */
+export const WALL_TEXTURES = {} as const;
+
 export const TILE_FRAMES = {
   dirt: 0,
   rock: 1,
@@ -148,6 +156,7 @@ export const AUDIO: AudioAsset[] = [
   { key: 'bgm', url: bgmUrl, music: 'Pixelated Coffee' },           // 平时的背景音乐（循环）
   { key: 'bossMusic', url: bossMusicUrl, music: 'Boss 战' },        // Boss 战音乐（循环）
   { key: 'bossLaugh', url: bossLaughUrl },                          // 骷髅消失时的笑声
+  { key: 'keyPickup', url: keyPickupUrl },                          // 捡到钥匙（scripts/gen-sfx.sh 合成的，可以换成手工音效）
 ];
 
 /** 能当背景音乐的曲目 */

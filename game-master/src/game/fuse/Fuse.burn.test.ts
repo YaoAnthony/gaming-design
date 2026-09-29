@@ -35,8 +35,8 @@ function fakeScene() {
 }
 
 describe('引线一跳跳烧过去', () => {
-  it('点燃一头：整条引线按顺序烧完，经过的泥土烧没、岩石裂成碎岩', () => {
-    const rows = ['RRRRRRRR', 'R......R', 'R#R####R', 'RRRRRRRR'];
+  it('点燃一头：整条引线按顺序烧完，经过的碎岩烧没、岩石裂成碎岩', () => {
+    const rows = ['RRRRRRRR', 'R......R', 'RrRrrrrR', 'RRRRRRRR'];
     const fuse = ['........', '........', '.WWWWWW.', '........'];
     const { scene, advance } = fakeScene();
     const terrain = new Terrain({ scene } as unknown as TerrainHost, rows, { tile: 32, explosionRadius: 1.5, chunkGravity: 1400, chunkMaxFall: 700 });
@@ -51,7 +51,7 @@ describe('引线一跳跳烧过去', () => {
   });
 
   it('按 R 重置任何一个房间：整张图正在烧的引线全部停下，之后还能从头再点', () => {
-    const rows = ['RRRRRRRRRRRR', 'R..........R', 'R##########R', 'RRRRRRRRRRRR'];
+    const rows = ['RRRRRRRRRRRR', 'R..........R', 'RrrrrrrrrrrR', 'RRRRRRRRRRRR'];
     const fuse = ['............', '............', '.WWWWWWWWWW.', '............'];
     const { scene, advance } = fakeScene();
     const terrain = new Terrain({ scene } as unknown as TerrainHost, rows, { tile: 32, explosionRadius: 1.5, chunkGravity: 1400, chunkMaxFall: 700 });
@@ -61,7 +61,7 @@ describe('引线一跳跳烧过去', () => {
     net.resetRect(8, 0, 4, 4);                 // 重置右边那一小块（火还没烧到那里）
     terrain.resetRect(8, 0, 4, 4);
     advance(5000);
-    expect(terrain.grid[2].join('')).toBe('R...#######R');   // 火停在第 3 格，后面没再烧
+    expect(terrain.grid[2].join('')).toBe('R...rrrrrrrR');   // 火停在第 3 格，后面没再烧
     expect(net.ignite(net.endsAt(10, 2), terrain)).toBeGreaterThan(0);   // 没烧完的那段还能再点
   });
 });

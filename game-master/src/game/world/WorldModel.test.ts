@@ -113,7 +113,7 @@ describe('project', () => {
 import { addLockGroup, bakeLocks, LOCK_COLORS, removeLockGroup, setDoorCell, setKeyCell } from './WorldModel';
 
 describe('locks', () => {
-  const base = (): WorldModel => ({ roomW: 5, roomH: 4, layout: [['A']], rooms: { A: ['RRRRR', 'R...R', 'R.#.R', 'RRRRR'] } });
+  const base = (): WorldModel => ({ roomW: 5, roomH: 4, layout: [['A']], rooms: { A: ['RRRRR', 'R...R', 'R.r.R', 'RRRRR'] } });
   it('每加一组颜色往后轮，最多 9 组', () => {
     const m = base();
     const a = addLockGroup(m)!, b = addLockGroup(m)!;
@@ -125,12 +125,12 @@ describe('locks', () => {
   it('门只烘进空气格，钥匙记坐标；删组后全部消失', () => {
     const m = base();
     const g = addLockGroup(m)!;
-    setDoorCell(m, 'A', 1, 1, g.id); setDoorCell(m, 'A', 2, 2, g.id);   // (2,2) 是泥土，烘不进去
+    setDoorCell(m, 'A', 1, 1, g.id); setDoorCell(m, 'A', 2, 2, g.id);   // (2,2) 是碎岩，烘不进去
     setKeyCell(m, 'A', 3, 1, g.id);
     const { model, doors, keys } = bakeLocks(m);
     expect(model.rooms.A[1]).toBe('R%..R');
-    expect(model.rooms.A[2]).toBe('R.#.R');
-    expect(doors.map(d => [d.x, d.y, d.group])).toEqual([[1, 1, 1]]);   // 泥土上的门不算
+    expect(model.rooms.A[2]).toBe('R.r.R');
+    expect(doors.map(d => [d.x, d.y, d.group])).toEqual([[1, 1, 1]]);   // 碎岩上的门不算
     expect(keys).toEqual([{ x: 3, y: 1, group: 1 }]);
     expect(m.rooms.A[1]).toBe('R...R');                                    // 原模型不动
     removeLockGroup(m, g.id);
@@ -142,7 +142,7 @@ describe('locks', () => {
 describe('改房间尺寸 / 清空房间', () => {
   const m = (): WorldModel => ({
     roomW: 3, roomH: 2, layout: [['A']],
-    rooms: { A: ['R#R', 'RRR'] },
+    rooms: { A: ['RrR', 'RRR'] },
     entities: { A: ['.P.', '...'] },
     fuse: { A: ['W..', '...'] },
     roomFlags: { A: { fog: true } },
@@ -153,7 +153,7 @@ describe('改房间尺寸 / 清空房间', () => {
     const w = m();
     resizeRooms(w, 4, 3);
     expect([w.roomW, w.roomH]).toEqual([4, 3]);
-    expect(w.rooms.A).toEqual(['R#R.', 'RRR.', '....']);
+    expect(w.rooms.A).toEqual(['RrR.', 'RRR.', '....']);
     expect(w.entities!.A).toEqual(['.P..', '....', '....']);
     expect(w.fuse!.A).toEqual(['W...', '....', '....']);
   });
@@ -161,7 +161,7 @@ describe('改房间尺寸 / 清空房间', () => {
   it('变小：从右边和下边裁掉', () => {
     const w = m();
     resizeRooms(w, 2, 1);
-    expect(w.rooms.A).toEqual(['R#']);
+    expect(w.rooms.A).toEqual(['Rr']);
     expect(w.entities!.A).toEqual(['.P']);
   });
 
@@ -174,5 +174,12 @@ describe('改房间尺寸 / 清空房间', () => {
     expect(w.roomFlags!.A).toBeUndefined();
     expect(w.texts!.A).toBeUndefined();
     expect(w.layout).toEqual([['A']]);
+  });
+});
+
+describe('读旧地图', () => {
+  it('泥土（#）删掉了：读进来换成特性一样的碎岩', () => {
+    const m: WorldModel = { roomW: 3, roomH: 2, layout: [['A']], rooms: { A: ['R#R', '##.'] } };
+    expect(normalizeModel(m).rooms.A).toEqual(['RrR', 'rr.']);
   });
 });

@@ -97,7 +97,7 @@ export function Palette() {
           <div className="label"><b>擦除迷雾区</b><small>fog</small></div>
         </button>
       </div>
-      <div className="hint">迷雾区叠在砖块之上，不影响地形。区外的地方靠光照自然揭示。</div>
+      <div className="hint">迷雾区揭开前伪装成周围的墙，不影响地形，任何房间都能画。</div>
 
       {groups.map(g => (
         <div key={g}>

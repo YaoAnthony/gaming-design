@@ -4,14 +4,14 @@ import '@/game/mechanics';
 import { buildMoverGroups, canCarry, rowRuns, stepBlocked } from './kinds';
 
 describe('移动方块：能不能放、怎么分组', () => {
-  it('只能放在实心、自己不会掉的砖上：泥土 / 岩石 / 碎岩可以，沙土 / 脆岩 / 纸 / 空气 / 尖刺不行', () => {
-    expect(['#', 'R', 'r', '=', '_'].map(canCarry)).toEqual([true, true, true, true, true]);
+  it('只能放在实心、自己不会掉的砖上：岩石 / 碎岩可以，沙土 / 脆岩 / 纸 / 空气 / 尖刺不行', () => {
+    expect(['R', 'r', '=', '_'].map(canCarry)).toEqual([true, true, true, true]);
     expect(['S', 'B', 'Z', '.', 'X'].map(canCarry)).toEqual([false, false, false, false, false]);
   });
 
   it('相连的同一种标记是一组；不同种、隔开的各是一组；带重力的砖上的标记忽略', () => {
     const markers = ['hh.v', 'h..v', '....', 'hh..'];
-    const tiles   = ['RR#R', 'S..R', '....', '##..'];   // (0,1) 是沙土：那一格的标记不算
+    const tiles   = ['RRrR', 'S..R', '....', 'rr..'];   // (0,1) 是沙土：那一格的标记不算
     const groups = buildMoverGroups(markers, tiles);
     expect(groups.map(g => [g.kind.ch, g.cells.map(c => `${c.x},${c.y}`).join(' ')])).toEqual([
       ['h', '0,0 1,0'],

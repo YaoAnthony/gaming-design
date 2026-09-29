@@ -11,7 +11,11 @@ import type { CellRef } from '@/type';
 import type { Terrain } from '@/game/terrain/Terrain';
 import { decodeFuse, encodeFuseState, FUSE_CHANNELS, fuseBit } from './channels';
 
-export interface FuseOptions { tile: number; delayMs: number }
+export interface FuseOptions {
+  tile: number; delayMs: number;
+  /** 引线头周围放一小圈暖光（画面效果关了返回 null）；引线头没了跟着销毁 */
+  light?: (x: number, y: number) => Phaser.GameObjects.GameObject | null;
+}
 /** 某种颜色引线上的一格 */
 export interface FuseEnd extends CellRef { ch: number }
 /** BFS 的结果：一格和它离起点的跳数 */
@@ -204,8 +208,9 @@ export class FuseNet {
     const T = this.opts.tile, scene = this.scene;
     const x = (i % this.w) * T + T / 2, y = Math.floor(i / this.w) * T + T / 2;
     const img = scene.add.image(x, y, 'fusenode').setDepth(6);
+    const lamp = this.opts.light?.(x, y);
     const look = style >= 0 ? FUSE_CHANNELS[style].node : undefined;
-    if (!look) return { style, objs: [img], tweens: [] };
+    if (!look) return { style, objs: lamp ? [img, lamp] : [img], tweens: [] };
     // 特别的引线头：放大 + 一胀一缩，后面一圈加亮混合的光晕跟着呼吸，往上冒火星
     img.setScale(look.scale);
     const halo = scene.add.circle(x, y, T * 0.55, look.glow, 0.35).setDepth(5.9).setBlendMode('ADD');
@@ -219,7 +224,7 @@ export class FuseNet {
       scene.tweens.add({ targets: img, scale: look.scale * 1.15, duration: 520, yoyo: true, repeat: -1, ease: 'Sine.inOut' }),
       scene.tweens.add({ targets: halo, scale: 1.35, alpha: 0.12, duration: 520, yoyo: true, repeat: -1, ease: 'Sine.inOut' }),
     ];
-    return { style, objs: [img, halo, embers], tweens };
+    return { style, objs: lamp ? [img, halo, embers, lamp] : [img, halo, embers], tweens };
   }
 
   /** 存档：每格一位十六进制（颜色位掩码） */

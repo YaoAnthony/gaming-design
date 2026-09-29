@@ -1,12 +1,15 @@
 // ===== 携带（共用机制）：手上只有一个位置 =====
 // 蜡烛、钥匙都是"拿在手上"的东西：碰到就捡，手里已经有东西时两者交换，旧的留在原地（人走开之后才能再捡）。
-// 有照明的东西在地上自己发光（迷雾里的光源），拿在手上把视野撑开。
+// 有照明的东西在地上自己发光（迷雾里的光源、周围一小圈暖光），拿在手上把视野撑开。
+// 钥匙画大一号、背后一圈同色的光一胀一缩、时不时闪一下，捡到时叮一声。
+// 地上的钥匙有重力、有碰撞体积：会掉下去、会被怪物推着走（LooseKeys.ts）；蜡烛固定在原地。
 import Phaser from 'phaser';
 import type { CarryOver, ItemDef } from '@/type';
 import { Items } from '@/game/registry/registry';
 import { lockGroup } from '@/game/world/WorldModel';
 import type { PlayContext } from '@/game/core/PlayContext';
 import type { Mechanic } from '../define';
+import { LooseKeys, type LooseKey } from './LooseKeys';
 
 /** 能拿在手上的东西 */
 export interface Carryable {
@@ -18,7 +21,21 @@ export interface Carryable {
   /** 钥匙对应的组 */
   key?: number;
 }
-interface GroundThing { carry: Carryable; x: number; y: number; sprite: Phaser.GameObjects.Image; glow?: Phaser.GameObjects.Image; /** 刚放下的：人走开之前不能再捡 */ blocked: boolean }
+interface GroundThing {
+  /** (x, y) = 贴图停在地上时的中心；钥匙每帧按物理体更新 */
+  carry: Carryable; x: number; y: number; sprite: Phaser.GameObjects.Image;
+  /** 跟着它一起没的东西：光晕、暖光、钥匙的闪光 */
+  extras: Phaser.GameObjects.GameObject[];
+  /** 刚放下的：人走开之前不能再捡 */
+  blocked: boolean;
+  /** 钥匙的物理体；蜡烛没有 */
+  loose?: LooseKey;
+}
+
+/** 钥匙放大多少倍（贴图 16×16）：地上的、拿在手上的 */
+const KEY_SCALE = { ground: 2, held: 1.5 };
+/** 捡到钥匙的音效 */
+const KEY_SOUND = { key: 'keyPickup', volume: 0.7 };
 
 export const carryOfItem = (d: ItemDef): Carryable => ({ id: d.id, texture: d.texture, tint: 0xffffff, light: d.light });
 /** 某一组的钥匙：id = 'key:组号'，按组的颜色染色 */
@@ -26,13 +43,17 @@ export const keyCarryable = (group: number, tint: number): Carryable => ({ id: '
 
 export class Carry implements Mechanic {
   private ground: GroundThing[] = [];
-  private held: { carry: Carryable; sprite: Phaser.GameObjects.Image; glow: Phaser.GameObjects.Image } | null = null;
+  private held: { carry: Carryable; sprite: Phaser.GameObjects.Image; glow: Phaser.GameObjects.Image; light: Phaser.GameObjects.Image | null } | null = null;
   /** 进场时手里的东西（换层 / 读档带过来的道具 id） */
   private heldId: string | null;
-  private placeHeld = () => this.place();
+  /** 地上钥匙的物理体 */
+  private keys: LooseKeys;
+  /** 物理把人、钥匙挪好之后：手上的东西跟着人，地上钥匙的贴图跟着物理体 */
+  private afterPhysics = () => { this.keys.sync(this.ctx.scene.time.now); this.place(); };
 
   constructor(private ctx: PlayContext) {
     this.heldId = ctx.start.held ?? null;
+    this.keys = new LooseKeys(ctx);
   }
 
   /** 手上拿的东西 */
@@ -44,18 +65,42 @@ export class Carry implements Mechanic {
     this.spawnGround(carryOfItem(item), x, y);
   }
 
-  /** 放一个东西在地上：会发光的自带光晕，也是迷雾里的光源 */
+  /**
+   * 放一个东西在地上，(x, y) = 贴图停在地上时的中心。
+   * 钥匙：画大、带同色光晕和闪光，有物理体（悬空就往下掉）；其他的原地上下浮，会发光的自带光晕和一小圈暖光，也是迷雾里的光源
+   */
   spawnGround(carry: Carryable, x: number, y: number, blocked = false): void {
     const scene = this.ctx.scene;
-    const sprite = scene.add.image(x, y, carry.texture).setTint(carry.tint).setDepth(2.4);
-    scene.tweens.add({ targets: sprite, y: y - 3, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
-    let glow: Phaser.GameObjects.Image | undefined;
-    if (carry.light > 0) {
-      glow = scene.add.image(x, y, 'fogglow').setDepth(2.35).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.3).setScale(1.5);
-      scene.tweens.add({ targets: glow, alpha: 0.45, scale: 1.75, duration: 160, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+    const thing: GroundThing = { carry, x, y, sprite: scene.add.image(x, y, carry.texture).setTint(carry.tint).setDepth(2.4), extras: [], blocked };
+    if (carry.key !== undefined) {
+      const { halo, glints } = this.keyShine(x, y, carry.tint);
+      thing.extras.push(halo, glints);
+      thing.loose = this.keys.add({ sprite: thing.sprite, halo, glints, tint: carry.tint, scale: KEY_SCALE.ground }, x, y);   // 上下浮也由它管
+    } else {
+      scene.tweens.add({ targets: thing.sprite, y: y - 3, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+      if (carry.light > 0) {
+        const glow = scene.add.image(x, y, 'fogglow').setDepth(2.35).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.3).setScale(1.5);
+        scene.tweens.add({ targets: glow, alpha: 0.45, scale: 1.75, duration: 160, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+        thing.extras.push(glow);
+        const warm = this.ctx.fx.light(x, y, 'candle');
+        if (warm) thing.extras.push(warm);
+      }
     }
-    this.ground.push({ carry, x, y, sprite, glow, blocked });
+    this.ground.push(thing);
     this.syncLightSources();
+  }
+
+  /** 地上钥匙的醒目效果：背后一圈同色的光一胀一缩，时不时在钥匙上闪一两颗白色亮点 */
+  private keyShine(x: number, y: number, tint: number): { halo: Phaser.GameObjects.Image; glints: Phaser.GameObjects.Particles.ParticleEmitter } {
+    const scene = this.ctx.scene, T = this.ctx.cfg.tile;
+    const halo = scene.add.image(x, y, 'fogglow').setTint(tint).setDepth(2.35).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.35).setScale(1.1);
+    scene.tweens.add({ targets: halo, alpha: 0.6, scale: 1.4, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+    const glints = scene.add.particles(x, y, 'spark', {
+      tint: [0xffffff, tint], blendMode: 'ADD', lifespan: 450, frequency: 700, quantity: 1,
+      speed: { min: 0, max: 8 }, scale: { start: 1.2, end: 0 }, alpha: { start: 1, end: 0 },
+      emitZone: { type: 'random', source: new Phaser.Geom.Circle(0, 0, T * 0.4), quantity: 1 } as Phaser.Types.GameObjects.Particles.ParticleEmitterRandomZoneConfig,
+    }).setDepth(2.45);
+    return { halo, glints };
   }
 
   /** 手里的东西用掉了（钥匙开门） */
@@ -65,8 +110,14 @@ export class Carry implements Mechanic {
   start(): void {
     const start = this.heldId ? this.carryOf(this.heldId) : null;
     if (start) this.hold(start); else this.heldId = null;
-    // 手上的东西跟着人走：物理把人挪好之后再摆
-    this.ctx.scene.events.on(Phaser.Scenes.Events.POST_UPDATE, this.placeHeld);
+    this.keys.start();
+    this.ctx.scene.events.on(Phaser.Scenes.Events.POST_UPDATE, this.afterPhysics);
+  }
+
+  /** 地上的钥匙：落地弹一下、被埋了挪出来；位置跟着物理体更新 */
+  update(now: number): void {
+    this.keys.update(now);
+    this.syncKeyAnchors();
   }
 
   /** 碰到就捡；手里有东西就换：旧的留在这个位置，等人走开才能再捡 */
@@ -78,23 +129,39 @@ export class Carry implements Mechanic {
       if (g.blocked) { if (!touching) g.blocked = false; continue; }
       if (!touching) continue;
       this.ground.splice(i, 1);
-      g.sprite.destroy(); g.glow?.destroy();
+      g.sprite.destroy(); g.extras.forEach(o => o.destroy());
+      if (g.loose) this.keys.remove(g.loose);
       const old = this.held?.carry ?? null;
       this.hold(g.carry);
+      if (g.carry.key !== undefined && this.ctx.scene.cache.audio.exists(KEY_SOUND.key)) this.ctx.scene.sound.play(KEY_SOUND.key, { volume: KEY_SOUND.volume });
       if (old) this.spawnGround(old, g.x, g.y, true);
       this.syncLightSources();
       this.ctx.sparks.explode(8, g.x, g.y);
     }
   }
 
+  /** 地上的钥匙回原位（按 R：这个房间的；死亡：全部）。手上的东西不变 */
+  onReset(scope: 'room' | 'world' | 'level'): void {
+    this.keys.reset(scope);
+    this.syncKeyAnchors();
+  }
+
+  /** 移动方块要推得动地上的钥匙 */
+  terrainBodies(): Phaser.Physics.Arcade.Group[] { return [this.keys.group]; }
+
   /** 只有注册过的道具能带到下一层；钥匙留在本层 */
   persist(out: CarryOver): void {
     if (this.heldId && Items.has(this.heldId)) out.held = this.heldId;
   }
 
-  destroy(): void { this.ctx.scene.events.off(Phaser.Scenes.Events.POST_UPDATE, this.placeHeld); }
+  destroy(): void { this.ctx.scene.events.off(Phaser.Scenes.Events.POST_UPDATE, this.afterPhysics); }
 
   // ---------- 内部 ----------
+  /** 钥匙的 (x, y) 跟着物理体走：捡的判定、换东西时旧的放在哪都按它 */
+  private syncKeyAnchors(): void {
+    this.ground.forEach(g => { if (g.loose) Object.assign(g, this.keys.anchor(g.loose)); });
+  }
+
   /** 进场时手里的东西：注册过的道具，或者这一层存在的那一组钥匙（编辑器试玩可以直接带钥匙进来） */
   private carryOf(id: string): Carryable | null {
     const def = Items.get(id);
@@ -114,17 +181,18 @@ export class Carry implements Mechanic {
   private hold(carry: Carryable): void {
     const scene = this.ctx.scene;
     this.dropHeldSprites();
-    const sprite = scene.add.image(0, 0, carry.texture).setTint(carry.tint).setOrigin(0.5, 1).setDepth(10.5);
+    const sprite = scene.add.image(0, 0, carry.texture).setTint(carry.tint).setOrigin(0.5, 1).setDepth(10.5).setScale(carry.key !== undefined ? KEY_SCALE.held : 1);
     const glow = scene.add.image(0, 0, 'fogglow').setDepth(9.5).setBlendMode(Phaser.BlendModes.ADD).setAlpha(carry.light > 0 ? 0.28 : 0).setScale(1.4);
     if (carry.light > 0) scene.tweens.add({ targets: glow, alpha: 0.42, scale: 1.6, duration: 140, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
-    this.held = { carry, sprite, glow }; this.heldId = carry.id;
+    const light = carry.light > 0 ? this.ctx.fx.light(0, 0, 'candle') : null;   // 拿着的蜡烛也照出一小圈暖光，跟着手走
+    this.held = { carry, sprite, glow, light }; this.heldId = carry.id;
     this.place();
     this.syncRadius();
   }
 
   private dropHeldSprites(): void {
     if (!this.held) return;
-    this.held.sprite.destroy(); this.held.glow.destroy();
+    this.held.sprite.destroy(); this.held.glow.destroy(); this.held.light?.destroy();
     this.held = null; this.heldId = null;
     this.syncRadius();
   }
@@ -140,6 +208,7 @@ export class Carry implements Mechanic {
     const p = this.ctx.player, side = p.flipX ? -1 : 1, b = p.body;
     const x = b.center.x + side * 13, y = p.y + p.displayHeight * 0.2;   // 大约在腰间：按贴图算，戴帽子加高的碰撞框不影响
     this.held.sprite.setPosition(x, y).setFlipX(side < 0).setVisible(p.visible);   // 人藏起来手上的东西也藏
-    this.held.glow.setPosition(x, y - this.held.sprite.height / 2).setVisible(p.visible);
+    this.held.glow.setPosition(x, y - this.held.sprite.displayHeight / 2).setVisible(p.visible);
+    this.held.light?.setPosition(x, y - this.held.sprite.displayHeight / 2).setVisible(p.visible);
   }
 }

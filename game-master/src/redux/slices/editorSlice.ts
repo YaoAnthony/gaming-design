@@ -56,7 +56,7 @@ const initialState: EditorState = {
   project: clone(DEFAULT_PROJECT),
   floor: 0,
   room: roomOfStart(DEFAULT_PROJECT.floors[0].model),
-  brush: '#',
+  brush: 'R',
   showSupport: true,
   version: 0,
   play: { stage: 0, hat: false, held: '' },

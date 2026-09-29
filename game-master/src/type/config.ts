@@ -96,4 +96,11 @@ export interface GameConfig {
   fogRadius: number;
   /** 见过但不在视野里的格子上残留的雾浓度（0 全清晰，1 全黑） */
   fogMemoryAlpha: number;
+  /** 没见过的格子的雾浓度（1 = 全黑；小一点就是很暗但隐约看得出轮廓）。迷雾区揭开前不管这个，始终全黑 */
+  fogUnseenAlpha: number;
+  /**
+   * 画面效果开关：墙在背景上的投影、实心砖越往里越暗（体积感）、四周暗角、空气里飘的微尘、
+   * 蜡烛 / 引线头周围的一小圈暖光、房顶斜照下来的光束（game/core/sceneFx.ts）
+   */
+  sceneFx: { shadow: boolean; depth: boolean; vignette: boolean; dust: boolean; lights: boolean; shafts: boolean };
 }

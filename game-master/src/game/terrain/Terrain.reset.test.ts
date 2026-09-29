@@ -78,11 +78,11 @@ describe('房间重置按材料来源算', () => {
 
 describe('碎块叠碎块', () => {
   it('快的沙土追上下面慢慢飘的纸：贴着纸一起下落，纸落地之前不会并进地形', () => {
-    // (1,2) 泥土撑着沙土 (2,2)，沙土下面挂着纸 (2,3)
+    // (1,2) 碎岩撑着沙土 (2,2)，沙土下面挂着纸 (2,3)
     let falls = 0;   // 每次有碎块开始下落（包括"在半空并进地形又立刻重新掉下去"）都算一次
-    const { terrain } = make(['RRRRR', 'R...R', 'R#S.R', 'R.Z.R', 'R...R', 'R...R', 'R...R', 'R...R', 'R...R', 'RRRRR'], { onChunkFall: () => { falls++; } });
+    const { terrain } = make(['RRRRR', 'R...R', 'RrS.R', 'R.Z.R', 'R...R', 'R...R', 'R...R', 'R...R', 'R...R', 'RRRRR'], { onChunkFall: () => { falls++; } });
     terrain.shake([{ x: 2, y: 3 }], 0);            // 纸松脱，开始飘
-    terrain.destroyCellsForce([{ x: 1, y: 2 }]);   // 泥土没了，沙土掉下去追上纸
+    terrain.destroyCellsForce([{ x: 1, y: 2 }]);   // 碎岩没了，沙土掉下去追上纸
     expect(terrain.chunks.length).toBe(2);
     let sandFirstAt = -1, paperFirstAt = -1;
     for (let f = 0; f < 1200 && terrain.chunks.length; f++) {
@@ -100,8 +100,8 @@ describe('碎块叠碎块', () => {
 });
 
 describe('防火', () => {
-  it('引线烧不动锁着的门；泥土照常烧没', () => {
-    const { terrain } = make(['RRRRR', 'R%#.R', 'RRRRR']);
+  it('引线烧不动锁着的门；碎岩照常烧没', () => {
+    const { terrain } = make(['RRRRR', 'R%r.R', 'RRRRR']);
     terrain.burnCells([{ x: 1, y: 1 }, { x: 2, y: 1 }]);
     expect(terrain.grid[1][1]).toBe('%');
     expect(terrain.grid[1][2]).toBe('.');
@@ -121,20 +121,20 @@ describe('重置时延迟连锁全图一起停', () => {
 
 describe('整组平移（移动方块）', () => {
   it('平移一格：材料跟着走；腾出来的格子上挂着的尖刺碎掉，靠它撑着的沙土掉下去', () => {
-    const { terrain } = make(['RRRRRRR', 'R.XS..R', 'R.##..R', 'R.....R', 'RRRRRRR']);
+    const { terrain } = make(['RRRRRRR', 'R.XS..R', 'R.rr..R', 'R.....R', 'RRRRRRR']);
     terrain.moveCells([{ x: 2, y: 2 }, { x: 3, y: 2 }], 1, 0);
-    expect(terrain.grid[2].join('')).toBe('R..##.R');
+    expect(terrain.grid[2].join('')).toBe('R..rr.R');
     expect(terrain.grid[1][2]).toBe('.');              // 尖刺下面那格空了：碎掉
-    expect(terrain.chunks.map(ch => ch.cells.map(c => c.id).join(''))).toEqual([]);   // 沙土 (3,1) 下面还是泥土（(3,2) 被右移的那块补上了）
+    expect(terrain.chunks.map(ch => ch.cells.map(c => c.id).join(''))).toEqual([]);   // 沙土 (3,1) 下面还是碎岩（(3,2) 被右移的那块补上了）
   });
 
   it('平移之后重置：按来源，挪走的方块回到原位，新位置清空', () => {
-    const { terrain } = make(['RRRRRR', 'R....R', 'R.#..R', 'RRRRRR']);
+    const { terrain } = make(['RRRRRR', 'R....R', 'R.r..R', 'RRRRRR']);
     terrain.moveCells([{ x: 2, y: 2 }], 1, 0);
     terrain.moveCells([{ x: 3, y: 2 }], 1, 0);
-    expect(terrain.grid[2].join('')).toBe('R...#R');
+    expect(terrain.grid[2].join('')).toBe('R...rR');
     terrain.resetRect(0, 0, 6, 4);
-    expect(terrain.grid[2].join('')).toBe('R.#..R');
+    expect(terrain.grid[2].join('')).toBe('R.r..R');
   });
 });
 

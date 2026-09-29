@@ -4,6 +4,11 @@ import type Phaser from 'phaser';
 import type { CellRef, TileDef } from '@/type';
 import { AIR, Tiles } from '@/game/registry/registry';
 import { AUTOTILE_VARIANTS } from '@/asset';
+import { WALL_TEXTURE, WALL_VARIANTS, wallFrame, wallMask, wallTemplates } from './walls';
+import { depthToAir, shadeOf } from './shading';
+
+/** tilemap 里墙那套贴图（拼好的 walls）的第一个编号：墙砖的格子编号 = WALL_GID + wallFrame */
+export const WALL_GID = 1000;
 
 export type TileView = 'game' | 'editor';
 
@@ -58,12 +63,17 @@ export class Terrain {
     this.grid.forEach((r, y) => r.forEach((c, x) => { this.origin[y * this.w + x] = c === AIR ? -1 : y * this.w + x; }));
     this.boundaryId = (Tiles.filter(d => d.anchor)[0] ?? { id: AIR }).id;
 
-    const data = this.grid.map((r, y) => r.map((_, x) => Terrain.frameAt(this.grid, x, y)));
+    const data = this.grid.map((r, y) => r.map((_, x) => Terrain.frameAt(this.grid, x, y, 'game', this.wallAt)));
     this.map = host.scene.make.tilemap({ data, tileWidth: this.T, tileHeight: this.T });
     const tileset = this.map.addTilesetImage('tiles', 'tiles', this.T, this.T, 0, 0)!;
-    this.layer = this.map.createLayer(0, tileset, 0, 0)!;
+    const walls = this.map.addTilesetImage(WALL_TEXTURE, WALL_TEXTURE, this.T, this.T, 0, 0, WALL_GID)!;   // 墙：按周围 8 格拼好的那张
+    this.layer = this.map.createLayer(0, [tileset, walls], 0, 0)!;
     const collide: number[] = [];
     Tiles.filter(d => d.solid && d.gameFrame >= 0).forEach(d => { for (let k = 0; k < (d.autotile ? AUTOTILE_VARIANTS : 1); k++) collide.push(d.gameFrame + k); });
+    Tiles.filter(d => d.solid && !!d.wall).forEach(d => {
+      const base = WALL_GID + wallTemplates().indexOf(d.wall!) * WALL_VARIANTS.length;
+      for (let k = 0; k < WALL_VARIANTS.length; k++) collide.push(base + k);
+    });
     this.layer.setCollision(collide);
   }
 
@@ -87,15 +97,40 @@ export class Terrain {
     return m;
   }
 
-  /** 看邻居选帧：自动拼贴的材质用 起始帧 + 掩码，其它材质就是起始帧。游戏视角用 gameFrame，编辑器用 frame */
-  static frameAt(grid: string[][], x: number, y: number, view: TileView = 'game'): number {
+  /**
+   * 看邻居选帧：游戏里的墙按周围 8 格从拼好的墙贴图里取（WALL_GID + wallFrame）；自动拼贴的材质用 起始帧 + 掩码；
+   * 其它材质就是起始帧。游戏视角用 gameFrame，编辑器用 frame（编辑器里墙也整块画）。
+   * isWall(x, y) = 那一格算不算连着的墙，默认见 isWallAt
+   */
+  static frameAt(grid: string[][], x: number, y: number, view: TileView = 'game', isWall?: (x: number, y: number) => boolean): number {
     const id = grid[y]?.[x];
     const d = id != null ? Tiles.get(id) : undefined;
     if (!d) return -1;
+    if (view === 'game' && d.wall) {
+      const at = isWall ?? ((wx: number, wy: number) => Terrain.isWallAt(grid, wx, wy));
+      return WALL_GID + wallFrame(d.wall, wallMask((dx, dy) => at(x + dx, y + dy)));
+    }
     const base = view === 'game' ? d.gameFrame : d.frame;
     if (base < 0) return -1;
     return d.autotile ? base + Terrain.maskAt(grid, x, y) : base;
   }
+
+  /** 拼墙时这一格算不算墙：墙类砖算，地图外面也算（地图边上的墙朝外那面不画表面） */
+  static isWallAt(grid: string[][], x: number, y: number): boolean {
+    if (y < 0 || y >= grid.length || x < 0 || x >= grid[0].length) return true;
+    return !!Tiles.get(grid[y][x])?.wall;
+  }
+
+  /** 单独画的一块砖（掉落的碎块、移动方块）用什么贴图和帧：墙按 connected（它那一组里哪些方向的邻居是墙）拼，其它整块画 */
+  static pieceTexture(id: string, connected: (dx: number, dy: number) => boolean): [string, number] {
+    const d = Tiles.get(id);
+    if (d?.wall) return [WALL_TEXTURE, wallFrame(d.wall, wallMask(connected))];
+    return ['tiles', Terrain.frameOf(id)];
+  }
+
+  /** 拼墙时地图上哪些格子算墙：被别处接管着画的格子（移动方块）不算 */
+  private readonly wallAt = (x: number, y: number): boolean =>
+    Terrain.isWallAt(this.grid, x, y) && !(x >= 0 && y >= 0 && x < this.w && y < this.h && this.host.drawnElsewhere?.(x, y));
 
   get(x: number, y: number): string {
     if (x < 0 || y < 0 || x >= this.w || y >= this.h) return this.boundaryId;
@@ -131,22 +166,74 @@ export class Terrain {
     this.grid[y][x] = id;
     this.origin[y * this.w + x] = id === AIR ? -1 : from ?? y * this.w + x;
     this.refreshFrame(x, y);
-    // 自动拼贴的邻居要跟着换图案
-    for (const [dx, dy] of NEIGHBORS) {
+    this.refreshNeighbors(x, y);
+  }
+
+  /** 邻居的图案跟着换：墙看 8 个邻居，自动拼贴的材质看上下左右 */
+  private refreshNeighbors(x: number, y: number): void {
+    for (const [dx, dy] of NEIGHBORS8) {
       const nx = x + dx, ny = y + dy;
       if (nx < 0 || ny < 0 || nx >= this.w || ny >= this.h) continue;
-      if (Tiles.get(this.grid[ny][nx])?.autotile) this.refreshFrame(nx, ny);
+      const d = Tiles.get(this.grid[ny][nx]);
+      if (d?.wall || (d?.autotile && (dx === 0 || dy === 0))) this.refreshFrame(nx, ny);
     }
   }
 
   private refreshFrame(x: number, y: number): void {
-    const f = this.host.drawnElsewhere?.(x, y) ? -1 : Terrain.frameAt(this.grid, x, y);
+    const f = this.host.drawnElsewhere?.(x, y) ? -1 : Terrain.frameAt(this.grid, x, y, 'game', this.wallAt);
     if (f < 0) this.layer.removeTileAt(x, y); else this.layer.putTileAt(f, x, y);
+    if (this.shadow) { if (f < 0) this.shadow.removeTileAt(x, y); else this.shadow.putTileAt(f, x, y).tint = 0x000000; }
+    this.shadeDirty = true;
   }
 
-  /** 这些格子重新按 drawnElsewhere 决定画不画（接管 / 交还某些格子的时候调） */
+  /** 体积感（见 enableShading）：一格一个点的小图，平滑放大盖在地形上；没开是 null */
+  private shade: { tex: Phaser.Textures.CanvasTexture; pixels: ImageData } | null = null;
+  private shadeDirty = false;
+
+  /** 地形的体积感：实心砖越往里越暗（game/terrain/shading.ts），挨着空气的表面不变。砖块变化后下一帧重算 */
+  enableShading(): void {
+    if (this.shade) return;
+    const key = `terrainshade${Terrain.shadeCount++}`;
+    const tex = this.host.scene.textures.createCanvas(key, this.w, this.h)!;
+    this.shade = { tex, pixels: tex.context.createImageData(this.w, this.h) };
+    this.host.scene.add.image(0, 0, key).setOrigin(0).setScale(this.T).setDepth(0.5);
+    this.shadeDirty = true;
+    this.updateShading();
+  }
+  private static shadeCount = 0;
+
+  private updateShading(): void {
+    if (!this.shade || !this.shadeDirty) return;
+    this.shadeDirty = false;
+    // 被别处接管着画的格子（移动方块）算空气：它们会动，盖在原地的暗会对不上
+    const depth = depthToAir(this.w, this.h, (x, y) => this.isSolid(x, y) && !this.host.drawnElsewhere?.(x, y));
+    const px = this.shade.pixels.data;
+    for (let i = 0; i < depth.length; i++) { px[i * 4 + 3] = Math.round(shadeOf(depth[i]) * 255); }
+    this.shade.tex.context.putImageData(this.shade.pixels, 0, 0);
+    this.shade.tex.refresh();
+    this.shade.tex.setFilter(0);   // Phaser.Textures.FilterMode.LINEAR：平滑放大；重新上传会按像素风设置变回 NEAREST，每次都要再设
+  }
+
+  /** 地形的投影（见 enableShadow）；没开是 null */
+  private shadow: Phaser.Tilemaps.TilemapLayer | null = null;
+
+  /**
+   * 地形的投影：同样的砖再画一层，往右下挪 (dx, dy) 像素、染黑、半透明，垫在地形后面 ——
+   * 墙在背景上落一道硬边的影子，看着是浮在背景前面的，有层次。砖块变化时跟着一起改
+   */
+  enableShadow(dx: number, dy: number, alpha: number): void {
+    if (this.shadow) return;
+    const data = this.grid.map((r, y) => r.map((_, x) => this.layer.getTileAt(x, y)?.index ?? -1));
+    const map = this.host.scene.make.tilemap({ data, tileWidth: this.T, tileHeight: this.T });
+    const tiles = map.addTilesetImage('tiles', 'tiles', this.T, this.T, 0, 0)!;
+    const walls = map.addTilesetImage(WALL_TEXTURE, WALL_TEXTURE, this.T, this.T, 0, 0, WALL_GID)!;
+    this.shadow = map.createLayer(0, [tiles, walls], dx, dy)!.setAlpha(alpha).setDepth(-1);
+    this.shadow.setTint(0x000000);
+  }
+
+  /** 这些格子重新按 drawnElsewhere 决定画不画（接管 / 交还某些格子的时候调）；旁边的墙跟着重拼 */
   refreshCells(cells: CellRef[]): void {
-    cells.forEach(c => { if (c.x >= 0 && c.y >= 0 && c.x < this.w && c.y < this.h) this.refreshFrame(c.x, c.y); });
+    cells.forEach(c => { if (c.x >= 0 && c.y >= 0 && c.x < this.w && c.y < this.h) { this.refreshFrame(c.x, c.y); this.refreshNeighbors(c.x, c.y); } });
   }
 
   /**
@@ -498,7 +585,10 @@ export class Terrain {
     this.breakMounted(cells);
     const scene = this.host.scene;
     const container = scene.add.container(0, 0).setDepth(5);
-    cells.forEach(c => container.add(scene.add.image(c.x * this.T + this.T / 2, c.y * this.T + this.T / 2, 'tiles', Terrain.frameOf(c.id))));
+    // 墙按这一块碎块自己里面的邻居拼（它是单独掉下来的一整块）
+    const ids = new Map(cells.map(c => [`${c.x},${c.y}`, c.id]));
+    cells.forEach(c => container.add(scene.add.image(c.x * this.T + this.T / 2, c.y * this.T + this.T / 2,
+      ...Terrain.pieceTexture(c.id, (dx, dy) => !!Tiles.get(ids.get(`${c.x + dx},${c.y + dy}`) ?? AIR)?.wall))));
     const chunk: Chunk = { id: this.nextChunkId++, cells, container, vy: 0, py: 0, floatSpeed: Tiles.get(cells[0].id)?.floatSpeed ?? 0, t: 0 };
     this.chunks.push(chunk);
     this.host.onChunkFall?.(chunk);
@@ -516,6 +606,7 @@ export class Terrain {
 
   /** 碎块每帧更新：整体下落，任一格子下方被挡住就落地并并回格子 */
   updateChunks(dt: number): void {
+    this.updateShading();
     for (let i = this.chunks.length - 1; i >= 0; i--) {
       const ch = this.chunks[i];
       ch.t += dt;
@@ -638,3 +729,4 @@ export class Terrain {
 }
 
 const NEIGHBORS: ReadonlyArray<readonly [number, number]> = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+const NEIGHBORS8: ReadonlyArray<readonly [number, number]> = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];

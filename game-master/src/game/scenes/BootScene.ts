@@ -3,6 +3,8 @@ import Phaser from 'phaser';
 import { AUDIO, IMAGES, SPRITESHEETS, TILE_SIZE } from '@/asset';
 import { SCENE } from '@/game/bridge';
 import i18n from '@/i18n';
+import { FogOfWar } from '@/game/fog/Fog';
+import { buildWallTexture } from '@/game/terrain/walls';
 
 export class BootScene extends Phaser.Scene {
   constructor() { super(SCENE.boot); }
@@ -29,16 +31,8 @@ export class BootScene extends Phaser.Scene {
   }
 
   create(): void {
-    if (!this.textures.exists('fogsquare')) {
-      // 迷雾擦除用的两支笔刷：硬方块（把亮格整个擦清）+ 柔光圆（往暗处晕开）
-      const sq = this.textures.createCanvas('fogsquare', TILE_SIZE, TILE_SIZE)!;
-      sq.context.fillStyle = '#fff'; sq.context.fillRect(0, 0, TILE_SIZE, TILE_SIZE); sq.refresh();
-      const size = TILE_SIZE * 3;
-      const gl = this.textures.createCanvas('fogglow', size, size)!;
-      const g = gl.context.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
-      g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.45, 'rgba(255,255,255,0.5)'); g.addColorStop(1, 'rgba(255,255,255,0)');
-      gl.context.fillStyle = g; gl.context.fillRect(0, 0, size, size); gl.refresh();
-    }
+    FogOfWar.createTextures(this.textures, TILE_SIZE);   // 迷雾的笔刷
+    buildWallTexture(this.textures, TILE_SIZE);          // 墙：按手画模板拼好各种邻居组合
     const next = (this.game.registry.get('bootNext') as string | undefined) ?? SCENE.game;
     const data = (this.game.registry.get('bootData') as object | undefined) ?? {};
     this.scene.start(next, data);

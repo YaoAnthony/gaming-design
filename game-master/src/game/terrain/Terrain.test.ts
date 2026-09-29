@@ -1,21 +1,22 @@
 import { describe, expect, it } from 'vitest';
 import '@/game/registry/tiles';
-import { Terrain } from './Terrain';
+import { WALL_GID, Terrain } from './Terrain';
+import { WALL_E, WALL_TEXTURE, WALL_VARIANTS, wallFrame, wallTemplates, wallVariant } from './walls';
 import { defineTile, Tiles, Traits } from '@/game/registry/registry';
 
 // 测试专用：一种会连锁、只点两端、自动拼贴的砖块（游戏里没有，用来验证这些通用能力）
 defineTile({ id: 'T', name: '测试连锁砖', color: 0xffffff, frame: 5, gameFrame: 21, autotile: true }, Traits.Solid, Traits.Destructible(1), Traits.Chain, Traits.Delay(90), Traits.EndsOnly);
 
 describe('Terrain 支撑检测', () => {
-  it('泥土没有重力：悬空也不掉；连着泥土的沙土被撑住，悬空的沙土会掉', () => {
+  it('碎岩没有重力：悬空也不掉；连着碎岩的沙土被撑住，悬空的沙土会掉', () => {
     const rows = [
       'RRRRR',
       'R...R',
       'R.S.R',   // (2,2) 四周都是空气 → 悬空
       'R...R',
-      'R.#.R',   // (2,4) 泥土悬空但不掉
+      'R.r.R',   // (2,4) 碎岩悬空但不掉
       'R...R',
-      'R#S.R',   // (2,6) 连着泥土 → 被撑住
+      'RrS.R',   // (2,6) 连着碎岩 → 被撑住
       'RRRRR',
     ];
     const un = Terrain.findUnsupported(rows);
@@ -25,7 +26,7 @@ describe('Terrain 支撑检测', () => {
   it('脆岩和沙土也遵守同样的支撑规则', () => {
     expect(Terrain.findUnsupported(['RRRR', 'R.BR', 'RS.R', 'RRRR'])).toEqual([]);          // 都挨着 R
     expect(Terrain.findUnsupported(['RRRRR', 'R...R', 'R.S.R', 'R...R', 'RRRRR'])).toEqual([{ x: 2, y: 2 }]);
-    expect(Terrain.findUnsupported(['RRRRR', 'R...R', 'R.B.R', 'R.#.R', 'RRRRR'])).toEqual([]); // 脆岩+泥土一串连到底部 R
+    expect(Terrain.findUnsupported(['RRRRR', 'R...R', 'R.B.R', 'R.r.R', 'RRRRR'])).toEqual([]); // 脆岩+碎岩一串连到底部 R
   });
 
   it('尖刺不是实心的，不参与支撑也不会掉', () => {
@@ -39,26 +40,26 @@ describe('Terrain.findUnmounted（尖刺挂在下面那一格上）', () => {
   const grid = (rows: string[]) => rows.map(r => r.split(''));
 
   it('撑着尖刺的方块被清空了 → 尖刺要碎', () => {
-    // (2,2) 尖刺，(2,3) 泥土刚被炸掉（已经是空气）
+    // (2,2) 尖刺，(2,3) 碎岩刚被炸掉（已经是空气）
     const g = grid(['RRRRR', 'R...R', 'R.X.R', 'R...R', 'RRRRR']);
     expect(Terrain.findUnmounted(g, [{ x: 2, y: 3 }])).toEqual([{ x: 2, y: 2 }]);
   });
 
   it('清空的格子上面不是尖刺 / 下面还是实心的 → 不碎', () => {
-    const g = grid(['RRRRR', 'R...R', 'R.X.R', 'R.#.R', 'RRRRR']);
+    const g = grid(['RRRRR', 'R...R', 'R.X.R', 'R.r.R', 'RRRRR']);
     expect(Terrain.findUnmounted(g, [{ x: 1, y: 3 }])).toEqual([]);   // 上面是空气
-    expect(Terrain.findUnmounted(g, [{ x: 2, y: 3 }])).toEqual([]);   // (2,3) 还是泥土（又被填上了）
+    expect(Terrain.findUnmounted(g, [{ x: 2, y: 3 }])).toEqual([]);   // (2,3) 还是碎岩（又被填上了）
   });
 
   it('只看正上方一格：旁边的尖刺不受影响；同一格重复传入只算一次', () => {
-    const g = grid(['RRRRRR', 'R....R', 'R.XX.R', 'R.#..R', 'RRRRRR']);
-    // (3,3) 被清空 → 只有 (3,2) 碎；(2,2) 下面的泥土还在
+    const g = grid(['RRRRRR', 'R....R', 'R.XX.R', 'R.r..R', 'RRRRRR']);
+    // (3,3) 被清空 → 只有 (3,2) 碎；(2,2) 下面的碎岩还在
     expect(Terrain.findUnmounted(g, [{ x: 3, y: 3 }, { x: 3, y: 3 }])).toEqual([{ x: 3, y: 2 }]);
   });
 
   it('尖刺注册了 mounted 能力，普通砖没有', () => {
     expect(Tiles.get('X')?.mounted).toBe(true);
-    expect(Tiles.get('#')?.mounted).toBe(false);
+    expect(Tiles.get('r')?.mounted).toBe(false);
   });
 });
 
@@ -82,7 +83,7 @@ describe('Terrain.computeChain（导火索连锁）', () => {
   it('不会波及路径以外的不同材质（哪怕紧挨着）', () => {
     const grid = [
       'RRRRR'.split(''),
-      ['R', 'T', 'T', '#', 'R'],   // (3,1) 是泥土，紧挨着导火索但不是同一种材质
+      ['R', 'T', 'T', 'r', 'R'],   // (3,1) 是碎岩，紧挨着导火索但不是同一种材质
       'RRRRR'.split(''),
     ];
     const out = Terrain.computeChain(grid, [cell(1, 1, 'T')]);
@@ -90,10 +91,10 @@ describe('Terrain.computeChain（导火索连锁）', () => {
     expect(out.some(c => c.x === 3 && c.y === 1)).toBe(false);
   });
 
-  it('不会连锁的材质（比如泥土）只摧毁种子本身，不扩散', () => {
-    const grid = ['RRR'.split(''), ['R', '#', 'R'], 'RRR'.split('')];
-    const out = Terrain.computeChain(grid, [cell(1, 1, '#')]);
-    expect(out).toEqual([{ x: 1, y: 1, id: '#', def: Tiles.get('#'), hop: 0 }]);
+  it('不会连锁的材质（比如碎岩）只摧毁种子本身，不扩散', () => {
+    const grid = ['RRR'.split(''), ['R', 'r', 'R'], 'RRR'.split('')];
+    const out = Terrain.computeChain(grid, [cell(1, 1, 'r')]);
+    expect(out).toEqual([{ x: 1, y: 1, id: 'r', def: Tiles.get('r'), hop: 0 }]);
   });
 });
 
@@ -140,7 +141,7 @@ describe('Terrain.maskAt / frameAt（导火索自动拼贴）', () => {
   it('自动拼贴材质的帧 = 起始帧 + 掩码；普通材质不受影响', () => {
     expect(Terrain.frameAt(grid, 2, 3, 'editor')).toBe(base + 15);
     expect(Terrain.frameAt(grid, 1, 1, 'editor')).toBe(base + 2);
-    expect(Terrain.frameAt([['#', '#']], 0, 0)).toBe(Tiles.get('#')!.frame);
+    expect(Terrain.frameAt([['=', '=']], 0, 0)).toBe(Tiles.get('=')!.frame);
     expect(Terrain.frameAt([['.']], 0, 0)).toBe(-1);
   });
   it('L 形：只有右和下', () => {
@@ -157,8 +158,8 @@ describe('导火索在游戏里用伪装帧', () => {
     expect(Terrain.frameAt(grid, 1, 0, 'game')).toBe(d.gameFrame + (2 | 8));
     expect(d.gameFrame).not.toBe(d.frame);
   });
-  it('没设 gameFrame 的砖块两种视角一样', () => {
-    const grid = [['#']];
+  it('没设 gameFrame 的砖块（不是墙）两种视角一样', () => {
+    const grid = [['=']];
     expect(Terrain.frameAt(grid, 0, 0, 'game')).toBe(Terrain.frameAt(grid, 0, 0, 'editor'));
   });
 });
@@ -175,8 +176,8 @@ describe('Terrain.findLooseGroups（脆岩松脱）', () => {
     expect(groups).toHaveLength(1);
     expect(groups[0].map(c => `${c.x},${c.y}`).sort()).toEqual(['3,1', '4,1', '4,2']);
   });
-  it('泥土不会松脱', () => {
-    expect(Terrain.findLooseGroups([['#', '#']], [{ x: 0, y: 0 }], 2)).toEqual([]);
+  it('碎岩不会松脱', () => {
+    expect(Terrain.findLooseGroups([['r', 'r']], [{ x: 0, y: 0 }], 2)).toEqual([]);
   });
 });
 
@@ -188,7 +189,7 @@ describe('木板（单向平台，箱子漏下去）', () => {
     const plank = Tiles.get('_')!;
     expect(plank.solid && plank.oneWay && plank.boxPassThrough).toBe(true);
     expect(plank.destructible).toBe(false);
-    expect(Tiles.get('#')!.oneWay || Tiles.get('#')!.boxPassThrough).toBe(false);
+    expect(Tiles.get('r')!.oneWay || Tiles.get('r')!.boxPassThrough).toBe(false);
   });
 
   it('从上面落下来 / 站在上面 → 挡住', () => {
@@ -207,7 +208,7 @@ describe('引线烧岩石：先裂成碎岩，再烧才没', () => {
   it('岩石 → 碎岩 → 空气；其它实心的一次烧没；空气和尖刺不变', () => {
     expect(Terrain.burnedTo('R')).toBe('r');
     expect(Terrain.burnedTo('r')).toBe('.');
-    expect(Terrain.burnedTo('#')).toBe('.');
+    expect(Terrain.burnedTo('r')).toBe('.');
     expect(Terrain.burnedTo('.')).toBe('.');
     expect(Terrain.burnedTo('X')).toBe('X');
   });
@@ -215,7 +216,7 @@ describe('引线烧岩石：先裂成碎岩，再烧才没', () => {
   it('紫色（shatter）：岩石一次烧没；其它砖和普通火一样', () => {
     expect(Terrain.burnedTo('R', true)).toBe('.');
     expect(Terrain.burnedTo('r', true)).toBe('.');
-    expect(Terrain.burnedTo('#', true)).toBe('.');
+    expect(Terrain.burnedTo('r', true)).toBe('.');
     expect(Terrain.burnedTo('.', true)).toBe('.');
     expect(Terrain.burnedTo('X', true)).toBe('X');
   });
@@ -226,5 +227,31 @@ describe('引线烧岩石：先裂成碎岩，再烧才没', () => {
     expect(cracked.destructible && cracked.solid && cracked.anchor).toBe(true);
     expect(Tiles.get(rock.crackTo!)).toBe(cracked);
     expect(Terrain.findUnsupported(['RRRRR', 'R...R', 'R.S.R', 'R.r.R', 'R...R', 'RRRRR'])).toEqual([]);   // 沙土坐在悬空的碎岩上也不掉
+  });
+});
+
+// 测试用的墙（现在正式砖块里没有墙）
+defineTile({ id: 'W', name: '测试墙', color: 0x5d6470, frame: 1, wall: 'wall_test' }, Traits.Solid, Traits.Anchor);
+
+describe('墙：游戏里按周围 8 格拼，编辑器里整块画', () => {
+  it('游戏视角的墙帧 = WALL_GID + 这种墙那一行 + 第几种样子；编辑器视角还是整块的帧', () => {
+    const grid = ['WWW', 'WWW', 'WWW'].map(r => r.split(''));
+    const row = wallTemplates().indexOf('wall_test') * WALL_VARIANTS.length;
+    expect(Terrain.frameAt(grid, 1, 1, 'game')).toBe(WALL_GID + row + wallVariant(255));   // 四周都是墙：整块内部
+    expect(Terrain.frameAt(grid, 1, 0, 'game')).toBe(WALL_GID + row + wallVariant(255));   // 地图外面也算墙
+    expect(Terrain.frameAt(grid, 1, 1, 'editor')).toBe(1);
+  });
+
+  it('只有墙挨着才算连着；岩石、字块、空气都不算，它们自己还是整块画', () => {
+    const grid = ['...', '.WW', '...'].map(r => r.split(''));
+    expect(Terrain.frameAt(grid, 1, 1, 'game') - WALL_GID).toBe(wallFrame('wall_test', WALL_E));
+    const g2 = ['...', '.WR', '...'].map(r => r.split(''));
+    expect(Terrain.frameAt(g2, 1, 1, 'game') - WALL_GID).toBe(wallFrame('wall_test', 0));
+    expect(Terrain.frameAt(g2, 2, 1, 'game')).toBe(Tiles.get('R')!.gameFrame);
+  });
+
+  it('掉落碎块 / 移动方块：按给的邻居拼墙，别的砖整块画', () => {
+    expect(Terrain.pieceTexture('W', () => false)).toEqual([WALL_TEXTURE, wallFrame('wall_test', 0)]);
+    expect(Terrain.pieceTexture('R', () => true)).toEqual(['tiles', Tiles.get('R')!.frame]);
   });
 });

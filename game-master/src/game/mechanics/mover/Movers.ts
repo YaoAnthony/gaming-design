@@ -9,7 +9,7 @@
 // - 重置（R、死亡、进入下一关）：所有移动方块先回到一开始的位置，再让地形复原
 import type Phaser from 'phaser';
 import type { CellRef } from '@/type';
-import { AIR } from '@/game/registry/registry';
+import { AIR, Tiles } from '@/game/registry/registry';
 import { Terrain } from '@/game/terrain/Terrain';
 import type { PlayContext } from '@/game/core/PlayContext';
 import type { Mechanic } from '../define';
@@ -135,7 +135,7 @@ export class Movers implements Mechanic {
       if (!g.alive[i]) return;
       const x = h.x + g.shift.x, y = h.y + g.shift.y, id = grid[y]?.[x];
       if (id === undefined || id === AIR || !canCarry(id)) { g.alive[i] = false; changed = true; lost.push({ x, y }); return; }
-      if (id !== g.ids[i]) { g.ids[i] = id; g.images[i]?.setFrame(Terrain.frameOf(id)); }
+      if (id !== g.ids[i]) { g.ids[i] = id; g.images[i]?.setTexture(...this.pieceTexture(g, i)); }
     });
     if (!changed) return;
     this.rebuild(g);
@@ -250,11 +250,22 @@ export class Movers implements Mechanic {
   }
 
   // ---------- 画面和物理体 ----------
+  /** 第 i 格的贴图：墙按这一组里还在的邻居拼（整组一起动，跟旁边不动的墙分开算） */
+  private pieceTexture(g: Group, i: number): [string, number] {
+    const at = new Map(g.home.map((c, k) => [`${c.x},${c.y}`, k]));
+    const h = g.home[i];
+    return Terrain.pieceTexture(g.ids[i], (dx, dy) => {
+      const k = at.get(`${h.x + dx},${h.y + dy}`);
+      return k !== undefined && g.alive[k] && !!Tiles.get(g.ids[k])?.wall;
+    });
+  }
+
+  // ---------- 画面和物理体 ----------
   /** 按还在的格子重建图片和物理体（布局按一开始的位置，挪动靠 place） */
   private rebuild(g: Group): void {
     const { scene } = this.ctx, T = this.ctx.cfg.tile;
     g.images.forEach(i => i?.destroy());
-    g.images = g.home.map((c, i) => (g.alive[i] ? scene.add.image(c.x * T + T / 2, c.y * T + T / 2, 'tiles', Terrain.frameOf(g.ids[i])) : null));
+    g.images = g.home.map((c, i) => (g.alive[i] ? scene.add.image(c.x * T + T / 2, c.y * T + T / 2, ...this.pieceTexture(g, i)) : null));
     g.images.forEach(i => { if (i) g.view.add(i); });
     g.bodies.forEach(b => b.img.destroy());
     g.bodies = rowRuns(g.home.filter((_, i) => g.alive[i])).map(run => {

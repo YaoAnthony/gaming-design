@@ -9,11 +9,6 @@ import { defineEntity, defineTile, Traits } from './registry';
 defineTile({ id: '.', name: '空气 / 橡皮', desc: '什么都没有', color: 0x000000 });
 
 defineTile(
-  { id: '#', name: '泥土', desc: '爆炸范围内会被炸掉；自己不会掉，也撑得住别的砖', color: 0x8d5a3b, frame: TILE_FRAMES.dirt },
-  Traits.Solid, Traits.Anchor, Traits.Destructible(0),
-);
-
-defineTile(
   { id: 'R', name: '岩石', desc: '人炸不动的锚点；只有引线能烧它，烧一次裂成碎岩', color: 0x5d6470, frame: TILE_FRAMES.rock },
   Traits.Solid, Traits.Anchor, Traits.CracksTo('r'),
 );
@@ -29,7 +24,7 @@ defineTile(
 );
 
 defineTile(
-  { id: 'S', name: '沙土', desc: '像泥土，但爆炸范围外一圈也会被震碎（不连锁）。失去支撑掉下来的时候也能站在上面', color: 0xd9a066, frame: TILE_FRAMES.sand },
+  { id: 'S', name: '沙土', desc: '像碎岩，但爆炸范围外一圈也会被震碎（不连锁）。失去支撑掉下来的时候也能站在上面', color: 0xd9a066, frame: TILE_FRAMES.sand },
   Traits.Solid, Traits.Destructible(1), Traits.Rideable,
 );
 

@@ -13,6 +13,7 @@ import type { Mechanic } from '@/game/mechanics/define';
 import type { Dialogue } from './Dialogue';
 import type { Debris } from './Debris';
 import type { Enemies } from './Enemies';
+import type { LightKind } from './sceneFx';
 
 /** 旋涡能吸走的东西：有位置、缩放、透明度 */
 export type Suckable = Phaser.GameObjects.GameObject & Phaser.GameObjects.Components.Transform & Phaser.GameObjects.Components.AlphaSingle;
@@ -85,6 +86,8 @@ export interface PlayContext {
     popScore(x: number, y: number, n: number): void;
     /** 迷雾要重算（地形 / 光源变了） */
     fogDirty(): void;
+    /** 在 (x, y) 放一盏暖光（蜡烛等）；画面效果关了返回 null。返回的图片由调用方挪动、销毁 */
+    light(x: number, y: number, kind: LightKind): Phaser.GameObjects.Image | null;
   };
   hud: {
     /** null = 不显示分数 */

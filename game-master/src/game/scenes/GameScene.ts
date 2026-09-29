@@ -27,6 +27,7 @@ import { Enemies } from '@/game/core/Enemies';
 import { Debris } from '@/game/core/Debris';
 import { standingSpot, touchingHazard } from '@/game/core/rooms';
 import { buildBackground } from '@/game/core/backdrop';
+import { applySceneFx, type SceneFx } from '@/game/core/sceneFx';
 import { vortex } from '@/game/core/vortex';
 import { playRespawnHand } from '@/game/core/respawnHand';
 import { MAX_STAGE, STAGE_EXTRA } from '@/sprite/Player';
@@ -52,6 +53,8 @@ export class GameScene extends Phaser.Scene {
   private fog: FogOfWar | null = null;
   private fogTile = { x: -1, y: -1 };
   private fogDirty = true;
+  /** 画面效果（暗角、微尘） */
+  private sceneFx!: SceneFx;
   private player!: Player;
   private enemies!: Enemies;
   private debris!: Debris;
@@ -137,15 +140,22 @@ export class GameScene extends Phaser.Scene {
     const levelW = this.terrain.w * T, levelH = this.terrain.h * T;
     this.physics.world.setBounds(0, 0, levelW, levelH);
     buildBackground(this, levelW, levelH);
-    this.fuses = new FuseNet(this, fuseRows(model), { tile: T, delayMs: this.cfg.fuseDelayMs });
+    // 画面效果（config.sceneFx）：墙的投影、体积感、暗角、微尘
+    if (this.cfg.sceneFx.shadow) this.terrain.enableShadow(4, 5, 0.35);
+    if (this.cfg.sceneFx.depth) this.terrain.enableShading();
+    const fxRooms = model.layout.flatMap((row, ry) => row.flatMap((key, rx) => (key ? [{
+      x: rx * this.roomPxW, y: ry * this.roomPxH, w: this.roomPxW, h: this.roomPxH, key, dark: !!model.roomFlags?.[key]?.fog,
+    }] : [])));
+    this.sceneFx = applySceneFx(this, this.cfg.sceneFx, fxRooms, T);
+    this.fuses = new FuseNet(this, fuseRows(model), { tile: T, delayMs: this.cfg.fuseDelayMs, light: (x, y) => this.sceneFx.light(x, y, 'ember') });
 
-    // 迷雾按房间开启：只要有一个房间开了就建迷雾层，其余房间全亮
-    const fogRooms = new Set(Object.entries(model.roomFlags ?? {}).filter(([, f]) => f.fog).map(([k]) => k));
-    if (fogRooms.size) {
-      const noFog = new Set(Object.keys(model.rooms).filter(k => !fogRooms.has(k)));
-      this.fog = new FogOfWar(this, this.terrain.grid, fogRows(model).map(r => r.split('')), {
-        tile: T, roomW: this.roomW, roomH: this.roomH, radius: this.cfg.fogRadius, memoryAlpha: this.cfg.fogMemoryAlpha,
-        keyAt: (rx, ry) => roomKeyAt(model, rx, ry), noFogRooms: noFog,
+    // 迷雾层：有全屋暗的房间（roomFlags.fog），或者画了迷雾区，才建；普通房间里只有迷雾区是黑的
+    const darkRooms = new Set(Object.entries(model.roomFlags ?? {}).filter(([, f]) => f.fog).map(([k]) => k));
+    const zones = fogRows(model);
+    if (darkRooms.size || zones.some(r => /[^.]/.test(r))) {
+      this.fog = new FogOfWar(this, this.terrain.grid, zones.map(r => r.split('')), {
+        tile: T, roomW: this.roomW, roomH: this.roomH, radius: this.cfg.fogRadius, memoryAlpha: this.cfg.fogMemoryAlpha, unseenAlpha: this.cfg.fogUnseenAlpha,
+        keyAt: (rx, ry) => roomKeyAt(model, rx, ry), darkRooms,
       });
     }
 
@@ -253,6 +263,7 @@ export class GameScene extends Phaser.Scene {
         flash: (text, color, params) => this.flash(text, color, params),
         popScore: (x, y, n) => this.popScore(x, y, n),
         fogDirty: () => { this.fogDirty = true; },
+        light: (x, y, kind) => this.sceneFx.light(x, y, kind),
       },
       hud: {
         score: n => store.dispatch(setScore(n)),
@@ -343,13 +354,14 @@ export class GameScene extends Phaser.Scene {
 
   private updateFog(): void {
     if (!this.fog) return;
+    const now = this.time.now;
     const T = this.cfg.tile, b = this.player.body;
     const tx = Math.floor(b.center.x / T), ty = Math.floor(b.center.y / T);
     if (tx !== this.fogTile.x || ty !== this.fogTile.y || this.fogDirty) {
       this.fogTile = { x: tx, y: ty }; this.fogDirty = false;
-      this.fog.compute(tx, ty);
+      this.fog.compute(tx, ty, now);
     }
-    this.fog.draw();
+    this.fog.draw(now);
   }
 
   // ---------- 房间 ----------
@@ -360,6 +372,7 @@ export class GameScene extends Phaser.Scene {
     this.room = r;
     this.fog?.setRoom(r);
     const sx = r.rx * this.roomPxW, sy = r.ry * this.roomPxH;
+    this.sceneFx.setRoom(sx, sy, this.roomPxW, this.roomPxH);
     this.tweens.killTweensOf(this.cameras.main);
     if (instant) this.cameras.main.setScroll(sx, sy);
     else this.tweens.add({ targets: this.cameras.main, scrollX: sx, scrollY: sy, duration: this.cfg.roomPanMs, ease: 'Sine.out' });

@@ -56,6 +56,11 @@ export interface TileSpec {
   iconFrame?: number;
   /** 游戏里用的帧（autotile 时是起始帧）；省略用 frame。用来让某些砖块在游戏里不那么显眼 */
   gameFrame?: number;
+  /**
+   * 墙：游戏里按周围 8 格从这张手画模板（5×3 格，见 game/terrain/walls.ts）拼出样子——朝外的表面有纹理，被墙围住的内部是黑的。
+   * 省略 = 不是墙，用 gameFrame 整块画。编辑器里墙也是整块画（frame）
+   */
+  wall?: string;
   editorVisible?: boolean;
 }
 
@@ -69,6 +74,8 @@ export interface TileDef extends TileCaps {
   autotile: boolean;
   iconFrame: number;
   gameFrame: number;
+  /** 墙的模板贴图 key（见 TileSpec.wall）；null = 不是墙 */
+  wall: string | null;
   editorVisible: boolean;
   /** 派生：实心且不是锚点的格子才可能掉落 */
   canFall: boolean;

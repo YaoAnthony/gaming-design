@@ -173,6 +173,10 @@ label.check { display: flex; align-items: center; gap: 6px; margin: 8px 0; color
 }
 .title-prompt { font-family: "Space Grotesk", -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; font-weight: 700; font-size: clamp(16px, 3.2cqw, 40px); color: #ffd166; letter-spacing: .02em; animation: prompt-blink 1.4s ease-in-out infinite; }
 @keyframes prompt-blink { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+/* 认出手柄后：手柄剪影 + 「Press Ⓐ to start」，图标是像素画（PadIcons.tsx），跟着字号缩放 */
+.title-prompt-pad { display: flex; align-items: center; gap: .4em; }
+.title-prompt-pad > .pad-icon:first-child { margin-right: .3em; }
+.pad-icon { display: block; flex: none; }
 .title-lang { position: absolute; top: max(14px, env(safe-area-inset-top)); right: max(16px, env(safe-area-inset-right)); background: transparent; border: 1px solid rgba(241, 239, 230, .35); border-radius: 6px; color: #f1efe6; padding: 6px 12px; font-size: 13px; cursor: pointer; }
 .title-lang:hover { border-color: #4cc9f0; color: #4cc9f0; }
 @media (prefers-reduced-motion: reduce) { .title-hero, .title-prompt { animation: none; } }

@@ -32,6 +32,7 @@ export function createGame(parent: HTMLElement, mode: GameMode, data?: StartGame
     parent,
     backgroundColor: mode === 'editor' ? '#141a2c' : '#0b0b14',
     pixelArt: true,
+    input: { gamepad: true },   // 手柄（映射见 game/gamepad.ts）
     // tileBias：一步陷进砖块超过这个深度就不再分离（会穿墙）。32 = 一整格，配合 maxFall 保证不穿
     physics: { default: 'arcade', arcade: { gravity: { x: 0, y: cfg.gravity }, tileBias: 32, debug: false } },
     scene: [BootScene, GameScene, EditorScene],

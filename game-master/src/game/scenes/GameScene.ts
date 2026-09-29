@@ -14,7 +14,8 @@ import { Player } from '@/sprite';
 import { createSparkEmitter, type SparkEmitter } from '@/particle';
 import { store } from '@/redux/store';
 import { resizeGame } from '@/game/resize';
-import { touch, TOUCH_ACTION, TOUCH_JUMP } from '@/game/input';
+import { INPUT_DOWN, touch, TOUCH_ACTION, TOUCH_JUMP } from '@/game/input';
+import { padAction, readPads } from '@/game/gamepad';
 import { Music } from '@/game/Music';
 import { DEFAULT_MUSIC } from '@/asset';
 import { flash, setBoss, setControls, setDialogue, setMode, setPlace, setRoomKey, setScore, setStats } from '@/redux/slices/hudSlice';
@@ -62,6 +63,8 @@ export class GameScene extends Phaser.Scene {
   private music!: Music;
   private dialogue!: Dialogue;
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
+  /** 上一帧「下」是不是按着：只在按下的那一刻发 INPUT_DOWN */
+  private downHeld = false;
   private keys!: Record<'A' | 'D' | 'W' | 'S', Phaser.Input.Keyboard.Key>;
 
   private spawnPoints: Point[] = [];
@@ -295,7 +298,8 @@ export class GameScene extends Phaser.Scene {
     kb.on('keydown-W', () => press('W'));
     bridge.on(TOUCH_JUMP, touchPress); bridge.on(TOUCH_ACTION, touchPress);
     // 换层（旋涡、淡出）和长大的过程中不响应 R：重置会清掉它们正在等的计时器和镜头，画面就卡在半路
-    kb.on('keydown-R', () => { if (this.won || this.leaving || this.growing || this.respawning || this.crumpling) return; if (this.dead) this.resetAfterDeath(); else this.requestRoomReset(); });
+    const reset = () => { if (this.won || this.leaving || this.growing || this.respawning || this.crumpling) return; if (this.dead) this.resetAfterDeath(); else this.requestRoomReset(); };
+    kb.on('keydown-R', reset);
     const requestReset = () => { if (this.dead && !this.won) this.resetAfterDeath(); };
     const continueGame = () => { if (this.won) this.continueAfterWin(); };
     const restartGame = () => this.restartRun();
@@ -304,10 +308,19 @@ export class GameScene extends Phaser.Scene {
     const exitPlaytest = () => { if (this.playtest) this.exitPlaytest(); };
     if (this.playtest) kb.on('keydown-ESC', exitPlaytest);
     bridge.on(EVT.requestPlaytestExit, exitPlaytest);
+    // 手柄按钮：和对应的键盘键做同样的事（映射表在 game/gamepad.ts）；方向在 readInput 里读
+    const onPad = (_pad: Phaser.Input.Gamepad.Gamepad, button: Phaser.Input.Gamepad.Button) => {
+      const action = padAction(button.index);
+      if (action === 'jump') press('SPACE');
+      else if (action === 'reset') reset();
+      else if (action === 'exit') exitPlaytest();
+    };
+    this.input.gamepad?.on(Phaser.Input.Gamepad.Events.BUTTON_DOWN, onPad);
     const crumpleFreeze = () => this.freezeForCrumple();
     const crumpleDone = (d: CrumpleDone) => this.endCrumple(d);
     bridge.on(EVT.crumpleFreeze, crumpleFreeze); bridge.on(EVT.crumpleDone, crumpleDone);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.input.gamepad?.off(Phaser.Input.Gamepad.Events.BUTTON_DOWN, onPad);
       bridge.off(EVT.requestPlaytestExit, exitPlaytest);
       bridge.off(EVT.crumpleFreeze, crumpleFreeze); bridge.off(EVT.crumpleDone, crumpleDone);
       bridge.off(TOUCH_JUMP, touchPress); bridge.off(TOUCH_ACTION, touchPress);
@@ -316,13 +329,14 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
+  /** 上下左右：键盘（方向键、WASD）、触屏、手柄（左摇杆、十字键）任何一个按着都算 */
   private readInput(): MoveInput {
-    const c = this.cursors, k = this.keys;
+    const c = this.cursors, k = this.keys, pad = readPads(this.input.gamepad);
     return {
-      left: c.left.isDown || k.A.isDown || touch.left,
-      right: c.right.isDown || k.D.isDown || touch.right,
-      up: c.up.isDown || k.W.isDown || touch.up,
-      down: c.down.isDown || k.S.isDown || touch.down,
+      left: c.left.isDown || k.A.isDown || touch.left || pad.left,
+      right: c.right.isDown || k.D.isDown || touch.right || pad.right,
+      up: c.up.isDown || k.W.isDown || touch.up || pad.up,
+      down: c.down.isDown || k.S.isDown || touch.down || pad.down,
     };
   }
 
@@ -341,7 +355,10 @@ export class GameScene extends Phaser.Scene {
     const r = this.roomOf(this.player.x, this.player.y);
     if (!this.sameRoom(r, this.room)) { this.onRoomChanged(r); this.updateFog(); }   // 同一帧把新房间的迷雾画好，不给它露脸的机会
 
-    this.floorMech.move(this.readInput(), time, this.dialogue.talking);   // 对话中站着别动
+    const input = this.readInput();
+    if (input.down && !this.downHeld) this.events.emit(INPUT_DOWN);   // 往下按了一下（摘帽子）：只在按下的那一刻发
+    this.downHeld = input.down;
+    this.floorMech.move(input, time, this.dialogue.talking);   // 对话中站着别动
     this.debris.handlePlayerContact();
     if (this.dead) return;
     const hazard = touchingHazard(this.terrain, this.player.body);

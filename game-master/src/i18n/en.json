@@ -1,6 +1,7 @@
 {
   "startKey": "Press Space to start",
   "startTouch": "Tap to start",
+  "startPad": { "before": "Press", "after": "to start" },
   "rotate": "Rotate to landscape",
   "loading": "Loading {{pct}}%",
   "place": "Location: {{place}}",

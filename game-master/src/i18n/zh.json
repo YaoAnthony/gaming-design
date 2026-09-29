@@ -1,6 +1,7 @@
 {
   "startKey": "按空格开始",
   "startTouch": "点击开始",
+  "startPad": { "before": "按", "after": "开始" },
   "rotate": "横屏玩",
   "loading": "加载中 {{pct}}%",
   "place": "当前位置: {{place}}",

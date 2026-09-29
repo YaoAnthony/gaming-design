@@ -1,10 +1,11 @@
 // ===== 帽子：戴在头上（单独的位置，不占手），主角算 1 + hatHeight 格高 =====
 // - 碰到地上的帽子就戴上（头顶要有空间）
-// - ↓ / S 摘下，放在脚边（人走开之前不会再戴回去）
+// - 往下按一下（↓ / S / 手柄往下）摘下，放在脚边（人走开之前不会再戴回去）
 // - 戴着帽子钻 1 格高的隧道：帽子被撞掉在隧道口，人变回 1 格继续走
 // - 换层、死亡都不掉；只在平台层生效（俯视层的身体大小由层机制管）
 import Phaser from 'phaser';
 import type { PlayContext, Suckable } from '@/game/core/PlayContext';
+import { INPUT_DOWN } from '@/game/input';
 import type { CarryOver } from '@/type';
 import { floorMechanicOf, type Mechanic } from '../define';
 
@@ -39,9 +40,7 @@ export class Hat implements Mechanic {
     if (!this.enabled) return;
     if (this.worn) { if (this.hasHeadroom()) this.wear(); else { this.worn = false; this.putOnGround(ctx.player.x, ctx.player.body.bottom, true); } }
     ctx.scene.events.on(Phaser.Scenes.Events.POST_UPDATE, this.placeHead);
-    const kb = ctx.scene.input.keyboard!;
-    kb.on('keydown-DOWN', this.takeOff);
-    kb.on('keydown-S', this.takeOff);
+    ctx.scene.events.on(INPUT_DOWN, this.takeOff);   // 往下按一下：键盘 ↓ / S、手柄、触屏都算
   }
 
   updateAlive(): void {
@@ -68,8 +67,7 @@ export class Hat implements Mechanic {
   destroy(): void {
     const { scene } = this.ctx;
     scene.events.off(Phaser.Scenes.Events.POST_UPDATE, this.placeHead);
-    scene.input.keyboard?.off('keydown-DOWN', this.takeOff);
-    scene.input.keyboard?.off('keydown-S', this.takeOff);
+    scene.events.off(INPUT_DOWN, this.takeOff);
   }
 
   // ---------- 内部 ----------

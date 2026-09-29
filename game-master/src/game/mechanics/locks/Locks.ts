@@ -1,4 +1,5 @@
-// ===== 钥匙与门：拿着钥匙碰到同色的门，这扇门打开，并且沿相邻的同色门一格格连锁打开，钥匙用掉 =====
+// ===== 钥匙与门：钥匙碰到同色的门，这扇门打开，并且沿相邻的同色门一格格连锁打开，钥匙用掉 =====
+// 开门的是钥匙本身，不管它在哪：拿在手上的（人碰到门就算）、地上的、正在往下掉的、被怪物推着走的都一样。
 // 连锁只沿上下左右相邻、同色的门传：同色但不相连的另一片门还锁着，要另一把钥匙。传一格的间隔是 config.lockChainDelayMs。
 // 开过的门死亡重置也不会关回来。门在建地形前烘成 % 砖（bake），这里按组染色。
 import type Phaser from 'phaser';
@@ -6,7 +7,7 @@ import { DOOR_CHAR, lockGroup, type LockCell } from '@/game/world/WorldModel';
 import type { PlayContext } from '@/game/core/PlayContext';
 import type { Mechanic } from '../define';
 import { keyCarryable, type Carry } from '../carry/Carry';
-import { doorCluster, type DoorHop } from './cluster';
+import { doorCluster, touchedDoor, type DoorHop } from './cluster';
 
 export interface LockData { doors: LockCell[]; keys: LockCell[] }
 
@@ -32,18 +33,14 @@ export class Locks implements Mechanic {
     this.tint();
   }
 
-  /** 手里是钥匙、贴着同色的一扇门 → 从这扇门开始连锁打开 */
+  /** 每一把钥匙贴着同色的一扇门 → 从这扇门开始连锁打开，这把钥匙用掉 */
   updateAlive(): void {
-    const key = this.carry?.holding?.key;
-    if (key === undefined || !this.data.doors.length) return;
-    const r = this.ctx.player.rect(), T = this.ctx.cfg.tile;
-    const x0 = Math.floor((r.left - TOUCH_PX) / T), x1 = Math.floor((r.right + TOUCH_PX) / T), y0 = Math.floor((r.top - TOUCH_PX) / T), y1 = Math.floor((r.bottom + TOUCH_PX) / T);
-    const touching = this.data.doors.filter(c => c.group === key && c.x >= x0 && c.x <= x1 && c.y >= y0 && c.y <= y1 && this.isDoor(c) && !this.opened.has(this.index(c)));
-    if (!touching.length) return;
-    // 同时擦到好几扇（比如身体跨两行）：从离身体中心最近的那扇开始传，连锁看起来是从碰的地方散开的
-    const cx = r.centerX / T - 0.5, cy = r.centerY / T - 0.5;
-    const door = touching.reduce((a, b) => ((b.x - cx) ** 2 + (b.y - cy) ** 2 < (a.x - cx) ** 2 + (a.y - cy) ** 2 ? b : a));
-    this.open(door);
+    if (!this.data.doors.length) return;
+    const T = this.ctx.cfg.tile, locked = (c: LockCell) => this.isDoor(c) && !this.opened.has(this.index(c));
+    for (const key of this.carry?.keysInPlay() ?? []) {
+      const door = touchedDoor(this.data.doors, key.group, key.area, T, TOUCH_PX, locked);
+      if (door && this.open(door)) key.use();
+    }
   }
 
   /** 重置前：还没传到的连锁不用再等，重置之后一次拿掉 */
@@ -67,12 +64,11 @@ export class Locks implements Mechanic {
     });
   }
 
-  /** 钥匙用掉；碰到的门立刻开，相连的同色门按跳数一格格跟着开 */
-  private open(start: LockCell): void {
+  /** 碰到的门立刻开，相连的同色门按跳数一格格跟着开；开了返回 true（钥匙由调用方用掉） */
+  private open(start: LockCell): boolean {
     const { ctx } = this;
     const cluster = doorCluster(this.data.doors, start, c => this.isDoor(c) && !this.opened.has(this.index(c)));
-    if (!cluster.length) return;
-    this.carry?.consume();
+    if (!cluster.length) return false;
     cluster.forEach(c => this.opened.add(this.index(c)));
     ctx.scene.cameras.main.shake(120, 0.004);
     const byHop = new Map<number, DoorHop[]>();
@@ -85,6 +81,7 @@ export class Locks implements Mechanic {
       });
       this.pending.push(timer);
     });
+    return true;
   }
 
   /** 这几扇门消失：火花 + 一块门颜色的光放大淡出 */

@@ -21,6 +21,8 @@ export interface Carryable {
   /** 钥匙对应的组 */
   key?: number;
 }
+/** 场上的一把钥匙：哪一组、碰得到门的范围（像素）、用掉它 */
+export interface KeyContact { group: number; area: Phaser.Geom.Rectangle; use: () => void }
 interface GroundThing {
   /** (x, y) = 贴图停在地上时的中心；钥匙每帧按物理体更新 */
   carry: Carryable; x: number; y: number; sprite: Phaser.GameObjects.Image;
@@ -47,13 +49,13 @@ export class Carry implements Mechanic {
   /** 进场时手里的东西（换层 / 读档带过来的道具 id） */
   private heldId: string | null;
   /** 地上钥匙的物理体 */
-  private keys: LooseKeys;
+  private looseKeys: LooseKeys;
   /** 物理把人、钥匙挪好之后：手上的东西跟着人，地上钥匙的贴图跟着物理体 */
-  private afterPhysics = () => { this.keys.sync(this.ctx.scene.time.now); this.place(); };
+  private afterPhysics = () => { this.looseKeys.sync(this.ctx.scene.time.now); this.place(); };
 
   constructor(private ctx: PlayContext) {
     this.heldId = ctx.start.held ?? null;
-    this.keys = new LooseKeys(ctx);
+    this.looseKeys = new LooseKeys(ctx);
   }
 
   /** 手上拿的东西 */
@@ -75,7 +77,7 @@ export class Carry implements Mechanic {
     if (carry.key !== undefined) {
       const { halo, glints } = this.keyShine(x, y, carry.tint);
       thing.extras.push(halo, glints);
-      thing.loose = this.keys.add({ sprite: thing.sprite, halo, glints, tint: carry.tint, scale: KEY_SCALE.ground }, x, y);   // 上下浮也由它管
+      thing.loose = this.looseKeys.add({ sprite: thing.sprite, halo, glints, tint: carry.tint, scale: KEY_SCALE.ground }, x, y);   // 上下浮也由它管
     } else {
       scene.tweens.add({ targets: thing.sprite, y: y - 3, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
       if (carry.light > 0) {
@@ -106,17 +108,33 @@ export class Carry implements Mechanic {
   /** 手里的东西用掉了（钥匙开门） */
   consume(): void { this.dropHeldSprites(); }
 
+  /**
+   * 场上每一把钥匙，开门看的就是它们（Locks）。拿在手上的跟着人，碰得到门的范围就是人的身体（踩在门上、头顶着门都算）；
+   * 地上的（包括正在掉、被怪物推着走的）是它自己的碰撞框。use = 这把钥匙开了门，用掉
+   */
+  keysInPlay(): KeyContact[] {
+    const out: KeyContact[] = [];
+    const held = this.held?.carry.key;
+    if (held !== undefined) out.push({ group: held, area: this.ctx.player.rect(), use: () => this.consume() });
+    this.ground.forEach(g => {
+      if (g.carry.key === undefined || !g.loose) return;
+      const b = g.loose.body;
+      out.push({ group: g.carry.key, area: new Phaser.Geom.Rectangle(b.x, b.y, b.width, b.height), use: () => this.useGround(g) });
+    });
+    return out;
+  }
+
   // ---------- 生命周期 ----------
   start(): void {
     const start = this.heldId ? this.carryOf(this.heldId) : null;
     if (start) this.hold(start); else this.heldId = null;
-    this.keys.start();
+    this.looseKeys.start();
     this.ctx.scene.events.on(Phaser.Scenes.Events.POST_UPDATE, this.afterPhysics);
   }
 
   /** 地上的钥匙：落地弹一下、被埋了挪出来；位置跟着物理体更新 */
   update(now: number): void {
-    this.keys.update(now);
+    this.looseKeys.update(now);
     this.syncKeyAnchors();
   }
 
@@ -128,9 +146,7 @@ export class Carry implements Mechanic {
       const touching = Phaser.Geom.Intersects.RectangleToRectangle(g.sprite.getBounds(), r);
       if (g.blocked) { if (!touching) g.blocked = false; continue; }
       if (!touching) continue;
-      this.ground.splice(i, 1);
-      g.sprite.destroy(); g.extras.forEach(o => o.destroy());
-      if (g.loose) this.keys.remove(g.loose);
+      this.removeGround(g);
       const old = this.held?.carry ?? null;
       this.hold(g.carry);
       if (g.carry.key !== undefined && this.ctx.scene.cache.audio.exists(KEY_SOUND.key)) this.ctx.scene.sound.play(KEY_SOUND.key, { volume: KEY_SOUND.volume });
@@ -142,12 +158,12 @@ export class Carry implements Mechanic {
 
   /** 地上的钥匙回原位（按 R：这个房间的；死亡：全部）。手上的东西不变 */
   onReset(scope: 'room' | 'world' | 'level'): void {
-    this.keys.reset(scope);
+    this.looseKeys.reset(scope);
     this.syncKeyAnchors();
   }
 
   /** 移动方块要推得动地上的钥匙 */
-  terrainBodies(): Phaser.Physics.Arcade.Group[] { return [this.keys.group]; }
+  terrainBodies(): Phaser.Physics.Arcade.Group[] { return [this.looseKeys.group]; }
 
   /** 只有注册过的道具能带到下一层；钥匙留在本层 */
   persist(out: CarryOver): void {
@@ -157,9 +173,22 @@ export class Carry implements Mechanic {
   destroy(): void { this.ctx.scene.events.off(Phaser.Scenes.Events.POST_UPDATE, this.afterPhysics); }
 
   // ---------- 内部 ----------
+  /** 从地上拿掉（捡起来、开门用掉）：贴图、光晕、物理体一起没 */
+  private removeGround(g: GroundThing): void {
+    this.ground = this.ground.filter(o => o !== g);
+    g.sprite.destroy(); g.extras.forEach(o => o.destroy());
+    if (g.loose) this.looseKeys.remove(g.loose);
+  }
+
+  /** 地上的钥匙开了门：消失，冒一下火花 */
+  private useGround(g: GroundThing): void {
+    this.removeGround(g);
+    this.ctx.sparks.explode(8, g.x, g.y);
+  }
+
   /** 钥匙的 (x, y) 跟着物理体走：捡的判定、换东西时旧的放在哪都按它 */
   private syncKeyAnchors(): void {
-    this.ground.forEach(g => { if (g.loose) Object.assign(g, this.keys.anchor(g.loose)); });
+    this.ground.forEach(g => { if (g.loose) Object.assign(g, this.looseKeys.anchor(g.loose)); });
   }
 
   /** 进场时手里的东西：注册过的道具，或者这一层存在的那一组钥匙（编辑器试玩可以直接带钥匙进来） */

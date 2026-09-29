@@ -69,7 +69,7 @@ export function Palette() {
       <h2>钥匙与门</h2>
       <div className="palette">
         {(locks?.groups ?? []).flatMap(g => [
-          <button key={'k' + g.id} className={'item' + (brush === 'key:' + g.id ? ' active' : '')} title={`${colorName(g.color)}钥匙：捡到后碰同色的门就开`} onClick={() => dispatch(setBrush('key:' + g.id))}>
+          <button key={'k' + g.id} className={'item' + (brush === 'key:' + g.id ? ' active' : '')} title={`${colorName(g.color)}钥匙：碰到同色的门就开`} onClick={() => dispatch(setBrush('key:' + g.id))}>
             <div className="icon"><span className="keyicon" style={{ background: hex(g.color) }} /></div>
             <div className="label"><b>{colorName(g.color)}钥匙</b><small>{g.id}</small></div>
           </button>,

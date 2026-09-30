@@ -1,7 +1,7 @@
 import { IMAGES, SPRITESHEETS, TILE_FRAMES, TILE_SIZE } from '@/asset';
 import { Entities, Tiles } from '@/game/registry/registry';
 import { useAppDispatch, useAppSelector } from '@/redux/hooks';
-import { addLock, currentModel, removeLock, setBrush } from '@/redux/slices/editorSlice';
+import { addLock, currentModel, removeLock, setBrush, setShowFog } from '@/redux/slices/editorSlice';
 import { LOCK_COLOR_NAMES, LOCK_COLORS } from '@/game/world/WorldModel';
 import { FOG_ZONES, FOG_ZONE_COLORS, fogBrush } from './fogZones';
 import { FUSE_CHANNELS } from '@/game/fuse/channels';
@@ -13,6 +13,7 @@ const imageUrl = (key: string) => IMAGES.find(i => i.key === key)?.url ?? '';
 /** 物品栏：从注册表生成，图标直接取自图集 / 贴图 */
 export function Palette() {
   const brush = useAppSelector(s => s.editor.brush);
+  const showFog = useAppSelector(s => s.editor.showFog);
   const locks = useAppSelector(s => currentModel(s.editor).locks);
   const hex = (c: number) => '#' + c.toString(16).padStart(6, '0');
   const colorName = (c: number) => LOCK_COLOR_NAMES[LOCK_COLORS.indexOf(c)] ?? '';
@@ -87,16 +88,17 @@ export function Palette() {
       <h2>迷雾区</h2>
       <div className="palette">
         {FOG_ZONES.map(z => (
-          <button key={z} className={'item' + (brush === fogBrush(z) ? ' active' : '')} title={`迷雾区 ${z}：玩家踏进区内任一格，整个区永久揭开`} onClick={() => dispatch(setBrush(fogBrush(z)))}>
+          <button key={z} className={'item' + (brush === fogBrush(z) ? ' active' : '')} title={`迷雾区 ${z}：玩家踏进区内任一格，整个区永久揭开。按住拖出一个矩形，松开整片填上；右键拖擦掉`} onClick={() => dispatch(setBrush(fogBrush(z)))}>
             <div className="icon"><div className="swatch" style={{ background: '#' + FOG_ZONE_COLORS[z].toString(16).padStart(6, '0') }} /></div>
             <div className="label"><b>迷雾区 {z}</b><small>fog</small></div>
           </button>
         ))}
-        <button className={'item' + (brush === fogBrush('.') ? ' active' : '')} title="擦掉迷雾区标记（也可以选任意迷雾区后右键）" onClick={() => dispatch(setBrush(fogBrush('.')))}>
+        <button className={'item' + (brush === fogBrush('.') ? ' active' : '')} title="擦掉迷雾区标记：按住拖出矩形，松开整片擦掉（也可以选任意迷雾区后右键拖）" onClick={() => dispatch(setBrush(fogBrush('.')))}>
           <div className="icon"><span>⌫</span></div>
           <div className="label"><b>擦除迷雾区</b><small>fog</small></div>
         </button>
       </div>
+      <label className="check" title="只管编辑器里画不画迷雾区的叠加色，游戏里照旧；选着迷雾画笔时总会画"><input type="checkbox" checked={showFog} onChange={e => dispatch(setShowFog(e.target.checked))} /> 显示迷雾区（不影响游戏）</label>
       <div className="hint">迷雾区揭开前伪装成周围的墙，不影响地形，任何房间都能画。</div>
 
       {groups.map(g => (

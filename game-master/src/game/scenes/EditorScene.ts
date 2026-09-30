@@ -1,4 +1,5 @@
 // ===== 编辑器画布：显示当前房间，左键画、右键擦。侧边栏在 React 里。=====
+// 迷雾区画笔不是一格一格画：按住拖出一个矩形，松开整片填上（右键整片擦掉），区大也一下就画完。
 import Phaser from 'phaser';
 import { classify } from '@/game/registry/registry';
 import { Terrain } from '@/game/terrain/Terrain';
@@ -8,7 +9,7 @@ import { layoutText, textSize } from '@/game/world/font';
 import { bridge, EVT, SCENE, type PickedCell } from '@/game/bridge';
 import { store } from '@/redux/store';
 import { resizeGame } from '@/game/resize';
-import { addText, beginStroke, currentModel, paintCell, paintDoor, paintEntity, paintFog, paintFuse, paintKey, paintMover, removeText } from '@/redux/slices/editorSlice';
+import { addText, beginStroke, currentModel, paintCell, paintDoor, paintEntity, paintFogRect, paintFuse, paintKey, paintMover, removeText } from '@/redux/slices/editorSlice';
 import { canCarry, moverKind } from '@/game/mechanics/mover/kinds';
 import { TILE_FRAMES } from '@/asset';
 import { FOG_ZONE_COLORS } from '@/ui/editor/fogZones';
@@ -30,11 +31,16 @@ export class EditorScene extends Phaser.Scene {
   private T = 32;
   private lastVersion = -1;
   private lastRoomKey: string | null = null;
+  /** 上一次画的时候的显示开关（标出会掉落的格子、显示迷雾区、是不是迷雾画笔）：变了也要重画 */
+  private lastView = '';
   /** 瓦片层按建场景时的房间尺寸建的；尺寸变了（改房间尺寸、切到另一种尺寸的层）就重启场景，不能在旧瓦片层上画 */
   private builtSize = { w: 0, h: 0 };
   private restarting = false;
   /** 这一笔是在画布里按下的：从画布外（侧栏、滚动条）按住拖进来不算画 */
   private stroking = false;
+  /** 迷雾区画笔正在拖的矩形：按下的格、现在拖到的格、是不是右键（擦） */
+  private fogRect: { x0: number; y0: number; x1: number; y1: number; erase: boolean } | null = null;
+  private dragLayer!: Phaser.GameObjects.Graphics;
 
   constructor() { super(SCENE.editor); }
 
@@ -61,6 +67,7 @@ export class EditorScene extends Phaser.Scene {
     this.fogLayer = this.add.graphics().setDepth(2.5);
     this.textLayer = this.add.graphics().setDepth(2.6);
     this.moverLayer = this.add.graphics().setDepth(2.65);
+    this.dragLayer = this.add.graphics().setDepth(3.5);
     this.cursor = this.add.rectangle(0, 0, T, T).setOrigin(0).setStrokeStyle(2, 0xffffff, 0.9).setDepth(4).setVisible(false);
 
     this.input.mouse?.disableContextMenu();
@@ -69,10 +76,15 @@ export class EditorScene extends Phaser.Scene {
       this.stroking = true;
       if (this.state().picking) this.pickStart(p);   // 选试玩起点：不画东西
       else if (this.state().brush === 'text') this.placeText(p);
+      else if (this.state().brush.startsWith('fog:')) this.beginFogRect(p);
       else this.paint(p);
     });
-    this.input.on('pointermove', (p: Phaser.Input.Pointer) => { this.moveCursor(p); if (this.stroking && p.isDown && !this.state().picking && this.state().brush !== 'text') this.paint(p); });
-    const endStroke = () => { this.stroking = false; };
+    this.input.on('pointermove', (p: Phaser.Input.Pointer) => {
+      this.moveCursor(p);
+      if (!this.stroking || !p.isDown || this.state().picking || this.state().brush === 'text') return;
+      if (this.fogRect) this.dragFogRect(p); else this.paint(p);
+    });
+    const endStroke = () => { this.stroking = false; this.endFogRect(); };
     this.input.on('pointerup', endStroke);
     this.input.on('pointerupoutside', endStroke);
     this.input.on('pointerout', () => this.cursor.setVisible(false));
@@ -92,8 +104,10 @@ export class EditorScene extends Phaser.Scene {
   /** 保险：每帧核对一次版本号，订阅回调万一漏了也最多晚一帧 */
   update(): void {
     const s = this.state();
-    if (s.version !== this.lastVersion || this.key() !== this.lastRoomKey) this.refreshAll();
+    if (s.version !== this.lastVersion || this.key() !== this.lastRoomKey || this.viewFlags() !== this.lastView) this.refreshAll();
   }
+
+  private viewFlags(): string { const s = this.state(); return `${s.showSupport}|${s.showFog}|${s.brush.startsWith('fog:')}`; }
 
   private state() { return store.getState().editor; }
   private model() { return currentModel(this.state()); }
@@ -164,14 +178,6 @@ export class EditorScene extends Phaser.Scene {
       store.dispatch((isDoor ? paintDoor : paintKey)({ key, x: c.x, y: c.y, id }));
       return;
     }
-    if (brush.startsWith('fog:')) {
-      // 迷雾区画笔：右键擦除
-      const zone = p.rightButtonDown() ? '.' : brush.slice(4);
-      const cur = this.model().fog?.[key]?.[c.y]?.[c.x] ?? '.';
-      if (cur === zone) return;
-      store.dispatch(paintFog({ key, x: c.x, y: c.y, zone }));
-      return;
-    }
     const cls = classify(brush);
     if (cls.kind === 'entity') {
       // 物件画在自己那一层，底下的砖块（比如尖刺）保留；右键只擦物件
@@ -184,6 +190,45 @@ export class EditorScene extends Phaser.Scene {
     const ch = p.rightButtonDown() ? '.' : brush;
     if (this.rows()[c.y][c.x] === ch) return;
     store.dispatch(paintCell({ key, x: c.x, y: c.y, ch }));
+  }
+
+  // ---------- 迷雾区：拖矩形 ----------
+  /** 按下：记住起点格，先不画 */
+  private beginFogRect(p: Phaser.Input.Pointer): void {
+    const c = this.cellAt(p);
+    if (!c) return;
+    this.fogRect = { x0: c.x, y0: c.y, x1: c.x, y1: c.y, erase: p.rightButtonDown() };
+    this.drawFogRect();
+  }
+
+  /** 拖：另一角跟着指针走（拖出画布外就贴在边上），画出预览框 */
+  private dragFogRect(p: Phaser.Input.Pointer): void {
+    const r = this.fogRect, m = this.model();
+    if (!r) return;
+    r.x1 = Phaser.Math.Clamp(Math.floor(p.worldX / this.T), 0, m.roomW - 1);
+    r.y1 = Phaser.Math.Clamp(Math.floor(p.worldY / this.T), 0, m.roomH - 1);
+    this.drawFogRect();
+  }
+
+  /** 松开：整个矩形一次填上（或擦掉），一步撤销 */
+  private endFogRect(): void {
+    const r = this.fogRect, key = this.key();
+    this.fogRect = null;
+    this.dragLayer.clear();
+    if (!r || !key) return;
+    const zone = r.erase ? '.' : this.state().brush.slice(4);
+    store.dispatch(paintFogRect({ key, x0: r.x0, y0: r.y0, x1: r.x1, y1: r.y1, zone }));
+  }
+
+  private drawFogRect(): void {
+    const r = this.fogRect, T = this.T, g = this.dragLayer;
+    g.clear();
+    if (!r) return;
+    const x = Math.min(r.x0, r.x1), y = Math.min(r.y0, r.y1), w = Math.abs(r.x1 - r.x0) + 1, h = Math.abs(r.y1 - r.y0) + 1;
+    const zone = this.state().brush.slice(4), color = r.erase ? 0xffffff : FOG_ZONE_COLORS[zone] ?? 0xffffff;
+    g.fillStyle(color, r.erase ? 0.15 : 0.3); g.fillRect(x * T, y * T, w * T, h * T);
+    g.lineStyle(2, color, 1); g.strokeRect(x * T + 1, y * T + 1, w * T - 2, h * T - 2);
+    this.game.events.emit('editor:status', `${r.erase ? '擦掉迷雾区' : '迷雾区 ' + zone}：${w} × ${h} 格，松开填上`);
   }
 
   /** 文字画笔：左键在这一格放一串新字（内容在侧栏改），右键删掉点到的那串 */
@@ -225,7 +270,7 @@ export class EditorScene extends Phaser.Scene {
 
   private refreshAll(): void {
     const s = this.state();
-    this.lastVersion = s.version; this.lastRoomKey = this.key();
+    this.lastVersion = s.version; this.lastRoomKey = this.key(); this.lastView = this.viewFlags();
     const T = this.T, m = currentModel(s);
     if (m.roomW !== this.builtSize.w || m.roomH !== this.builtSize.h) {
       if (!this.restarting) { this.restarting = true; this.scene.restart(); }
@@ -323,17 +368,28 @@ export class EditorScene extends Phaser.Scene {
     }));
   }
 
-  /** 迷雾区叠加：按区号上色，编辑时能看见，游戏里是黑的 */
+  /**
+   * 迷雾区叠加：按区号上色，编辑时能看见，游戏里是黑的。
+   * 一片连着的同区格子看成一整块：只淡淡铺色，轮廓只画在和别的区 / 没有迷雾的格子相邻的那几条边上，底下的砖块看得清。
+   * 「显示迷雾区」关掉就不画；选着迷雾画笔时不管开关都画（画的时候总要看见）
+   */
   private drawFogZones(): void {
-    const T = this.T, s = this.state(), key = this.key();
-    this.fogLayer.clear();
+    const T = this.T, s = this.state(), key = this.key(), g = this.fogLayer;
+    g.clear();
+    if (!s.showFog && !s.brush.startsWith('fog:')) return;
     const rows = key ? currentModel(s).fog?.[key] : undefined;
     if (!rows) return;
+    const zoneAt = (x: number, y: number) => rows[y]?.[x] ?? '.';
     rows.forEach((row, y) => [...row].forEach((z, x) => {
       const color = FOG_ZONE_COLORS[z];
       if (color === undefined) return;
-      this.fogLayer.fillStyle(color, 0.35); this.fogLayer.fillRect(x * T, y * T, T, T);
-      this.fogLayer.lineStyle(1, color, 0.8); this.fogLayer.strokeRect(x * T + 1, y * T + 1, T - 2, T - 2);
+      g.fillStyle(color, 0.22); g.fillRect(x * T, y * T, T, T);
+      g.lineStyle(2, color, 0.95);
+      const x0 = x * T, y0 = y * T, x1 = x0 + T, y1 = y0 + T;
+      if (zoneAt(x, y - 1) !== z) g.lineBetween(x0, y0 + 1, x1, y0 + 1);
+      if (zoneAt(x, y + 1) !== z) g.lineBetween(x0, y1 - 1, x1, y1 - 1);
+      if (zoneAt(x - 1, y) !== z) g.lineBetween(x0 + 1, y0, x0 + 1, y1);
+      if (zoneAt(x + 1, y) !== z) g.lineBetween(x1 - 1, y0, x1 - 1, y1);
     }));
   }
 

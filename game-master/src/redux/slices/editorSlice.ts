@@ -18,6 +18,8 @@ export interface EditorState {
   room: RoomCoord;
   brush: string;
   showSupport: boolean;
+  /** 编辑器里画不画迷雾区的叠加色（只是看，不影响游戏）；选着迷雾画笔时总会画 */
+  showFog: boolean;
   /** 每次模型变化 +1，Phaser 场景据此判断要不要重绘 */
   version: number;
   /** 试玩时角色的起始状态（右边栏设置，三种开始方式都用它） */
@@ -58,6 +60,7 @@ const initialState: EditorState = {
   room: roomOfStart(DEFAULT_PROJECT.floors[0].model),
   brush: 'R',
   showSupport: true,
+  showFog: true,
   version: 0,
   play: { stage: 0, hat: false, held: '' },
   picking: false,
@@ -103,6 +106,7 @@ const editorSlice = createSlice({
     setBrush(state, action: PayloadAction<string>) { state.brush = action.payload; },
     setRoom(state, action: PayloadAction<RoomCoord>) { state.room = action.payload; },
     setShowSupport(state, action: PayloadAction<boolean>) { state.showSupport = action.payload; },
+    setShowFog(state, action: PayloadAction<boolean>) { state.showFog = action.payload; },
     paintCell(state, action: PayloadAction<{ key: string; x: number; y: number; ch: string }>) {
       record(state, 'stroke');
       const { key, x, y, ch } = action.payload;
@@ -121,6 +125,13 @@ const editorSlice = createSlice({
       record(state, 'stroke');
       const { key, x, y, zone } = action.payload;
       setFogCell(m(state), key, x, y, zone);
+      state.version++;
+    },
+    /** 迷雾区：按住拖出的整个矩形（两角都含）一次填上同一个区号，'.' = 擦掉；一步撤销 */
+    paintFogRect(state, action: PayloadAction<{ key: string; x0: number; y0: number; x1: number; y1: number; zone: string }>) {
+      record(state, 'stroke');
+      const { key, x0, y0, x1, y1, zone } = action.payload;
+      for (let y = Math.min(y0, y1); y <= Math.max(y0, y1); y++) for (let x = Math.min(x0, x1); x <= Math.max(x0, x1); x++) setFogCell(m(state), key, x, y, zone);
       state.version++;
     },
     paintFuse(state, action: PayloadAction<{ key: string; x: number; y: number; ch: number; on: boolean }>) {
@@ -252,7 +263,7 @@ const editorSlice = createSlice({
 });
 
 export const {
-  setBrush, setRoom, setShowSupport, paintCell, paintEntity, paintFog, paintFuse, paintMover, setRoomFlag,
+  setBrush, setRoom, setShowSupport, setShowFog, paintCell, paintEntity, paintFog, paintFogRect, paintFuse, paintMover, setRoomFlag,
   addText, updateText, removeText, addLock, removeLock, paintDoor, paintKey, addRoom, moveRoom, deleteRoom, clearRoom, setFloor, addFloor, renameFloor, deleteFloor, replaceProject, setPlayLoadout, setPicking,
   beginStroke, undo, redo,
 } = editorSlice.actions;

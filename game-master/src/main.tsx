@@ -6,8 +6,12 @@ import { App } from '@/ui/App';
 import { getGame } from '@/game/PhaserGame';
 import '@/i18n';
 
-// 开发期调试入口：控制台可以直接看 store / Phaser 实例
-if (import.meta.env.DEV) (window as unknown as { __climb: unknown }).__climb = { store, getGame };
+// 开发期调试入口：控制台可以直接看 store / Phaser 实例；bot = 程序控制的玩家（自动试玩，见 dev/bot.ts）
+if (import.meta.env.DEV) {
+  const hook: Record<string, unknown> = { store, getGame };
+  (window as unknown as { __climb: unknown }).__climb = hook;
+  void import('@/dev/bot').then(m => { hook.bot = m.bot; });
+}
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

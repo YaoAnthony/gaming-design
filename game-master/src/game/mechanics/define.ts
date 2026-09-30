@@ -28,6 +28,8 @@ export interface Mechanic {
   drawsCell?(cx: number, cy: number): boolean;
   /** 机制自己的、要和地形碰撞的物理体（比如箱子）：别的机制做出来的"会动的地形"也要和它们碰撞 */
   terrainBodies?(): Phaser.Physics.Arcade.Group[];
+  /** 会驮着东西横着走的物理体组（移动方块）：站在上面的箱子对齐格子时要跟着它挪 */
+  carrierBodies?(): Phaser.Physics.Arcade.Group[];
   /** 进入新房间（进层时也会对出生房间调用一次） */
   onRoomChanged?(r: { rx: number; ry: number }): void;
   /** 重置前：清掉正在进行的东西（临时物体、还没出场的 Boss） */

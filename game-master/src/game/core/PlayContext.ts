@@ -105,6 +105,8 @@ export interface PlayContext {
   occupied(cx: number, cy: number): boolean;
   /** 格子上压着机制的重物（比如移动方块），见 Mechanic.weighs */
   weighs(cx: number, cy: number): boolean;
+  /** 这具身体站在会动的东西（移动方块、纸）上的话，那东西这一帧横着挪了多少像素；没站在上面 = 0 */
+  platformShift(b: Phaser.Physics.Arcade.Body): number;
   /** 让这组物理体和所有会和地形碰撞的东西碰撞（玩家、怪物、各机制的 terrainBodies）：会动的地形用 */
   addTerrainCollider(group: Phaser.Physics.Arcade.Group): void;
 }

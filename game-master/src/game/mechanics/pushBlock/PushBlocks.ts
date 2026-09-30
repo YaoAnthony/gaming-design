@@ -142,6 +142,7 @@ export class PushBlocks implements Mechanic {
       if (!b.blocked.down && !b.touching.down) { s.setVelocityX(0); bl.target = null; return; }   // 在空中：直直往下掉，落地再对齐
       const left = b.left - INSET;
       if (bl.target === null) bl.target = Math.round(left / T) * T;                                // 刚落地 / 刚出生：最近的格子
+      else bl.target += this.ctx.platformShift(b);                                                 // 站在移动方块 / 纸上：目标格线跟着挪，不然会往回滑、滑下去
       const diff = bl.target - left;
       if (Math.abs(diff) < SNAP_EPS) {
         s.setVelocityX(0);

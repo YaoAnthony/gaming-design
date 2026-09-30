@@ -12,10 +12,9 @@ import type { CellRef } from '@/type';
 import { AIR, Tiles } from '@/game/registry/registry';
 import { Terrain } from '@/game/terrain/Terrain';
 import type { PlayContext } from '@/game/core/PlayContext';
+import { INSET, makeSolidBody, rectHitsCells, settleBody, solidRuns, standsOn, type SolidRun } from '@/game/core/solid';
 import type { Mechanic } from '../define';
-import { canCarry, rowRuns, stepBlocked, type MoverGroupSpec, type MoverKind } from './kinds';
-
-interface Run { x: number; y: number; len: number }
+import { canCarry, stepBlocked, type MoverGroupSpec, type MoverKind } from './kinds';
 
 interface Group {
   kind: MoverKind;
@@ -36,20 +35,15 @@ interface Group {
   reserved: Set<number>;
   view: Phaser.GameObjects.Container;
   images: (Phaser.GameObjects.Image | null)[];
-  /** 物理体：一行连着的格子一个，位置按一开始的布局 + shift + pos 算 */
-  bodies: { img: Phaser.Physics.Arcade.Image; run: Run }[];
+  /** 物理体：一行连着的格子一个（只在外露的面上碰撞，见 core/solid.ts），位置按一开始的布局 + shift + pos 算 */
+  bodies: { img: Phaser.Physics.Arcade.Image; run: SolidRun }[];
 }
-
-/** 站在方块上面算"站着"：脚底离方块顶面的距离（像素） */
-const RIDE_TOLERANCE = 4;
-/** 判断人 / 怪挡路时，身体往里收这么多像素 */
-const INSET = 2;
 
 export class Movers implements Mechanic {
   private groups: Group[];
   /** 由这里画的格子（所有组现在的位置） */
   private drawn = new Set<number>();
-  private readonly solid: Phaser.Physics.Arcade.Group;
+  readonly solid: Phaser.Physics.Arcade.Group;
 
   constructor(private ctx: PlayContext, specs: MoverGroupSpec[]) {
     this.solid = ctx.scene.physics.add.group({ allowGravity: false, immovable: true });
@@ -68,6 +62,8 @@ export class Movers implements Mechanic {
     this.syncDrawn();
     this.ctx.terrain.refreshCells(this.groups.flatMap(g => g.home));   // 这些格子从瓦片层拿掉，由这里画
   }
+
+  carrierBodies(): Phaser.Physics.Arcade.Group[] { return [this.solid]; }
 
   drawsCell(cx: number, cy: number): boolean { return this.drawn.has(cy * this.ctx.terrain.w + cx); }
 
@@ -215,17 +211,14 @@ export class Movers implements Mechanic {
     return cells.some(c => {
       if (own.has(`${c.x},${c.y - 1}`)) return false;   // 不是顶面
       const top = c.y * T + py, left = c.x * T + px;
-      return Math.abs(b.bottom - top) <= RIDE_TOLERANCE && b.right > left + 1 && b.left < left + T - 1;
+      return standsOn(b, left, left + T, top, 1);
     });
   }
 
   /** 像素矩形盖到的格子里有没有实心砖（这一组自己的不算） */
   private rectHitsTerrain(x0: number, x1: number, y0: number, y1: number, own: Set<string>): boolean {
-    const t = this.ctx.terrain, T = this.ctx.cfg.tile;
-    for (let cy = Math.floor(y0 / T); cy <= Math.floor((y1 - 1) / T); cy++)
-      for (let cx = Math.floor(x0 / T); cx <= Math.floor((x1 - 1) / T); cx++)
-        if (!own.has(`${cx},${cy}`) && (cx < 0 || cy < 0 || cx >= t.w || cy >= t.h || t.isSolid(cx, cy))) return true;
-    return false;
+    const t = this.ctx.terrain;
+    return rectHitsCells(x0, x1, y0, y1, this.ctx.cfg.tile, (cx, cy) => !own.has(`${cx},${cy}`) && (cx < 0 || cy < 0 || cx >= t.w || cy >= t.h || t.isSolid(cx, cy)));
   }
 
   private targetsFree(g: Group): boolean {
@@ -268,31 +261,10 @@ export class Movers implements Mechanic {
     g.images = g.home.map((c, i) => (g.alive[i] ? scene.add.image(c.x * T + T / 2, c.y * T + T / 2, ...this.pieceTexture(g, i)) : null));
     g.images.forEach(i => { if (i) g.view.add(i); });
     g.bodies.forEach(b => b.img.destroy());
-    g.bodies = rowRuns(g.home.filter((_, i) => g.alive[i])).map(run => {
-      const img = this.solid.create(0, 0, 'spark') as Phaser.Physics.Arcade.Image;
-      img.setVisible(false);
-      const body = img.body as Phaser.Physics.Arcade.Body;
-      body.setSize(run.len * T, T, true);
-      body.setAllowGravity(false);
-      body.setImmovable(true);
-      body.pushable = false;
-      body.setDirectControl(true);   // 直接改位置，物理引擎按位移算速度：站在上面的会被带着走
-      body.setFriction(1, 0);        // 带人靠这个：平台横着挪多少，站在上面的就跟着挪多少（物理组建的物体默认是 0，带不动）
-      return { img, run };
-    });
-    // 新建的物理体在 (0,0)：摆到位置后归位一次，不然第一步会被当成一下子挪了好几百像素，把站在上面的人甩出去。
-    // body.reset 按贴图左上角算位置、不管 offset，而这里的碰撞框比贴图大得多（偏移几十像素），第一帧还会被当成
-    // 挪了一个偏移量，照样把站在上面的钥匙、人、箱子甩飞；所以再按贴图 + offset 同步一次，上一帧的位置也记成这里
-    // （directControl 的位移按 autoFrame 算，它也要记）
+    g.bodies = solidRuns(g.home.filter((_, i) => g.alive[i])).map(run => ({ img: makeSolidBody(scene, this.solid, run, T), run }));
+    // 新建的物理体在 (0,0)：摆到位置后归位一次，不然第一步会被当成一下子挪了好几百像素，把站在上面的人甩出去
     this.place(g);
-    g.bodies.forEach(({ img }) => {
-      const body = img.body as Phaser.Physics.Arcade.Body & { autoFrame: Phaser.Math.Vector2 };   // autoFrame：类型声明里没写
-      body.reset(img.x, img.y);
-      body.updateFromGameObject();
-      body.prev.copy(body.position);
-      body.prevFrame.copy(body.position);
-      body.autoFrame.copy(body.position);
-    });
+    g.bodies.forEach(({ img }) => settleBody(img));
   }
 
   /** 画面和物理体摆到 一开始的位置 + shift 格 + pos 像素 */

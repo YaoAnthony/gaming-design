@@ -606,13 +606,14 @@ export class Terrain {
   }
 
   /** 从外面放回来一块（比如驮着它的怪物没了），从给定格子位置继续掉 */
-  addChunk(cells: ChunkCell[], container: Phaser.GameObjects.Container): void {
+  addChunk(cells: ChunkCell[], container: Phaser.GameObjects.Container): Chunk {
     const T = this.T;
     container.setPosition(0, 0);
     (container.list as Phaser.GameObjects.Image[]).forEach((img, k) => img.setPosition(cells[k].x * T + T / 2, cells[k].y * T + T / 2));
     const chunk: Chunk = { id: this.nextChunkId++, cells, container, vy: 0, py: 0, floatSpeed: Tiles.get(cells[0].id)?.floatSpeed ?? 0, t: 0 };
     this.chunks.push(chunk);
     this.host.onChunkFall?.(chunk);
+    return chunk;
   }
 
   /** 碎块每帧更新：整体下落，任一格子下方被挡住就落地并并回格子 */

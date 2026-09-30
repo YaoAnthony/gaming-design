@@ -55,10 +55,9 @@ export class LooseKeys {
   private burst: Phaser.GameObjects.Particles.ParticleEmitter;
 
   constructor(private ctx: PlayContext) {
-    const { scene, terrain, debris } = ctx;
+    const { scene, terrain } = ctx;
     this.group = scene.physics.add.group();
     scene.physics.add.collider(this.group, terrain.layer, undefined, terrain.landsOnOneWay);   // 木板：从上面落下来站得住
-    scene.physics.add.collider(this.group, debris.platforms);                                 // 飘着的纸上也站得住
     this.burst = scene.add.particles(0, 0, 'spark', {
       speedX: { min: -110, max: 110 }, speedY: { min: -130, max: -30 }, gravityY: 500,
       lifespan: { min: 250, max: 450 }, scale: { start: 1, end: 0 }, alpha: { start: 1, end: 0 },

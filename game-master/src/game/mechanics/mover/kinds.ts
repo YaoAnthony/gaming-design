@@ -67,20 +67,3 @@ export function stepBlocked(cells: CellRef[], dx: number, dy: number, blocked: (
   const own = new Set(cells.map(c => `${c.x},${c.y}`));
   return cells.some(c => { const nx = c.x + dx, ny = c.y + dy; return !own.has(`${nx},${ny}`) && blocked(nx, ny); });
 }
-
-/** 一组格子按行合成横条（物理体一条一个，比一格一个省）：{ x, y, len } */
-export function rowRuns(cells: CellRef[]): { x: number; y: number; len: number }[] {
-  const byRow = new Map<number, number[]>();
-  cells.forEach(c => { const r = byRow.get(c.y) ?? []; r.push(c.x); byRow.set(c.y, r); });
-  const runs: { x: number; y: number; len: number }[] = [];
-  byRow.forEach((xs, y) => {
-    xs.sort((a, b) => a - b);
-    let start = xs[0], prev = xs[0];
-    for (let i = 1; i <= xs.length; i++) {
-      if (i < xs.length && xs[i] === prev + 1) { prev = xs[i]; continue; }
-      runs.push({ x: start, y, len: prev - start + 1 });
-      if (i < xs.length) { start = xs[i]; prev = xs[i]; }
-    }
-  });
-  return runs;
-}

@@ -26,6 +26,7 @@ import type { PlayContext } from '@/game/core/PlayContext';
 import { Dialogue } from '@/game/core/Dialogue';
 import { Enemies } from '@/game/core/Enemies';
 import { Debris } from '@/game/core/Debris';
+import { shiftUnder } from '@/game/core/solid';
 import { standingSpot, touchingHazard } from '@/game/core/rooms';
 import { buildBackground } from '@/game/core/backdrop';
 import { applySceneFx, type SceneFx } from '@/game/core/sceneFx';
@@ -172,6 +173,8 @@ export class GameScene extends Phaser.Scene {
     // ---- 机制实例 ----
     defs.forEach(d => { const m = d.create(this.ctx, baked.get(d.id)); this.mechs.push(m); this.mechById.set(d.id, m); });
     this.floorMech = this.mechs[0] as FloorMechanic;
+    // 纸（被驮着的、飘着的）是实心的：怪物、箱子、钥匙都站得住、撞得到（玩家的碰撞器带「纸压头不挡」的判断，放玩家后面挂）
+    [this.enemies.group, ...this.mechs.flatMap(m => m.terrainBodies?.() ?? [])].forEach(o => this.physics.add.collider(o, this.debris.platforms));
 
     // ---- 物件：每个字符问注册表；属于机制的交给机制实例，核心物件交给场景 ----
     const core: CoreHost = { addSpawnPoint: p => this.spawnPoints.push(p), addEnemy: (sp: EnemySpawn) => this.enemies.addSpawn(sp) };
@@ -193,7 +196,7 @@ export class GameScene extends Phaser.Scene {
     if (this.startData.entry) this.player.setVelocity(this.startData.entry.vx, this.startData.entry.vy);
     this.physics.world.gravity.y = this.floorMech.gravity ?? this.cfg.gravity;
     if (this.floorMech.collideTerrain) this.physics.add.collider(this.player, this.terrain.layer, undefined, this.terrain.landsOnOneWay);
-    this.physics.add.collider(this.player, this.debris.platforms);
+    this.physics.add.collider(this.player, this.debris.platforms, undefined, this.debris.hitsPlayer);
 
     this.cameras.main.setBounds(0, 0, levelW, levelH);
     this.entry = { x: start.x, y: start.y, vx: 0, vy: 0 };
@@ -277,6 +280,7 @@ export class GameScene extends Phaser.Scene {
       blockedByMechanics: (cx, cy) => this.blockedByMechanics(cx, cy),
       occupied: (cx, cy) => this.mechs.some(m => m.occupies?.(cx, cy)),
       weighs: (cx, cy) => this.mechs.some(m => m.weighs?.(cx, cy)),
+      platformShift: b => shiftUnder(b, [this.debris.platforms, ...this.mechs.flatMap(m => m.carrierBodies?.() ?? [])]),
       addTerrainCollider: group => {
         const others = [this.player, this.enemies.group, ...this.mechs.flatMap(m => m.terrainBodies?.() ?? [])];
         others.forEach(o => this.physics.add.collider(o, group));
@@ -345,7 +349,7 @@ export class GameScene extends Phaser.Scene {
     const dt = delta / 1000;
     this.terrain.updateChunks(dt);
     this.enemies.update();
-    this.debris.update(dt);
+    this.debris.update();
     this.dialogue.update(time);
     this.mechs.forEach(m => m.update?.(time, dt));
     this.updateFog();

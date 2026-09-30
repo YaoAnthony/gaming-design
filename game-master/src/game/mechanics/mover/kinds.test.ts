@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import '@/game/registry/tiles';
 import '@/game/mechanics';
-import { buildMoverGroups, canCarry, rowRuns, stepBlocked } from './kinds';
+import { buildMoverGroups, canCarry, stepBlocked } from './kinds';
 
 describe('移动方块：能不能放、怎么分组', () => {
   it('只能放在实心、自己不会掉的砖上：岩石 / 碎岩可以，沙土 / 脆岩 / 纸 / 空气 / 尖刺不行', () => {
@@ -30,11 +30,5 @@ describe('移动方块：撞没撞', () => {
     expect(stepBlocked([{ x: 0, y: 0 }, { x: 1, y: 0 }], 1, 0, blocked)).toBe(false);   // 往右一格是自己
     expect(stepBlocked([{ x: 0, y: 1 }, { x: 2, y: 1 }], 0, -1, blocked)).toBe(false);
     expect(stepBlocked([{ x: 0, y: 1 }, { x: 3, y: 1 }], 0, -1, blocked)).toBe(true);    // 只要有一格往上撞墙
-  });
-
-  it('按行合成横条（物理体一条一个）', () => {
-    expect(rowRuns([{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 3, y: 0 }, { x: 1, y: 1 }])).toEqual([
-      { x: 0, y: 0, len: 2 }, { x: 3, y: 0, len: 1 }, { x: 1, y: 1, len: 1 },
-    ]);
   });
 });

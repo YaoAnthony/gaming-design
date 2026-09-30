@@ -36,8 +36,6 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   private jumpPressedAt = -9999;
   private inputLockUntil = 0;
   private lastGroundCell: CellRef | null = null;
-  /** 脚下平台（比如被怪物驮着的纸）的水平速度，叠加到自己的速度上——走物理，撞墙会被挡 */
-  rideVx = 0;
   /** 头上额外的高度（格），戴帽子时是 hatHeight */
   private extra = 0;
   /** 长大阶段：0 = 第 1 关 1 格高，1 = 第 2 关 1.5 格，2 = 第 3 关 2 格 */
@@ -153,9 +151,9 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     const onGround = this.onGround, onWallL = this.onWallLeft, onWallR = this.onWallRight;
 
     if (time >= this.inputLockUntil) {
-      if (input.left) { this.setVelocityX(-c.moveSpeed + this.rideVx); this.setFlipX(true); }
-      else if (input.right) { this.setVelocityX(c.moveSpeed + this.rideVx); this.setFlipX(false); }
-      else this.setVelocityX(this.rideVx);
+      if (input.left) { this.setVelocityX(-c.moveSpeed); this.setFlipX(true); }
+      else if (input.right) { this.setVelocityX(c.moveSpeed); this.setFlipX(false); }
+      else this.setVelocityX(0);
     }
 
     if ((onWallL || onWallR) && b.velocity.y > c.wallSlideMaxFall) this.setVelocityY(c.wallSlideMaxFall);

@@ -45,7 +45,7 @@ export class Enemies {
     const { ctx } = this, cfg = ctx.cfg;
     const playerRect = ctx.player.rect();
     this.list().forEach(e => {
-      e.step(ctx.terrain, ctx.rooms.pxW, cfg.enemySpeed);
+      e.step(ctx.terrain, ctx.rooms.pxW, cfg.enemySpeed, (x, y) => ctx.terrain.isFooting(x, y) || this.ctx.debris.occupies(x, y));   // 纸上也能走
       const r = e.rect();
       let crushed = false;
       ctx.terrain.forEachChunkCell((ch, cx, cy, w, h) => {

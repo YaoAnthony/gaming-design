@@ -6,6 +6,7 @@
 // 同一行相邻的格子只有上下两面的外露情况一样才并成一条：小船的船舱底那格顶面外露，两边船沿底下的格子顶面不外露，得分开。
 import Phaser from 'phaser';
 import type { CellRef } from '@/type';
+import { pushOutX } from '@/game/mechanics/carry/keyFall';
 
 export interface Faces { up: boolean; down: boolean; left: boolean; right: boolean }
 /** 一条横条：格坐标（和传进来的格子同一坐标系）、长度、哪几面外露 */
@@ -89,6 +90,18 @@ export function shiftUnder(b: Phaser.Physics.Arcade.Body, groups: Phaser.Physics
     return p.deltaX();
   }
   return 0;
+}
+
+/**
+ * 被会动的东西（移动方块、纸）带着走的身体，被带进了墙里就推回墙外（横向）。
+ * 瓦片层只挡自己带速度撞进去的物体，被平台的摩擦力挪进去的它不管：站在平台上、前面有墙，人会跟着平台穿墙。
+ * 推回去之后平台从脚下走开，人就留在墙前面掉下去（钥匙的「刮板」是同一个道理）。改的是 body，postUpdate 会同步给精灵
+ */
+export function pushRiderOutOfWalls(b: Phaser.Physics.Arcade.Body, T: number, solid: (cx: number, cy: number) => boolean): boolean {
+  const x = pushOutX(b.left, b.width, b.top, b.bottom, T, solid);
+  if (x === null) return false;
+  b.x = x; b.updateCenter();
+  return true;
 }
 
 /** 像素矩形 [x0, x1) × [y0, y1) 盖到的格子里有没有 solid 说是实心的 */

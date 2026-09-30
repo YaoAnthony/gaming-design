@@ -12,7 +12,7 @@ import type { CellRef } from '@/type';
 import { AIR, Tiles } from '@/game/registry/registry';
 import { Terrain } from '@/game/terrain/Terrain';
 import type { PlayContext } from '@/game/core/PlayContext';
-import { INSET, makeSolidBody, rectHitsCells, settleBody, solidRuns, standsOn, type SolidRun } from '@/game/core/solid';
+import { INSET, makeSolidBody, pushRiderOutOfWalls, rectHitsCells, settleBody, solidRuns, standsOn, type SolidRun } from '@/game/core/solid';
 import type { Mechanic } from '../define';
 import { canCarry, stepBlocked, type MoverGroupSpec, type MoverKind } from './kinds';
 
@@ -120,6 +120,18 @@ export class Movers implements Mechanic {
       g.pos = 0;   // 退回去的路上回到了格子上
     }
     this.place(g);
+    this.scrapeRiders(g);
+  }
+
+  /** 站在上面、被带进墙里的人 / 怪 / 箱子推回墙外：方块从脚下走开，它们就留在墙前面（钥匙由 LooseKeys 自己做同样的事） */
+  private scrapeRiders(g: Group): void {
+    const { ctx } = this, t = ctx.terrain, T = ctx.cfg.tile;
+    const solid = (cx: number, cy: number) => t.isSolid(cx, cy) && !t.def(cx, cy).oneWay;
+    const boxes = (ctx.mech('pushBlock')?.terrainBodies?.() ?? []).flatMap(grp => grp.getChildren().map(c => (c as Phaser.Physics.Arcade.Image).body as Phaser.Physics.Arcade.Body | null));
+    for (const b of [...this.bodiesAround(), ...boxes]) {
+      if (!b?.enable || !this.rides(g, b)) continue;
+      pushRiderOutOfWalls(b, T, solid);
+    }
   }
 
   /** 方块被炸没了（变成空气 / 被换成不能动的砖）就退出；岩石裂成碎岩换张图 */

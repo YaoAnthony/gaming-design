@@ -6,7 +6,7 @@ import { Tiles } from '@/game/registry/registry';
 import { CarriedPaper, Enemy, PaperBody } from '@/sprite';
 import { playLand } from '@/particle';
 import type { PlayContext } from './PlayContext';
-import { INSET, rectHitsCells } from './solid';
+import { INSET, pushRiderOutOfWalls, rectHitsCells } from './solid';
 
 /** 纸落到头上：包围盒底边离头顶在这个范围内就算落上了（像素） */
 const CATCH_ABOVE = 2, CATCH_BELOW = 10;
@@ -125,6 +125,7 @@ export class Debris {
         if (ctx.dead || c.hits(ctx.blocked)) { this.shrugged.add(c.drop(ctx.terrain, T).id); this.carried.splice(i, 1); continue; }
       } else this.unsqueeze(c);
       c.update();
+      this.scrapeRiders(c);
     }
     this.restOnHead();
     this.matchFallSpeed();
@@ -193,6 +194,17 @@ export class Debris {
     e.x -= dir * overlap;
     e.dir = dir > 0 ? -1 : 1;
     e.setVelocityX(e.dir * ctx.cfg.enemySpeed);
+  }
+
+  /** 站在被驮着的纸上、被带进墙里的人 / 怪 / 箱子推回墙外：纸从脚下走开，它们就留在墙前面（同移动方块） */
+  private scrapeRiders(c: CarriedPaper): void {
+    const { ctx } = this, t = ctx.terrain, T = ctx.cfg.tile;
+    const solid = (cx: number, cy: number) => t.isSolid(cx, cy) && !t.def(cx, cy).oneWay;
+    const boxes = (ctx.mech('pushBlock')?.terrainBodies?.() ?? []).flatMap(grp => grp.getChildren().map(o => (o as Phaser.Physics.Arcade.Image).body as Phaser.Physics.Arcade.Body | null));
+    for (const b of [ctx.player.body, ...ctx.enemies.list().map(e => e.body), ...boxes]) {
+      if (!b?.enable || !c.platform.carries(b)) continue;
+      pushRiderOutOfWalls(b, T, solid);
+    }
   }
 
   /** 这一格的中心被哪块纸（驮着的、飘着的）盖住了：怪物在纸上巡逻时当地面 */

@@ -20,6 +20,8 @@ export interface Carryable {
   light: number;
   /** 钥匙对应的组 */
   key?: number;
+  /** 钥匙：地图上的第几把（重置时认出手上拿的是哪一把，那一把不在原位再放一次） */
+  origin?: number;
 }
 /** 场上的一把钥匙：哪一组、碰得到门的范围（像素）、用掉它 */
 export interface KeyContact { group: number; area: Phaser.Geom.Rectangle; use: () => void }
@@ -30,6 +32,8 @@ interface GroundThing {
   extras: Phaser.GameObjects.GameObject[];
   /** 刚放下的：人走开之前不能再捡 */
   blocked: boolean;
+  /** 人自己放下的（换东西时丢在这里）：整张地图重置时钥匙留在这里，不回地图原位 */
+  dropped: boolean;
   /** 钥匙的物理体；蜡烛没有 */
   loose?: LooseKey;
 }
@@ -41,7 +45,7 @@ const KEY_SOUND = { key: 'keyPickup', volume: 0.7 };
 
 export const carryOfItem = (d: ItemDef): Carryable => ({ id: d.id, texture: d.texture, tint: 0xffffff, light: d.light });
 /** 某一组的钥匙：id = 'key:组号'，按组的颜色染色 */
-export const keyCarryable = (group: number, tint: number): Carryable => ({ id: 'key:' + group, texture: 'key', tint, light: 0, key: group });
+export const keyCarryable = (group: number, tint: number, origin?: number): Carryable => ({ id: 'key:' + group, texture: 'key', tint, light: 0, key: group, origin });
 
 export class Carry implements Mechanic {
   private ground: GroundThing[] = [];
@@ -73,7 +77,7 @@ export class Carry implements Mechanic {
    */
   spawnGround(carry: Carryable, x: number, y: number, blocked = false): void {
     const scene = this.ctx.scene;
-    const thing: GroundThing = { carry, x, y, sprite: scene.add.image(x, y, carry.texture).setTint(carry.tint).setDepth(2.4), extras: [], blocked };
+    const thing: GroundThing = { carry, x, y, sprite: scene.add.image(x, y, carry.texture).setTint(carry.tint).setDepth(2.4), extras: [], blocked, dropped: false };
     if (carry.key !== undefined) {
       const { halo, glints } = this.keyShine(x, y, carry.tint);
       thing.extras.push(halo, glints);
@@ -105,11 +109,24 @@ export class Carry implements Mechanic {
     return { halo, glints };
   }
 
-  /** 所有钥匙拿掉（地上的、手上的）：整张地图重置时 Locks 再把它们放回原位 */
-  clearKeys(): void {
-    this.ground.filter(g => g.carry.key !== undefined).forEach(g => this.removeGround(g));
-    if (this.held?.carry.key !== undefined) this.dropHeldSprites();
+  /**
+   * 整张地图重置：拿掉该回原位的钥匙，Locks 再把它们放回地图上的原位。
+   * keep = 死亡、按 R：手上拿着的留在手上，人自己丢下的留在丢下的地方（在那里摆好，不管后来被推到哪）；
+   * 否则（进入下一关）全部拿掉。返回留下来的钥匙是地图上的第几把
+   */
+  clearKeys(keep: boolean): Set<number> {
+    const kept = new Set<number>();
+    this.ground.filter(g => g.carry.key !== undefined).forEach(g => {
+      if (keep && g.dropped && g.carry.origin !== undefined) { kept.add(g.carry.origin); return; }
+      this.removeGround(g);
+    });
+    if (this.held?.carry.key !== undefined) {
+      // 手上的一定留着；认得出是第几把才不在原位再放一把（认不出的：比如读档带进来的，原位照放）
+      if (!keep) this.dropHeldSprites();
+      else if (this.held.carry.origin !== undefined) kept.add(this.held.carry.origin);
+    }
     this.syncLightSources();
+    return kept;
   }
 
   /** 手里的东西用掉了（钥匙开门） */
@@ -157,13 +174,16 @@ export class Carry implements Mechanic {
       const old = this.held?.carry ?? null;
       this.hold(g.carry);
       if (g.carry.key !== undefined && this.ctx.scene.cache.audio.exists(KEY_SOUND.key)) this.ctx.scene.sound.play(KEY_SOUND.key, { volume: KEY_SOUND.volume });
-      if (old) this.spawnGround(old, g.x, g.y, true);
+      if (old) { this.spawnGround(old, g.x, g.y, true); this.ground[this.ground.length - 1].dropped = true; }
       this.syncLightSources();
       this.ctx.sparks.explode(8, g.x, g.y);
     }
   }
 
-  /** 地上的钥匙回原位（只重置房间时：这个房间的）。整张地图重置时钥匙由 Locks 全部重新放（clearKeys） */
+  /**
+   * 地上的钥匙回到放下它的位置（只重置房间时：这个房间的）：地图上的回原位，人自己丢下的回丢下的地方。
+   * 整张地图重置时该回原位的由 Locks 重新放（clearKeys）
+   */
   onReset(scope: 'room' | 'world' | 'level'): void {
     this.looseKeys.reset(scope);
     this.syncKeyAnchors();

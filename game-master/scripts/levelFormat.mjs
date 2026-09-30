@@ -103,19 +103,21 @@ export function compileLevel(lv) {
 function checkEdges(lv, model, warnings) {
   const { w, h } = lv, L = model.layout;
   const at = (rx, ry) => (ry >= 0 && ry < L.length && rx >= 0 && rx < (L[ry]?.length ?? 0) ? L[ry][rx] : null);
-  const open = (key, x, y) => { const c = model.rooms[key]?.[y]?.[x]; return c !== undefined && !SOLID.has(c); };
+  // 门在砖块层里是空气，但游戏里开之前是实心的：外沿上的门不算漏洞；交界一边是门就不提醒（门开了才通，是故意的）
+  const isDoor = (key, x, y) => (model.locks?.doors[key]?.[y]?.[x] ?? '.') !== '.';
+  const open = (key, x, y) => { const c = model.rooms[key]?.[y]?.[x]; return c !== undefined && !SOLID.has(c) && !isDoor(key, x, y); };
   L.forEach((row, ry) => row.forEach((key, rx) => {
     if (!key) return;
     const right = at(rx + 1, ry), down = at(rx, ry + 1);
     for (let y = 0; y < h; y++) {
       const a = open(key, w - 1, y);
-      if (right) { const b = open(right, 0, y); if (a !== b) warnings.push(`${key}|${right} 交界第 ${y} 行：${a ? '左边空、右边堵' : '左边堵、右边空'}`); }
+      if (right) { const b = open(right, 0, y); if (a !== b && !isDoor(key, w - 1, y) && !isDoor(right, 0, y)) warnings.push(`${key}|${right} 交界第 ${y} 行：${a ? '左边空、右边堵' : '左边堵、右边空'}`); }
       else if (a) warnings.push(`${key} 右边沿第 ${y} 行是空的，外面没房间`);
       if (!at(rx - 1, ry) && open(key, 0, y)) warnings.push(`${key} 左边沿第 ${y} 行是空的，外面没房间`);
     }
     for (let x = 0; x < w; x++) {
       const a = open(key, x, h - 1);
-      if (down) { const b = open(down, x, 0); if (a !== b) warnings.push(`${key}/${down} 交界第 ${x} 列：${a ? '上边空、下边堵' : '上边堵、下边空'}`); }
+      if (down) { const b = open(down, x, 0); if (a !== b && !isDoor(key, x, h - 1) && !isDoor(down, x, 0)) warnings.push(`${key}/${down} 交界第 ${x} 列：${a ? '上边空、下边堵' : '上边堵、下边空'}`); }
       else if (a) warnings.push(`${key} 下边沿第 ${x} 列是空的，外面没房间`);
       if (!at(rx, ry - 1) && open(key, x, 0)) warnings.push(`${key} 上边沿第 ${x} 列是空的，外面没房间`);
     }

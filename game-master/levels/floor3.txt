@@ -1,0 +1,110 @@
+# ===== 第三层「铸造厂」 =====
+# 比第二层多几步：落石、箱子、木板、压板、引线、怪物、钥匙串成一条线，跨 D、E 两个房间，奖励在 F。
+#   A 起点「落石」：钥匙躺在尖刺坑底拿不到。坑上挂着一块脆岩板，站上去（或站在旁边）起跳把它震下来，
+#     整块砸进坑里盖住尖刺，还把钥匙顶到石板上面。跳下去落在石板上拿钥匙，贴着左墙蹬上来，站到蓝门上开门，掉进 D。
+#   D + E「接力」（两屋联动）：
+#     D 的尖刺隧道里有一把红钥匙，隧道左端是红门；红门往下连着一整条红门，沿着地底穿过 D、E，一直通到 F 的城堡大门。
+#     E 的隧道里关着一只怪物，被一面碎岩墙挡在 E 这边；墙上有个引线头，引线另一头藏在木板下面的压板边上。
+#     1. D 的走道上有个一格的缺口，箱子推过去会掉进去卡住。先站在缺口旁边起跳，把头顶挂着的脆岩震下来填平缺口。
+#     2. 把箱子从 D 一路推到 E，推上木板，箱子从木板漏下去压中压板。
+#     3. 压板点燃引线，烧掉碎岩墙；怪物走进 D 的隧道，把钥匙推上红门。整条红门一格格开过去，最后打开 F 的城堡大门。
+#   F：城堡大门后面是城堡。
+floor claude3
+name Floor 3
+place Foundry
+size 24 16
+group 1 #ef476f
+group 2 #4cc9f0
+layout
+A..
+DEF
+
+room A
+RRRRRRRRRRRRRRRRRRRRRRRR
+R......................R
+R......................R
+R......................R
+R......................R
+R......................R
+R......................R
+R.P....................R
+RR@@RBBBBB.........RRRRR
+RR..R..............RRRRR
+RR..R..............RRRRR
+RR..R..............RRRRR
+RR..R..............RRRRR
+RR..RXX2XXXXXXXXXXXRRRRR
+RR..RRRRRRRRRRRRRRRRRRRR
+RR..RRRRRRRRRRRRRRRRRRRR
+
+room D
+RR..RRRRRRRRRRRRRRRRRRRR
+R...............R......R
+R...............R......R
+R...............R......R
+R...............R......R
+R...............R......R
+R...............R......R
+R...............B......R
+R...........b...........
+RRRRRRRRRRRRRRRR.RRRRRRR
+RRRRRRRRRRRRRRRRRRRRRRRR
+RRRRRRRRRRRRRRRRRRRRRRRR
+RRRRRRRRRRRRRRRRRRRRRRRR
+RRRRRRRRRRRRRR!XXX1XXXXX
+RRRRRRRRRRRRRR!RRRRRRRRR
+RRRRRRRRRRRRRR!!!!!!!!!!
+
+room E
+RRRRRRRRRRRRRRRRRRRRRRRR
+R......................R
+R......................R
+R......................R
+R......................R
+R......................R
+R......................R
+R......................R
+........................
+RRRRRR___RRRRRRRRRRRRRRR
+RRRRRR...RRRRRRRRRRRRRRR
+RRRRRRq..RRRRRRRRRRRRRRR
+RRRRRRRRRRRRRRRRRRRRRRRR
+XrM..........RRRRRRRRRRR
+RRRRRRRRRRRRRRRRRRRRRRRR
+!!!!!!!!!!!!!!!!!!!!!!!!
+
+room E fuse
+........................
+........................
+........................
+........................
+........................
+........................
+........................
+........................
+........................
+........................
+........................
+........................
+.WWWWWW.................
+.W......................
+........................
+........................
+
+room F
+RRRRRRRRRRRRRRRRRRRRRRRR
+R......................R
+R......................R
+R......................R
+R......................R
+R..............!.......R
+R..............!.......R
+R..............!.......R
+...............!...T...R
+RRRRRRRRRRRRRRR!RRRRRRRR
+RRRRRRRRRRRRRRR!RRRRRRRR
+RRRRRRRRRRRRRRR!RRRRRRRR
+RRRRRRRRRRRRRRR!RRRRRRRR
+RRRRRRRRRRRRRRR!RRRRRRRR
+!!!!!!!!!!!!!!!!RRRRRRRR
+!RRRRRRRRRRRRRRRRRRRRRRR

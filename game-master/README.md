@@ -261,7 +261,7 @@ defineSkill({
 
 ### 文字关卡和自动试玩
 
-- **文字关卡**（`levels/*.txt`，格式和量出来的跳跃数据见 `levels/README.md`）：一个文本文件画一整层，砖块、物件、钥匙、门画在同一张字符画里。`npm run level -- levels/floor2.txt` 检查，加 `--write` 写进 world.json（同 id 的层替换，别的层不动），然后编辑器里「载入」。第二层「钥匙井」（`levels/floor2.txt`，层 id `claude2`）就是这么做的，设计思路写在文件开头。
+- **文字关卡**（`levels/*.txt`，格式和量出来的跳跃数据见 `levels/README.md`）：一个文本文件画一整层，砖块、物件、钥匙、门画在同一张字符画里。`npm run level -- levels/floor2.txt` 检查，加 `--write` 写进 world.json（同 id 的层替换，别的层不动），然后编辑器里「载入」。第二层「钥匙井」（`levels/floor2.txt`，层 id `claude2`）、第三层「铸造厂」（`levels/floor3.txt`，`claude3`）和第四层「传送带」（`levels/floor4.txt`，`claude4`）就是这么做的，设计思路写在各自文件开头。
 - **自动试玩**（`src/dev/bot.ts`，只在开发模式）：控制台里 `__climb.bot` 是一个程序控制的玩家。游戏循环改成一帧帧手动走，页面在后台也能跑；输入走模拟手柄。`await __climb.bot.load({ level: 'levels/floor2.txt' })` 直接编译文字关卡开始玩（也可以 `floor: 'f2'` 读 world.json 里的某一层，`room` / `at` 指定起点）；`bot.run('to 15; jump; wait 60; view')` 执行一串动作，`bot.view()` 把当前房间画成字符画（`P` 自己、`M` 怪物、数字是地上的钥匙、`!@$^` 是门）。命令列表是 `bot.COMMANDS`。骷髅手放人和 R 的攥纸团靠真实时间，load 时关掉。
 
 ## 操作

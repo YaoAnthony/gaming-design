@@ -71,7 +71,11 @@
     "Floor 1": "第一层",
     "Dungeon": "地下城",
     "Floor 2": "第二层",
-    "Key Well": "钥匙井"
+    "Key Well": "钥匙井",
+    "Floor 3": "第三层",
+    "Foundry": "铸造厂",
+    "Floor 4": "第四层",
+    "Conveyor": "传送带"
   },
   "touch": {
     "up": "上",

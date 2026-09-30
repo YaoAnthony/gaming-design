@@ -1,0 +1,91 @@
+# ===== 第二层「钥匙井」 =====
+# 这一层讲一件事：钥匙自己会开门。它会掉、会被怪物推，碰到同色的门就开。
+#   A 起点「丢」：钥匙在碎岩上，正下方是门。炸掉碎岩，钥匙掉下去碰到门，门就开了。
+#   C「信使」：钥匙封在墙里拿不到；站在台阶最左格起跳，斜着炸掉它下面的碎岩，钥匙掉进尖刺沟。
+#     只有怪物能在沟里走，要等怪物在左边时再丢，它才会把钥匙推向右边的门；丢早了被推到左边卡住，按 R 重来。
+#   B + D「狗窝」（两屋联动）：D 的出口被一整列黄门挡住，门往上一直通进 B 的狗窝。
+#     狗窝是封死的：怪物被碎岩挡在左边，钥匙封在屋顶的口袋里，底下是尖刺。
+#     先站在口袋边上跳，把钥匙炸进狗窝；再站到屋顶上、碎岩正上方跳，隔着岩石把下面的碎岩炸掉。
+#     怪物放出来，把钥匙推到黄门上，整列门从 B 一路开到 D，城堡露出来。顺序反了就只能碰运气。
+floor claude2
+name Floor 2
+place Key Well
+size 24 16
+group 1 #4cc9f0
+group 2 #06d6a0
+group 3 #ffd166
+layout
+AB
+CD
+
+room A
+RRRRRRRRRRRRRRRRRRRRRRRR
+R......................R
+R......................R
+R......................R
+R......................R
+R......................R
+R......................R
+R......................R
+R...............1......R
+R............RRRrrrrr..R
+R............RRR.......R
+R.......RRR..RRR.......R
+R.P.....RRR..RRR.......R
+RRRRRRRRRRRRRRRR!!RRRRRR
+RRRRRRRRRRRRRRRR!!RRRRRR
+RRRRRRRRRRRRRRRR!!RRRRRR
+
+room B
+RRRRRRRRRRRRRRRRRRRRRRRR
+R......................R
+R......................R
+R......................R
+R......................R
+R......................R
+R......................R
+R......................R
+R...............R......R
+R..............R3R.....R
+R...RRRRRRRRRRRRrRRRRRRR
+RR..RRRM....r...X....$RR
+RR..RRRRRRRRRRRRRRRRR$RR
+RR..RRRRRRRRRRRRRRRRR$RR
+RR..RRRRRRRRRRRRRRRRR$RR
+RR..RRRRRRRRRRRRRRRRR$RR
+
+room C
+RRRRRRRRRRRRRRRR..RRRRRR
+RRRRRRRRRRRR...........R
+RRRRRRRRRRRR..........RR
+RRRRRRRRRRRR..........@.
+RRRRRRRRRRR2RRR.......@.
+RRRRRRRRRRRrRRRRRRRRRR@R
+RRR.........RRRRRRRRRR@R
+RRR.........RRRRRRRRRR@R
+RRR.........RRRRRRRRRR@R
+RRR.........RRRRRRRRRR@R
+RRR.........RRRRRRRRRR@R
+RRR.........RRRRRRRRRR@R
+RRR...M.....RRRRRRRRRR@R
+RRRXXXXXXXXXXXXXXXXXXX@R
+RRRRRRRRRRRRRRRRRRRRRRRR
+RRRRRRRRRRRRRRRRRRRRRRRR
+
+room D
+RR..RRRRRRRRRRRRRRRRR$RR
+RR..RRRRRRRRRRRRRRRRR$RR
+RR..RRRRRRRRRRRRRRRRR$RR
+.....................$.R
+.....................$TR
+RRRRRRrrrrrrrrrrRRRRRRRR
+RRRRRR..........RRRRRRRR
+RRRRRRXXXXXXXXXXRRRRRRRR
+RRRRRRRRRRRRRRRRRRRRRRRR
+RRRRRRRRRRRRRRRRRRRRRRRR
+RRRRRRRRRRRRRRRRRRRRRRRR
+RRRRRRRRRRRRRRRRRRRRRRRR
+RRRRRRRRRRRRRRRRRRRRRRRR
+RRRRRRRRRRRRRRRRRRRRRRRR
+RRRRRRRRRRRRRRRRRRRRRRRR
+RRRRRRRRRRRRRRRRRRRRRRRR

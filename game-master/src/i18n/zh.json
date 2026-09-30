@@ -69,7 +69,9 @@
   },
   "map": {
     "Floor 1": "第一层",
-    "Dungeon": "地下城"
+    "Dungeon": "地下城",
+    "Floor 2": "第二层",
+    "Key Well": "钥匙井"
   },
   "touch": {
     "up": "上",

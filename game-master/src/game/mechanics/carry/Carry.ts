@@ -3,13 +3,17 @@
 // 有照明的东西在地上自己发光（迷雾里的光源、周围一小圈暖光），拿在手上把视野撑开。
 // 钥匙画大一号、背后一圈同色的光一胀一缩、时不时闪一下，捡到时叮一声。
 // 地上的钥匙有重力、有碰撞体积：会掉下去、会被怪物推着走（LooseKeys.ts）；蜡烛固定在原地。
+// 往下按一下（↓ / S / 手柄 / 触屏）把手上的钥匙放在脚边；戴着帽子时这一下是摘帽子，钥匙不放。
 import Phaser from 'phaser';
 import type { CarryOver, ItemDef } from '@/type';
 import { Items } from '@/game/registry/registry';
 import { lockGroup } from '@/game/world/WorldModel';
 import type { PlayContext } from '@/game/core/PlayContext';
+import { INPUT_DOWN } from '@/game/input';
 import type { Mechanic } from '../define';
+import type { Hat } from '../hat/Hat';
 import { LooseKeys, type LooseKey } from './LooseKeys';
+import { KEY_BODY } from './keyFall';
 
 /** 能拿在手上的东西 */
 export interface Carryable {
@@ -154,6 +158,7 @@ export class Carry implements Mechanic {
     if (start) this.hold(start); else this.heldId = null;
     this.looseKeys.start();
     this.ctx.scene.events.on(Phaser.Scenes.Events.POST_UPDATE, this.afterPhysics);
+    this.ctx.scene.events.on(INPUT_DOWN, this.putDown);   // 往下按一下：键盘 ↓ / S、手柄、触屏都算
   }
 
   /** 地上的钥匙：落地弹一下、被埋了挪出来；位置跟着物理体更新 */
@@ -197,7 +202,28 @@ export class Carry implements Mechanic {
     if (this.heldId && Items.has(this.heldId)) out.held = this.heldId;
   }
 
-  destroy(): void { this.ctx.scene.events.off(Phaser.Scenes.Events.POST_UPDATE, this.afterPhysics); }
+  destroy(): void {
+    this.ctx.scene.events.off(Phaser.Scenes.Events.POST_UPDATE, this.afterPhysics);
+    this.ctx.scene.events.off(INPUT_DOWN, this.putDown);
+  }
+
+  /**
+   * 往下按一下：把手上的钥匙放在脚边（空中也能放，钥匙自己掉下去），人走开之前不能再捡。
+   * 戴着帽子时这一下是摘帽子（Hat 也听这个事件；Carry 先建，先收到，这时帽子还在头上），钥匙不放
+   */
+  private putDown = (): void => {
+    const { ctx } = this, held = this.held;
+    if (!held || held.carry.key === undefined || ctx.dead || ctx.won || ctx.leaving) return;
+    if (ctx.mech<Hat>('hat')?.wearing) return;
+    const b = ctx.player.body, x = b.center.x;
+    this.spawnGround(held.carry, x, b.bottom, true);
+    const g = this.ground[this.ground.length - 1];
+    g.dropped = true;
+    if (g.loose) { g.loose.body.reset(x, b.bottom - KEY_BODY.h / 2); Object.assign(g, this.looseKeys.anchor(g.loose)); }   // 钥匙底边贴脚底
+    this.dropHeldSprites();
+    this.syncLightSources();
+    ctx.sparks.explode(6, x, b.bottom - 6);
+  };
 
   // ---------- 内部 ----------
   /**

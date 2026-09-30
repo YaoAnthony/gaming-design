@@ -5,12 +5,15 @@ import { WinModal } from './WinModal';
 import { bridge, EVT } from '@/game/bridge';
 import { AVATARS } from '@/asset';
 import { Typewriter } from './Typewriter';
+import { ResetButtonIcon } from './PadIcons';
 
 /** 叠在画布上的 HUD：事件提示、通关画面（不显示常驻提示条） */
 export function Hud() {
   const hud = useAppSelector(s => s.hud);
   const { t } = useTranslation();
   const [msgVisible, setMsgVisible] = useState(false);
+  /** 最后用的输入设备：提示按它显示（键盘写 R，手柄画重置键） */
+  const device = useAppSelector(s => s.input.device);
 
   // 真结束（最后一层）关掉弹窗后不能继续玩，只是把弹窗收起来；下次通关再出现
   const [winClosed, setWinClosed] = useState(false);
@@ -42,7 +45,9 @@ export function Hud() {
       {hud.mode === 'dead' && (
         <div className="death" onPointerDown={() => bridge.emit(EVT.requestReset)}>
           <div className="death-title">{t('dead')}</div>
-          <div className="death-sub">{t('deadHint')}</div>
+          {device === 'keyboard'
+            ? <div className="death-sub">{t('deadHint')}</div>
+            : <div className="death-sub death-sub-pad"><span>{t('deadPad.before')}</span><ResetButtonIcon kind={device} /><span>{t('deadPad.after')}</span></div>}
         </div>
       )}
       {hud.mode === 'won' && !winClosed && (

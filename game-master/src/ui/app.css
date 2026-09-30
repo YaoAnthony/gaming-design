@@ -43,11 +43,11 @@ h2 { font-size: 12px; color: var(--muted); margin: 14px 0 6px; text-transform: u
 @keyframes nudge { 0%, 100% { opacity: .5; transform: translateX(0); } 50% { opacity: 1; transform: translateX(3px); } }
 .dialogue.pos-top { bottom: auto; top: 6cqh; }
 .app.mobile .dialogue { bottom: auto; top: 10px; width: min(72cqw, 520px); }
-.hud .place { position: absolute; top: 10px; left: 12px; padding: 4px 10px; background: rgba(11, 11, 20, .92); border: 1px solid rgba(255,255,255,.25); border-radius: 6px; color: #fff; font-size: 14px; font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; z-index: 3; }
+.hud .place { position: absolute; top: 1.2cqh; left: .9cqw; padding: .3em .7em; background: rgba(11, 11, 20, .92); border: 1px solid rgba(255,255,255,.25); border-radius: 6px; color: #fff; font-size: clamp(12px, 1.3cqw, 28px); font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; z-index: 3; }
 .app.mobile .hud .place { top: max(6px, env(safe-area-inset-top)); left: max(10px, env(safe-area-inset-left)); font-size: 12px; padding: 3px 8px; }
-.hud .score { position: absolute; top: 10px; right: 12px; padding: 4px 12px; background: rgba(11, 11, 20, .92); border: 1px solid rgba(255,255,255,.25); border-radius: 6px; color: #ffe8b0; font-size: 18px; font-weight: bold; letter-spacing: 1px; z-index: 3; }
+.hud .score { position: absolute; top: 1.2cqh; right: .9cqw; padding: .25em .7em; background: rgba(11, 11, 20, .92); border: 1px solid rgba(255,255,255,.25); border-radius: 6px; color: #ffe8b0; font-size: clamp(16px, 1.7cqw, 36px); font-weight: bold; letter-spacing: 1px; z-index: 3; }
 .app.mobile .hud .score { top: max(6px, env(safe-area-inset-top)); right: max(10px, env(safe-area-inset-right)); font-size: 14px; }
-.hud-msg { position: absolute; top: 48px; left: 0; right: 0; text-align: center; font-size: 22px; opacity: 0; transition: opacity .4s; }
+.hud-msg { position: absolute; top: 6cqh; left: 0; right: 0; text-align: center; font-size: clamp(18px, 2.2cqw, 48px); opacity: 0; transition: opacity .4s; }
 .hud-msg.show { opacity: 1; transition: none; }
 .modal-backdrop { position: absolute; inset: 0; pointer-events: auto; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, .45); }
 /* 通关礼花：从画面下方中间喷出，压在弹窗后面，不挡点击 */
@@ -144,9 +144,12 @@ label.check { display: flex; align-items: center; gap: 6px; margin: 8px 0; color
 .boss-bar .seg.on { background: #ef476f; box-shadow: 0 0 6px rgba(239,71,111,.6); }
 
 /* 死亡画面 */
-.death { position: absolute; inset: 0; pointer-events: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; background: rgba(70, 8, 16, .72); animation: death-in .35s ease-out; }
-.death-title { font-size: 56px; font-weight: bold; letter-spacing: 6px; color: #ffb3c1; text-shadow: 0 0 24px rgba(239,71,111,.8); }
-.death-sub { font-size: 16px; color: #e6e8f0; opacity: .85; }
+.death { position: absolute; inset: 0; pointer-events: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.5cqh; background: rgba(70, 8, 16, .72); animation: death-in .35s ease-out; }
+/* 按画面大小缩放（.hud 是尺寸容器）：27 寸大屏上不会是一小行字 */
+.death-title { font-size: clamp(40px, 7.5cqw, 140px); font-weight: bold; letter-spacing: .12em; color: #ffb3c1; text-shadow: 0 0 .45em rgba(239,71,111,.8); }
+.death-sub { font-size: clamp(14px, 2.2cqw, 44px); color: #e6e8f0; opacity: .85; }
+.death-sub-pad { display: flex; align-items: center; gap: .35em; }
+.death-sub-pad > span:empty { display: none; }
 @keyframes death-in { from { opacity: 0; } to { opacity: 1; } }
 
 /* ---- 标题页 ---- */

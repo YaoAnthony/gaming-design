@@ -1,4 +1,4 @@
-// ===== 手柄图标（像素画）：手柄剪影、A 键、✕ 键 =====
+// ===== 手柄图标（像素画）：手柄剪影、确认键（A / ✕）、重置键（Y / △）=====
 // 每张图是一组字符串，一个字符一个像素：'.' 空，其他字符按调色板上色。画成 SVG，跟着字号缩放，边缘不糊。
 import type { ReactElement } from 'react';
 import type { PadKind } from '@/game/gamepad';
@@ -46,10 +46,42 @@ const FACE_CROSS = [
   '....ddd....',
 ];
 
+/** 重置键：Xbox 式的 Y（黄色）、PS 的 △（深色底上绿色的三角） */
+const FACE_Y = [
+  '....bbb....',
+  '..bbbbbbb..',
+  '.bblbbblbb.',
+  '.bblbbblbb.',
+  'bbbblblbbbb',
+  'bbbbblbbbbb',
+  'bbbbblbbbbb',
+  '.bbbblbbbb.',
+  '.bbbbbbbbb.',
+  '..ddddddd..',
+  '....ddd....',
+];
+const FACE_TRIANGLE = [
+  '....bbb....',
+  '..bbbbbbb..',
+  '.bbbblbbbb.',
+  '.bbblblbbb.',
+  'bbbblblbbbb',
+  'bbblbbblbbb',
+  'bbblbbblbbb',
+  '.blllllllb.',
+  '.bbbbbbbbb.',
+  '..ddddddd..',
+  '....ddd....',
+];
+
 /** 确认键长什么样：Xbox 式是绿色的 A，PS 是深色底上蓝色的 ✕ */
 const FACE: Record<PadKind, { rows: string[]; palette: Record<string, string>; label: string }> = {
   xbox: { rows: FACE_A, palette: { b: '#3fb34f', d: '#23793a', l: '#f4fff2' }, label: 'A' },
   ps: { rows: FACE_CROSS, palette: { b: '#3a4166', d: '#262b45', l: '#8cc4ff' }, label: '✕' },
+};
+const RESET_FACE: Record<PadKind, { rows: string[]; palette: Record<string, string>; label: string }> = {
+  xbox: { rows: FACE_Y, palette: { b: '#e8c33a', d: '#a8891c', l: '#3a3000' }, label: 'Y' },
+  ps: { rows: FACE_TRIANGLE, palette: { b: '#3a4166', d: '#262b45', l: '#8fd9a0' }, label: '△' },
 };
 
 /** 一张像素画：同一行里连着的同色像素合成一个矩形 */
@@ -75,6 +107,12 @@ function Pixels({ rows, palette, height, label }: { rows: string[]; palette: Rec
 /** 手柄剪影（颜色跟着文字走） */
 export function ControllerIcon({ height = 1.1 }: { height?: number }) {
   return <Pixels rows={CONTROLLER} palette={{}} height={height} label="controller" />;
+}
+
+/** 重置键（Y 或 △）：和 R 一样 */
+export function ResetButtonIcon({ kind, height = 1.15 }: { kind: PadKind; height?: number }) {
+  const f = RESET_FACE[kind];
+  return <Pixels rows={f.rows} palette={f.palette} height={height} label={f.label} />;
 }
 
 /** 确认键（A 或 ✕） */

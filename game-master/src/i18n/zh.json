@@ -7,6 +7,7 @@
   "place": "当前位置: {{place}}",
   "dead": "U DEAD",
   "deadHint": "按 R 重来",
+  "deadPad": { "before": "按", "after": "重来" },
   "won": "通关",
   "wonHat0": "通关！你这帽子真好看",
   "wonHat1": "通关！你竟然还带着这顶帽子",

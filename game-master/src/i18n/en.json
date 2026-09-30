@@ -7,6 +7,7 @@
   "place": "Location: {{place}}",
   "dead": "U DEAD",
   "deadHint": "Press R",
+  "deadPad": { "before": "Press", "after": "" },
   "won": "Cleared",
   "wonHat0": "Cleared! Nice hat.",
   "wonHat1": "Cleared! You're still wearing that hat?!",

@@ -143,7 +143,7 @@ export class Carry implements Mechanic {
     const r = this.ctx.player.rect();
     for (let i = this.ground.length - 1; i >= 0; i--) {
       const g = this.ground[i];
-      const touching = Phaser.Geom.Intersects.RectangleToRectangle(g.sprite.getBounds(), r);
+      const touching = Phaser.Geom.Intersects.RectangleToRectangle(this.pickArea(g), r);
       if (g.blocked) { if (!touching) g.blocked = false; continue; }
       if (!touching) continue;
       this.removeGround(g);
@@ -173,6 +173,16 @@ export class Carry implements Mechanic {
   destroy(): void { this.ctx.scene.events.off(Phaser.Scenes.Events.POST_UPDATE, this.afterPhysics); }
 
   // ---------- 内部 ----------
+  /**
+   * 碰到就捡的范围：钥匙按它的碰撞框（和开门的范围一样）。按贴图算不行：掉下来时贴图会歪、会压扁，外框变大，
+   * 人在隔壁一格往上跳、钥匙往下掉，隔着几像素也会擦到。其他东西按贴图
+   */
+  private pickArea(g: GroundThing): Phaser.Geom.Rectangle {
+    if (!g.loose) return g.sprite.getBounds();
+    const b = g.loose.body;
+    return new Phaser.Geom.Rectangle(b.x, b.y, b.width, b.height);
+  }
+
   /** 从地上拿掉（捡起来、开门用掉）：贴图、光晕、物理体一起没 */
   private removeGround(g: GroundThing): void {
     this.ground = this.ground.filter(o => o !== g);

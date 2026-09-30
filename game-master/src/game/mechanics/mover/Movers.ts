@@ -280,9 +280,19 @@ export class Movers implements Mechanic {
       body.setFriction(1, 0);        // 带人靠这个：平台横着挪多少，站在上面的就跟着挪多少（物理组建的物体默认是 0，带不动）
       return { img, run };
     });
-    // 新建的物理体在 (0,0)：摆到位置后归位一次，不然第一步会被当成一下子挪了好几百像素，把站在上面的人甩出去
+    // 新建的物理体在 (0,0)：摆到位置后归位一次，不然第一步会被当成一下子挪了好几百像素，把站在上面的人甩出去。
+    // body.reset 按贴图左上角算位置、不管 offset，而这里的碰撞框比贴图大得多（偏移几十像素），第一帧还会被当成
+    // 挪了一个偏移量，照样把站在上面的钥匙、人、箱子甩飞；所以再按贴图 + offset 同步一次，上一帧的位置也记成这里
+    // （directControl 的位移按 autoFrame 算，它也要记）
     this.place(g);
-    g.bodies.forEach(({ img }) => (img.body as Phaser.Physics.Arcade.Body).reset(img.x, img.y));
+    g.bodies.forEach(({ img }) => {
+      const body = img.body as Phaser.Physics.Arcade.Body & { autoFrame: Phaser.Math.Vector2 };   // autoFrame：类型声明里没写
+      body.reset(img.x, img.y);
+      body.updateFromGameObject();
+      body.prev.copy(body.position);
+      body.prevFrame.copy(body.position);
+      body.autoFrame.copy(body.position);
+    });
   }
 
   /** 画面和物理体摆到 一开始的位置 + shift 格 + pos 像素 */

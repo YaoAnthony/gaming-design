@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bobOffset, fallTilt, freeCellAbove, KEY_BOB, KEY_LANDING, KEY_SQUASH, KEY_TILT, landingBounce, squashY } from './keyFall';
+import { bobOffset, fallTilt, freeCellAbove, KEY_BOB, KEY_LANDING, KEY_SQUASH, KEY_TILT, landingBounce, pushOutX, squashY } from './keyFall';
 
 describe('钥匙落地弹跳', () => {
   it('落得太慢不弹', () => {
@@ -71,5 +71,26 @@ describe('被埋住时往上找空格', () => {
   it('一直到顶都是砖：找不到', () => {
     expect(freeCellAbove(() => true, 0, 4)).toBeNull();
     expect(freeCellAbove(column, 0, 4, 2)).toBeNull();
+  });
+});
+
+describe('被带着撞进墙就推回去', () => {
+  const T = 32;
+  // 第 5 列第 2 行是一根横梁
+  const bar = (x: number, y: number) => x === 5 && y === 2;
+
+  it('往右撞进横梁：推回左边那一列，右边贴着横梁', () => {
+    // 钥匙碰撞框宽 24，底边在第 3 行顶上；往右走到左边 150（跨第 4、5 列）
+    expect(pushOutX(150, 24, 64 + 14, 96, T, bar)).toBe(5 * T - 24);
+  });
+
+  it('往左撞进横梁：推回右边那一列', () => {
+    expect(pushOutX(5 * T + 20, 24, 64 + 14, 96, T, bar)).toBe(6 * T);
+  });
+
+  it('整个在一列里、或者两列都空、都是墙：不动', () => {
+    expect(pushOutX(4 * T + 4, 24, 64 + 14, 96, T, bar)).toBeNull();
+    expect(pushOutX(150, 24, 32 + 14, 64, T, bar)).toBeNull();   // 在上面一行，碰不到横梁
+    expect(pushOutX(150, 24, 64 + 14, 96, T, () => true)).toBeNull();
   });
 });

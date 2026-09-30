@@ -1,4 +1,4 @@
-// ===== 怪物：巡逻，遇墙 / 遇悬崖掉头；尖刺伤不到它，可以穿过房间边界 =====
+// ===== 怪物：巡逻，遇墙 / 遇悬崖掉头（脚下前方是箱子也算地面，能走上去）；尖刺伤不到它，可以穿过房间边界 =====
 import Phaser from 'phaser';
 import type { EnemySpawn } from '@/type';
 import type { Terrain } from '@/game/terrain/Terrain';
@@ -25,7 +25,7 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     else if (b.blocked.down) {
       const frontX = Math.floor((this.dir > 0 ? b.right + 2 : b.left - 2) / T);
       const belowY = Math.floor((b.bottom + 2) / T);
-      if (!terrain.isSolid(frontX, belowY)) this.dir = this.dir > 0 ? -1 : 1;
+      if (!terrain.isFooting(frontX, belowY)) this.dir = this.dir > 0 ? -1 : 1;
     }
     this.setVelocityX(this.dir * speed);
     this.setFlipX(this.dir > 0);

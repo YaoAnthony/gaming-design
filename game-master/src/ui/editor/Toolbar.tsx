@@ -26,7 +26,7 @@ export function Toolbar() {
       </div>
       <div className="hint">单位都是格。身高小于 1 才能钻一格高的缝（建议 0.94）。改完下次试玩生效；默认值在 game/config.ts。</div>
       <label className="check"><input type="checkbox" checked={directionalBlast} onChange={e => dispatch(setConfig({ directionalBlast: e.target.checked }))} /> 定向爆炸（按住方向起跳，炸那边两格）</label>
-      <label className="check"><input type="checkbox" checked={deathResetsWorld} onChange={e => dispatch(setConfig({ deathResetsWorld: e.target.checked }))} /> 死亡重置整张地图</label>
+      <label className="check"><input type="checkbox" checked={deathResetsWorld} onChange={e => dispatch(setConfig({ deathResetsWorld: e.target.checked }))} /> 死亡 / R 重置整张地图</label>
 
     </>
   );

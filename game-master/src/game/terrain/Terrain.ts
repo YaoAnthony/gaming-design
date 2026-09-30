@@ -7,6 +7,9 @@ import { AUTOTILE_VARIANTS } from '@/asset';
 import { WALL_TEXTURE, WALL_VARIANTS, wallFrame, wallMask, wallTemplates } from './walls';
 import { depthToAir, shadeOf } from './shading';
 
+/** 箱子顶边蹭进头顶砖块不到这么多像素，当作没碰到（浮点误差） */
+const CEILING_GRAZE = 0.5;
+
 /** tilemap 里墙那套贴图（拼好的 walls）的第一个编号：墙砖的格子编号 = WALL_GID + wallFrame */
 export const WALL_GID = 1000;
 
@@ -138,6 +141,8 @@ export class Terrain {
   }
   def(x: number, y: number): TileDef { return Tiles.get(this.get(x, y)) ?? Tiles.get(AIR)!; }
   isSolid(x: number, y: number): boolean { return this.def(x, y).solid; }
+  /** 这一格能站上去：实心砖，或者被箱子之类的机制占着（怪物判断前面是不是悬崖用） */
+  isFooting(x: number, y: number): boolean { return this.isSolid(x, y) || !!this.host.occupied?.(x, y); }
 
   /**
    * 人 / 怪物和地形碰撞器的 process 回调：单向平台（木板）只在对方从上面落下来时才挡——
@@ -154,10 +159,16 @@ export class Terrain {
     return body.velocity.y >= 0 && body.prev.y + body.height <= top + 1;
   }
 
-  /** 箱子和地形碰撞器的 process 回调：箱子不跟"箱子穿过"的砖（木板）碰撞 */
-  readonly blocksBoxes: Phaser.Types.Physics.Arcade.ArcadePhysicsCallback = (_obj, t) => {
+  /**
+   * 箱子和地形碰撞器的 process 回调：箱子不跟"箱子穿过"的砖（木板）碰撞；
+   * 头顶的砖只蹭进去不到 CEILING_GRAZE 像素（浮点误差，箱子和一格高的隧道一样高）也不算，不然推不进隧道
+   */
+  readonly blocksBoxes: Phaser.Types.Physics.Arcade.ArcadePhysicsCallback = (obj, t) => {
     const tile = t as Phaser.Tilemaps.Tile;
-    return !this.def(tile.x, tile.y).boxPassThrough;
+    if (this.def(tile.x, tile.y).boxPassThrough) return false;
+    const body = (obj as Phaser.Types.Physics.Arcade.GameObjectWithBody).body as Phaser.Physics.Arcade.Body;
+    const graze = (tile.y + 1) * this.T - body.top;
+    return !(graze > 0 && graze < CEILING_GRAZE);
   };
   rows(): string[] { return this.grid.map(r => r.join('')); }
 

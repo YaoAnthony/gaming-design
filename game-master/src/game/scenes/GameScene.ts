@@ -438,8 +438,11 @@ export class GameScene extends Phaser.Scene {
     this.respawn('msg.roomReset', revive ? 'death' : 'reset', appearDelayMs);
   }
 
-  /** 死亡重置整张地图：所有房间的地形、引线、怪物恢复，玩家回到重置点；探索记忆保留。机制可以改复活点（Boss 重演） */
-  private resetWorld(revive = false): void {
+  /**
+   * 重置整张地图（死亡、按 R，config.deathResetsWorld 开着时）：所有房间的地形、引线、怪物、箱子、钥匙恢复，开过的门关回来，
+   * 玩家回到重置点；探索记忆保留。机制可以改复活点（Boss 重演）。appearDelayMs 同 resetRoom
+   */
+  private resetWorld(revive = false, appearDelayMs = 0): void {
     this.clearTransient('world');
     this.terrain.resetRect(0, 0, this.terrain.w, this.terrain.h);
     this.fuses.resetRect(0, 0, this.terrain.w, this.terrain.h);
@@ -451,7 +454,7 @@ export class GameScene extends Phaser.Scene {
       const r = this.roomOf(this.entry.x, this.entry.y);
       if (!this.sameRoom(r, this.room)) this.enterRoom(r, true);
     }
-    this.respawn('msg.mapReset', revive ? 'death' : 'reset');
+    this.respawn('msg.mapReset', revive ? 'death' : 'reset', appearDelayMs);
   }
 
   /** 重置之后玩家回到复活点。delayMs > 0：人（连同帽子、手上的东西）先藏起来冻着，过这么久再出现 */
@@ -496,8 +499,9 @@ export class GameScene extends Phaser.Scene {
   // ---------- 第四面墙：整个画面被攥成纸团 ----------
   /** R 键重置房间：config.resetCrumple 开着就先放攥纸团特效，纸团扔掉后重置，新房间淡入完再把人放下来 */
   private requestRoomReset(): void {
-    if (this.cfg.resetCrumple && this.crumpleWorld(fadeMs => this.resetRoom(false, fadeMs))) return;
-    this.resetRoom();
+    const reset = (fadeMs = 0) => this.cfg.deathResetsWorld ? this.resetWorld(false, fadeMs) : this.resetRoom(false, fadeMs);
+    if (this.cfg.resetCrumple && this.crumpleWorld(reset)) return;
+    reset();
   }
 
   /**

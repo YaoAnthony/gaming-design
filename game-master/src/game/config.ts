@@ -33,6 +33,7 @@ export const DEFAULT_CONFIG: GameConfig = {
   chunkMaxFall: 700,
   crushMinSpeed: 250,
   enemySpeed: 60,
+  enemyPushMaxBox: 1,   // 史莱姆推得动多大的箱子（边长，格）：1 = 只推 1x1，2x2 推不动
   roomPanMs: 180,
   skill: 'blast',
   fuseDelayMs: 90,

@@ -48,6 +48,8 @@ export interface GameConfig {
   /** 碎块下落速度超过这个值才会压死人 / 压死怪 */
   crushMinSpeed: number;
   enemySpeed: number;
+  /** 史莱姆顶着走能推动的最大箱子边长（格）；0 = 推不动箱子 */
+  enemyPushMaxBox: number;
   roomPanMs: number;
   /** 角色起跳技能的 id（见 game/registry/skills.ts） */
   skill: string;
@@ -58,7 +60,7 @@ export interface GameConfig {
   /** 定向爆炸：地面起跳时按着左/右，爆炸中心往那边挪 directionalOffset 格 */
   directionalBlast: boolean;
   directionalOffset: number;
-  /** 死亡时重置整张地图（否则只重置当前房间） */
+  /** 死亡、按 R 都重置整张地图：地形、怪物、箱子、钥匙回原位，开过的门关回来（否则只重置当前房间） */
   deathResetsWorld: boolean;
   /** 音乐音量 0-1 */
   musicVolume: number;

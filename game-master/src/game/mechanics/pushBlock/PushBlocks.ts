@@ -3,6 +3,7 @@
 // - 人撞不动它（pushable = false），只有「贴着它、往它那边走、站在地上、身高 ≥ 箱子高」才推得动，推的时候人和箱子都是 pushSpeed
 // - 前面被砖或别的箱子挡住就推不动（不能连推）
 // - 死亡 / R：回到原位
+// - 史莱姆走过来顶着箱子也能推（边长 ≤ enemyPushMaxBox，用史莱姆的速度）；前面挡住 / 站着人就推不动，照常撞上
 // - 掉得够快（≥ crushMinSpeed）砸到人头上 → 死；砸到怪物 → 怪物死
 // - 木板（boxPassThrough）挡不住箱子：站不住会漏下去，也能推着穿过去
 // - 占着的格子算「地面」：掉下来的碎块落在箱子上，箱子上的砖算被它撑住；箱子挪开，上面的砖就掉下来
@@ -14,6 +15,7 @@ import type { CellRef, RoomCoord } from '@/type';
 import type { PlayContext, Suckable } from '@/game/core/PlayContext';
 import { syncDeltas } from '@/game/core/physics';
 import type { FuseEnd } from '@/game/fuse/Fuse';
+import type { Enemy } from '@/sprite';
 import type { FuseBurnCell, Mechanic } from '../define';
 import { pressedByWeight } from './plates';
 
@@ -30,6 +32,8 @@ interface Block {
   cells: string;
   /** 上一帧的下落速度：砸到人的那一帧，物理引擎已经把速度清掉了，要用撞之前的 */
   lastVy: number;
+  /** 这一帧被史莱姆顶着推：滑向目标格子用史莱姆的速度（不然箱子比史莱姆快，推一下停一下） */
+  carrySpeed: number | null;
 }
 
 interface Plate {
@@ -53,7 +57,7 @@ const PLATE_FUSE_RADIUS = 1;
 const HEIGHT_TOLERANCE = 0.1;
 /** 贴着箱子：人和箱子的边相距不到这么多像素 */
 const CONTACT_PX = 2;
-/** 碰撞框每边比贴图小这么多像素，免得在一格宽 / 一格高的口子里卡住 */
+/** 碰撞框左右各比贴图窄这么多像素，免得在一格宽的口子里卡住 */
 const INSET = 1;
 /** Arcade 固定步长（秒）：对齐格子时按这个算"一帧正好走到"的速度 */
 const PHYSICS_STEP = 1 / 60;
@@ -83,10 +87,12 @@ export class PushBlocks implements Mechanic {
     const sprite = this.group.create(x, y, size === 1 ? 'crate1' : 'crate2') as Phaser.Physics.Arcade.Image;
     sprite.setDepth(2.6);
     const body = sprite.body as Phaser.Physics.Arcade.Body;
-    body.setSize(size * T - INSET * 2, size * T - INSET, false).setOffset(INSET, INSET);   // 底边贴着贴图底边
+    // 只有左右内缩（一格宽的口子里不卡）；上下和贴图一样高：箱子塞在地面的坑里时顶面和地面齐平，
+    // 否则低 1 像素，人 / 史莱姆走上去会陷进坑里、被两边砖的侧面挡住
+    body.setSize(size * T - INSET * 2, size * T, false).setOffset(INSET, 0);
     body.pushable = false;
     body.setMaxVelocityY(this.ctx.cfg.maxFall);
-    this.list.push({ sprite, size, home: { x, y }, room: { rx: cell.rx, ry: cell.ry }, target: null, cells: '', lastVy: 0 });
+    this.list.push({ sprite, size, home: { x, y }, room: { rx: cell.rx, ry: cell.ry }, target: null, cells: '', lastVy: 0, carrySpeed: null });
   }
 
   /** 放一块压板：width = 1 或 2（格），放的那一格是它的左边那格 */
@@ -107,7 +113,7 @@ export class PushBlocks implements Mechanic {
     });
     this.settlePlates();   // 一开始就压着的（箱子出生在压板上）不点引线
     scene.physics.add.collider(player, this.group, undefined, syncDeltas);
-    scene.physics.add.collider(enemies.group, this.group, undefined, syncDeltas);
+    scene.physics.add.collider(enemies.group, this.group, undefined, this.enemyMeetsBox);
   }
 
   /** 箱子要和会动的地形（移动方块）碰撞 */
@@ -130,6 +136,8 @@ export class PushBlocks implements Mechanic {
     this.updatePlates();
     this.list.forEach(bl => {
       const s = bl.sprite, b = s.body as Phaser.Physics.Arcade.Body;
+      const max = bl.carrySpeed ?? speed;
+      bl.carrySpeed = null;
       if (!b.enable) return;
       if (!b.blocked.down && !b.touching.down) { s.setVelocityX(0); bl.target = null; return; }   // 在空中：直直往下掉，落地再对齐
       const left = b.left - INSET;
@@ -141,7 +149,7 @@ export class PushBlocks implements Mechanic {
         return;
       }
       if (this.someoneAhead(b, Math.sign(diff), Math.abs(diff))) { s.setVelocityX(0); return; }   // 前面站着人 / 怪：等他走开，不要顶着他抖
-      s.setVelocityX(Phaser.Math.Clamp(diff / PHYSICS_STEP, -speed, speed));                       // 最后一帧正好走到，不会越过格线
+      s.setVelocityX(Phaser.Math.Clamp(diff / PHYSICS_STEP, -max, max));                       // 最后一帧正好走到，不会越过格线
     });
   }
 
@@ -178,7 +186,7 @@ export class PushBlocks implements Mechanic {
       bl.sprite.setAngle(0).setScale(1).setAlpha(1);
       b.enable = true;
       b.reset(bl.home.x, bl.home.y);
-      bl.target = null; bl.cells = ''; bl.lastVy = 0;
+      bl.target = null; bl.cells = ''; bl.lastVy = 0; bl.carrySpeed = null;
     });
     // 烧掉的压板跟着引线一起恢复：R 只恢复这个房间的（引线也只恢复这个房间），死亡恢复全部
     this.plates.forEach(pl => {
@@ -209,6 +217,28 @@ export class PushBlocks implements Mechanic {
   }
 
   // ---------- 内部 ----------
+  /** 史莱姆碰到箱子：推得动就这一步不分开，箱子跟着它往前走；推不动照常撞上（syncDeltas 让叠着的也稳） */
+  private enemyMeetsBox: Phaser.Types.Physics.Arcade.ArcadePhysicsCallback = (e, s) => {
+    const bl = this.list.find(o => o.sprite === s);
+    if (bl && this.pushedByEnemy(bl, e as Enemy)) return false;
+    return syncDeltas(e, s);
+  };
+
+  /** 史莱姆从侧面顶着箱子往前走、箱子在地上、不太大、前面没挡 → 箱子用史莱姆的速度往前滑，目标是前面那条格线 */
+  private pushedByEnemy(bl: Block, enemy: Enemy): boolean {
+    const { ctx } = this, T = ctx.cfg.tile, eb = enemy.body, bb = bl.sprite.body as Phaser.Physics.Arcade.Body, dir = enemy.dir;
+    if (!bb.enable || bl.size > ctx.cfg.enemyPushMaxBox) return false;
+    if (!bb.blocked.down && !bb.touching.down) return false;                          // 箱子在空中
+    if (eb.bottom <= bb.top + 2 || eb.top >= bb.bottom - 2) return false;              // 上下没对上（史莱姆站在箱子上 / 箱子压着它）
+    if (dir > 0 ? eb.center.x >= bb.center.x : eb.center.x <= bb.center.x) return false;   // 不是朝箱子走
+    if (!this.pathClear(bl, dir) || this.someoneAhead(bb, dir, CONTACT_PX)) return false;
+    bl.sprite.setVelocityX(dir * ctx.cfg.enemySpeed);
+    bl.carrySpeed = ctx.cfg.enemySpeed;
+    const left = bb.left - INSET;
+    bl.target = (dir > 0 ? Math.ceil((left + SNAP_EPS) / T) : Math.floor((left - SNAP_EPS) / T)) * T;
+    return true;
+  }
+
   /** 压板有没有被压下：有一个箱子同时盖住它的每一格（ground = 还要求箱子落在地上，掉下来路过的不算） */
   /** 压板被压着：落了地的箱子盖满它，或者别的重物（移动方块；开关打开时还有掉下来的碎石）压满它 */
   private pressedBy(pl: Plate, ground: boolean): boolean {
@@ -287,7 +317,8 @@ export class PushBlocks implements Mechanic {
     const { ctx } = this, T = ctx.cfg.tile, t = ctx.terrain, bb = bl.sprite.body as Phaser.Physics.Arcade.Body;
     const ax = dir > 0 ? bb.right + 1 : bb.left - 2;
     const cx = Math.floor(ax / T);
-    for (let cy = Math.floor(bb.top / T); cy <= Math.floor((bb.bottom - 1) / T); cy++)
+    // 上下各让一点：箱子和格子一样高，物理算出来的顶边会是 991.9999…，不能因此把头顶那格也算进来
+    for (let cy = Math.floor((bb.top + SNAP_EPS) / T); cy <= Math.floor((bb.bottom - SNAP_EPS) / T); cy++)
       if (cx < 0 || cy < 0 || cx >= t.w || cy >= t.h || (t.isSolid(cx, cy) && !t.def(cx, cy).boxPassThrough)) return false;
     const ahead = new Phaser.Geom.Rectangle(dir > 0 ? bb.right : bb.left - 3, bb.top + 2, 3, bb.height - 4);
     return !this.list.some(o => {

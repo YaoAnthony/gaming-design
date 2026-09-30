@@ -1,7 +1,8 @@
 // ===== 钥匙与门：钥匙碰到同色的门，这扇门打开，并且沿相邻的同色门一格格连锁打开，钥匙用掉 =====
 // 开门的是钥匙本身，不管它在哪：拿在手上的（人碰到门就算）、地上的、正在往下掉的、被怪物推着走的都一样。
 // 连锁只沿上下左右相邻、同色的门传：同色但不相连的另一片门还锁着，要另一把钥匙。传一格的间隔是 config.lockChainDelayMs。
-// 开过的门死亡重置也不会关回来。门在建地形前烘成 % 砖（bake），这里按组染色。
+// 整张地图重置（死亡 / R）：开过的门全部关回来，钥匙（地上的、手上的、用掉的）都回到原位；只重置房间时开过的门不关。
+// 门在建地形前烘成 % 砖（bake），这里按组染色。
 import type Phaser from 'phaser';
 import { DOOR_CHAR, lockGroup, type LockCell } from '@/game/world/WorldModel';
 import type { PlayContext } from '@/game/core/PlayContext';
@@ -28,8 +29,7 @@ export class Locks implements Mechanic {
   private index(c: LockCell): number { return c.y * this.ctx.terrain.w + c.x; }
 
   start(): void {
-    const T = this.ctx.cfg.tile;
-    this.data.keys.forEach(c => this.carry?.spawnGround(keyCarryable(c.group, this.color(c.group)), c.x * T + T / 2, c.y * T + T / 2));
+    this.spawnKeys();
     this.tint();
   }
 
@@ -46,14 +46,27 @@ export class Locks implements Mechanic {
   /** 重置前：还没传到的连锁不用再等，重置之后一次拿掉 */
   onClear(): void { this.cancelPending(); }
 
-  /** 重置把门放回来了：开过的门（包括连锁传到一半的）再拿掉，颜色再染一遍 */
-  onReset(): void {
+  /** 重置把门放回来了。整张地图 / 下一关：门就这样关着，钥匙全部回原位；只重置房间：开过的门（包括连锁传到一半的）再拿掉 */
+  onReset(scope: 'room' | 'world' | 'level'): void {
+    if (scope !== 'room') {
+      this.opened.clear();
+      this.carry?.clearKeys();
+      this.spawnKeys();
+      this.tint();
+      return;
+    }
     const cells = this.data.doors.filter(c => this.opened.has(this.index(c)) && this.isDoor(c));
     if (cells.length) this.ctx.terrain.destroyCellsForce(cells);
     this.tint();
   }
 
   destroy(): void { this.cancelPending(); }
+
+  /** 地图上的钥匙放到原位 */
+  private spawnKeys(): void {
+    const T = this.ctx.cfg.tile;
+    this.data.keys.forEach(c => this.carry?.spawnGround(keyCarryable(c.group, this.color(c.group)), c.x * T + T / 2, c.y * T + T / 2));
+  }
 
   /** 门砖是白底，按组乘上颜色 */
   private tint(): void {

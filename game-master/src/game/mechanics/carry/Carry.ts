@@ -105,6 +105,13 @@ export class Carry implements Mechanic {
     return { halo, glints };
   }
 
+  /** 所有钥匙拿掉（地上的、手上的）：整张地图重置时 Locks 再把它们放回原位 */
+  clearKeys(): void {
+    this.ground.filter(g => g.carry.key !== undefined).forEach(g => this.removeGround(g));
+    if (this.held?.carry.key !== undefined) this.dropHeldSprites();
+    this.syncLightSources();
+  }
+
   /** 手里的东西用掉了（钥匙开门） */
   consume(): void { this.dropHeldSprites(); }
 
@@ -156,7 +163,7 @@ export class Carry implements Mechanic {
     }
   }
 
-  /** 地上的钥匙回原位（按 R：这个房间的；死亡：全部）。手上的东西不变 */
+  /** 地上的钥匙回原位（只重置房间时：这个房间的）。整张地图重置时钥匙由 Locks 全部重新放（clearKeys） */
   onReset(scope: 'room' | 'world' | 'level'): void {
     this.looseKeys.reset(scope);
     this.syncKeyAnchors();

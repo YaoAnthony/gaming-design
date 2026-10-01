@@ -4,6 +4,7 @@
 // - 前面被砖或别的箱子挡住就推不动（不能连推）
 // - 死亡 / R：回到原位
 // - 史莱姆走过来顶着箱子也能推（边长 ≤ enemyPushMaxBox，用史莱姆的速度）；前面挡住 / 站着人就推不动，照常撞上
+// - 反过来，人推的箱子也能顶着史莱姆走（史莱姆前面空着、站在地上才行），推到悬崖外它就掉下去
 // - 掉得够快（≥ crushMinSpeed）砸到人头上 → 死；砸到怪物 → 怪物死
 // - 木板（boxPassThrough）挡不住箱子：站不住会漏下去，也能推着穿过去
 // - 占着的格子算「地面」：掉下来的碎块落在箱子上，箱子上的砖算被它撑住；箱子挪开，上面的砖就掉下来
@@ -137,7 +138,7 @@ export class PushBlocks implements Mechanic {
     this.updatePlates();
     this.list.forEach(bl => {
       const s = bl.sprite, b = s.body as Phaser.Physics.Arcade.Body;
-      const max = bl.carrySpeed ?? speed;
+      const max = bl.carrySpeed ?? speed, byEnemy = bl.carrySpeed !== null;
       bl.carrySpeed = null;
       if (!b.enable) return;
       if (!b.blocked.down && !b.touching.down) { s.setVelocityX(0); bl.target = null; return; }   // 在空中：直直往下掉，落地再对齐
@@ -150,7 +151,9 @@ export class PushBlocks implements Mechanic {
         if (diff) { b.x += diff; b.updateCenter(); }   // 只改 body：postUpdate 会把这点差值同步给精灵
         return;
       }
-      if (this.someoneAhead(b, Math.sign(diff), Math.abs(diff))) { s.setVelocityX(0); return; }   // 前面站着人 / 怪：等他走开，不要顶着他抖
+      // 前面站着人 / 怪：等他走开，不要顶着他抖。人推的箱子松手后滑完这一格，贴着的史莱姆照样一起推走（见 shoveAhead）
+      const ahead = byEnemy ? this.someoneAhead(b, Math.sign(diff), Math.abs(diff)) : !this.shoveAhead(b, Math.sign(diff), Math.abs(diff), max);
+      if (ahead) { s.setVelocityX(0); return; }
       s.setVelocityX(Phaser.Math.Clamp(diff / PHYSICS_STEP, -max, max));                       // 最后一帧正好走到，不会越过格线
     });
   }
@@ -169,7 +172,7 @@ export class PushBlocks implements Mechanic {
       if (!bb.blocked.down && !bb.touching.down) continue;                                                // 箱子在空中
       if (p.heightTiles + HEIGHT_TOLERANCE < bl.size) continue;                                           // 不够高
       if (!this.pathClear(bl, dir)) continue;                                                             // 前面挡住了
-      if (this.someoneAhead(bb, dir, CONTACT_PX)) continue;                                              // 前面顶着怪物：推不动，人也别跟着往里挤（不然人和箱子位移一样，物理引擎不分开，人会钻进箱子）
+      if (!this.shoveAhead(bb, dir, CONTACT_PX, speed)) continue;                                        // 前面顶着推不动的怪物：推不动，人也别跟着往里挤（不然人和箱子位移一样，物理引擎不分开，人会钻进箱子）；推得动的史莱姆一起推
       bl.sprite.setVelocityX(dir * speed);
       p.setVelocityX(dir * speed);
       // 目标 = 推的方向上的下一条格线（已经在格线上就是再下一格）；松手后 update 会把这一格走完
@@ -312,12 +315,46 @@ export class PushBlocks implements Mechanic {
 
   /** 箱子滑向目标的这段路（dist 像素）上站着人或怪物吗：站着就先不动，免得顶着对方来回抖 */
   private someoneAhead(b: Phaser.Physics.Arcade.Body, dir: number, dist: number): boolean {
-    const { ctx } = this;
-    const ahead = new Phaser.Geom.Rectangle(dir > 0 ? b.right : b.left - dist - 1, b.top + 2, dist + 1, b.height - 4);
-    const hit = (o: { x: number; y: number; width: number; height: number }) =>
-      Phaser.Geom.Intersects.RectangleToRectangle(ahead, new Phaser.Geom.Rectangle(o.x, o.y, o.width, o.height));
+    const { ctx } = this, hit = this.aheadHit(b, dir, dist);
     if (!ctx.dead && hit(ctx.player.body)) return true;
     return ctx.enemies.list().some(e => hit(e.body));
+  }
+
+  /** 箱子前面 dist 像素这一条（上下各收 2 像素）碰没碰到某个身体 */
+  private aheadHit(b: Phaser.Physics.Arcade.Body, dir: number, dist: number): (o: { x: number; y: number; width: number; height: number }) => boolean {
+    const ahead = new Phaser.Geom.Rectangle(dir > 0 ? b.right : b.left - dist - 1, b.top + 2, dist + 1, b.height - 4);
+    return o => Phaser.Geom.Intersects.RectangleToRectangle(ahead, new Phaser.Geom.Rectangle(o.x, o.y, o.width, o.height));
+  }
+
+  /**
+   * 人推的箱子往前走这段路（dist 像素）能不能走：前面站着人 → 不能；挡着史莱姆 → 贴着箱子、站在地上、它前面空着的，
+   * 被箱子顶着一起往前（速度 speed，这一帧覆盖它自己巡逻的速度），推到悬崖外它就掉下去；推不动的（前面是墙 / 箱子 / 别的怪）→ 不能。
+   * 还没贴上的史莱姆不用管：箱子先走过去，碰上了下一帧再推
+   */
+  private shoveAhead(b: Phaser.Physics.Arcade.Body, dir: number, dist: number, speed: number): boolean {
+    const { ctx } = this, hit = this.aheadHit(b, dir, dist), touching = this.aheadHit(b, dir, CONTACT_PX);
+    if (!ctx.dead && hit(ctx.player.body)) return false;
+    const blockers = ctx.enemies.list().filter(e => touching(e.body));
+    if (!blockers.length) return true;
+    if (blockers.length > 1) return false;
+    const e = blockers[0], eb = e.body;
+    if (!eb.blocked.down && !eb.touching.down) return false;   // 在空中：不推
+    if (!this.monsterPathClear(eb, dir)) return false;
+    e.setVelocityX(dir * speed);
+    return true;
+  }
+
+  /** 史莱姆往 dir 再挪一点：前面那一列（它的整个高度）没有墙（木板不算），也没贴着别的箱子、怪物、人 */
+  private monsterPathClear(eb: Phaser.Physics.Arcade.Body, dir: number): boolean {
+    const { ctx } = this, T = ctx.cfg.tile, t = ctx.terrain;
+    const cx = Math.floor((dir > 0 ? eb.right + 1 : eb.left - 2) / T);
+    for (let cy = Math.floor((eb.top + SNAP_EPS) / T); cy <= Math.floor((eb.bottom - SNAP_EPS) / T); cy++)
+      if (cx < 0 || cy < 0 || cx >= t.w || cy >= t.h || (t.isSolid(cx, cy) && !t.def(cx, cy).oneWay)) return false;
+    const front = new Phaser.Geom.Rectangle(dir > 0 ? eb.right : eb.left - CONTACT_PX - 1, eb.top + 2, CONTACT_PX + 1, eb.height - 4);
+    const hit = (o: Phaser.Physics.Arcade.Body) => o !== eb && o.enable && Phaser.Geom.Intersects.RectangleToRectangle(front, new Phaser.Geom.Rectangle(o.x, o.y, o.width, o.height));
+    if (this.list.some(bl => hit(bl.sprite.body as Phaser.Physics.Arcade.Body))) return false;
+    if (ctx.enemies.list().some(o => hit(o.body))) return false;
+    return ctx.dead || !hit(ctx.player.body);
   }
 
   /** 箱子前面一列（它的整个高度）没有砖、也没有别的箱子 */

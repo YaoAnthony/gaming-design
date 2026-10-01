@@ -45,6 +45,14 @@ h2 { font-size: 12px; color: var(--muted); margin: 14px 0 6px; text-transform: u
 .app.mobile .dialogue { bottom: auto; top: 10px; width: min(72cqw, 520px); }
 .hud .place { position: absolute; top: 1.2cqh; left: .9cqw; padding: .3em .7em; background: rgba(11, 11, 20, .92); border: 1px solid rgba(255,255,255,.25); border-radius: 6px; color: #fff; font-size: clamp(12px, 1.3cqw, 28px); font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; z-index: 3; }
 .app.mobile .hud .place { top: max(6px, env(safe-area-inset-top)); left: max(10px, env(safe-area-inset-left)); font-size: 12px; padding: 3px 8px; }
+/* 生命值：左上角一排像素心，地点名挪到心下面。心的大小跟着画面高度走（--heart），手机端固定小一点、让开刘海 */
+.hud .hearts { --heart: clamp(24px, 4.2cqh, 48px); position: absolute; top: 1.2cqh; left: .9cqw; display: flex; gap: calc(var(--heart) * .12); z-index: 3; filter: drop-shadow(0 2px 0 rgba(0,0,0,.55)); }
+.hud .hearts .heart { width: var(--heart); height: var(--heart); image-rendering: pixelated; }
+.hud .hearts .heart.empty { animation: heart-lose .45s ease-out; }
+@keyframes heart-lose { 0% { transform: scale(1.5) rotate(-12deg); filter: brightness(2.2); } 30% { transform: scale(.85) rotate(8deg); } 60% { transform: translateX(-3px) rotate(-4deg); } 100% { transform: none; } }
+.hud .hearts ~ .place { top: calc(1.2cqh + clamp(24px, 4.2cqh, 48px) + .8cqh); }
+.app.mobile .hud .hearts { --heart: 26px; top: max(6px, env(safe-area-inset-top)); left: max(10px, env(safe-area-inset-left)); }
+.app.mobile .hud .hearts ~ .place { top: calc(max(6px, env(safe-area-inset-top)) + 32px); }
 .hud .score { position: absolute; top: 1.2cqh; right: .9cqw; padding: .25em .7em; background: rgba(11, 11, 20, .92); border: 1px solid rgba(255,255,255,.25); border-radius: 6px; color: #ffe8b0; font-size: clamp(16px, 1.7cqw, 36px); font-weight: bold; letter-spacing: 1px; z-index: 3; }
 .app.mobile .hud .score { top: max(6px, env(safe-area-inset-top)); right: max(10px, env(safe-area-inset-right)); font-size: 14px; }
 .hud-msg { position: absolute; top: 6cqh; left: 0; right: 0; text-align: center; font-size: clamp(18px, 2.2cqw, 48px); opacity: 0; transition: opacity .4s; }
@@ -142,6 +150,24 @@ label.check { display: flex; align-items: center; gap: 6px; margin: 8px 0; color
 .boss-bar { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); display: flex; gap: 4px; padding: 6px 8px; background: rgba(11,11,20,.7); border: 1px solid #7a2d3d; border-radius: 8px; }
 .boss-bar .seg { width: 26px; height: 12px; border-radius: 3px; background: #2a1a22; }
 .boss-bar .seg.on { background: #ef476f; box-shadow: 0 0 6px rgba(239,71,111,.6); }
+.boss-bar .seg.on { animation: boss-seg-pop .22s ease-out; }
+@keyframes boss-seg-pop { 0% { transform: scaleY(1.9); background: #fff; } 100% { transform: none; } }
+/* Boss 出场：WARNING 警报条（红黑斜纹上下两道，中间字一闪一闪）、名字卡（像素字体，金色，从大缩到正常） */
+.boss-warning { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(120,0,20,.18); animation: boss-warn-flash .4s steps(1) infinite; }
+@keyframes boss-warn-flash { 50% { background: rgba(120,0,20,.32); } }
+.boss-warning .bw-band { width: 100%; padding: 1.4cqh 0; background: rgba(16,4,8,.82); display: flex; flex-direction: column; align-items: center; gap: 1.2cqh; animation: boss-band-in .25s ease-out; }
+@keyframes boss-band-in { from { transform: scaleY(0); } to { transform: none; } }
+.boss-warning .bw-stripes { width: 100%; height: 1.6cqh; min-height: 8px; background: repeating-linear-gradient(-45deg, #ef476f 0 14px, #1a0610 14px 28px); animation: boss-stripes .6s linear infinite; }
+@keyframes boss-stripes { to { background-position: 39.6px 0; } }
+.boss-warning .bw-text { font-family: "Press Start 2P", monospace; font-size: clamp(22px, 7cqh, 64px); color: #ff3d63; letter-spacing: .12em; text-shadow: 0 0 12px rgba(255,61,99,.8), 3px 3px 0 #3a0010; animation: boss-blink .4s steps(1) infinite; }
+.boss-warning .bw-sub { font-family: "Press Start 2P", monospace; font-size: clamp(8px, 1.8cqh, 16px); color: #ffd6df; letter-spacing: .2em; }
+@keyframes boss-blink { 50% { opacity: .25; } }
+.boss-title { position: absolute; left: 0; right: 0; top: 30%; display: flex; flex-direction: column; align-items: center; gap: 1.4cqh; animation: boss-title-in .5s cubic-bezier(.2,1.6,.4,1); }
+@keyframes boss-title-in { from { transform: scale(2.2); opacity: 0; } to { transform: none; opacity: 1; } }
+.boss-title .bt-sub { font-family: "Press Start 2P", monospace; font-size: clamp(9px, 2cqh, 18px); color: #ef476f; letter-spacing: .5em; text-shadow: 2px 2px 0 #1a0610; }
+.boss-title .bt-name { font-family: "Press Start 2P", monospace; font-size: clamp(24px, 8cqh, 76px); color: #ffd166; letter-spacing: .08em; text-shadow: 0 0 18px rgba(255,209,102,.55), 4px 4px 0 #5c3608, 8px 8px 0 rgba(0,0,0,.45); }
+.boss-title .bt-line { width: min(70%, 640px); height: 4px; background: linear-gradient(90deg, transparent, #ffd166, transparent); animation: boss-line-in .6s .15s ease-out both; }
+@keyframes boss-line-in { from { transform: scaleX(0); } to { transform: none; } }
 
 /* 死亡画面 */
 .death { position: absolute; inset: 0; pointer-events: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.5cqh; background: rgba(70, 8, 16, .72); animation: death-in .35s ease-out; }

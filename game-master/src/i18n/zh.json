@@ -20,6 +20,12 @@
   "wonEditor": "ESC 回编辑器",
   "lang": "English",
   "loadFailed": "加载失败：{{key}}",
+  "bossIntro": {
+    "warning": "WARNING",
+    "approach": "A MIGHTY FOE APPROACHES",
+    "sub": "BOSS",
+    "name": "SLIME KING"
+  },
   "msg": {
     "roomReset": "房间已重置",
     "mapReset": "地图已重置",
@@ -31,8 +37,8 @@
     "fuseLit": "引线点燃！",
     "bombsReady": "空格",
     "speedUp": "加速！炸弹 ×{{n}}",
-    "bossAppears": "大史莱姆！",
-    "bossDefeated": "大史莱姆倒下了",
+    "bossAppears": "史莱姆王！",
+    "bossDefeated": "史莱姆王倒下了",
     "hatKnocked": "帽子被撞掉了"
   },
   "death": {
@@ -42,7 +48,7 @@
     "ownBomb": "被自己的炸弹炸到了",
     "crushedByCrate": "被箱子砸扁了",
     "caughtByGhost": "被鬼抓住了",
-    "swallowedByBoss": "被大史莱姆吞了",
+    "swallowedByBoss": "被史莱姆王吞了",
     "spikes": "扎到尖刺了"
   },
   "npc": {

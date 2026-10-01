@@ -89,6 +89,8 @@ export interface PlayContext {
   };
 
   die(reason: DeathKey): void;
+  /** 挨一下：扣一颗心、被往 from 的反方向弹开；心扣光才死（没开生命值的层直接死）。被压、被埋这种用 die */
+  hurt(reason: DeathKey, from?: Point): void;
   /** final = 真结束；否则是「假通关」，按一下继续玩 */
   win(final: boolean): void;
   /** 换层；给了 via（门的位置）就先来一段旋涡 */
@@ -109,6 +111,8 @@ export interface PlayContext {
     /** null = 不显示分数 */
     score(n: number | null): void;
     boss(v: { hp: number; max: number } | null): void;
+    /** Boss 出场过场叠在画面上的那一段（WARNING / 名字），null = 收起 */
+    bossIntro(v: 'warning' | 'title' | null): void;
   };
 
   /** 本层启用的另一个机制的实例（没启用就是 undefined） */

@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useAppSelector } from '@/redux/hooks';
 import { WinModal } from './WinModal';
 import { bridge, EVT } from '@/game/bridge';
-import { AVATARS } from '@/asset';
+import { AVATARS, HEART_ICONS } from '@/asset';
 import { Typewriter } from './Typewriter';
 import { ResetButtonIcon } from './PadIcons';
 
@@ -24,9 +24,35 @@ export function Hud() {
   if (hud.mode === 'idle') return null;
   return (
     <div className="hud">
+      {hud.bossIntro === 'warning' && (
+        <div className="boss-warning">
+          <div className="bw-band">
+            <div className="bw-stripes" />
+            <div className="bw-text">{t('bossIntro.warning')}</div>
+            <div className="bw-sub">{t('bossIntro.approach')}</div>
+            <div className="bw-stripes" />
+          </div>
+        </div>
+      )}
+      {hud.bossIntro === 'title' && (
+        <div className="boss-title">
+          <div className="bt-sub">{t('bossIntro.sub')}</div>
+          <div className="bt-name">{t('bossIntro.name')}</div>
+          <div className="bt-line" />
+        </div>
+      )}
       {hud.boss && (
         <div className="boss-bar">
           {Array.from({ length: hud.boss.max }, (_, i) => <span key={i} className={'seg' + (i < hud.boss!.hp ? ' on' : '')} />)}
+        </div>
+      )}
+      {hud.hearts && (
+        <div className="hearts" aria-label={`${hud.hearts.hp} / ${hud.hearts.max}`}>
+          {/* key 带上满 / 空：一颗心从满变空时重新挂载，播一次「掉心」动画 */}
+          {Array.from({ length: hud.hearts.max }, (_, i) => {
+            const full = i < hud.hearts!.hp;
+            return <img key={`${i}-${full}`} className={'heart ' + (full ? 'full' : 'empty')} src={full ? HEART_ICONS.full : HEART_ICONS.empty} alt="" draggable={false} />;
+          })}
         </div>
       )}
       {hud.place && <div className="place">{t('place', { place: hud.place })}</div>}

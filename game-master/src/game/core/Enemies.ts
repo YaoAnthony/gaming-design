@@ -41,7 +41,7 @@ export class Enemies {
     this.spawns.forEach(sp => this.spawn(sp));
   }
 
-  /** 巡逻（所在房间醒了才开始，见 Rooms.isAwake）；快速下落的碎块压扁它；碰到玩家 → 死 */
+  /** 巡逻（所在房间醒了才开始，见 Rooms.isAwake）；快速下落的碎块压扁它；碰到玩家 → 扣一颗心（ctx.hurt） */
   update(): void {
     const { ctx } = this, cfg = ctx.cfg;
     const playerRect = ctx.player.rect();
@@ -55,7 +55,7 @@ export class Enemies {
         if (ch.vy >= cfg.crushMinSpeed && Phaser.Geom.Intersects.RectangleToRectangle(new Phaser.Geom.Rectangle(cx, cy, w, h), r)) crushed = true;
       });
       if (crushed) this.kill(e);
-      else if (!ctx.dead && !ctx.won && Phaser.Geom.Intersects.RectangleToRectangle(r, playerRect)) ctx.die('death.caughtByMonster');
+      else if (!ctx.dead && !ctx.won && Phaser.Geom.Intersects.RectangleToRectangle(r, playerRect)) ctx.hurt('death.caughtByMonster', { x: e.x, y: e.y });   // 扣一颗心、被弹开
     });
   }
 

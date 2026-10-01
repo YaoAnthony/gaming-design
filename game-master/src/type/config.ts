@@ -64,6 +64,16 @@ export interface GameConfig {
   deathResetsWorld: boolean;
   /** 音乐音量 0-1 */
   musicVolume: number;
+  /** 生命值：几颗心；碰到尖刺 / 怪物 / Boss 扣一颗（被压、被埋还是直接死），扣光才死 */
+  playerHearts: number;
+  /** 挨打后无敌多久、其中前多久人一闪一闪、一开始变红多久（毫秒） */
+  hurtInvulnMs: number;
+  hurtFlickerMs: number;
+  hurtFlashMs: number;
+  /** 挨打被弹开：横向 / 往上的速度（像素/秒），弹开期间多久不听方向键（毫秒） */
+  knockbackX: number;
+  knockbackY: number;
+  knockbackMs: number;
   /** Boss 参数 */
   bossHp: number;
   bossHopMs: number;

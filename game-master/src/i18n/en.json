@@ -20,6 +20,12 @@
   "wonEditor": "ESC back to editor",
   "lang": "中文",
   "loadFailed": "Failed to load: {{key}}",
+  "bossIntro": {
+    "warning": "WARNING",
+    "approach": "A MIGHTY FOE APPROACHES",
+    "sub": "BOSS",
+    "name": "SLIME KING"
+  },
   "msg": {
     "roomReset": "Room reset",
     "mapReset": "Map reset",
@@ -31,8 +37,8 @@
     "fuseLit": "Fuse lit!",
     "bombsReady": "SPACE",
     "speedUp": "Speed up! Bombs ×{{n}}",
-    "bossAppears": "Giant Slime!",
-    "bossDefeated": "Giant Slime defeated",
+    "bossAppears": "Slime King!",
+    "bossDefeated": "Slime King defeated",
     "hatKnocked": "Hat knocked off"
   },
   "death": {
@@ -42,7 +48,7 @@
     "ownBomb": "Blown up by your own bomb",
     "crushedByCrate": "Flattened by a crate",
     "caughtByGhost": "Caught by a ghost",
-    "swallowedByBoss": "Swallowed by the Giant Slime",
+    "swallowedByBoss": "Swallowed by the Slime King",
     "spikes": "Impaled on spikes"
   },
   "npc": {

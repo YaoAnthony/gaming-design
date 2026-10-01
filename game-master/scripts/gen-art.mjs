@@ -192,15 +192,127 @@ enemy.rect(6, 7, 5, 5, 0xffffff); enemy.rect(17, 7, 5, 5, 0xffffff);
 enemy.rect(8, 9, 2, 2, 0x0b0b14); enemy.rect(19, 9, 2, 2, 0x0b0b14);
 enemy.save('enemy.png');
 
-// ---- 大史莱姆 96x96（正好 3x3 格）----
+// ---- 史莱姆王 96x96（正好 3x3 格）----
+// 身体和物理体对齐（Boss.ts：x 4~92、y 12~96）：果冻圆顶，按光从左上来分 5 档明暗，深色描边，右边一道反光；
+// 里面飘着几个气泡；皱眉的大眼、带两颗獠牙的嘴；头顶一顶镶宝石的金王冠（冠在物理体上面一点，不算碰撞）
 const boss = new Canvas(96, 96);
-boss.roundRect(0, 10, 96, 86, 32, 0x6a3fb0);
-boss.roundRect(6, 16, 84, 74, 28, 0x9b5de5);
-boss.roundRect(14, 22, 30, 16, 8, 0xc4a7ff);          // 高光
-boss.rect(24, 44, 14, 16, 0xffffff); boss.rect(58, 44, 14, 16, 0xffffff);
-boss.rect(30, 50, 6, 8, 0x0b0b14); boss.rect(64, 50, 6, 8, 0x0b0b14);
-boss.rect(36, 72, 24, 6, 0x3a1f5c);                    // 嘴
+{
+  const PAL = { outline: 0x220d36, d3: 0x3b1866, d2: 0x55289a, d1: 0x7440c4, base: 0x9358e0, l1: 0xb487f2, l2: 0xd6bfff, shine: 0xf6efff };
+  const CX = 48, TOP = 14, BOT = 95;
+  /** 这一行身体的半宽：上半部是圆顶，往下慢慢鼓到最宽，最底下两行收一点 */
+  const halfW = y => {
+    const t = (y - TOP) / (BOT - TOP);
+    let w = t < 0.6 ? 44 * Math.pow(Math.sin((t / 0.6) * Math.PI / 2), 0.5) : 44 + 1.5 * Math.sin(((t - 0.6) / 0.4) * Math.PI);
+    if (y >= BOT - 1) w -= 2;
+    return w;
+  };
+  const inBody = (x, y) => y >= TOP && y <= BOT && Math.abs(x + 0.5 - CX) <= halfW(y);
+  const inEll = (x, y, cx, cy, rx, ry) => ((x + 0.5 - cx) / rx) ** 2 + ((y + 0.5 - cy) / ry) ** 2 <= 1;
+  /** 画一个形状：先描一圈 outline（形状外 1 像素），再按 fill(x, y) 填色 */
+  const shape = (inside, fill, outline) => {
+    for (let y = 0; y < 96; y++) for (let x = 0; x < 96; x++) {
+      if (inside(x, y)) continue;
+      if (outline !== undefined && (inside(x + 1, y) || inside(x - 1, y) || inside(x, y + 1) || inside(x, y - 1))) boss.set(x, y, outline);
+    }
+    for (let y = 0; y < 96; y++) for (let x = 0; x < 96; x++) if (inside(x, y)) boss.set(x, y, fill(x, y));
+  };
+  // 身体：当成半个球打光
+  shape(inBody, (x, y) => {
+    const hw = halfW(y), nx = (x + 0.5 - CX) / hw, ny = (y - 58) / 46;
+    const dz = Math.sqrt(Math.max(0, 1 - nx * nx * 0.85 - Math.max(0, ny) * ny * 0.6));
+    const edgeR = hw - (x + 0.5 - CX);   // 离右边缘几像素
+    if (edgeR < 3 && nx > 0.6 && y < BOT - 6) return PAL.l1;     // 右边一道反光：果冻的透亮
+    const v = 0.5 * dz - 0.42 * nx - 0.38 * ny + (y > BOT - 7 ? -0.25 : 0);
+    return v > 0.62 ? PAL.l1 : v > 0.38 ? PAL.base : v > 0.12 ? PAL.d1 : v > -0.12 ? PAL.d2 : PAL.d3;
+  }, PAL.outline);
+  // 底下一圈往下淌的果冻边
+  for (const [dx, w] of [[-34, 6], [-14, 8], [10, 7], [30, 6]]) for (let i = 0; i < w; i++) boss.set(CX + dx + i, BOT - 1, PAL.d3);
+  // 高光：左上一大片 + 一个小点
+  shape((x, y) => inEll(x, y, 27, 31, 9, 6) && inBody(x, y), (x, y) => inEll(x, y, 25, 29, 5, 3) ? PAL.shine : PAL.l2);
+  shape((x, y) => inEll(x, y, 40, 23, 2.2, 2.2), () => PAL.shine);
+  // 气泡：一圈亮边 + 一个亮点
+  for (const [bx, by, r] of [[70, 30, 3.2], [77, 64, 2.4], [18, 70, 2.6], [62, 84, 1.8], [28, 86, 1.6]]) {
+    for (let y = 0; y < 96; y++) for (let x = 0; x < 96; x++) {
+      const d = Math.hypot(x + 0.5 - bx, y + 0.5 - by);
+      if (d <= r && d > r - 1.2 && inBody(x, y)) boss.set(x, y, PAL.l2);
+    }
+    boss.set(bx - 1, by - 1, PAL.shine);
+  }
+  // 眼睛：白眼球 + 往下看的大瞳孔 + 一点反光，压着一道皱起来的眉毛
+  for (const [ex, dir] of [[34, 1], [62, -1]]) {
+    shape((x, y) => inEll(x, y, ex, 53, 7, 8), (x, y) => (y > 56 ? 0xd9d2ea : 0xffffff), PAL.outline);
+    shape((x, y) => inEll(x, y, ex + dir * 1.5, 55, 3.6, 5), () => 0x0b0b14);
+    boss.set(ex + dir * 1.5 - 1, 52, 0xffffff); boss.set(ex + dir * 1.5, 52, 0xffffff); boss.set(ex + dir * 1.5 - 1, 53, 0xffffff);
+    // 眉毛：外高内低，盖住眼睛上沿
+    for (let i = 0; i <= 14; i++) {
+      const x = ex - dir * 8 + dir * i, y = 41 + i * 0.42;
+      boss.rect(Math.round(x) - 1, Math.round(y), 3, 3, PAL.outline);
+    }
+  }
+  // 嘴：咧开的一道弧，两颗獠牙，里面一点舌头
+  const inMouth = (x, y) => inEll(x, y, 48, 68, 15, 7) && y >= 67;
+  shape(inMouth, (x, y) => (inEll(x, y, 48, 76, 7, 4) ? 0xd94a6f : 0x1a0828), PAL.outline);
+  boss.tri(39, 67, 44, 67, 41.5, 73, 0xffffff); boss.tri(52, 67, 57, 67, 54.5, 73, 0xffffff);
+  // 王冠：三个尖、尖上一颗宝珠，冠圈上一颗红宝石和两颗绿宝石
+  const GOLD = { o: 0x5c3608, d: 0xc98a1e, m: 0xffc845, l: 0xfff0b0 };
+  const inCrown = (x, y) => {
+    if (y >= 9 && y <= 17 && x >= 30 && x <= 65) return true;                      // 冠圈
+    for (const [tx, ty, bl, br] of [[35, 1, 30, 41], [48, -1, 41, 55], [61, 1, 55, 65]]) {   // 三个尖：底边 bl~br 在 y=9，尖在 (tx, ty)
+      if (y < ty || y > 9) continue;
+      const k = (y - ty) / (9 - ty);
+      if (x + 0.5 >= tx - (tx - bl) * k && x + 0.5 <= tx + (br - tx) * k) return true;
+    }
+    return false;
+  };
+  shape(inCrown, (x, y) => (y >= 15 ? GOLD.d : y <= 10 && x < 48 ? GOLD.l : x > 58 ? GOLD.d : GOLD.m), GOLD.o);
+  for (let x = 31; x <= 64; x++) boss.set(x, 12, GOLD.l);                            // 冠圈上的一道亮线
+  const gem = (gx, gy, r, c, hi) => {
+    shape((x, y) => Math.hypot(x + 0.5 - gx, y + 0.5 - gy) <= r, () => c, GOLD.o);
+    boss.set(Math.round(gx - r / 2), Math.round(gy - r / 2), hi);
+  };
+  gem(35, 2, 2, 0x4cc9f0, 0xdff6ff); gem(48, 0.5, 2.2, 0xef476f, 0xffd6df); gem(61, 2, 2, 0x4cc9f0, 0xdff6ff);
+  gem(48, 13.5, 3, 0xef476f, 0xffd6df); gem(38, 13.5, 1.8, 0x06d6a0, 0xc8fff0); gem(58, 13.5, 1.8, 0x06d6a0, 0xc8fff0);
+}
 boss.save('boss.png');
+
+// ---- 生命值的心 16x16：满心（红、左上高光、右下暗）和空心（同样描边、里面暗） ----
+// 心形用隐函数 (x²+y²-1)³ - x²y³ ≤ 0 画，再描一圈深色边；HUD 里放大显示（image-rendering: pixelated）
+{
+  const inHeart = (px, py) => {
+    if (px < 0 || py < 0 || px > 15 || py > 15) return false;
+    const x = (px + 0.5 - 8) / 6.6, y = -((py + 0.5 - 7.6) / 6.6) + 0.18;
+    return (x * x + y * y - 1) ** 3 - x * x * y * y * y <= 0;
+  };
+  const draw = (name, full) => {
+    const c = new Canvas(16, 16);
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      if (inHeart(x, y)) continue;
+      if (inHeart(x + 1, y) || inHeart(x - 1, y) || inHeart(x, y + 1) || inHeart(x, y - 1)) c.set(x, y, 0x2a0a14);
+    }
+    for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+      if (!inHeart(x, y)) continue;
+      const edge = !inHeart(x + 1, y) || !inHeart(x, y + 1);          // 右下边：暗一点
+      if (full) c.set(x, y, edge ? 0xb3264a : 0xef476f);
+      else c.set(x, y, edge ? 0x2c1a24 : 0x45293a);
+    }
+    if (full) { c.rect(4, 3, 2, 1, 0xffd6df); c.rect(3, 4, 1, 2, 0xffd6df); c.set(4, 4, 0xff8fa8); c.set(11, 4, 0xff8fa8); }
+    else { c.set(4, 4, 0x6b4a5c); c.set(3, 5, 0x6b4a5c); }
+    c.save(name);
+  };
+  draw('heart_full.png', true);
+  draw('heart_empty.png', false);
+}
+
+// ---- Boss 触发点 32x32（只在编辑器里看得见，可以连着涂一片）：半透明红紫格子 + 虚线边 + 中间一顶小王冠 ----
+{
+  const c = new Canvas(32, 32);
+  c.rect(0, 0, 32, 32, 0xef476f); for (let i = 0; i < 32 * 32 * 4; i += 4) c.buf[i + 3] = 70;   // 半透明底
+  for (let k = 0; k < 32; k += 6) { c.rect(k, 0, 3, 1, 0xef476f); c.rect(k, 31, 3, 1, 0xef476f); c.rect(0, k, 1, 3, 0xef476f); c.rect(31, k, 1, 3, 0xef476f); }   // 虚线边
+  c.rect(9, 15, 14, 4, 0x5c3608); c.rect(10, 15, 12, 3, 0xffc845);                                   // 冠圈
+  for (const x of [10, 15, 20]) { c.rect(x - 1, 9, 4, 7, 0x5c3608); c.rect(x, 10, 2, 6, 0xffc845); }  // 三个尖
+  c.rect(15, 15, 2, 2, 0xef476f);                                                                       // 红宝石
+  c.save('boss_trigger.png');
+}
 
 // ---- 门 24x32 ----
 const door = new Canvas(24, 32);

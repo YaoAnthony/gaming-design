@@ -1,3 +1,4 @@
+import { App as AntApp } from 'antd';
 import { IMAGES, SPRITESHEETS, TILE_FRAMES, TILE_SIZE } from '@/asset';
 import { Entities, Tiles } from '@/game/registry/registry';
 import { useAppDispatch, useAppSelector } from '@/redux/hooks';
@@ -18,6 +19,19 @@ export function Palette() {
   const hex = (c: number) => '#' + c.toString(16).padStart(6, '0');
   const colorName = (c: number) => LOCK_COLOR_NAMES[LOCK_COLORS.indexOf(c)] ?? '';
   const dispatch = useAppDispatch();
+  const { modal } = AntApp.useApp();
+  /** 删掉一组钥匙和门：这一层所有房间里这个颜色的门、钥匙都会一起没了，先弹窗确认（写明有几格门、几把钥匙） */
+  const confirmRemoveLock = (id: number, color: number) => {
+    const count = (layer: Record<string, string[]> | undefined) =>
+      Object.values(layer ?? {}).reduce((n, rows) => n + rows.reduce((m, r) => m + r.split(String(id)).length - 1, 0), 0);
+    const doors = count(locks?.doors), keys = count(locks?.keys), name = colorName(color);
+    modal.confirm({
+      title: `删除${name}色这一组钥匙和门？`,
+      content: doors || keys ? `这一层所有房间里的${name}门（${doors} 格）和${name}钥匙（${keys} 把）会一起删掉。可以撤销。` : '这一组还没画过门和钥匙。可以撤销。',
+      okText: '删除', okButtonProps: { danger: true }, cancelText: '取消',
+      onOk: () => dispatch(removeLock(id)),
+    });
+  };
   const tiles = Tiles.filter(d => d.editorVisible);
   const entities = Entities.list();
   const groups = [...new Set(entities.map(e => e.group))];
@@ -76,7 +90,7 @@ export function Palette() {
           </button>,
           <button key={'d' + g.id} className={'item' + (brush === 'door:' + g.id ? ' active' : '')} title={`${colorName(g.color)}门：只占空气格，右键擦`} onClick={() => dispatch(setBrush('door:' + g.id))}>
             <div className="icon"><div className="frame" style={{ backgroundImage: `url(${tilesUrl})`, backgroundPosition: `-${TILE_FRAMES.door * TILE_SIZE}px 0`, backgroundColor: hex(g.color), backgroundBlendMode: 'multiply' }} /></div>
-            <div className="label"><b>{colorName(g.color)}门</b><span className="mini" role="button" tabIndex={0} title="删除这组" onClick={e => { e.stopPropagation(); dispatch(removeLock(g.id)); }} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); dispatch(removeLock(g.id)); } }}>✕</span></div>
+            <div className="label"><b>{colorName(g.color)}门</b><span className="mini" role="button" tabIndex={0} title="删除这组" onClick={e => { e.stopPropagation(); confirmRemoveLock(g.id, g.color); }} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); confirmRemoveLock(g.id, g.color); } }}>✕</span></div>
           </button>,
         ])}
         <button className="item add" disabled={(locks?.groups.length ?? 0) >= 9} onClick={() => dispatch(addLock())}>

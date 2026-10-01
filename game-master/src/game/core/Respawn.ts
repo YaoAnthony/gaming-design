@@ -34,6 +34,8 @@ export interface RespawnDeps {
   fogDirty: () => void;
   /** HUD 的模式：死了 / 又能玩了 */
   setMode: (mode: 'playing' | 'dead') => void;
+  /** 人回到复活点（复活、R、重置整张图）：生命值回满之类 */
+  onRespawn?: () => void;
 }
 
 export class Respawn {
@@ -122,6 +124,7 @@ export class Respawn {
   respawn(message: MsgKey, reason: AppearReason, delayMs = 0): void {
     const p = this.d.player(), { rooms } = this.d;
     this.dead = false;
+    this.d.onRespawn?.();
     // 复活点可能留在别的房间（骑纸过边界时不记新入口）：先切过去，骷髅手按那个房间放人
     const er = rooms.of(this.entry.x, this.entry.y);
     if (!rooms.same(er, rooms.current)) rooms.enter(er, false);

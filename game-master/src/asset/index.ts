@@ -11,6 +11,8 @@ import fuseNodeUrl from './fusenode.png';
 import bossUrl from './boss.png';
 import skeletonUrl from './skeleton.png';
 import castleUrl from './castle.png';
+import heartFullUrl from './heart_full.png';
+import heartEmptyUrl from './heart_empty.png';
 import candleUrl from './candle.png';
 import volumeUrl from './volume.png';
 import keyUrl from './key.png';
@@ -19,6 +21,7 @@ import powerUrl from './power.png';
 import ghostHouseUrl from './ghosthouse.png';
 import grapesUrl from './grapes.png';
 import tunnelUrl from './tunnel.png';
+import bossTriggerUrl from './boss_trigger.png';
 import ghostUrl from './ghost.png';
 import ghost2Url from './ghost2.png';
 import ghostEyesUrl from './ghosteyes.png';
@@ -39,6 +42,7 @@ import bgmUrl from './Pixelated_Coffee.mp3';
 import bossMusicUrl from './boss.mp3';
 import bossLaughUrl from './boss_laughing.mp3';
 import keyPickupUrl from './key_pickup.mp3';
+import warningUrl from './warning.mp3';
 import avatarDefaultUrl from './re/avatar_default.png';
 import avatarLaughUrl from './re/avatar_la.png';
 
@@ -103,6 +107,7 @@ export const IMAGES: ImageAsset[] = [
   { key: 'ghosthouse', url: ghostHouseUrl },
   { key: 'grapes', url: grapesUrl },
   { key: 'tunnel', url: tunnelUrl },
+  { key: 'bossTrigger', url: bossTriggerUrl },   // Boss 触发点（只在编辑器里显示）
   { key: 'ghost', url: ghostUrl },
   { key: 'hat', url: hatUrl },
   { key: 'crate1', url: crate1Url },
@@ -148,6 +153,9 @@ export const GRAB_HAND = {
 };
 
 /** 对话框头像（React 里用 URL 显示，不进 Phaser）。同一个角色不同表情 = 不同 key，台词里按句指定 */
+/** 左上角生命值的心（HUD 里放大显示，像素风） */
+export const HEART_ICONS = { full: heartFullUrl, empty: heartEmptyUrl };
+
 export const AVATARS: Record<string, string> = {
   default: avatarDefaultUrl,
   laugh: avatarLaughUrl,
@@ -161,6 +169,7 @@ export const AUDIO: AudioAsset[] = [
   { key: 'bossMusic', url: bossMusicUrl, music: 'Boss 战' },        // Boss 战音乐（循环）
   { key: 'bossLaugh', url: bossLaughUrl },                          // 骷髅消失时的笑声
   { key: 'keyPickup', url: keyPickupUrl },                          // 捡到钥匙（scripts/gen-sfx.sh 合成的，可以换成手工音效）
+  { key: 'warning', url: warningUrl },                              // Boss 出场前的 WARNING 警报（过场里循环放）
 ];
 
 /** 能当背景音乐的曲目 */

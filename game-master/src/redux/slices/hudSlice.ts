@@ -11,6 +11,10 @@ export interface HudState {
   destroyed: number;
   message: { text: string; color: string; at: number } | null;
   boss: { hp: number; max: number } | null;
+  /** 玩家的生命值（左上角的心）；null = 这一层不显示（吃豆人层） */
+  hearts: { hp: number; max: number } | null;
+  /** Boss 出场过场叠在画面上的那一段：WARNING 警报 / 名字；null = 不显示 */
+  bossIntro: 'warning' | 'title' | null;
   dialogue: { speaker: string; text: string; avatar?: string; index: number; total: number; /** 自动翻页的剧情对话：不显示 ▸ */ auto?: boolean; /** 放上面还是下面 */ pos?: 'top' | 'bottom' } | null;
   /** 通关画面是不是真的结束（否则可以继续玩） */
   final: boolean;
@@ -25,7 +29,7 @@ export interface HudState {
   score: number | null;
 }
 
-const initialState: HudState = { mode: 'idle', playtest: false, roomKey: '', jumps: 0, destroyed: 0, message: null, boss: null, dialogue: null, final: false, wonStage: 0, wonHat: false, place: '', controls: 'jump', score: null };
+const initialState: HudState = { mode: 'idle', playtest: false, roomKey: '', jumps: 0, destroyed: 0, message: null, boss: null, bossIntro: null, hearts: null, dialogue: null, final: false, wonStage: 0, wonHat: false, place: '', controls: 'jump', score: null };
 
 const hudSlice = createSlice({
   name: 'hud',
@@ -40,6 +44,8 @@ const hudSlice = createSlice({
     flash(state, action: PayloadAction<{ text: string; color?: string }>) { state.message = { text: action.payload.text, color: action.payload.color ?? '#ffd166', at: Date.now() }; },
     clearMessage(state) { state.message = null; },
     setBoss(state, action: PayloadAction<{ hp: number; max: number } | null>) { state.boss = action.payload; },
+    setBossIntro(state, action: PayloadAction<'warning' | 'title' | null>) { state.bossIntro = action.payload; },
+    setHearts(state, action: PayloadAction<{ hp: number; max: number } | null>) { state.hearts = action.payload; },
     setDialogue(state, action: PayloadAction<HudState['dialogue']>) { state.dialogue = action.payload; },
     setPlace(state, action: PayloadAction<string>) { state.place = action.payload; },
     setControls(state, action: PayloadAction<HudState['controls']>) { state.controls = action.payload; },
@@ -47,5 +53,5 @@ const hudSlice = createSlice({
   },
 });
 
-export const { setMode, setRoomKey, setStats, flash, clearMessage, setBoss, setDialogue, setPlace, setControls, setScore } = hudSlice.actions;
+export const { setMode, setRoomKey, setStats, flash, clearMessage, setBoss, setBossIntro, setHearts, setDialogue, setPlace, setControls, setScore } = hudSlice.actions;
 export default hudSlice.reducer;

@@ -16,7 +16,7 @@ import { store } from '@/redux/store';
 import { resizeGame } from '@/game/resize';
 import { Music } from '@/game/Music';
 import { DEFAULT_MUSIC } from '@/asset';
-import { flash, setBoss, setControls, setDialogue, setMode, setPlace, setScore, setStats } from '@/redux/slices/hudSlice';
+import { flash, setBoss, setBossIntro, setControls, setHearts, setDialogue, setMode, setPlace, setScore, setStats } from '@/redux/slices/hudSlice';
 import { forgetBoss, resetProgress, winBoss } from '@/redux/slices/progressSlice';
 import { setConfig } from '@/redux/slices/configSlice';
 import { mapText, tr } from '@/i18n';
@@ -30,6 +30,7 @@ import { Solids } from '@/game/core/solids';
 import { Rooms } from '@/game/core/Rooms';
 import { Respawn } from '@/game/core/Respawn';
 import { Growth } from '@/game/core/Growth';
+import { Health } from '@/game/core/Health';
 import { CrumpleFx } from '@/game/core/CrumpleFx';
 import { GameInput } from '@/game/core/GameInput';
 import { standingSpot, touchingHazard } from '@/game/core/roomSpots';
@@ -70,6 +71,7 @@ export class GameScene extends Phaser.Scene {
   private dialogue!: Dialogue;
   private rooms!: Rooms;
   private respawn!: Respawn;
+  private health!: Health;
   private growth!: Growth;
   private crumple!: CrumpleFx;
   private controls!: GameInput;
@@ -157,6 +159,7 @@ export class GameScene extends Phaser.Scene {
       flash: (text, color) => this.flash(text, color),
       fogDirty: () => { this.fogDirty = true; },
       setMode: mode => store.dispatch(setMode({ mode, playtest: this.playtest })),
+      onRespawn: () => this.health?.reset(),
     });
     this.growth = new Growth({
       scene: this, cfg: this.cfg, rooms: this.rooms, respawn: this.respawn, terrain: this.terrain, fuses: this.fuses,
@@ -173,6 +176,12 @@ export class GameScene extends Phaser.Scene {
     // ---- 机制实例 ----
     defs.forEach(d => { const m = d.create(this.ctx, baked.get(d.id)); this.mechs.push(m); this.mechById.set(d.id, m); });
     this.floorMech = this.mechs[0] as FloorMechanic;
+    this.health = new Health({
+      scene: this, cfg: this.cfg, player: () => this.player, enabled: defs[0].id === 'platform',
+      canHurt: () => !this.respawn.dead && !this.respawn.respawning && !this.won && !this.leaving && !this.growth.growing,
+      die: reason => this.respawn.die(reason),
+      show: v => store.dispatch(setHearts(v)),
+    });
 
     // ---- 物件：每个字符问注册表；属于机制的交给机制实例，核心物件交给场景 ----
     const core: CoreHost = { addSpawnPoint: p => this.spawnPoints.push(p), addEnemy: (sp: EnemySpawn) => this.enemies.addSpawn(sp) };
@@ -234,7 +243,7 @@ export class GameScene extends Phaser.Scene {
       this.mechs.forEach(m => m.destroy?.());
       unsubVol();
       this.music.stop();
-      store.dispatch(setMode({ mode: 'idle' })); store.dispatch(setBoss(null)); store.dispatch(setDialogue(null));
+      store.dispatch(setMode({ mode: 'idle' })); store.dispatch(setBoss(null)); store.dispatch(setBossIntro(null)); store.dispatch(setHearts(null)); store.dispatch(setDialogue(null));
     });
   }
 
@@ -262,6 +271,7 @@ export class GameScene extends Phaser.Scene {
       stats: this.stats,
       pushStats: () => store.dispatch(setStats({ ...this.stats })),
       die: reason => this.respawn.die(reason),
+      hurt: (reason, from) => this.health.hurt(reason, from),
       win: final => this.win(final),
       goToFloor: (id, via) => this.goToFloor(id, via),
       igniteFuses: ends => this.fuses.ignite(ends, this.terrain, cells => this.onFuseBurn(cells)),
@@ -274,6 +284,7 @@ export class GameScene extends Phaser.Scene {
       hud: {
         score: n => store.dispatch(setScore(n)),
         boss: v => store.dispatch(setBoss(v)),
+        bossIntro: v => store.dispatch(setBossIntro(v)),
       },
       progress: {
         bossWin: key => store.getState().progress.bossWins[key] ?? null,
@@ -314,10 +325,14 @@ export class GameScene extends Phaser.Scene {
     const input = this.controls.read();
     this.controls.pollDown(input);
     this.floorMech.move(input, time, this.dialogue.talking);   // 对话中站着别动
+    this.health.update(time);   // 挨打弹开期间盖掉方向键的速度，变红、闪烁
     this.debris.handlePlayerContact();
     if (this.respawn.dead) return;
     const hazard = touchingHazard(this.terrain, this.player.body);
-    if (hazard) { this.respawn.die(hazard); return; }
+    if (hazard) {   // 尖刺：扣一颗心、往上弹开（扣光才死）
+      this.health.hurt(hazard, { x: this.player.x, y: this.player.body.bottom + 8 });
+      if (this.respawn.dead) return;
+    }
     for (const m of this.mechs) {
       if (this.frozen) break;
       m.updateAlive?.(time, dt);

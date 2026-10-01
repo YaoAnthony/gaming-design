@@ -184,8 +184,11 @@ export class FogOfWar {
   private sources: { x: number; y: number; r: number }[] = [];
   setSources(list: { x: number; y: number; r: number }[]): void { this.sources = list; this.dirty = true; }
 
-  /** 只处理这一次被照亮的格子：上一次亮的清零，玩家和每个光源各扩散一次（每格取最亮的），再按迷雾区过滤。光只对全屋暗的房间有意义 */
-  compute(px: number, py: number, now = this.now): void {
+  /**
+   * 只处理这一次被照亮的格子：上一次亮的清零，玩家和每个光源各扩散一次（每格取最亮的），再按迷雾区过滤。光只对全屋暗的房间有意义。
+   * stepReveals = 玩家站在这一格算不算「踏进」迷雾区：复活时被骷髅手拎着路过不算（false），落了地才算
+   */
+  compute(px: number, py: number, now = this.now, stepReveals = true): void {
     this.now = now;
     this.lit.forEach(i => { this.light[i] = 0; });
     const lit: number[] = [];
@@ -203,7 +206,7 @@ export class FogOfWar {
     FogOfWar.forEachLit(this.grid, px, py, this.opts.radius, add, blocks);
     this.sources.forEach(s => FogOfWar.forEachLit(this.grid, s.x, s.y, s.r, add, blocks));
     // 踏进迷雾区就揭开整个区（假墙在 ZONE_REVEAL_MS 里淡掉）
-    const z = this.zoneAt(px, py);
+    const z = stepReveals ? this.zoneAt(px, py) : -1;
     if (z >= 0) this.reveal(z, now);
     lit.forEach(i => { if (!this.hiddenZone(i)) this.explored[i] = 1; });   // 没揭开的区照到了也不算见过（预览不显示里面）
     this.lit = lit;

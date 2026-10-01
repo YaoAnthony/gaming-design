@@ -7,6 +7,7 @@ import { CarriedPaper, Enemy, PaperBody } from '@/sprite';
 import { playLand } from '@/particle';
 import type { PlayContext } from './PlayContext';
 import { INSET, pushRiderOutOfWalls, rectHitsCells } from './solid';
+import { Colors, hex } from '@/game/palette';
 
 /** 纸落到头上：包围盒底边离头顶在这个范围内就算落上了（像素） */
 const CATCH_ABOVE = 2, CATCH_BELOW = 10;
@@ -28,6 +29,7 @@ export class Debris {
 
   constructor(private ctx: PlayContext) {
     this.platforms = ctx.scene.physics.add.group({ allowGravity: false, immovable: true });
+    ctx.solids.register(this.platforms, 'platform', this.hitsPlayer);   // 玩家、怪物、箱子、钥匙都能站在纸上、撞到纸
   }
 
   /** 碎块被别的东西吃掉了（比如砸中 Boss）：平台由 onChunkRemoved 一起删 */
@@ -40,7 +42,7 @@ export class Debris {
 
   // ---------- Terrain 的回调 ----------
   onChunkFall(ch: Chunk): void {
-    this.ctx.fx.flash('msg.terrainBreak', '#ffd166');
+    this.ctx.fx.flash('msg.terrainBreak', hex(Colors.gold));
     // 材质说了"下落时能站"就给它一块物理平台
     if (Tiles.get(ch.cells[0].id)?.rideable) {
       const b = this.ctx.terrain.chunkBounds(ch);
@@ -80,7 +82,7 @@ export class Debris {
       this.carried.push(paper);
       // 人正站在上面：纸贴到怪物头顶会往上挪几像素，把人一起挪上去放稳
       if (riding) { ctx.player.y += paper.top - before; ctx.player.setVelocityY(0); }
-      ctx.fx.flash('msg.paperOnMonster', '#f4f1e8');
+      ctx.fx.flash('msg.paperOnMonster', hex(Colors.paperWarm));
       return true;
     }
     // 落到玩家头上：玩家驮着走。纸留在接住那一刻的格子位置（不往人身上居中，居中可能一下子挪进墙里；
@@ -90,7 +92,7 @@ export class Debris {
       const platform = this.falling.get(ch.id);
       this.falling.delete(ch.id);
       this.carried.push(new CarriedPaper(ctx.scene, this.platforms, ctx.player, ch, T, platform, Math.min(...xs) * T - ctx.player.x));
-      ctx.fx.flash('msg.paperOnHead', '#f4f1e8');
+      ctx.fx.flash('msg.paperOnHead', hex(Colors.paperWarm));
       return true;
     }
     return false;
@@ -184,9 +186,8 @@ export class Debris {
       if (hit.length && pinned(b)) squeeze(b, hit);
     }
     // 箱子太重，纸推不动：碰到就掉头
-    for (const g of ctx.mech('pushBlock')?.terrainBodies?.() ?? []) for (const child of g.getChildren()) {
-      const b = (child as Phaser.Physics.Arcade.Image).body as Phaser.Physics.Arcade.Body | null;
-      if (!b?.enable) continue;
+    for (const b of ctx.solids.bodies('crate')) {
+      if (!b.enable) continue;
       const hit = pushes(b);
       if (hit.length) squeeze(b, hit);
     }
@@ -200,11 +201,17 @@ export class Debris {
   private scrapeRiders(c: CarriedPaper): void {
     const { ctx } = this, t = ctx.terrain, T = ctx.cfg.tile;
     const solid = (cx: number, cy: number) => t.isSolid(cx, cy) && !t.def(cx, cy).oneWay;
-    const boxes = (ctx.mech('pushBlock')?.terrainBodies?.() ?? []).flatMap(grp => grp.getChildren().map(o => (o as Phaser.Physics.Arcade.Image).body as Phaser.Physics.Arcade.Body | null));
-    for (const b of [ctx.player.body, ...ctx.enemies.list().map(e => e.body), ...boxes]) {
-      if (!b?.enable || !c.platform.carries(b)) continue;
+    for (const b of [ctx.player.body, ...ctx.enemies.list().map(e => e.body), ...ctx.solids.bodies('crate')]) {
+      if (!b.enable || !c.platform.carries(b)) continue;
       pushRiderOutOfWalls(b, T, solid);
     }
+  }
+
+  /** 人站在别人驮着的纸上、或者正在飘落的纸上（被纸带着走，脚下不是地形） */
+  ridingPaper(): boolean {
+    const b = this.ctx.player.body;
+    return this.carried.some(c => c.carrier !== this.ctx.player && c.platform.carries(b))
+      || [...this.falling.values()].some(p => p.carries(b));
   }
 
   /** 这一格的中心被哪块纸（驮着的、飘着的）盖住了：怪物在纸上巡逻时当地面 */

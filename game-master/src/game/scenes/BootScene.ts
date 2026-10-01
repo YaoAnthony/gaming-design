@@ -5,6 +5,7 @@ import { SCENE } from '@/game/bridge';
 import i18n from '@/i18n';
 import { FogOfWar } from '@/game/fog/Fog';
 import { buildWallTexture } from '@/game/terrain/walls';
+import { Colors, hex } from '@/game/palette';
 
 export class BootScene extends Phaser.Scene {
   constructor() { super(SCENE.boot); }
@@ -14,15 +15,15 @@ export class BootScene extends Phaser.Scene {
     const W = this.scale.width, H = this.scale.height;
     const barW = Math.min(320, W * 0.6), barH = 12, x = (W - barW) / 2, y = H / 2;
     const track = this.add.graphics();
-    track.fillStyle(0x0b0b14, 1).fillRect(x - 2, y - 2, barW + 4, barH + 4);
-    track.lineStyle(2, 0x9aa0b4, 0.8).strokeRect(x - 2, y - 2, barW + 4, barH + 4);
+    track.fillStyle(Colors.ink, 1).fillRect(x - 2, y - 2, barW + 4, barH + 4);
+    track.lineStyle(2, Colors.muted, 0.8).strokeRect(x - 2, y - 2, barW + 4, barH + 4);
     const fill = this.add.graphics();
-    const label = this.add.text(W / 2, y - 14, i18n.t('loading', { pct: 0 }), { fontSize: '14px', color: '#e6e8f0', fontFamily: '-apple-system, "PingFang SC", "Microsoft YaHei", sans-serif' }).setOrigin(0.5, 1);
+    const label = this.add.text(W / 2, y - 14, i18n.t('loading', { pct: 0 }), { fontSize: '14px', color: hex(Colors.text), fontFamily: '-apple-system, "PingFang SC", "Microsoft YaHei", sans-serif' }).setOrigin(0.5, 1);
     this.load.on(Phaser.Loader.Events.PROGRESS, (v: number) => {
-      fill.clear().fillStyle(0x4cc9f0, 1).fillRect(x, y, barW * v, barH);
+      fill.clear().fillStyle(Colors.sky, 1).fillRect(x, y, barW * v, barH);
       label.setText(i18n.t('loading', { pct: Math.round(v * 100) }));
     });
-    this.load.on(Phaser.Loader.Events.FILE_LOAD_ERROR, (f: Phaser.Loader.File) => label.setText(i18n.t('loadFailed', { key: f.key })).setColor('#ef476f'));
+    this.load.on(Phaser.Loader.Events.FILE_LOAD_ERROR, (f: Phaser.Loader.File) => label.setText(i18n.t('loadFailed', { key: f.key })).setColor(hex(Colors.rose)));
 
     SPRITESHEETS.forEach(s => this.load.spritesheet(s.key, s.url, { frameWidth: s.frameWidth, frameHeight: s.frameHeight }));
     IMAGES.forEach(i => this.load.image(i.key, i.url));

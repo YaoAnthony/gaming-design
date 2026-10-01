@@ -120,12 +120,19 @@ describe('重置时延迟连锁全图一起停', () => {
 });
 
 describe('整组平移（移动方块）', () => {
-  it('平移一格：材料跟着走；腾出来的格子上挂着的尖刺碎掉，靠它撑着的沙土掉下去', () => {
-    const { terrain } = make(['RRRRRRR', 'R.XS..R', 'R.rr..R', 'R.....R', 'RRRRRRR']);
+  it('平移一格：材料跟着走；腾出来的格子上挂着的尖刺旁边没墙就碎掉', () => {
+    const { terrain } = make(['RRRRRRR', 'R.X...R', 'R.rr..R', 'R.....R', 'RRRRRRR']);
     terrain.moveCells([{ x: 2, y: 2 }, { x: 3, y: 2 }], 1, 0);
     expect(terrain.grid[2].join('')).toBe('R..rr.R');
-    expect(terrain.grid[1][2]).toBe('.');              // 尖刺下面那格空了：碎掉
-    expect(terrain.chunks.map(ch => ch.cells.map(c => c.id).join(''))).toEqual([]);   // 沙土 (3,1) 下面还是碎岩（(3,2) 被右移的那块补上了）
+    expect(terrain.grid[1][2]).toBe('.');              // 尖刺下面那格空了、左右也没墙：碎掉
+  });
+
+  it('平移一格：尖刺旁边有沙土就改挂在沙土上；沙土下面被右移的那块补上，不掉', () => {
+    const { terrain } = make(['RRRRRRR', 'R.XS..R', 'R.rr..R', 'R.....R', 'RRRRRRR']);
+    terrain.moveCells([{ x: 2, y: 2 }, { x: 3, y: 2 }], 1, 0);
+    expect(terrain.grid[1][2]).toBe('X');
+    expect(terrain.hazardBoxes(2, 1)).toEqual([{ x: 20, y: 2, w: 12, h: 28 }]);   // 挂右边
+    expect(terrain.chunks.map(ch => ch.cells.map(c => c.id).join(''))).toEqual([]);
   });
 
   it('平移之后重置：按来源，挪走的方块回到原位，新位置清空', () => {
@@ -138,3 +145,34 @@ describe('整组平移（移动方块）', () => {
   });
 });
 
+
+describe('尖刺改挂在旁边', () => {
+  it('脚下被炸空、左边有墙：尖刺留着改挂左边，扎人的区域换成左边那一条', () => {
+    const { terrain } = make(['RRRRR', 'R...R', 'RRX.R', 'R.r.R', 'RRRRR']);
+    expect(terrain.hazardBoxes(2, 2)).toEqual([{ x: 2, y: 20, w: 28, h: 12 }]);   // 挂下面：底部那一条
+    terrain.destroyCellsForce([{ x: 2, y: 3 }]);
+    expect(terrain.grid[2][2]).toBe('X');
+    expect(terrain.hazardBoxes(2, 2)).toEqual([{ x: 0, y: 2, w: 12, h: 28 }]);
+  });
+
+  it('两边都有墙：左右各一条窄的；墙一边没了换成另一边，两边都没了才碎', () => {
+    const { terrain } = make(['RRRRR', 'R...R', 'RrXrR', 'R...R', 'RRRRR']);
+    expect(terrain.hazardBoxes(2, 2)).toHaveLength(2);
+    terrain.destroyCellsForce([{ x: 1, y: 2 }]);
+    expect(terrain.hazardBoxes(2, 2)).toEqual([{ x: 20, y: 2, w: 12, h: 28 }]);
+    terrain.destroyCellsForce([{ x: 3, y: 2 }]);
+    expect(terrain.grid[2][2]).toBe('.');
+  });
+});
+
+describe('引线穿过脆岩', () => {
+  it('烧不没，像被爆炸震到一样整块松脱掉下来', () => {
+    const { terrain } = make(['RRRRR', 'RBBBR', 'R...R', 'R...R', 'RRRRR']);
+    const path = [{ x: 1, y: 1 }, { x: 2, y: 1 }, { x: 3, y: 1 }];
+    terrain.burnCells(path);      // 和 Fuse.ignite 一样：先烧，再震
+    terrain.shake(path, 0);
+    expect(count(terrain, 'B')).toBe(3);
+    fall(terrain);
+    expect(terrain.grid[3].join('')).toBe('RBBBR');
+  });
+});

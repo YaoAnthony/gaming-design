@@ -2,7 +2,8 @@
 // 模式：Registry（注册表）+ Trait 组合（策略 / 特征）。
 // 地形、场景、编辑器只通过注册表查询"这个格子有什么能力"，不认识具体砖块字符。
 // 新增一种砖块 = 在 tiles.ts 里多写一个 defineTile / defineEntity，其他代码不用改。
-import type { Classified, EntityDef, EntitySpec, SkillDef, SkillSpec, TileCaps, TileDef, TileSpec, TileTrait, ItemDef, ItemSpec } from '@/type';
+import type { CellBox, Classified, EntityDef, EntitySpec, SkillDef, SkillSpec, SideMount, TileCaps, TileDef, TileSpec, TileTrait, ItemDef, ItemSpec } from '@/type';
+import type { DeathKey } from '@/i18n/keys';
 
 export class Registry<T extends { id: string; index: number }> {
   private defs = new Map<string, T>();
@@ -36,7 +37,7 @@ export class Registry<T extends { id: string; index: number }> {
 }
 
 const TILE_CAP_DEFAULTS: TileCaps = {
-  solid: false, anchor: false, destructible: false, blastSensitivity: 0, chainCollapse: false, looseOnBlast: false, floatSpeed: 0, rideable: false, chainDelayMs: 0, igniteAtEndsOnly: false, hazard: null, hazardBox: null, mounted: false, oneWay: false, boxPassThrough: false, crackTo: null, fireproof: false,
+  solid: false, anchor: false, destructible: false, blastSensitivity: 0, chainCollapse: false, looseOnBlast: false, floatSpeed: 0, rideable: false, chainDelayMs: 0, igniteAtEndsOnly: false, hazard: null, hazardBox: null, mounted: false, sideMount: null, oneWay: false, boxPassThrough: false, crackTo: null, fireproof: false,
 };
 
 /** 可复用的能力特征 */
@@ -56,10 +57,12 @@ export const Traits = {
   /** 只有链条两端能被点燃，中间段对爆炸免疫（导火索可以穿过危险区而不被误触） */
   EndsOnly: { igniteAtEndsOnly: true } as TileTrait,
   /** 碰到即死；box 是格内真正致命的区域（像素），不给就是整格 */
-  Hazard: (reason: string, box?: { x: number; y: number; w: number; h: number }): TileTrait => ({ hazard: reason, hazardBox: box ?? null }),
+  Hazard: (reason: DeathKey, box?: CellBox): TileTrait => ({ hazard: reason, hazardBox: box ?? null }),
   Hidden: { editorVisible: false } as TileTrait,
   /** 挂在下面那一格上：下面那格不再是实心（被炸、被烧、掉下去），它就一起碎掉 */
   Mounted: { mounted: true } as TileTrait,
+  /** 挂着的砖下面空了改挂在旁边：左边实心挂左边，右边实心挂右边，两边都实心挂两边；三边都空才碎（见 terrain/support.ts 的 mountSide） */
+  SideMount: (spec: SideMount): TileTrait => ({ sideMount: spec }),
   /** 单向平台：人和怪物只从上面踩得住，下面和侧面能穿过 */
   OneWay: { oneWay: true } as TileTrait,
   /** 箱子穿过去：箱子不跟它碰撞，站不住、推得过去 */

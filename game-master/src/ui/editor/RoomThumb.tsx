@@ -1,10 +1,10 @@
 import { useEffect, useRef } from 'react';
 import { classify } from '@/game/registry/registry';
 import { decodeFuse, FUSE_CHANNELS, fuseBit } from '@/game/fuse/channels';
+import { Colors, hex } from '@/game/palette';
 
 interface Props { rows: string[]; entities?: string[]; fuse?: string[]; doors?: string[]; keys?: string[]; colors?: Record<number, number>; roomW: number; roomH: number; scale?: number }
 
-const hex = (c: number) => '#' + c.toString(16).padStart(6, '0');
 
 /** 房间缩略图：每格一个色块，颜色来自注册表 */
 export function RoomThumb({ rows, entities, fuse, doors, keys, colors, roomW, roomH, scale = 3 }: Props) {
@@ -13,7 +13,7 @@ export function RoomThumb({ rows, entities, fuse, doors, keys, colors, roomW, ro
     const ctx = ref.current?.getContext('2d');
     if (!ctx) return;
     ctx.clearRect(0, 0, roomW * scale, roomH * scale);
-    ctx.fillStyle = '#141a2c'; ctx.fillRect(0, 0, roomW * scale, roomH * scale);
+    ctx.fillStyle = hex(Colors.deep); ctx.fillRect(0, 0, roomW * scale, roomH * scale);
     rows.forEach((row, y) => [...row].forEach((ch, x) => {
       const cls = classify(ch);
       if (cls.kind === 'tile' && cls.def.id === '.') return;

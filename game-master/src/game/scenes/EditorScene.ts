@@ -12,7 +12,8 @@ import { resizeGame } from '@/game/resize';
 import { addText, beginStroke, currentModel, paintCell, paintDoor, paintEntity, paintFogRect, paintFuse, paintKey, paintMover, removeText } from '@/redux/slices/editorSlice';
 import { canCarry, moverKind } from '@/game/mechanics/mover/kinds';
 import { TILE_FRAMES } from '@/asset';
-import { FOG_ZONE_COLORS } from '@/ui/editor/fogZones';
+import { FOG_ZONE_COLORS } from '@/game/fog/zones';
+import { Colors, hex } from '@/game/palette';
 
 export class EditorScene extends Phaser.Scene {
   private layer!: Phaser.Tilemaps.TilemapLayer;
@@ -54,7 +55,7 @@ export class EditorScene extends Phaser.Scene {
     // 画布 = 一个房间；试玩回来时尺寸可能被游戏场景改过
     resizeGame(this.game, model.roomW * T, model.roomH * T);
     this.cameras.main.setSize(model.roomW * T, model.roomH * T);
-    this.cameras.main.setBackgroundColor('#141a2c');
+    this.cameras.main.setBackgroundColor(hex(Colors.deep));
     this.cameras.main.setScroll(0, 0);
 
     const map = this.make.tilemap({ tileWidth: T, tileHeight: T, width: model.roomW, height: model.roomH });
@@ -134,7 +135,7 @@ export class EditorScene extends Phaser.Scene {
     const c = this.cellAt(p);
     this.cursor.setVisible(!!c);
     if (!c) return;
-    this.cursor.setStrokeStyle(this.state().picking ? 3 : 2, this.state().picking ? 0x80ed99 : 0xffffff, 0.9);   // 选起点时是绿框
+    this.cursor.setStrokeStyle(this.state().picking ? 3 : 2, this.state().picking ? Colors.mint : 0xffffff, 0.9);   // 选起点时是绿框
     this.cursor.setPosition(c.x * this.T, c.y * this.T);
     const key = this.key();
     const tile = classify(this.rows()[c.y]?.[c.x] ?? '.').def;
@@ -315,10 +316,10 @@ export class EditorScene extends Phaser.Scene {
     this.textLabels.forEach(t => t.destroy()); this.textLabels = [];
     blocks.forEach(b => {
       const sz = textSize(b.text);
-      this.textLayer.lineStyle(2, 0xffd166, 0.9);
+      this.textLayer.lineStyle(2, Colors.gold, 0.9);
       this.textLayer.strokeRect(b.x * T - 2, b.y * T - 2, sz.w * T + 4, sz.h * T + 4);
       const target = s.project.floors.find(f => f.id === b.target);
-      const label = this.add.text(b.x * T, b.y * T - 16, '→ ' + (target ? target.name : '?'), { fontSize: '12px', color: '#ffd166', backgroundColor: '#141a2ccc', padding: { x: 3, y: 1 } }).setDepth(2.7);
+      const label = this.add.text(b.x * T, b.y * T - 16, '→ ' + (target ? target.name : '?'), { fontSize: '12px', color: hex(Colors.gold), backgroundColor: '#141a2ccc', padding: { x: 3, y: 1 } }).setDepth(2.7);
       this.textLabels.push(label);
     });
   }
@@ -350,11 +351,11 @@ export class EditorScene extends Phaser.Scene {
       if (!kind) return;
       const cx = x * T + T / 2, cy = y * T + T / 2, a = T * 0.32, hd = T * 0.14;
       if (!canCarry(grid[y]?.[x])) {
-        g.lineStyle(3, 0xef476f, 0.95);
+        g.lineStyle(3, Colors.rose, 0.95);
         g.lineBetween(cx - a, cy - a, cx + a, cy + a); g.lineBetween(cx + a, cy - a, cx - a, cy + a);
         return;
       }
-      g.fillStyle(0x0b0b14, 0.45); g.fillRect(x * T + 2, y * T + 2, T - 4, T - 4);
+      g.fillStyle(Colors.ink, 0.45); g.fillRect(x * T + 2, y * T + 2, T - 4, T - 4);
       g.lineStyle(3, kind.color, 1); g.fillStyle(kind.color, 1);
       if (kind.axis === 'x') {
         g.lineBetween(cx - a, cy, cx + a, cy);

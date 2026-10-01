@@ -18,6 +18,7 @@ import type { FuseEnd } from '@/game/fuse/Fuse';
 import type { Enemy } from '@/sprite';
 import type { FuseBurnCell, Mechanic } from '../define';
 import { pressedByWeight } from './plates';
+import { Colors, hex } from '@/game/palette';
 
 interface Block {
   sprite: Phaser.Physics.Arcade.Image;
@@ -61,6 +62,8 @@ const CONTACT_PX = 2;
 const INSET = 1;
 /** Arcade 固定步长（秒）：对齐格子时按这个算"一帧正好走到"的速度 */
 const PHYSICS_STEP = 1 / 60;
+/** 掉下来的箱子要盖住对方头顶这么大比例的宽度才算砸中（人 24 像素宽 → 至少 8 像素） */
+const CRUSH_MIN_COVER = 1 / 3;
 /** 离目标格子不到这么多像素就算到了 */
 const SNAP_EPS = 0.05;
 
@@ -76,6 +79,7 @@ export class PushBlocks implements Mechanic {
 
   constructor(private ctx: PlayContext) {
     this.group = ctx.scene.physics.add.group();
+    ctx.solids.register(this.group, 'crate');   // 会动的地形（移动方块、纸）驮得住它
     ctx.scene.physics.add.collider(this.group, ctx.terrain.layer, undefined, ctx.terrain.blocksBoxes);   // 木板：箱子漏下去
     ctx.scene.physics.add.collider(this.group, this.group, undefined, syncDeltas);
   }
@@ -115,9 +119,6 @@ export class PushBlocks implements Mechanic {
     scene.physics.add.collider(player, this.group, undefined, syncDeltas);
     scene.physics.add.collider(enemies.group, this.group, undefined, this.enemyMeetsBox);
   }
-
-  /** 箱子要和会动的地形（移动方块）碰撞 */
-  terrainBodies(): Phaser.Physics.Arcade.Group[] { return [this.group]; }
 
   /** 格子被哪个箱子占着：箱子的碰撞框盖住了这一格的中心 */
   occupies(cx: number, cy: number): boolean {
@@ -168,6 +169,7 @@ export class PushBlocks implements Mechanic {
       if (!bb.blocked.down && !bb.touching.down) continue;                                                // 箱子在空中
       if (p.heightTiles + HEIGHT_TOLERANCE < bl.size) continue;                                           // 不够高
       if (!this.pathClear(bl, dir)) continue;                                                             // 前面挡住了
+      if (this.someoneAhead(bb, dir, CONTACT_PX)) continue;                                              // 前面顶着怪物：推不动，人也别跟着往里挤（不然人和箱子位移一样，物理引擎不分开，人会钻进箱子）
       bl.sprite.setVelocityX(dir * speed);
       p.setVelocityX(dir * speed);
       // 目标 = 推的方向上的下一条格线（已经在格线上就是再下一格）；松手后 update 会把这一格走完
@@ -232,11 +234,15 @@ export class PushBlocks implements Mechanic {
     if (!bb.blocked.down && !bb.touching.down) return false;                          // 箱子在空中
     if (eb.bottom <= bb.top + 2 || eb.top >= bb.bottom - 2) return false;              // 上下没对上（史莱姆站在箱子上 / 箱子压着它）
     if (dir > 0 ? eb.center.x >= bb.center.x : eb.center.x <= bb.center.x) return false;   // 不是朝箱子走
-    if (!this.pathClear(bl, dir) || this.someoneAhead(bb, dir, CONTACT_PX)) return false;
+    const left = bb.left - INSET;
+    const target = (dir > 0 ? Math.ceil((left + SNAP_EPS) / T) : Math.floor((left - SNAP_EPS) / T)) * T;
+    // 前面有没有人要看到目标格线为止，和 update 里箱子滑的那段路一样长：只看贴着的 2 像素的话，人在这段路上时
+    // update 已经让箱子停下，这里却还当作在推、不让史莱姆和箱子碰撞，史莱姆每帧往箱子里陷 1 像素；
+    // 陷得比 Arcade 一帧能分开的还深（约 5 像素），碰撞恢复了也推不出来，史莱姆就穿过箱子撞到人
+    if (!this.pathClear(bl, dir) || this.someoneAhead(bb, dir, Math.abs(target - left))) return false;
     bl.sprite.setVelocityX(dir * ctx.cfg.enemySpeed);
     bl.carrySpeed = ctx.cfg.enemySpeed;
-    const left = bb.left - INSET;
-    bl.target = (dir > 0 ? Math.ceil((left + SNAP_EPS) / T) : Math.floor((left - SNAP_EPS) / T)) * T;
+    bl.target = target;
     return true;
   }
 
@@ -272,7 +278,7 @@ export class PushBlocks implements Mechanic {
       const seen = new Set<string>(), ends: FuseEnd[] = [];
       pl.cells.forEach(c => ctx.fuses.endsNear(c, PLATE_FUSE_RADIUS, true).forEach(e => { const k = `${e.x},${e.y},${e.ch}`; if (!seen.has(k)) { seen.add(k); ends.push(e); } }));
       pl.cells.forEach(c => ctx.sparks.explode(4, c.x * T + T / 2, (c.y + 1) * T - 4));
-      if (ends.length && ctx.igniteFuses(ends)) ctx.fx.flash('msg.fuseLit', '#ff7b54');
+      if (ends.length && ctx.igniteFuses(ends)) ctx.fx.flash('msg.fuseLit', hex(Colors.ember));
     });
   }
 
@@ -284,8 +290,9 @@ export class PushBlocks implements Mechanic {
       const vy = Math.max(b.velocity.y, bl.lastVy);
       bl.lastVy = b.velocity.y;
       if (!b.enable || vy < ctx.cfg.crushMinSpeed) return;
+      // 箱子底边压到对方头顶，而且盖住头顶的一大块：只擦到一个角（几像素）不算，不然人明明不在箱子下面也被砸死
       const hits = (r: { x: number; y: number; width: number; height: number }) =>
-        b.bottom >= r.y - 2 && b.top < r.y && b.right > r.x + 2 && b.left < r.x + r.width - 2;   // 箱子底边压到对方头顶
+        b.bottom >= r.y - 2 && b.top < r.y && Math.min(b.right, r.x + r.width) - Math.max(b.left, r.x) >= r.width * CRUSH_MIN_COVER;
       if (!ctx.dead && !ctx.won && hits(ctx.player.body)) ctx.die('death.crushedByCrate');
       ctx.enemies.list().forEach(e => { if (hits(e.body)) ctx.enemies.kill(e); });
     });

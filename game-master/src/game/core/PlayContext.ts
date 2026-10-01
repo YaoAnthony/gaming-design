@@ -10,6 +10,9 @@ import type { Player } from '@/sprite';
 import type { SparkEmitter } from '@/particle';
 import type { StartGameData } from '@/game/bridge';
 import type { Mechanic } from '@/game/mechanics/define';
+import type { BossWin } from '@/redux/slices/progressSlice';
+import type { Solids } from './solids';
+import type { DeathKey, MsgKey } from '@/i18n/keys';
 import type { Dialogue } from './Dialogue';
 import type { Debris } from './Debris';
 import type { Enemies } from './Enemies';
@@ -35,6 +38,8 @@ export interface RoomApi {
   standingSpot(r: RoomCoord): Point;
   /** 立刻 / 平移镜头到这个房间 */
   enter(r: RoomCoord, instant: boolean): void;
+  /** 这个房间醒着吗（玩家这一局进过）：没醒的房间里，会自己动的东西原地等着 */
+  isAwake(r: RoomCoord): boolean;
 }
 
 export interface PlayContext {
@@ -71,8 +76,19 @@ export interface PlayContext {
   /** 统计 */
   stats: { jumps: number; destroyed: number };
   pushStats(): void;
+  /** 进度（这一局打赢过的 Boss）：机制不直接碰 store */
+  progress: {
+    bossWin(key: string): BossWin | null;
+    winBoss(key: string, win: BossWin): void;
+    forgetBoss(key: string): void;
+  };
+  /** 玩家设置的实时值（cfg 是进层时的快照）和改设置：滑块用 */
+  settings: {
+    config(): GameConfig;
+    setConfig(patch: Partial<GameConfig>): void;
+  };
 
-  die(reason: string): void;
+  die(reason: DeathKey): void;
   /** final = 真结束；否则是「假通关」，按一下继续玩 */
   win(final: boolean): void;
   /** 换层；给了 via（门的位置）就先来一段旋涡 */
@@ -82,7 +98,7 @@ export interface PlayContext {
 
   fx: {
     /** text 是 i18n key（msg.* / death.*），params 填进 {{…}} */
-    flash(text: string, color: string, params?: Record<string, unknown>): void;
+    flash(text: MsgKey, color: string, params?: Record<string, unknown>): void;
     popScore(x: number, y: number, n: number): void;
     /** 迷雾要重算（地形 / 光源变了） */
     fogDirty(): void;
@@ -107,6 +123,6 @@ export interface PlayContext {
   weighs(cx: number, cy: number): boolean;
   /** 这具身体站在会动的东西（移动方块、纸）上的话，那东西这一帧横着挪了多少像素；没站在上面 = 0 */
   platformShift(b: Phaser.Physics.Arcade.Body): number;
-  /** 让这组物理体和所有会和地形碰撞的东西碰撞（玩家、怪物、各机制的 terrainBodies）：会动的地形用 */
-  addTerrainCollider(group: Phaser.Physics.Arcade.Group): void;
+  /** 实心体登记：会动的实心地形（移动方块、纸）和要站在它们上面的东西（箱子、钥匙）都登记在这，碰撞器统一挂 */
+  solids: Solids;
 }

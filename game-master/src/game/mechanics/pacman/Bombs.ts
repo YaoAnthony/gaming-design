@@ -3,6 +3,7 @@ import type Phaser from 'phaser';
 import type { CellRef } from '@/type';
 import type { PlayContext } from '@/game/core/PlayContext';
 import type { GhostManager } from './Ghosts';
+import { Colors } from '@/game/palette';
 
 const FUSE_MS = 1500;
 /** 十字每个方向炸几格 */
@@ -67,7 +68,7 @@ export class Bombs {
       }
     }
     cells.forEach(c => {
-      const fx = ctx.scene.add.rectangle(c.x * T + T / 2, c.y * T + T / 2, T - 4, T - 4, 0xff9f1c).setDepth(7).setAlpha(0.95);
+      const fx = ctx.scene.add.rectangle(c.x * T + T / 2, c.y * T + T / 2, T - 4, T - 4, Colors.orange).setDepth(7).setAlpha(0.95);
       ctx.scene.tweens.add({ targets: fx, alpha: 0, scale: 0.6, duration: 380, ease: 'Quad.out', onComplete: () => fx.destroy() });
       ctx.sparks.explode(6, c.x * T + T / 2, c.y * T + T / 2);
     });

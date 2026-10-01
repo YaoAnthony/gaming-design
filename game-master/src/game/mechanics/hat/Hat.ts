@@ -8,6 +8,7 @@ import type { PlayContext, Suckable } from '@/game/core/PlayContext';
 import { INPUT_DOWN } from '@/game/input';
 import type { CarryOver } from '@/type';
 import { floorMechanicOf, type Mechanic } from '../define';
+import { Colors, hex } from '@/game/palette';
 
 interface GroundHat { sprite: Phaser.GameObjects.Image; /** 刚放下 / 刚被撞掉：人走开之前不能再戴 */ blocked: boolean }
 
@@ -88,7 +89,7 @@ export class Hat implements Mechanic {
     p.setExtraHeight(0);
     this.head?.destroy(); this.head = null;
     this.putOnGround(p.x, p.body.bottom, true);
-    if (why === 'knock') ctx.fx.flash('msg.hatKnocked', '#f1efe6');
+    if (why === 'knock') ctx.fx.flash('msg.hatKnocked', hex(Colors.paper));
   }
 
   /** 放一顶帽子到地上：从给定位置往下找到第一块实心砖，站在它上面 */

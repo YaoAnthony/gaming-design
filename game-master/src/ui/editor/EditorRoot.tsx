@@ -2,10 +2,11 @@
 import { App as AntApp, ConfigProvider, theme } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
 import { EditorView } from '../EditorView';
+import { Colors, hex } from '@/game/palette';
 
 export default function EditorRoot() {
   return (
-    <ConfigProvider locale={zhCN} theme={{ algorithm: theme.darkAlgorithm, token: { colorPrimary: '#4cc9f0', colorBgBase: '#0b0b14', borderRadius: 6 } }}>
+    <ConfigProvider locale={zhCN} theme={{ algorithm: theme.darkAlgorithm, token: { colorPrimary: hex(Colors.sky), colorBgBase: hex(Colors.ink), borderRadius: 6 } }}>
       <AntApp component={false}>
         <EditorView />
       </AntApp>

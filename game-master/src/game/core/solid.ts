@@ -6,7 +6,6 @@
 // 同一行相邻的格子只有上下两面的外露情况一样才并成一条：小船的船舱底那格顶面外露，两边船沿底下的格子顶面不外露，得分开。
 import Phaser from 'phaser';
 import type { CellRef } from '@/type';
-import { pushOutX } from '@/game/mechanics/carry/keyFall';
 
 export interface Faces { up: boolean; down: boolean; left: boolean; right: boolean }
 /** 一条横条：格坐标（和传进来的格子同一坐标系）、长度、哪几面外露 */
@@ -90,6 +89,20 @@ export function shiftUnder(b: Phaser.Physics.Arcade.Body, groups: Phaser.Physics
     return p.deltaX();
   }
   return 0;
+}
+
+/**
+ * 被带着撞进墙：碰撞框横跨两列、其中一列这一行是实心的另一列不是，就推回空的那一列里（贴着墙）。
+ * 返回推回去之后的左边 x；没穿进墙返回 null。left / width / top / bottom 是碰撞框（像素），solid(列, 行) 问地形
+ */
+export function pushOutX(left: number, width: number, top: number, bottom: number, tile: number, solid: (x: number, y: number) => boolean): number | null {
+  const xl = Math.floor(left / tile), xr = Math.floor((left + width - 0.01) / tile);
+  if (xl === xr) return null;   // 整个在一列里：左右都没碰到格线
+  for (let y = Math.floor((top + 1) / tile); y <= Math.floor((bottom - 1) / tile); y++) {
+    if (solid(xr, y) && !solid(xl, y)) return xr * tile - width;
+    if (solid(xl, y) && !solid(xr, y)) return (xl + 1) * tile;
+  }
+  return null;
 }
 
 /**

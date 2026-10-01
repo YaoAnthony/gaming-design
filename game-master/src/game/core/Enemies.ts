@@ -4,6 +4,7 @@ import type { EnemySpawn, RoomCoord } from '@/type';
 import { Enemy } from '@/sprite';
 import { playCrush } from '@/particle';
 import type { PlayContext } from './PlayContext';
+import { Colors, hex } from '@/game/palette';
 
 export class Enemies {
   readonly group: Phaser.Physics.Arcade.Group;
@@ -23,7 +24,7 @@ export class Enemies {
   kill(e: Enemy): void {
     if (!e.active) return;
     playCrush(this.ctx.sparks, e.x, e.y);
-    this.ctx.fx.flash('msg.monsterSquashed', '#9b5de5');
+    this.ctx.fx.flash('msg.monsterSquashed', hex(Colors.violet));
     e.destroy();
   }
 
@@ -40,12 +41,14 @@ export class Enemies {
     this.spawns.forEach(sp => this.spawn(sp));
   }
 
-  /** 巡逻；快速下落的碎块压扁它；碰到玩家 → 死 */
+  /** 巡逻（所在房间醒了才开始，见 Rooms.isAwake）；快速下落的碎块压扁它；碰到玩家 → 死 */
   update(): void {
     const { ctx } = this, cfg = ctx.cfg;
     const playerRect = ctx.player.rect();
     this.list().forEach(e => {
-      e.step(ctx.terrain, ctx.rooms.pxW, cfg.enemySpeed, (x, y) => ctx.terrain.isFooting(x, y) || this.ctx.debris.occupies(x, y));   // 纸上也能走
+      if (!e.awake && ctx.rooms.isAwake(ctx.rooms.of(e.body.center.x, e.body.center.y))) e.awake = true;
+      if (e.awake) e.step(ctx.terrain, ctx.rooms.pxW, cfg.enemySpeed, (x, y) => ctx.terrain.isFooting(x, y) || this.ctx.debris.occupies(x, y));   // 纸上也能走
+      else e.setVelocityX(0);   // 房间还没醒：原地等着（重力照常，脚下被烧空了照样掉）
       const r = e.rect();
       let crushed = false;
       ctx.terrain.forEachChunkCell((ch, cx, cy, w, h) => {

@@ -3,6 +3,7 @@ import '@/game/registry/tiles';
 import { WALL_GID, Terrain } from './Terrain';
 import { WALL_E, WALL_TEXTURE, WALL_VARIANTS, wallFrame, wallTemplates, wallVariant } from './walls';
 import { defineTile, Tiles, Traits } from '@/game/registry/registry';
+import { mountSide } from './support';
 
 // 测试专用：一种会连锁、只点两端、自动拼贴的砖块（游戏里没有，用来验证这些通用能力）
 defineTile({ id: 'T', name: '测试连锁砖', color: 0xffffff, frame: 5, gameFrame: 21, autotile: true }, Traits.Solid, Traits.Destructible(1), Traits.Chain, Traits.Delay(90), Traits.EndsOnly);
@@ -60,6 +61,49 @@ describe('Terrain.findUnmounted（尖刺挂在下面那一格上）', () => {
   it('尖刺注册了 mounted 能力，普通砖没有', () => {
     expect(Tiles.get('X')?.mounted).toBe(true);
     expect(Tiles.get('r')?.mounted).toBe(false);
+  });
+
+  it('下面空了但旁边有墙 → 改挂在旁边，不碎；墙也没了才碎', () => {
+    // (2,2) 尖刺，左边 (1,2) 是岩石；下面 (2,3) 刚被炸空
+    const g = grid(['RRRRR', 'R...R', 'RRX.R', 'R...R', 'RRRRR']);
+    expect(Terrain.findUnmounted(g, [{ x: 2, y: 3 }])).toEqual([]);
+    g[2][1] = '.';   // 左边的墙也没了
+    expect(Terrain.findUnmounted(g, [{ x: 1, y: 2 }])).toEqual([{ x: 2, y: 2 }]);
+  });
+});
+
+describe('mountSide（尖刺挂在哪）', () => {
+  const grid = (rows: string[]) => rows.map(r => r.split(''));
+  const side = (rows: string[]) => mountSide(grid(rows), 1, 1);
+
+  it('下面实心挂下面（默认），不管左右', () => {
+    expect(side(['...', '.X.', '.R.'])).toBe('down');
+    expect(side(['...', 'RXR', '.R.'])).toBe('down');
+  });
+
+  it('下面空：左边实心挂左边，右边实心挂右边，两边实心挂两边', () => {
+    expect(side(['...', 'RX.', '...'])).toBe('left');
+    expect(side(['...', '.XR', '...'])).toBe('right');
+    expect(side(['...', 'RXR', '...'])).toBe('both');
+  });
+
+  it('三边都空（上面有墙不算）→ 挂不住', () => {
+    expect(side(['.R.', '.X.', '...'])).toBe(null);
+  });
+
+  it('旁边是尖刺、木板这类不实心的不算墙；地图外面也不算', () => {
+    expect(side(['...', 'XX.', '...'])).toBe(null);
+    expect(side(['...', '_X_', '...'])).toBe(null);
+    expect(side(['...', '.X.', '._.'])).toBe('down');   // 木板上面照样能挂
+    expect(mountSide(grid(['X.', '..']), 0, 0)).toBe(null);
+  });
+
+  it('选帧：挂旁边用对应的侧挂帧，编辑器里也一样；挂下面用原来那帧', () => {
+    const f = Tiles.get('X')!.sideMount!.frames;
+    expect(Terrain.frameAt(grid(['...', 'RX.', '...']), 1, 1)).toBe(f.left);
+    expect(Terrain.frameAt(grid(['...', '.XR', '...']), 1, 1, 'editor')).toBe(f.right);
+    expect(Terrain.frameAt(grid(['...', 'RXR', '...']), 1, 1)).toBe(f.both);
+    expect(Terrain.frameAt(grid(['...', 'RXR', '.R.']), 1, 1)).toBe(Tiles.get('X')!.frame);
   });
 });
 
@@ -219,6 +263,12 @@ describe('引线烧岩石：先裂成碎岩，再烧才没', () => {
     expect(Terrain.burnedTo('r', true)).toBe('.');
     expect(Terrain.burnedTo('.', true)).toBe('.');
     expect(Terrain.burnedTo('X', true)).toBe('X');
+  });
+
+  it('脆岩防火：普通火、紫火都烧不没它（只会被震松）', () => {
+    expect(Tiles.get('B')?.fireproof).toBe(true);
+    expect(Terrain.burnedTo('B')).toBe('B');
+    expect(Terrain.burnedTo('B', true)).toBe('B');
   });
 
   it('碎岩人能炸（岩石不能），也还是锚点、撑得住别的砖', () => {

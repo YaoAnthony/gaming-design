@@ -1,40 +1,42 @@
 // ===== 游戏场景：只做编排 =====
-// 核心：地形、碎块、怪物、引线、迷雾、房间与镜头、死亡 / 重置 / 通关、存档、按键。
-// 玩法都在 game/mechanics/ 里：一个层机制（这一层怎么动）+ 若干通用机制（Boss、钥匙、角色……），
-// 这里按生命周期调用它们的钩子，不认识具体机制。
+// 核心部件各管一摊（game/core/）：地形、碎块、怪物、引线、迷雾、房间与镜头（Rooms）、死亡与重置（Respawn）、
+// 长大仪式（Growth）、攥纸团（CrumpleFx）、按键（GameInput）。玩法都在 game/mechanics/ 里：一个层机制（这一层怎么动）
+// + 若干通用机制（Boss、钥匙、角色……），这里按生命周期调用它们的钩子，不认识具体机制。
 import Phaser from 'phaser';
-import type { AppearReason, CarryOver, CellRef, CoreHost, EnemySpawn, EntryState, Floor, GameConfig, Point, Project, RoomCoord, WorldModel } from '@/type';
+import type { CarryOver, CellRef, CoreHost, EnemySpawn, Floor, GameConfig, Point, Project, WorldModel } from '@/type';
 import { classify } from '@/game/registry/registry';
 import { Terrain } from '@/game/terrain/Terrain';
 import { entityRows, fogRows, fuseRows, roomKeyAt, worldRows } from '@/game/world/WorldModel';
 import { FuseNet } from '@/game/fuse/Fuse';
 import { FogOfWar } from '@/game/fog/Fog';
-import { bridge, EVT, SCENE, type CrumpleDone, type StartGameData } from '@/game/bridge';
+import { bridge, EVT, SCENE, type StartGameData } from '@/game/bridge';
 import { Player } from '@/sprite';
 import { createSparkEmitter, type SparkEmitter } from '@/particle';
 import { store } from '@/redux/store';
 import { resizeGame } from '@/game/resize';
-import { INPUT_DOWN, touch, TOUCH_ACTION, TOUCH_JUMP } from '@/game/input';
-import { padAction, readPads } from '@/game/gamepad';
 import { Music } from '@/game/Music';
 import { DEFAULT_MUSIC } from '@/asset';
-import { flash, setBoss, setControls, setDialogue, setMode, setPlace, setRoomKey, setScore, setStats } from '@/redux/slices/hudSlice';
+import { flash, setBoss, setControls, setDialogue, setMode, setPlace, setScore, setStats } from '@/redux/slices/hudSlice';
+import { forgetBoss, resetProgress, winBoss } from '@/redux/slices/progressSlice';
+import { setConfig } from '@/redux/slices/configSlice';
 import { mapText, tr } from '@/i18n';
-import { resetProgress } from '@/redux/slices/progressSlice';
-import { floorMechanicOf, globalMechanicsOf, type FloorMechanic, type FuseBurnCell, type Mechanic, type MechanicDef, type MoveInput } from '@/game/mechanics/define';
+import { floorMechanicOf, globalMechanicsOf, type FloorMechanic, type FuseBurnCell, type Mechanic, type MechanicDef } from '@/game/mechanics/define';
 import type { PlayContext } from '@/game/core/PlayContext';
 import { Dialogue } from '@/game/core/Dialogue';
 import { Enemies } from '@/game/core/Enemies';
 import { Debris } from '@/game/core/Debris';
 import { shiftUnder } from '@/game/core/solid';
-import { standingSpot, touchingHazard } from '@/game/core/rooms';
+import { Solids } from '@/game/core/solids';
+import { Rooms } from '@/game/core/Rooms';
+import { Respawn } from '@/game/core/Respawn';
+import { Growth } from '@/game/core/Growth';
+import { CrumpleFx } from '@/game/core/CrumpleFx';
+import { GameInput } from '@/game/core/GameInput';
+import { standingSpot, touchingHazard } from '@/game/core/roomSpots';
 import { buildBackground } from '@/game/core/backdrop';
 import { applySceneFx, type SceneFx } from '@/game/core/sceneFx';
 import { vortex } from '@/game/core/vortex';
-import { playRespawnHand } from '@/game/core/respawnHand';
-import { MAX_STAGE, STAGE_EXTRA } from '@/sprite/Player';
-
-type PressKey = 'SPACE' | 'UP' | 'W' | 'touch';
+import { Colors, hex } from '@/game/palette';
 
 export class GameScene extends Phaser.Scene {
   private startData!: StartGameData;
@@ -54,46 +56,30 @@ export class GameScene extends Phaser.Scene {
   private fuses!: FuseNet;
   private fog: FogOfWar | null = null;
   private fogTile = { x: -1, y: -1 };
+  /** 上次算迷雾时人是不是正被骷髅手拎着：拎着路过迷雾区不揭开，落地那一帧要重算一次 */
+  private fogCarried = false;
   private fogDirty = true;
   /** 画面效果（暗角、微尘） */
   private sceneFx!: SceneFx;
   private player!: Player;
   private enemies!: Enemies;
   private debris!: Debris;
+  private solids!: Solids;
   private sparks!: SparkEmitter;
   private music!: Music;
   private dialogue!: Dialogue;
-  private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
-  /** 上一帧「下」是不是按着：只在按下的那一刻发 INPUT_DOWN */
-  private downHeld = false;
-  private keys!: Record<'A' | 'D' | 'W' | 'S', Phaser.Input.Keyboard.Key>;
+  private rooms!: Rooms;
+  private respawn!: Respawn;
+  private growth!: Growth;
+  private crumple!: CrumpleFx;
+  private controls!: GameInput;
 
   private spawnPoints: Point[] = [];
-  private roomW = 20; private roomH = 20; private roomPxW = 640; private roomPxH = 640;
-  private room: RoomCoord = { rx: 0, ry: 0 };
-  private entry: EntryState = { x: 0, y: 0, vx: 0, vy: 0 };
-  private prevEntry: EntryState | null = null;
-  private lastResetAt: number | null = null;
-
-  private dead = false;
-  private diedAt = 0;
   private won = false;
   /** 通关画面是不是真的结束（否则按一下继续玩） */
   private wonFinal = false;
-  /** 假通关的仪式进行中：进场后先长大，长完才弹通关。期间不响应输入 */
-  private growing = false;
-  private growTween: Phaser.Tweens.Tween | null = null;
-  /** 回到出生点的时刻：落地（或最多等 1 秒）后开始长；null = 还在淡出、没回到出生点 */
-  private growSince: number | null = null;
   /** 正在切层（淡出中），不再响应输入 */
   private leaving = false;
-  /** 出场动画中（骷髅手把人放进来）：人冻着，不响应输入、R，也不会死 */
-  private respawning = false;
-  /** 第四面墙特效放着 / 已经冻住了 */
-  private crumpling = false;
-  private crumpleFrozen = false;
-  /** 特效放完要做的事 */
-  private crumpleAfter: ((fadeMs: number) => void) | null = null;
   private stats = { jumps: 0, destroyed: 0 };
 
   constructor() { super(SCENE.game); }
@@ -104,11 +90,10 @@ export class GameScene extends Phaser.Scene {
     this.project = data.project;
     this.floor = (data.floorId && this.project.floors.find(f => f.id === data.floorId)) || this.project.floors[0];
     this.mechs = []; this.mechById = new Map();
-    this.fog = null; this.fogTile = { x: -1, y: -1 }; this.fogDirty = true;
+    this.fog = null; this.fogTile = { x: -1, y: -1 }; this.fogDirty = true; this.fogCarried = false;
     this.spawnPoints = [];
     this.stats = { jumps: data.stats?.jumps ?? 0, destroyed: data.stats?.destroyed ?? 0 };
-    this.dead = false; this.won = false; this.wonFinal = false; this.leaving = false; this.growing = false; this.growTween = null; this.respawning = false;
-    this.prevEntry = null; this.lastResetAt = null;
+    this.won = false; this.wonFinal = false; this.leaving = false;
   }
 
   create(): void {
@@ -123,14 +108,12 @@ export class GameScene extends Phaser.Scene {
     this.model = model;
 
     // ---- 画布 = 一个房间；每层房间尺寸可以不同 ----
-    this.roomW = model.roomW; this.roomH = model.roomH;
-    this.roomPxW = this.roomW * T; this.roomPxH = this.roomH * T;
-    resizeGame(this.game, this.roomPxW, this.roomPxH);
-    this.cameras.main.setSize(this.roomPxW, this.roomPxH);
+    const roomPxW = model.roomW * T, roomPxH = model.roomH * T;
+    resizeGame(this.game, roomPxW, roomPxH);
+    this.cameras.main.setSize(roomPxW, roomPxH);
     this.cameras.main.setZoom(1).setRotation(0);
 
     // ---- 地形：地图本身就是"原始状态"（R 重置用） ----
-    const rows = worldRows(model);
     this.terrain = new Terrain({
       scene: this,
       onChunkFall: ch => this.debris.onChunkFall(ch),
@@ -140,7 +123,7 @@ export class GameScene extends Phaser.Scene {
       occupied: (x, y) => this.mechs.some(m => m.occupies?.(x, y)),
       onChunkRemoved: ch => this.debris.onChunkRemoved(ch),
       drawnElsewhere: (x, y) => this.mechs.some(m => m.drawsCell?.(x, y)),
-    }, rows, { tile: T, explosionRadius: this.cfg.explosionRadius, chunkGravity: this.cfg.chunkGravity, chunkMaxFall: this.cfg.chunkMaxFall });
+    }, worldRows(model), { tile: T, explosionRadius: this.cfg.explosionRadius, chunkGravity: this.cfg.chunkGravity, chunkMaxFall: this.cfg.chunkMaxFall });
     const levelW = this.terrain.w * T, levelH = this.terrain.h * T;
     this.physics.world.setBounds(0, 0, levelW, levelH);
     buildBackground(this, levelW, levelH);
@@ -148,7 +131,7 @@ export class GameScene extends Phaser.Scene {
     if (this.cfg.sceneFx.shadow) this.terrain.enableShadow(4, 5, 0.35);
     if (this.cfg.sceneFx.depth) this.terrain.enableShading();
     const fxRooms = model.layout.flatMap((row, ry) => row.flatMap((key, rx) => (key ? [{
-      x: rx * this.roomPxW, y: ry * this.roomPxH, w: this.roomPxW, h: this.roomPxH, key, dark: !!model.roomFlags?.[key]?.fog,
+      x: rx * roomPxW, y: ry * roomPxH, w: roomPxW, h: roomPxH, key, dark: !!model.roomFlags?.[key]?.fog,
     }] : [])));
     this.sceneFx = applySceneFx(this, this.cfg.sceneFx, fxRooms, T);
     this.fuses = new FuseNet(this, fuseRows(model), { tile: T, delayMs: this.cfg.fuseDelayMs, light: (x, y) => this.sceneFx.light(x, y, 'ember') });
@@ -158,7 +141,7 @@ export class GameScene extends Phaser.Scene {
     const zones = fogRows(model);
     if (darkRooms.size || zones.some(r => /[^.]/.test(r))) {
       this.fog = new FogOfWar(this, this.terrain.grid, zones.map(r => r.split('')), {
-        tile: T, roomW: this.roomW, roomH: this.roomH, radius: this.cfg.fogRadius, memoryAlpha: this.cfg.fogMemoryAlpha, unseenAlpha: this.cfg.fogUnseenAlpha,
+        tile: T, roomW: model.roomW, roomH: model.roomH, radius: this.cfg.fogRadius, memoryAlpha: this.cfg.fogMemoryAlpha, unseenAlpha: this.cfg.fogUnseenAlpha,
         keyAt: (rx, ry) => roomKeyAt(model, rx, ry), darkRooms,
       });
     }
@@ -166,6 +149,23 @@ export class GameScene extends Phaser.Scene {
     this.sparks = createSparkEmitter(this);
     this.music = new Music(this, this.cfg.musicVolume, this.floor.music ?? DEFAULT_MUSIC);
     this.dialogue = new Dialogue(() => ({ y: this.player.y - this.cameras.main.scrollY, h: this.cameras.main.height }));
+    this.rooms = new Rooms({ scene: this, cfg: this.cfg, model, terrain: this.terrain, fog: () => this.fog, fx: () => this.sceneFx });
+    this.respawn = new Respawn({
+      scene: this, cfg: this.cfg, rooms: this.rooms, terrain: this.terrain, fuses: this.fuses, dialogue: this.dialogue, sparks: this.sparks,
+      player: () => this.player, enemies: () => this.enemies, debris: () => this.debris, mechs: () => this.mechs,
+      busy: () => this.leaving || this.growth.growing,
+      flash: (text, color) => this.flash(text, color),
+      fogDirty: () => { this.fogDirty = true; },
+      setMode: mode => store.dispatch(setMode({ mode, playtest: this.playtest })),
+    });
+    this.growth = new Growth({
+      scene: this, cfg: this.cfg, rooms: this.rooms, respawn: this.respawn, terrain: this.terrain, fuses: this.fuses,
+      player: () => this.player, enemies: () => this.enemies, mechs: () => this.mechs, spawnPoint: () => this.spawnPoints[0] ?? null,
+      announce: () => this.flash(mapText(this.floor.name), hex(Colors.gold)),
+      fogDirty: () => { this.fogDirty = true; },
+    });
+    this.crumple = new CrumpleFx(this, () => this.dialogue.end());
+    this.solids = new Solids(this, () => ({ player: this.player, enemies: this.enemies.group }));
     this.ctx = this.buildContext();
     this.enemies = new Enemies(this.ctx);
     this.debris = new Debris(this.ctx);
@@ -173,8 +173,6 @@ export class GameScene extends Phaser.Scene {
     // ---- 机制实例 ----
     defs.forEach(d => { const m = d.create(this.ctx, baked.get(d.id)); this.mechs.push(m); this.mechById.set(d.id, m); });
     this.floorMech = this.mechs[0] as FloorMechanic;
-    // 纸（被驮着的、飘着的）是实心的：怪物、箱子、钥匙都站得住、撞得到（玩家的碰撞器带「纸压头不挡」的判断，放玩家后面挂）
-    [this.enemies.group, ...this.mechs.flatMap(m => m.terrainBodies?.() ?? [])].forEach(o => this.physics.add.collider(o, this.debris.platforms));
 
     // ---- 物件：每个字符问注册表；属于机制的交给机制实例，核心物件交给场景 ----
     const core: CoreHost = { addSpawnPoint: p => this.spawnPoints.push(p), addEnemy: (sp: EnemySpawn) => this.enemies.addSpawn(sp) };
@@ -183,24 +181,24 @@ export class GameScene extends Phaser.Scene {
       if (cls.kind !== 'entity') return;
       const target = cls.def.mechanic ? this.mechById.get(cls.def.mechanic) : core;
       if (!target) return;   // 机制没在这一层启用（比如平台层里放了豆子）
-      cls.def.spawn(target, { x: x * T + T / 2, y: y * T + T / 2, cell: { x, y, rx: Math.floor(x / this.roomW), ry: Math.floor(y / this.roomH) } });
+      cls.def.spawn(target, { x: x * T + T / 2, y: y * T + T / 2, cell: { x, y, rx: Math.floor(x / model.roomW), ry: Math.floor(y / model.roomH) } });
     }));
 
     // ---- 玩家：读档入口 > 指定起始房间（里面的出生点，否则找个能站的地方）> 全图出生点 > 兜底 ----
     const startRoom = this.startData.startRoom ?? null;
     let start: Point | null = this.startData.entry ?? null;
-    if (!start && startRoom) start = this.spawnPoints.find(p => this.sameRoom(this.roomOf(p.x, p.y), startRoom)) ?? standingSpot(this.terrain, startRoom, this.roomW, this.roomH, this.cfg.playerHeight);
+    if (!start && startRoom) start = this.spawnPoints.find(p => this.rooms.same(this.rooms.of(p.x, p.y), startRoom)) ?? standingSpot(this.terrain, startRoom, model.roomW, model.roomH, this.cfg.playerHeight);
     start ??= this.spawnPoints[0] ?? { x: 2 * T, y: 4 * T };
     this.player = new Player(this, start.x, start.y, this.cfg);
     if (this.startData.stage) this.player.setStage(this.startData.stage);   // 上一层已经长大了：带过来
     if (this.startData.entry) this.player.setVelocity(this.startData.entry.vx, this.startData.entry.vy);
     this.physics.world.gravity.y = this.floorMech.gravity ?? this.cfg.gravity;
     if (this.floorMech.collideTerrain) this.physics.add.collider(this.player, this.terrain.layer, undefined, this.terrain.landsOnOneWay);
-    this.physics.add.collider(this.player, this.debris.platforms, undefined, this.debris.hitsPlayer);
+    this.solids.start();   // 玩家有了：把登记过的实心体（移动方块、纸、箱子、钥匙）的碰撞器都挂上
 
     this.cameras.main.setBounds(0, 0, levelW, levelH);
-    this.entry = { x: start.x, y: start.y, vx: 0, vy: 0 };
-    this.enterRoom(this.roomOf(start.x, start.y), true);
+    this.respawn.entry = { x: start.x, y: start.y, vx: 0, vy: 0 };
+    this.rooms.enter(this.rooms.of(start.x, start.y), true);
 
     // ---- HUD（机制 start 里可能会改，比如吃豆人显示分数） ----
     store.dispatch(setMode({ mode: 'playing', playtest: this.playtest }));
@@ -209,18 +207,28 @@ export class GameScene extends Phaser.Scene {
     store.dispatch(setStats(this.stats));
 
     this.mechs.forEach(m => m.start?.());
-    this.mechs.forEach(m => m.onRoomChanged?.(this.room));
+    this.mechs.forEach(m => m.onRoomChanged?.(this.rooms.current));
 
-    this.bindInput();
+    this.controls = new GameInput(this, {
+      press: key => { if (this.respawn.respawning) return; if (this.won) this.continueAfterWin(); else this.floorMech.onPress(key, this.time.now); },
+      // 换层（旋涡、淡出）和长大的过程中不响应 R：重置会清掉它们正在等的计时器和镜头，画面就卡在半路
+      reset: () => { if (this.won || this.leaving || this.growth.growing || this.respawn.respawning || this.crumple.active) return; if (this.respawn.dead) this.respawn.resetAfterDeath(); else this.requestRoomReset(); },
+      continueGame: () => { if (this.won) this.continueAfterWin(); },
+      restartRun: () => this.restartRun(),
+      nextLevel: () => this.fakeNextLevel(),
+      exitPlaytest: () => { if (this.playtest) this.exitPlaytest(); },
+      crumpleFreeze: () => this.crumple.freeze(),
+      crumpleDone: d => this.crumple.end(d),
+    }, this.playtest);
     // 玩家出场：换层带着 origin（这一局早就开始了），没有就是这一局的第一次出现
-    this.appear(this.startData.origin ? 'floor' : 'start');
+    this.respawn.appear(this.startData.origin ? 'floor' : 'start');
 
     this.music.playBase();
     let lastVol = this.cfg.musicVolume;
     const unsubVol = store.subscribe(() => { const v = store.getState().config.musicVolume; if (v !== lastVol) { lastVol = v; this.music.setVolume(v); } });
     if (this.startData.announceFloor) {
       this.cameras.main.fadeIn(350, 0, 0, 0);
-      this.flash(mapText(this.floor.name), '#ffd166');
+      this.flash(mapText(this.floor.name), hex(Colors.gold));
     }
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.mechs.forEach(m => m.destroy?.());
@@ -231,37 +239,29 @@ export class GameScene extends Phaser.Scene {
   }
 
   private get playtest(): boolean { return !!this.startData.playtest; }
+  /** 人不归玩家管的时候：死了、通关画面、换层、长大仪式、出场动画 */
+  private get frozen(): boolean { return this.respawn.dead || this.won || this.leaving || this.growth.growing || this.respawn.respawning; }
 
   // ---------- 给机制用的上下文 ----------
   private buildContext(): PlayContext {
     // eslint-disable-next-line @typescript-eslint/no-this-alias -- 上下文里的 getter 要读场景的当前值
     const s = this;
-    const rooms: PlayContext['rooms'] = {
-      get current() { return s.room; },
-      get w() { return s.roomW; }, get h() { return s.roomH; }, get pxW() { return s.roomPxW; }, get pxH() { return s.roomPxH; },
-      of: (x, y) => this.roomOf(x, y),
-      same: (a, b) => this.sameRoom(a, b),
-      key: r => roomKeyAt(this.model, r.rx, r.ry),
-      flag: (r, flag) => { const k = roomKeyAt(this.model, r.rx, r.ry); return !!k && !!this.model.roomFlags?.[k]?.[flag]; },
-      standingSpot: r => standingSpot(this.terrain, r, this.roomW, this.roomH, this.cfg.playerHeight),
-      enter: (r, instant) => this.enterRoom(r, instant),
-    };
     return {
       scene: this, cfg: this.cfg, project: this.project, floor: this.floor, model: this.model, start: this.startData,
-      terrain: this.terrain, fuses: this.fuses, fog: this.fog, sparks: this.sparks, music: this.music, dialogue: this.dialogue, rooms,
+      terrain: this.terrain, fuses: this.fuses, fog: this.fog, sparks: this.sparks, music: this.music, dialogue: this.dialogue, rooms: this.rooms,
       get player() { return s.player; },
       get enemies() { return s.enemies; },
       get debris() { return s.debris; },
-      get dead() { return s.dead; },
+      get dead() { return s.respawn.dead; },
       get won() { return s.won; },
       get leaving() { return s.leaving; },
-      get appearing() { return s.respawning; },
+      get appearing() { return s.respawn.respawning; },
       get playtest() { return s.playtest; },
-      get entry() { return s.entry; },
-      set entry(e) { s.entry = e; },
+      get entry() { return s.respawn.entry; },
+      set entry(e) { s.respawn.entry = e; },
       stats: this.stats,
       pushStats: () => store.dispatch(setStats({ ...this.stats })),
-      die: reason => this.die(reason),
+      die: reason => this.respawn.die(reason),
       win: final => this.win(final),
       goToFloor: (id, via) => this.goToFloor(id, via),
       igniteFuses: ends => this.fuses.ignite(ends, this.terrain, cells => this.onFuseBurn(cells)),
@@ -275,74 +275,26 @@ export class GameScene extends Phaser.Scene {
         score: n => store.dispatch(setScore(n)),
         boss: v => store.dispatch(setBoss(v)),
       },
+      progress: {
+        bossWin: key => store.getState().progress.bossWins[key] ?? null,
+        winBoss: (key, win) => store.dispatch(winBoss({ key, win })),
+        forgetBoss: key => store.dispatch(forgetBoss(key)),
+      },
+      settings: {
+        config: () => store.getState().config,
+        setConfig: patch => store.dispatch(setConfig(patch)),
+      },
       mech: <T extends Mechanic>(id: string) => this.mechById.get(id) as T | undefined,
       blocked: (cx, cy) => cx < 0 || cy < 0 || cx >= this.terrain.w || cy >= this.terrain.h || this.terrain.isSolid(cx, cy) || this.blockedByMechanics(cx, cy),
       blockedByMechanics: (cx, cy) => this.blockedByMechanics(cx, cy),
       occupied: (cx, cy) => this.mechs.some(m => m.occupies?.(cx, cy)),
       weighs: (cx, cy) => this.mechs.some(m => m.weighs?.(cx, cy)),
-      platformShift: b => shiftUnder(b, [this.debris.platforms, ...this.mechs.flatMap(m => m.carrierBodies?.() ?? [])]),
-      addTerrainCollider: group => {
-        const others = [this.player, this.enemies.group, ...this.mechs.flatMap(m => m.terrainBodies?.() ?? [])];
-        others.forEach(o => this.physics.add.collider(o, group));
-      },
+      platformShift: b => shiftUnder(b, this.solids.groups('platform')),
+      solids: this.solids,
     };
   }
 
   private blockedByMechanics(cx: number, cy: number): boolean { return this.mechs.some(m => m.blocks?.(cx, cy)); }
-
-  // ---------- 按键 ----------
-  private bindInput(): void {
-    const kb = this.input.keyboard!;
-    this.cursors = kb.createCursorKeys();
-    this.keys = kb.addKeys({ A: 'A', D: 'D', W: 'W', S: 'S' }) as GameScene['keys'];
-    const press = (key: PressKey) => { if (this.respawning) return; if (this.won) this.continueAfterWin(); else this.floorMech.onPress(key, this.time.now); };
-    const touchPress = () => press('touch');
-    kb.on('keydown-SPACE', () => press('SPACE'));
-    kb.on('keydown-UP', () => press('UP'));
-    kb.on('keydown-W', () => press('W'));
-    bridge.on(TOUCH_JUMP, touchPress); bridge.on(TOUCH_ACTION, touchPress);
-    // 换层（旋涡、淡出）和长大的过程中不响应 R：重置会清掉它们正在等的计时器和镜头，画面就卡在半路
-    const reset = () => { if (this.won || this.leaving || this.growing || this.respawning || this.crumpling) return; if (this.dead) this.resetAfterDeath(); else this.requestRoomReset(); };
-    kb.on('keydown-R', reset);
-    const requestReset = () => { if (this.dead && !this.won) this.resetAfterDeath(); };
-    const continueGame = () => { if (this.won) this.continueAfterWin(); };
-    const restartGame = () => this.restartRun();
-    const nextLevel = () => this.fakeNextLevel();
-    bridge.on(EVT.requestReset, requestReset); bridge.on(EVT.continueGame, continueGame); bridge.on(EVT.restartGame, restartGame); bridge.on(EVT.nextLevel, nextLevel);
-    const exitPlaytest = () => { if (this.playtest) this.exitPlaytest(); };
-    if (this.playtest) kb.on('keydown-ESC', exitPlaytest);
-    bridge.on(EVT.requestPlaytestExit, exitPlaytest);
-    // 手柄按钮：和对应的键盘键做同样的事（映射表在 game/gamepad.ts）；方向在 readInput 里读
-    const onPad = (_pad: Phaser.Input.Gamepad.Gamepad, button: Phaser.Input.Gamepad.Button) => {
-      const action = padAction(button.index);
-      if (action === 'jump') press('SPACE');
-      else if (action === 'reset') reset();
-      else if (action === 'exit') exitPlaytest();
-    };
-    this.input.gamepad?.on(Phaser.Input.Gamepad.Events.BUTTON_DOWN, onPad);
-    const crumpleFreeze = () => this.freezeForCrumple();
-    const crumpleDone = (d: CrumpleDone) => this.endCrumple(d);
-    bridge.on(EVT.crumpleFreeze, crumpleFreeze); bridge.on(EVT.crumpleDone, crumpleDone);
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
-      this.input.gamepad?.off(Phaser.Input.Gamepad.Events.BUTTON_DOWN, onPad);
-      bridge.off(EVT.requestPlaytestExit, exitPlaytest);
-      bridge.off(EVT.crumpleFreeze, crumpleFreeze); bridge.off(EVT.crumpleDone, crumpleDone);
-      bridge.off(TOUCH_JUMP, touchPress); bridge.off(TOUCH_ACTION, touchPress);
-      bridge.off(EVT.requestReset, requestReset); bridge.off(EVT.continueGame, continueGame); bridge.off(EVT.restartGame, restartGame); bridge.off(EVT.nextLevel, nextLevel);
-      touch.left = false; touch.right = false; touch.up = false; touch.down = false;
-    });
-  }
-
-  /** 上下左右：键盘（方向键、WASD）、触屏、手柄（左摇杆、十字键）任何一个按着都算 */
-  private readInput(): MoveInput {
-    const c = this.cursors, k = this.keys, pad = readPads(this.input.gamepad);
-    return {
-      left: c.left.isDown || k.A.isDown || touch.left || pad.left,
-      right: c.right.isDown || k.D.isDown || touch.right || pad.right,
-      up: c.up.isDown || k.W.isDown || touch.up || pad.up,
-      down: c.down.isDown || k.S.isDown || touch.down || pad.down,
-    };
-  }
 
   // ---------- 每帧 ----------
   update(time: number, delta: number): void {
@@ -353,22 +305,21 @@ export class GameScene extends Phaser.Scene {
     this.dialogue.update(time);
     this.mechs.forEach(m => m.update?.(time, dt));
     this.updateFog();
-    if (this.growing && this.growSince !== null && !this.growTween && (this.player.onGround || time - this.growSince > 1000)) this.startGrowth();   // 回到出生点、落了地再开始长
-    if (this.dead || this.won || this.leaving || this.growing || this.respawning) return;
+    this.growth.update(time);   // 回到出生点、落了地再开始长
+    if (this.frozen) return;
 
-    const r = this.roomOf(this.player.x, this.player.y);
-    if (!this.sameRoom(r, this.room)) { this.onRoomChanged(r); this.updateFog(); }   // 同一帧把新房间的迷雾画好，不给它露脸的机会
+    const r = this.rooms.of(this.player.x, this.player.y);
+    if (!this.rooms.same(r, this.rooms.current)) { this.respawn.onRoomChanged(r); this.updateFog(); }   // 同一帧把新房间的迷雾画好，不给它露脸的机会
 
-    const input = this.readInput();
-    if (input.down && !this.downHeld) this.events.emit(INPUT_DOWN);   // 往下按了一下（摘帽子）：只在按下的那一刻发
-    this.downHeld = input.down;
+    const input = this.controls.read();
+    this.controls.pollDown(input);
     this.floorMech.move(input, time, this.dialogue.talking);   // 对话中站着别动
     this.debris.handlePlayerContact();
-    if (this.dead) return;
+    if (this.respawn.dead) return;
     const hazard = touchingHazard(this.terrain, this.player.body);
-    if (hazard) { this.die(hazard); return; }
+    if (hazard) { this.respawn.die(hazard); return; }
     for (const m of this.mechs) {
-      if (this.dead || this.won || this.leaving) break;
+      if (this.frozen) break;
       m.updateAlive?.(time, dt);
     }
   }
@@ -378,195 +329,23 @@ export class GameScene extends Phaser.Scene {
     const now = this.time.now;
     const T = this.cfg.tile, b = this.player.body;
     const tx = Math.floor(b.center.x / T), ty = Math.floor(b.center.y / T);
-    if (tx !== this.fogTile.x || ty !== this.fogTile.y || this.fogDirty) {
-      this.fogTile = { x: tx, y: ty }; this.fogDirty = false;
-      this.fog.compute(tx, ty, now);
+    const carried = this.respawn.respawning;   // 复活时被骷髅手拎着走：路过的迷雾区不算踏进去
+    if (tx !== this.fogTile.x || ty !== this.fogTile.y || this.fogDirty || carried !== this.fogCarried) {
+      this.fogTile = { x: tx, y: ty }; this.fogDirty = false; this.fogCarried = carried;
+      this.fog.compute(tx, ty, now, !carried);
     }
     this.fog.draw(now);
   }
 
-  // ---------- 房间 ----------
-  private roomOf(x: number, y: number): RoomCoord { return { rx: Math.floor(x / this.roomPxW), ry: Math.floor(y / this.roomPxH) }; }
-  private sameRoom(a: RoomCoord, b: RoomCoord): boolean { return a.rx === b.rx && a.ry === b.ry; }
-
-  private enterRoom(r: RoomCoord, instant: boolean): void {
-    this.room = r;
-    this.fog?.setRoom(r);
-    const sx = r.rx * this.roomPxW, sy = r.ry * this.roomPxH;
-    this.sceneFx.setRoom(sx, sy, this.roomPxW, this.roomPxH);
-    this.tweens.killTweensOf(this.cameras.main);
-    if (instant) this.cameras.main.setScroll(sx, sy);
-    else this.tweens.add({ targets: this.cameras.main, scrollX: sx, scrollY: sy, duration: this.cfg.roomPanMs, ease: 'Sine.out' });
-    store.dispatch(setRoomKey(roomKeyAt(this.model, r.rx, r.ry) ?? '?'));
-  }
-
-  /** 进入新房间：记录入口状态（位置 + 速度），重置时回到这里；顺便存档 */
-  private onRoomChanged(r: RoomCoord): void {
-    const p = this.player, T = this.cfg.tile;
-    // 重置点 = 进来的第一格的中心（离边缘半格）：人不到一格宽，整个在房间里；再往里就会落到第二格，那里可能是陷阱。
-    // Boss 房封门时会自己把复活点改到封门处，不用在这里为它留余量
-    const nx = Phaser.Math.Clamp(p.x, r.rx * this.roomPxW + T * 0.5, (r.rx + 1) * this.roomPxW - T * 0.5);
-    const ny = Phaser.Math.Clamp(p.y, r.ry * this.roomPxH + T * 0.5, (r.ry + 1) * this.roomPxH - T * 0.5);
-    this.prevEntry = this.entry;
-    this.entry = { x: nx, y: ny, vx: p.body.velocity.x, vy: p.body.velocity.y };
-    this.enterRoom(r, false);
-    this.mechs.forEach(m => m.onRoomChanged?.(r));
-  }
-
-  // ---------- 重置 ----------
-  /**
-   * 重置前把"正在发生"的东西清掉：对话、镜头、火花，以及各机制的临时物体。
-   * 整张图重置还清掉所有计时器和碎块平台；只重置一个房间时，别的房间里正在烧的引线、在掉的碎块、被驮着的纸照常进行
-   * （地形和引线的计时器由它们自己的 resetRect 按房间取消，机制的计时器由机制在 onClear 里自己取消）
-   */
-  private clearTransient(scope: 'room' | 'world'): void {
-    this.dialogue.end();
-    this.mechs.forEach(m => m.onClear?.());
-    if (scope === 'world') this.time.removeAllEvents();
-    this.tweens.killTweensOf(this.cameras.main);
-    this.cameras.main.shakeEffect.reset();
-    this.sparks.killAll();
-    if (scope === 'world') this.debris.clear();
-    else this.debris.clearRoom(this.room.rx * this.roomW, this.room.ry * this.roomH, this.roomW, this.roomH);
-  }
-
-  /** R：当前房间的地形、引线、怪物恢复，玩家回到入口。revive = 死了之后的复活 */
-  /** @param appearDelayMs 人多久之后才由骷髅手放进来（这段时间藏着，等画面淡入） */
-  private resetRoom(revive = false, appearDelayMs = 0): void {
-    this.clearTransient('room');
-    const x0 = this.room.rx * this.roomW, y0 = this.room.ry * this.roomH;
-    this.terrain.resetRect(x0, y0, this.roomW, this.roomH);
-    this.fuses.resetRect(x0, y0, this.roomW, this.roomH);
-    this.enemies.resetRoom(this.room);
-    this.mechs.forEach(m => m.onReset?.('room'));
-    this.respawn('msg.roomReset', revive ? 'death' : 'reset', appearDelayMs);
-  }
-
-  /**
-   * 重置整张地图（死亡、按 R，config.deathResetsWorld 开着时）：所有房间的地形、引线、怪物、箱子、钥匙恢复，开过的门关回来，
-   * 玩家回到重置点；探索记忆保留。机制可以改复活点（Boss 重演）。appearDelayMs 同 resetRoom
-   */
-  private resetWorld(revive = false, appearDelayMs = 0): void {
-    this.clearTransient('world');
-    this.terrain.resetRect(0, 0, this.terrain.w, this.terrain.h);
-    this.fuses.resetRect(0, 0, this.terrain.w, this.terrain.h);
-    this.enemies.resetAll();
-    let moved: EntryState | null = null;
-    this.mechs.forEach(m => { const e = m.onReset?.('world'); if (e) moved = e; });
-    if (moved) {
-      this.entry = moved; this.prevEntry = null;
-      const r = this.roomOf(this.entry.x, this.entry.y);
-      if (!this.sameRoom(r, this.room)) this.enterRoom(r, true);
-    }
-    this.respawn('msg.mapReset', revive ? 'death' : 'reset', appearDelayMs);
-  }
-
-  /** 重置之后玩家回到复活点。delayMs > 0：人（连同帽子、手上的东西）先藏起来冻着，过这么久再出现 */
-  private respawn(message: string, reason: AppearReason, delayMs = 0): void {
-    this.dead = false;
-    this.fogDirty = true;
-    this.flash(message, '#9ad1ff');
-    if (delayMs <= 0) { this.appear(reason); return; }
-    this.respawning = true;   // 藏着的时候不响应按键、不会死、不换房间
-    this.player.freeze(0xffffff); this.player.clearTint(); this.player.setVisible(false);
-    this.time.delayedCall(delayMs, () => {
-      this.respawning = false;
-      this.player.setVisible(true);
-      this.appear(reason);
-    });
-  }
-
-  /**
-   * 玩家出现在 this.entry（开局、换层、复活、R、进入下一关都走这里）。
-   * config.respawnHandOn[reason] 开着就由骷髅手捏着放进来：放下之前人冻着、不响应输入、不会死；关着就直接出现。
-   * then = 落地、能动了之后
-   */
-  private appear(reason: AppearReason, then?: () => void): void {
-    const entry = this.entry;
-    const land = () => { this.player.respawn(entry); this.lastResetAt = this.time.now; this.fogDirty = true; then?.(); };
-    if (this.cfg.respawnHandMs <= 0 || !this.cfg.respawnHandOn[reason]) { land(); return; }
-    this.respawning = true;
-    const x0 = this.room.rx * this.roomPxW;
-    playRespawnHand(this, this.player, entry, { tile: this.cfg.tile, durationMs: this.cfg.respawnHandMs, roomLeft: x0, roomRight: x0 + this.roomPxW }, () => {
-      this.respawning = false;
-      land();
-    });
-  }
-
-  /** 死亡画面里按 R（或点一下）：按设置重置整张地图或当前房间 */
-  private resetAfterDeath(): void {
-    if (!this.dead || this.time.now - this.diedAt < 300) return;   // 刚死的一瞬间不响应，免得误触
-    if (this.cfg.deathResetsWorld) this.resetWorld(true); else this.resetRoom(true);
-    store.dispatch(setMode({ mode: 'playing' }));
-  }
-
-  // ---------- 第四面墙：整个画面被攥成纸团 ----------
+  // ---------- 重置（活着按 R） ----------
   /** R 键重置房间：config.resetCrumple 开着就先放攥纸团特效，纸团扔掉后重置，新房间淡入完再把人放下来 */
   private requestRoomReset(): void {
-    const reset = (fadeMs = 0) => this.cfg.deathResetsWorld ? this.resetWorld(false, fadeMs) : this.resetRoom(false, fadeMs);
-    if (this.cfg.resetCrumple && this.crumpleWorld(reset)) return;
+    const reset = (fadeMs = 0) => this.respawn.resetByConfig(fadeMs);
+    if (this.cfg.resetCrumple && !this.frozen && this.crumple.start(reset)) return;
     reset();
   }
 
-  /**
-   * 放攥纸团特效（React 的 CrumpleOverlay）：游戏照常跑，骷髅手先伸进来；手碰到画面时特效发 EVT.crumpleFreeze，这里才冻住；
-   * 纸团扔掉后特效发 EVT.crumpleDone，这里恢复并调 after(fadeMs)（fadeMs = 新画面淡入要多久）。
-   * grab = 攥住的位置（画面的比例坐标）。没放成（状态不对、没有挂特效层）返回 false
-   */
-  crumpleWorld(after?: (fadeMs: number) => void, grab = { x: 0.5, y: 0.5 }): boolean {
-    if (this.crumpling || this.dead || this.won || this.leaving || this.growing || this.respawning) return false;
-    if (bridge.listenerCount(EVT.crumple) === 0) return false;
-    this.crumpling = true;
-    this.crumpleAfter = after ?? null;
-    bridge.emit(EVT.crumple, { grab });
-    return true;
-  }
-
-  /**
-   * 冻住：场景暂停、声音停；等下一帧画完，把游戏画布原样复制一份交给特效。
-   * 特效把它当成纸，摆在原位和冻住的画面一模一样，换上去看不出来
-   */
-  private freezeForCrumple(): void {
-    if (this.crumpleFrozen) return;
-    this.crumpling = true; this.crumpleFrozen = true;
-    this.dialogue.end();
-    this.sound.pauseAll();
-    this.scene.pause();
-    this.game.events.once(Phaser.Core.Events.POST_RENDER, () => {
-      const src = this.game.canvas, image = document.createElement('canvas');
-      image.width = src.width; image.height = src.height;
-      image.getContext('2d')!.drawImage(src, 0, 0);   // 刚画完、还没交给浏览器合成，WebGL 画布这时读得到
-      bridge.emit(EVT.crumpleFrozen, { image });
-    });
-  }
-
-  private endCrumple(d: CrumpleDone): void {
-    if (!this.crumpling) return;
-    this.crumpling = false;
-    if (this.crumpleFrozen) { this.crumpleFrozen = false; this.sound.resumeAll(); this.scene.resume(); }
-    const after = this.crumpleAfter;
-    this.crumpleAfter = null;
-    after?.(d.fadeMs);
-  }
-
-  // ---------- 死亡 / 通关 / 换层 ----------
-  private die(reason: string): void {
-    if (this.dead || this.leaving || this.growing || this.respawning) return;   // 换层、进入下一关（淡出 + 长大）的过程中人是冻住的，不会死
-    this.dead = true;
-    this.dialogue.end();
-    // 刚重置就死 = 入口本身致命 → 退回上一个房间的入口
-    if (this.lastResetAt != null && this.time.now - this.lastResetAt < 400 && this.prevEntry) {
-      this.entry = this.prevEntry; this.prevEntry = null;
-      const r = this.roomOf(this.entry.x, this.entry.y);
-      if (!this.sameRoom(r, this.room)) this.enterRoom(r, false);
-    }
-    this.player.freeze(0xef476f);
-    this.flash(reason, '#ef476f');
-    this.cameras.main.shake(200, 0.01);
-    this.diedAt = this.time.now;
-    store.dispatch(setMode({ mode: 'dead' }));
-  }
-
+  // ---------- 通关 / 下一关 / 换层 ----------
   /** final=false 是"假通关"：按一下继续玩；final=true 是最后一层的真结束 */
   private win(final: boolean): void {
     if (this.won) return;
@@ -585,57 +364,18 @@ export class GameScene extends Phaser.Scene {
     store.dispatch(setMode({ mode: 'playing', playtest: this.playtest }));
   }
 
-  /**
-   * 假通关弹窗里点「进入下一关」：像换了一层，其实是画面淡出、整张地图复原（同死亡重置）、人回到本层出生点；
-   * 淡入后站着不动，身体长高一阶（1 → 1.5 → 2 格，startGrowth），长完就能动，再玩一次。期间不响应输入
-   */
+  /** 假通关弹窗里点「进入下一关」：像换了一层，其实是整张地图复原、人回到出生点、长高一阶再玩一次（Growth） */
   private fakeNextLevel(): void {
-    if (!this.won || this.wonFinal || this.growing || this.leaving || this.dead || this.player.stage >= MAX_STAGE) return;
+    if (!this.won || this.wonFinal || this.leaving || this.respawn.dead || !this.growth.canGrow) return;
     this.won = false;
     store.dispatch(setMode({ mode: 'playing', playtest: this.playtest }));
-    this.growing = true; this.growTween = null; this.growSince = null;
-    const cam = this.cameras.main;
-    cam.fadeOut(350, 0, 0, 0);
-    cam.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
-      this.clearTransient('world');
-      this.terrain.resetRect(0, 0, this.terrain.w, this.terrain.h);
-      this.fuses.resetRect(0, 0, this.terrain.w, this.terrain.h);
-      this.enemies.resetAll();
-      this.mechs.forEach(m => m.onReset?.('level'));
-      // 出生点是格子中心：身体已经比一格高了，按脚底贴着那一格的底边放，别陷进地板
-      const spawn = this.spawnPoints[0] ?? this.entry, feet = spawn.y + this.cfg.tile / 2;
-      this.entry = { x: spawn.x, y: feet - this.player.displayHeight / 2, vx: 0, vy: 0 }; this.prevEntry = null;
-      const r = this.roomOf(spawn.x, spawn.y);
-      if (!this.sameRoom(r, this.room)) this.enterRoom(r, true);
-      this.mechs.forEach(m => m.onRoomChanged?.(this.room));   // 出生房间里有 Boss 之类的，重新开始
-      this.fogDirty = true;
-      // 放回出生点（骷髅手放下来，或者直接出现），落了地再冻住长大
-      this.appear('level', () => { this.growSince = this.time.now; });
-      cam.fadeIn(350, 0, 0, 0);
-      this.flash(mapText(this.floor.name), '#ffd166');
-    });
-  }
-
-  /** 长大动画：冻住，长高一阶（多 STAGE_EXTRA 格）；长完把复活点记在长大后的身体中心（脚底不变），解冻继续玩 */
-  private startGrowth(): void {
-    this.player.freeze(0xffffff); this.player.clearTint();
-    const from = this.player.stage, to = Math.min(MAX_STAGE, from + 1);
-    this.growTween = this.tweens.addCounter({
-      from: from * STAGE_EXTRA, to: to * STAGE_EXTRA, delay: 500, duration: this.cfg.growMs, ease: 'Sine.easeInOut',
-      onUpdate: tw => this.player.setGrowth(tw.getValue() ?? 0),
-      onComplete: () => {
-        this.player.setStage(to);
-        this.growing = false; this.growTween = null;
-        this.entry = { x: this.player.x, y: this.player.y, vx: 0, vy: 0 };
-        this.player.unfreeze();
-      },
-    });
+    this.growth.begin();
   }
 
   /** 换层。给了 via（门的位置）就先来一段旋涡：画面转着拉近门，人和东西都被吸进去 */
   private goToFloor(id: string, via?: Point): void {
     if (this.leaving) return;
-    if (!this.project.floors.some(f => f.id === id)) { this.flash('msg.noFloor', '#ef476f'); return; }
+    if (!this.project.floors.some(f => f.id === id)) { this.flash('msg.noFloor', hex(Colors.rose)); return; }
     this.leaving = true;
     this.dialogue.end();
     this.player.freeze(0xffffff);
@@ -691,4 +431,3 @@ export class GameScene extends Phaser.Scene {
     this.tweens.add({ targets: t, y: y - 28, alpha: 0, duration: 900, ease: 'Sine.out', onComplete: () => t.destroy() });
   }
 }
-

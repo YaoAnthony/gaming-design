@@ -1,8 +1,9 @@
 // ===== 通关礼花：motion 驱动的彩纸爆炸（从画面下方往上喷，再落下淡出） =====
 import { useMemo } from 'react';
 import { motion } from 'motion/react';
+import { Colors, hex } from '@/game/palette';
 
-const COLORS = ['#ffd166', '#4cc9f0', '#ef476f', '#06d6a0', '#9b5de5', '#ff9f1c', '#ffffff'];
+const COLORS = [hex(Colors.gold), hex(Colors.sky), hex(Colors.rose), hex(Colors.green), hex(Colors.violet), hex(Colors.orange), '#ffffff'];
 
 interface Piece { id: number; x: number; y: number; rot: number; color: string; size: number; delay: number; duration: number; shape: 'rect' | 'dot' }
 

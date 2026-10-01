@@ -77,7 +77,11 @@
     "Floor 3": "第三层",
     "Foundry": "铸造厂",
     "Floor 4": "第四层",
-    "Conveyor": "传送带"
+    "Conveyor": "传送带",
+    "Floor 5": "第五层",
+    "Paper Mill": "造纸坊",
+    "Floor 6": "第六层",
+    "Fuse Works": "引线工坊"
   },
   "touch": {
     "up": "上",

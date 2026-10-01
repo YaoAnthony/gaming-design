@@ -3,6 +3,7 @@
 import { defineItem } from '@/game/registry/registry';
 import { defineMechanic } from '../define';
 import { Carry } from './Carry';
+import { Colors } from '@/game/palette';
 
 const carry = defineMechanic({
   id: 'carry', name: '携带', desc: '手上一个位置：碰到就捡，拿了新的旧的留在原地',
@@ -15,6 +16,6 @@ const carry = defineMechanic({
 const candle = defineItem({ id: 'candle', name: '蜡烛', texture: 'candle', light: 8 });
 
 carry.entity({
-  id: 'C', name: '蜡烛', desc: '地上的蜡烛。捡起来拿在右手，周围 8 格被照亮', texture: 'candle', color: 0xffd166, origin: [0.5, 1],
+  id: 'C', name: '蜡烛', desc: '地上的蜡烛。捡起来拿在右手，周围 8 格被照亮', texture: 'candle', color: Colors.gold, origin: [0.5, 1],
   spawn: (c, at) => c.addItem(candle, at.x, at.y),
 });

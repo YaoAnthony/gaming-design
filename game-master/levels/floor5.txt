@@ -1,0 +1,118 @@
+# ===== 第五层「造纸坊」 =====
+# 一张纸只能用一次，它落在哪，就变成什么：
+#   落进缺口 = 桥（怪物能走过去）；怪物站在纸上时把纸震松 = 电梯（连怪物一起慢慢降下去）；落到怪物头上 = 帽子 = 船。
+# 起承转合：
+#   A 起「桥」（教学，不会死）：楼下一只怪物来回走，被一道带刺的缺口挡住。缺口那边有把钥匙，再往前是个洞，洞底是门。
+#     缺口正上方、走廊地板底下挂着一张纸。在走廊上那几格起跳把纸震下来，纸填平缺口，怪物就走过去，
+#     把钥匙推进洞里，整列门一格格打开，走廊尽头的门也开了。
+#   B 承「电梯」：走廊地板底下是一条只有一格高的地下室，怪物在里面来回走，中间三格地板是纸，纸下面是关着钥匙的刺沟。
+#     怪物正好站在纸上时起跳：纸像电梯一样载着它慢慢降进沟底的凹槽，它在沟里把钥匙推到门上。
+#     纸上没怪物时震下来，地下室就多了个洞，怪物走到洞边就掉头，再也下不去了（R 重来）。
+#   C 转「帽子」：A 里纸落到怪物头上是失败，这里反过来：一条跳不过去的尖刺沟，沟底一只怪物。
+#     看准怪物过来时把纸震下去给它戴上，跳到纸上，它驮你过沟，钻进对面的矮门洞，下到 D。
+#   D + E 合「摆渡」（两屋联动）：城堡在一条跨两个房间的尖刺河对岸，河里没有怪物。三张纸，三种用法，顺序有讲究：
+#     1. 地下室的纸 = 电梯：在走廊上把怪物送进河里（它落进河底和地面齐平的凹槽）。
+#     2. 左边小平台底下的纸 = 桥：河在左头有道缺口，怪物到那里就掉头。站在小平台上起跳把纸放进去。
+#     3. 码头边的纸 = 船：站在码头最左边，等怪物走过来时放，跳上去，它驮你过桥、进 E，到城堡的岸边。
+#     船那张纸放早了（河里还没怪物、或者怪物不在底下），它会落在码头前面挡住河，怪物再也到不了码头。
+#     没搭桥就上船也不要紧：怪物到缺口掉头，把你送回码头，下船去搭桥再来。
+floor claude5
+name Floor 5
+place Paper Mill
+size 24 16
+group 1 #ffd166
+group 2 #06d6a0
+group 3 #ef476f
+layout
+ABC
+.ED
+
+room A
+RRRRRRRRRRRRRRRRRRRRRRRR
+RRRRRRRRRRRRRRRRRRRRRRRR
+R.P..................!..
+R....................!..
+R....................!..
+RRRRRRRRRRRRRRRRRRRRR!RR
+RRRRRR....ZZ.........!RR
+RRRRRR...............!RR
+RRRRRR.M........1....!RR
+RRRRRRRRRRXXRRRRRRR..!RR
+RRRRRRRRRRRRRRRRRRR!!!RR
+RRRRRRRRRRRRRRRRRRRRRRRR
+RRRRRRRRRRRRRRRRRRRRRRRR
+RRRRRRRRRRRRRRRRRRRRRRRR
+RRRRRRRRRRRRRRRRRRRRRRRR
+RRRRRRRRRRRRRRRRRRRRRRRR
+
+room B
+RRRRRRRRRRRRRRRRRRRRRRRR
+RRRRRRRRRRRRRRRRRRRRRRRR
+....................@...
+....................@...
+....................@...
+RRRRRRRRRRRRRRRRRRRR@RRR
+RRRRRR......M..RRRRR@RRR
+RRRRRRRRRZZZRRRRRRRR@RRR
+RRRRRRRRR...RRRRRRRR@RRR
+RRRRRR..............@RRR
+RRRRRR..............@RRR
+RRRRRRXXX...XXXXX2XX@RRR
+RRRRRRRRRXXXRRRRRRRRRRRR
+RRRRRRRRRRRRRRRRRRRRRRRR
+RRRRRRRRRRRRRRRRRRRRRRRR
+RRRRRRRRRRRRRRRRRRRRRRRR
+
+room C
+RRRRRRRRRRRRRRRRRRRRRRRR
+RRRRRRRRRRRRRRRRRRRRRRRR
+..............RRRRRRRRRR
+..............RRRRRRRRRR
+..............RRRRRRRRRR
+RRRRRRRRR.....RRRRRRRRRR
+RRRRRZZZ......RRR......R
+RRRRR.........RRR......R
+RRRRR.........RRR......R
+RRRRR..................R
+RRRRR......M..........RR
+RRRRRXXXXXXXXXXRRRRR..RR
+RRRRRRRRRRRRRRRRRRRR..RR
+RRRRRRRRRRRRRRRRRRRR..RR
+RRRRRRRRRRRRRRRRRRRR..RR
+RRRRRRRRRRRRRRRRRRRR..RR
+
+room D
+RRRRRRRRRRRRRRRRRRRR..RR
+RRRRRRRRRRRRRRRRRRRR..RR
+R......................R
+R......................R
+R......................R
+R....RRRRRRRRRRRRRR....R
+R....R....M..R.........R
+RRRRRRRZZZRRRR.......RRR
+RRZZRRR...RRRR.......RRR
+...........ZZZ.....RRRRR
+...................RRRRR
+..............RRRRRRRRRR
+XX..XXX...XXXXRRRRRRRRRR
+RRXXRRRXXXRRRRRRRRRRRRRR
+RRRRRRRRRRRRRRRRRRRRRRRR
+RRRRRRRRRRRRRRRRRRRRRRRR
+
+room E
+RRRRRRRRRRRRRRRRRRRRRRRR
+RRRRRRRRRRRRRRRRRRRRRRRR
+RRRRRRRRRRRRRRRRRRRRRRRR
+RRRRRRRRRRRRRRRRRRRRRRRR
+RRRRRRRRRRRRRRRRRRRRRRRR
+RRRRRRRRRRRRRRRRRRRRRRRR
+RRRRRRRRRRRRRRRRRRRRRRRR
+RRRRRRRRRRRRRRRRRRRRRRRR
+RRRRRRRRRRRRRRRRRRRRRRRR
+R.......................
+R.......................
+R.......T...............
+RRRRRRRRRRRRRRRRRRRRXXXX
+RRRRRRRRRRRRRRRRRRRRRRRR
+RRRRRRRRRRRRRRRRRRRRRRRR
+RRRRRRRRRRRRRRRRRRRRRRRR

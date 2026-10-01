@@ -2,7 +2,6 @@
 // 层机制（scope: 'floor'）：决定这一层怎么玩，每层一个，接管玩家移动和按键。平台跳、吃豆人……
 // 通用机制（scope: 'global'）：哪一层都能用，默认地图里出现它的物件就自动启用。Boss、钥匙、滑块……
 // 新机制 = mechanics/ 下一个文件夹 + mechanics/index.ts 里一行 import，GameScene 不用改。
-import type Phaser from 'phaser';
 import type { CarryOver, EntitySpec, Floor, SpawnAt, WorldModel } from '@/type';
 import { defineEntity, Entities, Registry } from '@/game/registry/registry';
 import type { PlayContext, Suckable } from '@/game/core/PlayContext';
@@ -26,10 +25,6 @@ export interface Mechanic {
   weighs?(cx: number, cy: number): boolean;
   /** 这一格的砖由机制自己画、自己做碰撞（比如正在移动的方块），地形的瓦片层不放它 */
   drawsCell?(cx: number, cy: number): boolean;
-  /** 机制自己的、要和地形碰撞的物理体（比如箱子）：别的机制做出来的"会动的地形"也要和它们碰撞 */
-  terrainBodies?(): Phaser.Physics.Arcade.Group[];
-  /** 会驮着东西横着走的物理体组（移动方块）：站在上面的箱子对齐格子时要跟着它挪 */
-  carrierBodies?(): Phaser.Physics.Arcade.Group[];
   /** 进入新房间（进层时也会对出生房间调用一次） */
   onRoomChanged?(r: { rx: number; ry: number }): void;
   /** 重置前：清掉正在进行的东西（临时物体、还没出场的 Boss） */

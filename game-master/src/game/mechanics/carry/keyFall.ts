@@ -41,16 +41,4 @@ export function freeCellAbove(solid: (x: number, y: number) => boolean, x: numbe
   return null;
 }
 
-/**
- * 被带着撞进墙：碰撞框横跨两列、其中一列这一行是实心的另一列不是，就推回空的那一列里（贴着墙）。
- * 返回推回去之后的左边 x；没穿进墙返回 null。left / width / top / bottom 是碰撞框（像素），solid(列, 行) 问地形
- */
-export function pushOutX(left: number, width: number, top: number, bottom: number, tile: number, solid: (x: number, y: number) => boolean): number | null {
-  const xl = Math.floor(left / tile), xr = Math.floor((left + width - 0.01) / tile);
-  if (xl === xr) return null;   // 整个在一列里：左右都没碰到格线
-  for (let y = Math.floor((top + 1) / tile); y <= Math.floor((bottom - 1) / tile); y++) {
-    if (solid(xr, y) && !solid(xl, y)) return xr * tile - width;
-    if (solid(xl, y) && !solid(xr, y)) return (xl + 1) * tile;
-  }
-  return null;
-}
+export { pushOutX } from '@/game/core/solid';   // 被带进墙里推回墙外：移动方块、纸上的人和箱子也用，所以放在 core

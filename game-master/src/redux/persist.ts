@@ -1,5 +1,7 @@
-// localStorage 持久化：编辑器项目（多层）、试玩起始状态、玩家自己的设置（音量）
+// localStorage 持久化：编辑器项目（多层）、试玩起始状态、上次写入 / 载入的文件指纹、玩家自己的设置（音量、语言）
+// 所有要存的东西都经这里，别的地方不直接碰 localStorage
 import type { EditorState, PlayLoadout } from './slices/editorSlice';
+import type { SettingsState } from './slices/settingsSlice';
 import type { GameConfig, Project, RoomCoord, WorldModel } from '@/type';
 import { asProject, roomKeyAt } from '@/game/world/WorldModel';
 import { DEFAULT_WORLD_HASH } from '@/game/world/defaultWorld';
@@ -10,6 +12,8 @@ export interface PersistedState {
   editor?: Partial<EditorState> & { model?: WorldModel };   // model 是旧格式（单层）
   /** 玩家自己的设置（音量） */
   config?: Partial<GameConfig>;
+  /** 语言 */
+  settings?: Partial<SettingsState>;
   /** 存这份编辑副本时打包地图的指纹 */
   defaultHash?: string;
 }
@@ -45,7 +49,11 @@ export function loadPersisted(): PersistedState {
     }
     const play = readLoadout(p.editor?.play);
     if (play) out.editor = { ...out.editor, play: play as PlayLoadout };
+    if (typeof p.editor?.fileHash === 'string') out.editor = { ...out.editor, fileHash: p.editor.fileHash };
+    else { const legacy = localStorage.getItem('climb:fileHash'); if (legacy) out.editor = { ...out.editor, fileHash: legacy }; }   // 旧版单独存的
     if (typeof p.config?.musicVolume === 'number') out.config = { musicVolume: Math.max(0, Math.min(1, p.config.musicVolume)) };
+    const lang = p.settings?.lang ?? localStorage.getItem('climb:lang');   // 旧版单独存的
+    if (lang === 'zh' || lang === 'en') out.settings = { lang };
     return out;
   } catch { return {}; }
 }

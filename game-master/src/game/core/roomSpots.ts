@@ -1,6 +1,7 @@
 // ===== 房间里的查询（纯函数，只看地形） =====
 import type { CellRef, Point, RoomCoord } from '@/type';
 import type { Terrain } from '@/game/terrain/Terrain';
+import type { DeathKey } from '@/i18n/keys';
 
 /** 在房间里找一个"脚下是实心、头顶两格是空气"的位置：离房间入口（边上的缺口）最近的那个，没有缺口就离中心最近；找不到就房间中央 */
 /** @param playerH 玩家身高（格）：返回的是玩家中心点，脚正好贴着地面 */
@@ -24,16 +25,15 @@ export function standingSpot(terrain: Terrain, r: RoomCoord, roomW: number, room
 }
 
 /** 碰到危险格才死：用玩家碰撞框（往里收 3 像素）和危险格的致命区域做矩形相交，不按格子粗判。返回死亡提示 */
-export function touchingHazard(terrain: Terrain, b: { x: number; y: number; width: number; height: number }): string | null {
+export function touchingHazard(terrain: Terrain, b: { x: number; y: number; width: number; height: number }): DeathKey | null {
   const T = terrain.T, inset = 3;
   const px = b.x + inset, py = b.y + inset, pw = b.width - inset * 2, ph = b.height - inset * 2;
   const x0 = Math.floor(px / T), x1 = Math.floor((px + pw) / T), y0 = Math.floor(py / T), y1 = Math.floor((py + ph) / T);
   for (let ty = y0; ty <= y1; ty++) for (let tx = x0; tx <= x1; tx++) {
-    const def = terrain.def(tx, ty);
-    if (!def.hazard) continue;
-    const hb = def.hazardBox ?? { x: 0, y: 0, w: T, h: T };
-    const hx = tx * T + hb.x, hy = ty * T + hb.y;
-    if (px < hx + hb.w && px + pw > hx && py < hy + hb.h && py + ph > hy) return def.hazard;
+    for (const hb of terrain.hazardBoxes(tx, ty)) {
+      const hx = tx * T + hb.x, hy = ty * T + hb.y;
+      if (px < hx + hb.w && px + pw > hx && py < hy + hb.h && py + ph > hy) return terrain.def(tx, ty).hazard;
+    }
   }
   return null;
 }

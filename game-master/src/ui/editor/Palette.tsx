@@ -3,7 +3,7 @@ import { Entities, Tiles } from '@/game/registry/registry';
 import { useAppDispatch, useAppSelector } from '@/redux/hooks';
 import { addLock, currentModel, removeLock, setBrush, setShowFog } from '@/redux/slices/editorSlice';
 import { LOCK_COLOR_NAMES, LOCK_COLORS } from '@/game/world/WorldModel';
-import { FOG_ZONES, FOG_ZONE_COLORS, fogBrush } from './fogZones';
+import { FOG_ZONES, FOG_ZONE_COLORS, fogBrush } from '@/game/fog/zones';
 import { FUSE_CHANNELS } from '@/game/fuse/channels';
 import { MOVER_KINDS, moverBrush } from '@/game/mechanics/mover/kinds';
 
@@ -76,7 +76,7 @@ export function Palette() {
           </button>,
           <button key={'d' + g.id} className={'item' + (brush === 'door:' + g.id ? ' active' : '')} title={`${colorName(g.color)}门：只占空气格，右键擦`} onClick={() => dispatch(setBrush('door:' + g.id))}>
             <div className="icon"><div className="frame" style={{ backgroundImage: `url(${tilesUrl})`, backgroundPosition: `-${TILE_FRAMES.door * TILE_SIZE}px 0`, backgroundColor: hex(g.color), backgroundBlendMode: 'multiply' }} /></div>
-            <div className="label"><b>{colorName(g.color)}门</b><button className="mini" title="删除这组" onClick={e => { e.stopPropagation(); dispatch(removeLock(g.id)); }}>✕</button></div>
+            <div className="label"><b>{colorName(g.color)}门</b><span className="mini" role="button" tabIndex={0} title="删除这组" onClick={e => { e.stopPropagation(); dispatch(removeLock(g.id)); }} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); dispatch(removeLock(g.id)); } }}>✕</span></div>
           </button>,
         ])}
         <button className="item add" disabled={(locks?.groups.length ?? 0) >= 9} onClick={() => dispatch(addLock())}>

@@ -9,6 +9,7 @@ import { GhostManager } from './Ghosts';
 import { GridWalker } from './GridWalker';
 import { Bombs } from './Bombs';
 import { PacScript } from './PacScript';
+import { Colors, hex } from '@/game/palette';
 
 const PELLET_SCORE = 10;
 const POWER_SCORE = 50;
@@ -178,7 +179,7 @@ export class PacMan implements FloorMechanic {
     this.ctx.scene.cameras.main.flash(120, 255, 232, 176, false);
     if (!this.script.playing) {
       this.setBoosts(this.boosts + 1);
-      this.ctx.fx.flash('msg.speedUp', '#ffe8b0', { n: this.bombs.capacity });
+      this.ctx.fx.flash('msg.speedUp', hex(Colors.cream), { n: this.bombs.capacity });
       return;
     }
     const ms = Math.max(FRIGHT_MIN_MS, FRIGHT_MS - this.powerCount * FRIGHT_STEP_MS);

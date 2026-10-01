@@ -4,6 +4,7 @@
 // 全体按"散开 / 追击"节拍切换（切换时掉头）；大力丸全部变蓝减速可被吃，被吃后一双眼睛飘回巢。
 import Phaser from 'phaser';
 import type { CellRef, Point } from '@/type';
+import { Colors } from '@/game/palette';
 
 export type GhostName = 'blinky' | 'pinky' | 'inky' | 'clyde';
 export type GhostMode = 'house' | 'leaving' | 'scatter' | 'chase' | 'frightened' | 'eyes' | 'dead';
@@ -65,7 +66,7 @@ export class Ghost {
     this.face.setVisible(this.mode !== 'dead');
     if (this.mode === 'frightened') {
       this.face.setTexture('ghostscared');
-      this.body.setTint(frightFlash && Math.floor(now / 120) % 2 === 0 ? 0xf1efe6 : FRIGHT_TINT);
+      this.body.setTint(frightFlash && Math.floor(now / 120) % 2 === 0 ? Colors.paper : FRIGHT_TINT);
     } else {
       this.face.setTexture('ghosteyes');
       this.body.setTint(GHOST_COLORS[this.name]);

@@ -4,6 +4,7 @@ import editorReducer, { roomOfStart, type EditorState } from './slices/editorSli
 import hudReducer from './slices/hudSlice';
 import progressReducer from './slices/progressSlice';
 import inputReducer from './slices/inputSlice';
+import settingsReducer, { type SettingsState } from './slices/settingsSlice';
 import { loadPersisted, schedulePersist } from './persist';
 import { DEFAULT_WORLD_HASH } from '@/game/world/defaultWorld';
 import type { GameConfig } from '@/type';
@@ -18,13 +19,14 @@ function preloadEditor(): EditorState {
   return editor;
 }
 
-const preloadedState: { editor: EditorState; config: GameConfig } = {
+const preloadedState: { editor: EditorState; config: GameConfig; settings: SettingsState } = {
   config: { ...configReducer(undefined, { type: '@@init' }), ...(persisted.config ?? {}) },
   editor: preloadEditor(),
+  settings: { ...settingsReducer(undefined, { type: '@@init' }), ...(persisted.settings ?? {}) },
 };
 
 export const store = configureStore({
-  reducer: { config: configReducer, editor: editorReducer, hud: hudReducer, progress: progressReducer, input: inputReducer },
+  reducer: { config: configReducer, editor: editorReducer, hud: hudReducer, progress: progressReducer, input: inputReducer, settings: settingsReducer },
   preloadedState,
   // 撤销栈里存着上百份项目：开发期的不可变 / 可序列化检查每次派发都会整个遍历，画格子会卡。跳过它们（项目本身照样检查）
   middleware: getDefault => getDefault({
@@ -38,12 +40,12 @@ if (typeof window !== 'undefined') {
   let last: unknown[] = [];
   store.subscribe(() => {
     const s = store.getState();
-    const now = [s.editor.project, s.editor.floor, s.editor.room, s.editor.play, s.config.musicVolume];
+    const now = [s.editor.project, s.editor.floor, s.editor.room, s.editor.play, s.editor.fileHash, s.config.musicVolume, s.settings.lang];
     if (now.every((v, i) => v === last[i])) return;
     last = now;
     schedulePersist(() => {
       const t = store.getState();
-      return { editor: { project: t.editor.project, floor: t.editor.floor, room: t.editor.room, play: t.editor.play }, config: { musicVolume: t.config.musicVolume }, defaultHash: DEFAULT_WORLD_HASH };
+      return { editor: { project: t.editor.project, floor: t.editor.floor, room: t.editor.room, play: t.editor.play, fileHash: t.editor.fileHash }, config: { musicVolume: t.config.musicVolume }, settings: { lang: t.settings.lang }, defaultHash: DEFAULT_WORLD_HASH };
     });
   });
 }

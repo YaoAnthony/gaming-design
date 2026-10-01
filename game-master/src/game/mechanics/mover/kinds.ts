@@ -1,6 +1,7 @@
 // ===== 移动方块：种类、能不能放、怎么分组、撞没撞（纯函数，单测直接调） =====
 import type { CellRef } from '@/type';
 import { Tiles } from '@/game/registry/registry';
+import { Colors } from '@/game/palette';
 
 export interface MoverKind {
   /** 地图 movers 层里的字符 */
@@ -17,7 +18,7 @@ export interface MoverKind {
 
 /** 编辑器物品栏按这个顺序列出；加一种新的移动（比如斜着走）就是在这里加一行 */
 export const MOVER_KINDS: MoverKind[] = [
-  { ch: 'h', name: '左右移动', desc: '画在方块上：相连的一片连同底下的方块一起左右来回走，任何一格撞到东西就掉头', axis: 'x', startDir: 1, color: 0x4cc9f0 },
+  { ch: 'h', name: '左右移动', desc: '画在方块上：相连的一片连同底下的方块一起左右来回走，任何一格撞到东西就掉头', axis: 'x', startDir: 1, color: Colors.sky },
   { ch: 'v', name: '上下移动', desc: '画在方块上：相连的一片连同底下的方块一起上下来回走，任何一格撞到东西就掉头', axis: 'y', startDir: -1, color: 0xf15bb5 },
 ];
 

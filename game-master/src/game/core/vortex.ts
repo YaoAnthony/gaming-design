@@ -2,6 +2,7 @@
 import type Phaser from 'phaser';
 import type { Point } from '@/type';
 import type { PlayContext, Suckable } from './PlayContext';
+import { Colors } from '@/game/palette';
 
 /** @param extra 机制提供的要一起吸走的东西（NPC、Boss……） */
 export function vortex(ctx: PlayContext, p: Point, extra: Suckable[], then: () => void): void {
@@ -30,7 +31,7 @@ export function vortex(ctx: PlayContext, p: Point, extra: Suckable[], then: () =
   ctx.terrain.chunks.forEach(ch => scene.tweens.add({ targets: ch.container, alpha: 0, duration: DUR * 0.6 }));
   // 一把碎屑：从房间各处沿螺旋飞进门
   const x0 = room.rx * ctx.rooms.pxW, y0 = room.ry * ctx.rooms.pxH;
-  const colors = [0x8d5a3b, 0x5d6470, 0xc9b27c, 0xffd166, 0x4cc9f0, 0xf1efe6];
+  const colors = [0x8d5a3b, Colors.dim, 0xc9b27c, Colors.gold, Colors.sky, Colors.paper];
   for (let i = 0; i < 60; i++) {
     const bit = scene.add.rectangle(x0 + Math.random() * ctx.rooms.pxW, y0 + Math.random() * ctx.rooms.pxH, 3 + Math.random() * 6, 3 + Math.random() * 6, colors[i % colors.length]).setDepth(9);
     suck(bit, Math.random() * 500, 700 + Math.random() * 600);

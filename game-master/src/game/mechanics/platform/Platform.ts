@@ -6,6 +6,7 @@ import { playExplosion } from '@/particle';
 import type { JumpEvent } from '@/sprite';
 import type { PlayContext } from '@/game/core/PlayContext';
 import type { FloorMechanic, MoveInput } from '../define';
+import { Colors, hex } from '@/game/palette';
 
 export class Platform implements FloorMechanic {
   readonly collideTerrain = true;
@@ -71,7 +72,7 @@ export class Platform implements FloorMechanic {
     ctx.scene.sound.play('boom', { volume: 0.8 });
     // 爆炸范围里（至少 fuseIgniteRadius）有引线端点就点燃
     const ends = ctx.fuses.endsNear(jump.cell, fuseIgniteRadius(ctx.cfg, ctx.player.stage));
-    if (ends.length && ctx.igniteFuses(ends)) ctx.fx.flash('msg.fuseLit', '#ff7b54');
+    if (ends.length && ctx.igniteFuses(ends)) ctx.fx.flash('msg.fuseLit', hex(Colors.ember));
   }
 
   private drawPreview(jump: JumpEvent | null): void {

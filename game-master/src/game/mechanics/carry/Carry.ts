@@ -194,9 +194,6 @@ export class Carry implements Mechanic {
     this.syncKeyAnchors();
   }
 
-  /** 移动方块要推得动地上的钥匙 */
-  terrainBodies(): Phaser.Physics.Arcade.Group[] { return [this.looseKeys.group]; }
-
   /** 只有注册过的道具能带到下一层；钥匙留在本层 */
   persist(out: CarryOver): void {
     if (this.heldId && Items.has(this.heldId)) out.held = this.heldId;

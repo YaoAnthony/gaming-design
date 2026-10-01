@@ -68,6 +68,10 @@ export const TILE_FRAMES = {
   plank: 24,
   /** 碎岩（岩石被引线烧过一次之后的样子） */
   crackedRock: 25,
+  /** 尖刺改挂在旁边：挂左墙（刺朝右）、挂右墙（刺朝左）、两边都挂（缩小一半，每边上下两排） */
+  spikesLeft: 26,
+  spikesRight: 27,
+  spikesBoth: 28,
 } as const;
 
 export const AUTOTILE_VARIANTS = 16;

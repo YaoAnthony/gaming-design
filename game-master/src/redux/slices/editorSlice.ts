@@ -31,6 +31,8 @@ export interface EditorState {
   future: EditorSnapshot[];
   /** 上一次记录撤销点的标签：标签相同的连续操作只记一次（一笔画、连续打字） */
   histTag: string | null;
+  /** 上次写入 / 载入 src/map/world.json 时它的指纹：开发期发现文件被别人改了就提醒载入 */
+  fileHash: string | null;
 }
 
 /** 撤销点：项目 + 当时在看哪一层、哪个房间（撤销后回到改动发生的地方） */
@@ -67,6 +69,7 @@ const initialState: EditorState = {
   past: [],
   future: [],
   histTag: null,
+  fileHash: null,
 };
 
 const m = (state: EditorState) => currentModel(state);
@@ -107,6 +110,7 @@ const editorSlice = createSlice({
     setRoom(state, action: PayloadAction<RoomCoord>) { state.room = action.payload; },
     setShowSupport(state, action: PayloadAction<boolean>) { state.showSupport = action.payload; },
     setShowFog(state, action: PayloadAction<boolean>) { state.showFog = action.payload; },
+    setFileHash(state, action: PayloadAction<string | null>) { state.fileHash = action.payload; },
     paintCell(state, action: PayloadAction<{ key: string; x: number; y: number; ch: string }>) {
       record(state, 'stroke');
       const { key, x, y, ch } = action.payload;
@@ -263,7 +267,7 @@ const editorSlice = createSlice({
 });
 
 export const {
-  setBrush, setRoom, setShowSupport, setShowFog, paintCell, paintEntity, paintFog, paintFogRect, paintFuse, paintMover, setRoomFlag,
+  setBrush, setRoom, setShowSupport, setShowFog, setFileHash, paintCell, paintEntity, paintFog, paintFogRect, paintFuse, paintMover, setRoomFlag,
   addText, updateText, removeText, addLock, removeLock, paintDoor, paintKey, addRoom, moveRoom, deleteRoom, clearRoom, setFloor, addFloor, renameFloor, deleteFloor, replaceProject, setPlayLoadout, setPicking,
   beginStroke, undo, redo,
 } = editorSlice.actions;

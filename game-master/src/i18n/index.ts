@@ -1,23 +1,23 @@
 // ===== 多语言：i18next + react-i18next =====
 // 玩家看得到的界面文字都从这里取（t('key')）。加语言 = 在 resources 里加一份。
-// 默认英文；标题页可以切换，选过的语言存在 localStorage 'climb:lang'。
+// 默认英文；标题页可以切换，选过的语言记在 store.settings.lang（persist.ts 一起存）。
 // 游戏代码里的文字写成 key（msg.* / death.* / npc.* / dialogue.*）；地图里填的文字（层名、位置）原样写英文，中文放在 map.* 下。
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import zh from './zh.json';
 import en from './en.json';
+import { store } from '@/redux/store';
+import { setLangSetting } from '@/redux/slices/settingsSlice';
+
+export type { TKey, MsgKey, DeathKey } from './keys';
 
 export const LANGS = { zh: '中文', en: 'English' } as const;
 export type Lang = keyof typeof LANGS;
 
-function detect(): Lang {
-  try { const saved = localStorage.getItem('climb:lang') as Lang | null; if (saved && saved in LANGS) return saved; } catch { /* 隐私模式 */ }
-  return 'en';
-}
 
 void i18n.use(initReactI18next).init({
   resources: { zh: { translation: zh }, en: { translation: en } },
-  lng: detect(),
+  lng: store.getState().settings.lang,
   fallbackLng: 'en',
   interpolation: { escapeValue: false },
 });
@@ -26,7 +26,7 @@ if (typeof document !== 'undefined') document.documentElement.lang = i18n.langua
 
 export function setLang(lang: Lang): void {
   void i18n.changeLanguage(lang);
-  try { localStorage.setItem('climb:lang', lang); } catch { /* 隐私模式 */ }
+  store.dispatch(setLangSetting(lang));
   if (typeof document !== 'undefined') document.documentElement.lang = lang;
 }
 

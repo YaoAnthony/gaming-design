@@ -1,11 +1,9 @@
 import { useEffect, useRef } from 'react';
 import { useAppDispatch, useAppSelector } from '@/redux/hooks';
-import { replaceProject, setShowSupport } from '@/redux/slices/editorSlice';
+import { replaceProject, setFileHash, setShowSupport } from '@/redux/slices/editorSlice';
 import { asProject } from '@/game/world/WorldModel';
 import { modelHash } from '@/game/world/defaultWorld';
 import { App as AntApp } from 'antd';
-
-const FILE_HASH_KEY = 'climb:fileHash';
 
 interface Props { status: string }
 
@@ -20,7 +18,7 @@ function download(name: string, text: string) {
 
 /** 右边栏：写入 / 载入 world.json、导出 / 导入，底下一行是鼠标所在格子的信息 */
 export function FilePanel({ status }: Props) {
-  const { project, showSupport } = useAppSelector(s => s.editor);
+  const { project, showSupport, fileHash: knownHash } = useAppSelector(s => s.editor);
   const dispatch = useAppDispatch();
   const file = useRef<HTMLInputElement>(null);
   const { modal, message } = AntApp.useApp();
@@ -34,7 +32,7 @@ export function FilePanel({ status }: Props) {
       // 先算指纹，再把一份副本交给 Redux（交出去的对象会被冻结，之后不能再改）
       const hash = modelHash(p);
       dispatch(replaceProject(clone(p)));
-      localStorage.setItem(FILE_HASH_KEY, hash);
+      dispatch(setFileHash(hash));
     } catch (err) { modal.error({ title: '载入失败', content: (err as Error).message, okText: '好' }); }
   };
 
@@ -48,15 +46,14 @@ export function FilePanel({ status }: Props) {
         const p = asProject(await r.json());
         if (cancelled || !p) return;
         const fileHash = modelHash(p);
-        const known = localStorage.getItem(FILE_HASH_KEY);
-        if (!known) { localStorage.setItem(FILE_HASH_KEY, fileHash); return; }
-        if (known === fileHash) return;
+        if (!knownHash) { dispatch(setFileHash(fileHash)); return; }
+        if (knownHash === fileHash) return;
         modal.confirm({
           title: 'src/map/world.json 有新改动',
           content: '载入会替换当前编辑内容；想保留自己的改动先取消、写入，再点「载入」。',
           okText: '载入', cancelText: '先不',
-          onOk: () => { dispatch(replaceProject(clone(p))); localStorage.setItem(FILE_HASH_KEY, fileHash); },
-          onCancel: () => localStorage.setItem(FILE_HASH_KEY, fileHash),
+          onOk: () => { dispatch(replaceProject(clone(p))); dispatch(setFileHash(fileHash)); },
+          onCancel: () => dispatch(setFileHash(fileHash)),
         });
       } catch { /* 开发服务器没开就算了 */ }
     })();
@@ -70,7 +67,7 @@ export function FilePanel({ status }: Props) {
       const out = asProject(clone(project))!;
       const r = await fetch('/__climb/save-map', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(out) });
       const j = (await r.json()) as { ok: boolean; file?: string; error?: string };
-      if (j.ok) { localStorage.setItem(FILE_HASH_KEY, modelHash(out)); modal.success({ title: '写入成功', content: `地图已写入 ${j.file}`, okText: '好' }); }
+      if (j.ok) { dispatch(setFileHash(modelHash(out))); modal.success({ title: '写入成功', content: `地图已写入 ${j.file}`, okText: '好' }); }
       else modal.error({ title: '写入失败', content: j.error, okText: '好' });
     } catch (err) { modal.error({ title: '写入失败', content: (err as Error).message, okText: '好' }); }
   };

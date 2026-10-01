@@ -6,6 +6,7 @@ import { getGame } from '@/game/PhaserGame';
 import { bridge, EVT, SCENE, type PickedCell, type StartGameData } from '@/game/bridge';
 import { Items, Tiles } from '@/game/registry/registry';
 import { findStart, LOCK_COLOR_NAMES, LOCK_COLORS } from '@/game/world/WorldModel';
+import { Colors, hex } from '@/game/palette';
 
 const STAGES = [
   { value: 0, label: '第1关', title: '1 格高' },
@@ -101,7 +102,7 @@ export function PlayPanel({ playing, onStart }: Props) {
             <div className="row"><button className="btn primary" onClick={() => dispatch(setPicking(true))}>▶ 从这层开始</button></div>
             <div className="hint">ESC 回编辑器，R 重置房间。</div>
           </>}
-      {!hasSpawn && <div className="hint" style={{ color: '#ef476f' }}>这一层没有出生点：物品栏「物件」里放一个。</div>}
+      {!hasSpawn && <div className="hint" style={{ color: hex(Colors.rose) }}>这一层没有出生点：物品栏「物件」里放一个。</div>}
     </>
   );
 }

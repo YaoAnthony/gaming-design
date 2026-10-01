@@ -1,6 +1,7 @@
 // ===== React ↔ Phaser 桥接 =====
-// React → Phaser：通过这个事件总线（编辑器重载、开始游戏）
-// Phaser → React：直接 dispatch 到 Redux（hud / save slice）
+// React → Phaser：通过这个事件总线（编辑器重载、重置、试玩退出、攥纸团特效的往返）。
+// Phaser → React：展示数据 dispatch 到 Redux 的 hud 切片（只在场景和 core 里做，机制通过 PlayContext）。
+// 事件名在 EVT，每个事件带什么参数在 BridgeEvents：emit / on 都按它检查，名字和参数对不上编译不过。
 import Phaser from 'phaser';
 import type { Project, RoomCoord } from '@/type';
 
@@ -61,4 +62,36 @@ export const EVT = {
   crumpleDone: 'fx:crumple-done',
 } as const;
 
-export const bridge = new Phaser.Events.EventEmitter();
+/** 每个事件带什么参数（元组）：没有参数就是 [] */
+export interface BridgeEvents {
+  [EVT.editorReload]: [];
+  [EVT.startGame]: [StartGameData];
+  [EVT.playtestExit]: [];
+  [EVT.requestPlaytestExit]: [];
+  [EVT.editorPickStart]: [PickedCell];
+  [EVT.requestReset]: [];
+  [EVT.continueGame]: [];
+  [EVT.restartGame]: [];
+  [EVT.nextLevel]: [];
+  [EVT.crumple]: [CrumpleStart];
+  [EVT.crumpleFreeze]: [];
+  [EVT.crumpleFrozen]: [CrumpleFrozen];
+  [EVT.crumpleDone]: [CrumpleDone];
+  /** 触屏按键（常量在 input.ts，字面量要和那边一致） */
+  'input:jump': [];
+  'input:action': [];
+}
+export type BridgeEvent = keyof BridgeEvents;
+type Handler<K extends BridgeEvent> = (...args: BridgeEvents[K]) => void;
+
+/** 带类型的事件总线：只认 BridgeEvents 里的事件，参数按表检查 */
+class Bridge {
+  private readonly emitter = new Phaser.Events.EventEmitter();
+  on<K extends BridgeEvent>(event: K, fn: Handler<K>): this { this.emitter.on(event, fn); return this; }
+  off<K extends BridgeEvent>(event: K, fn: Handler<K>): this { this.emitter.off(event, fn); return this; }
+  emit<K extends BridgeEvent>(event: K, ...args: BridgeEvents[K]): boolean { return this.emitter.emit(event, ...args); }
+  /** 有没有人在听这个事件（比如没挂特效层就直接做事） */
+  listenerCount(event: BridgeEvent): number { return this.emitter.listenerCount(event); }
+}
+
+export const bridge = new Bridge();

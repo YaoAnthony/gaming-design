@@ -1,3 +1,4 @@
+import { Colors } from '@/game/palette';
 // ===== 引线的颜色（通道）=====
 // 每种颜色是一张独立的引线网：只和同色的邻居相连，只点得着同色的端点，烧起来也只沿同色走。
 // 不同颜色可以画在同一格（交叉），交叉点互不连通、互不引爆。游戏里的引线头默认都长一样；
@@ -21,10 +22,10 @@ export interface FuseChannelDef {
 }
 
 export const FUSE_CHANNELS: readonly FuseChannelDef[] = [
-  { id: 0, name: '橙', color: 0xff7b54 },
-  { id: 1, name: '蓝', color: 0x4cc9f0 },
-  { id: 2, name: '绿', color: 0x80ed99 },
-  { id: 3, name: '紫', color: 0xc77dff, shatter: true, node: { scale: 1.8, glow: 0xc77dff } },
+  { id: 0, name: '橙', color: Colors.ember },
+  { id: 1, name: '蓝', color: Colors.sky },
+  { id: 2, name: '绿', color: Colors.mint },
+  { id: 3, name: '紫', color: Colors.lilac, shatter: true, node: { scale: 1.8, glow: Colors.lilac } },
 ];
 
 /** 所有颜色的位都置上 */

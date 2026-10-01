@@ -5,6 +5,7 @@ import type { GhostManager } from './Ghosts';
 import type { Bombs } from './Bombs';
 import type { Dir4 } from './GridWalker';
 import { PAC_DIALOGUES } from './dialogues';
+import { Colors, hex } from '@/game/palette';
 
 export type PacPhase = 'play' | 'chase' | 'taunt' | 'bombs' | 'kingWait' | 'king' | 'done';
 
@@ -42,7 +43,7 @@ export class PacScript {
         if (now - this.at >= TAUNT_AFTER_MS) { this.phase = 'taunt'; ctx.dialogue.cutscene(KING, PAC_DIALOGUES.taunt, now, () => { this.phase = 'bombs'; this.at = ctx.scene.time.now; }); }
         break;
       case 'bombs': {
-        if (!this.bombs.unlocked && now - this.at >= BOMBS_AFTER_MS) { this.bombs.unlocked = true; ctx.fx.flash('msg.bombsReady', '#ffd166'); }
+        if (!this.bombs.unlocked && now - this.at >= BOMBS_AFTER_MS) { this.bombs.unlocked = true; ctx.fx.flash('msg.bombsReady', hex(Colors.gold)); }
         const gm = this.ghosts();
         if (this.bombs.unlocked && (!gm || !gm.anyAlive)) { this.phase = 'kingWait'; this.at = now; }
         break;

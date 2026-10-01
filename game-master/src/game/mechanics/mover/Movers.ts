@@ -7,6 +7,7 @@
 //   往上运人时，人头顶撞墙也算挡住
 // - 寄托的方块没了（变成空气），这一格就退出（岩石裂成碎岩还算在）
 // - 重置（R、死亡、进入下一关）：所有移动方块先回到一开始的位置，再让地形复原
+// - 玩家还没进过的房间里不动（Rooms.isAwake）：整组有一格在醒着的房间里才开始走，开始了就一直走
 import type Phaser from 'phaser';
 import type { CellRef } from '@/type';
 import { AIR, Tiles } from '@/game/registry/registry';
@@ -37,6 +38,8 @@ interface Group {
   images: (Phaser.GameObjects.Image | null)[];
   /** 物理体：一行连着的格子一个（只在外露的面上碰撞，见 core/solid.ts），位置按一开始的布局 + shift + pos 算 */
   bodies: { img: Phaser.Physics.Arcade.Image; run: SolidRun }[];
+  /** 开始走了没有：整组有一格在醒着的房间里才开始（Rooms.isAwake），开始了就一直走；重置时重新睡 */
+  awake: boolean;
 }
 
 export class Movers implements Mechanic {
@@ -47,23 +50,21 @@ export class Movers implements Mechanic {
 
   constructor(private ctx: PlayContext, specs: MoverGroupSpec[]) {
     this.solid = ctx.scene.physics.add.group({ allowGravity: false, immovable: true });
+    ctx.solids.register(this.solid, 'platform');   // 玩家、怪物、箱子、钥匙都和它碰撞
     this.groups = specs.map(s => ({
       kind: s.kind, home: s.cells, alive: s.cells.map(() => true), ids: s.cells.map(c => ctx.terrain.grid[c.y][c.x]),
       shift: { x: 0, y: 0 }, dir: s.kind.startDir, pos: 0, waitUntil: 0, reserved: new Set(),
-      view: ctx.scene.add.container(0, 0).setDepth(0.5), images: [], bodies: [],
+      view: ctx.scene.add.container(0, 0).setDepth(0.5), images: [], bodies: [], awake: false,
     }));
     this.syncDrawn();   // 一开始就知道自己占哪些格：别的机制 start 时（比如压板摆初始状态）就能问到
   }
 
   // ---------- 生命周期 ----------
   start(): void {
-    this.ctx.addTerrainCollider(this.solid);
     this.groups.forEach(g => { this.rebuild(g); this.place(g); });
     this.syncDrawn();
     this.ctx.terrain.refreshCells(this.groups.flatMap(g => g.home));   // 这些格子从瓦片层拿掉，由这里画
   }
-
-  carrierBodies(): Phaser.Physics.Arcade.Group[] { return [this.solid]; }
 
   drawsCell(cx: number, cy: number): boolean { return this.drawn.has(cy * this.ctx.terrain.w + cx); }
 
@@ -76,7 +77,7 @@ export class Movers implements Mechanic {
   onClear(): void {
     this.groups.forEach(g => {
       const cells = this.current(g), back = { x: -g.shift.x, y: -g.shift.y };
-      g.shift = { x: 0, y: 0 }; g.pos = 0; g.dir = g.kind.startDir; g.waitUntil = 0; g.reserved.clear();
+      g.shift = { x: 0, y: 0 }; g.pos = 0; g.dir = g.kind.startDir; g.waitUntil = 0; g.reserved.clear(); g.awake = false;
       this.syncDrawn();
       if (back.x || back.y) this.ctx.terrain.moveCells(cells, back.x, back.y);
       this.place(g);
@@ -99,7 +100,11 @@ export class Movers implements Mechanic {
   private tick(g: Group, now: number, dt: number): void {
     this.sync(g);
     if (!g.alive.some(Boolean)) return;
-    const T = this.ctx.cfg.tile;
+    const T = this.ctx.cfg.tile, { rooms } = this.ctx;
+    if (!g.awake) {   // 所在的房间都还没醒：原地等着
+      if (!this.current(g).some(c => rooms.isAwake(rooms.of(c.x * T + T / 2, c.y * T + T / 2)))) return;
+      g.awake = true;
+    }
     if (g.pos === 0) {
       if (now < g.waitUntil) return;
       if (this.blocked(g)) { g.dir = g.dir > 0 ? -1 : 1; g.waitUntil = now + this.ctx.cfg.moverPauseMs; return; }
@@ -127,9 +132,8 @@ export class Movers implements Mechanic {
   private scrapeRiders(g: Group): void {
     const { ctx } = this, t = ctx.terrain, T = ctx.cfg.tile;
     const solid = (cx: number, cy: number) => t.isSolid(cx, cy) && !t.def(cx, cy).oneWay;
-    const boxes = (ctx.mech('pushBlock')?.terrainBodies?.() ?? []).flatMap(grp => grp.getChildren().map(c => (c as Phaser.Physics.Arcade.Image).body as Phaser.Physics.Arcade.Body | null));
-    for (const b of [...this.bodiesAround(), ...boxes]) {
-      if (!b?.enable || !this.rides(g, b)) continue;
+    for (const b of [...this.bodiesAround(), ...ctx.solids.bodies('crate')]) {
+      if (!b.enable || !this.rides(g, b)) continue;
       pushRiderOutOfWalls(b, T, solid);
     }
   }

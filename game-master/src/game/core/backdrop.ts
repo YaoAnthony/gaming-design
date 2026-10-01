@@ -1,12 +1,13 @@
 // ===== 背景：渐变天空 + 星星 =====
 import Phaser from 'phaser';
+import { Colors, hex } from '@/game/palette';
 
 export function buildBackground(scene: Phaser.Scene, levelW: number, levelH: number): void {
   if (!scene.textures.exists('sky')) {
     const c = scene.textures.createCanvas('sky', 4, 256)!;
     const ctx = c.context;
     const grd = ctx.createLinearGradient(0, 0, 0, 256);
-    grd.addColorStop(0, '#5b7fb5'); grd.addColorStop(0.4, '#23305a'); grd.addColorStop(1, '#0b0b14');
+    grd.addColorStop(0, '#5b7fb5'); grd.addColorStop(0.4, '#23305a'); grd.addColorStop(1, hex(Colors.ink));
     ctx.fillStyle = grd; ctx.fillRect(0, 0, 4, 256); c.refresh();
   }
   scene.add.image(0, 0, 'sky').setOrigin(0).setDisplaySize(levelW, levelH).setDepth(-10);

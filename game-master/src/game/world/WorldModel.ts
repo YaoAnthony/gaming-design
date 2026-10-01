@@ -3,6 +3,7 @@ import type { LockGroup, Locks, CellRef, Floor, Project, RoomCoord, RoomFlags, T
 import { layoutText } from './font';
 import { Entities } from '@/game/registry/registry';
 import { decodeFuse, encodeFuse, fuseBit } from '@/game/fuse/channels';
+import { Colors } from '@/game/palette';
 
 export function cloneModel(m: WorldModel): WorldModel { return JSON.parse(JSON.stringify(m)); }
 
@@ -349,7 +350,7 @@ export function isValidModel(m: unknown): m is WorldModel {
 
 // ---------- 钥匙与门 ----------
 /** 组的颜色按添加顺序轮着来：蓝 绿 黄 红 紫 橙 粉 白 青 */
-export const LOCK_COLORS = [0x4cc9f0, 0x06d6a0, 0xffd166, 0xef476f, 0x9b5de5, 0xff9f1c, 0xff8fab, 0xf1efe6, 0x00b4d8];
+export const LOCK_COLORS = [Colors.sky, Colors.green, Colors.gold, Colors.rose, Colors.violet, Colors.orange, 0xff8fab, Colors.paper, 0x00b4d8];
 export const LOCK_COLOR_NAMES = ['蓝', '绿', '黄', '红', '紫', '橙', '粉', '白', '青'];
 /** 门在砖块行里的字符（烘焙时写入，不进物品栏） */
 export const DOOR_CHAR = '%';

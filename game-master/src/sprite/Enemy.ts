@@ -6,6 +6,8 @@ import type { Terrain } from '@/game/terrain/Terrain';
 export class Enemy extends Phaser.Physics.Arcade.Sprite {
   declare body: Phaser.Physics.Arcade.Body;
   dir: 1 | -1 = -1;
+  /** 开始巡逻了没有：所在的房间醒过来才动，醒了之后走到哪都接着动（重置时换成新的怪物，重新睡） */
+  awake = false;
 
   /** @param look 变体：texture 换贴图、scale 缩放（Arcade 的碰撞框和偏移会跟着一起缩）。Boss 吐的小史莱姆用 */
   constructor(scene: Phaser.Scene, readonly spawn: EnemySpawn, look?: { texture?: string; scale?: number }) {

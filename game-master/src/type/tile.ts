@@ -1,3 +1,4 @@
+import type { DeathKey } from '@/i18n/keys';
 // ===== 砖块 / 物件的类型 =====
 
 /** 砖块能力：地形、爆炸、掉落、危险判定只看这些字段 */
@@ -23,11 +24,13 @@ export interface TileCaps {
   /** 只有链条的两端（同类相邻格子 ≤ 1 个）能被爆炸点燃，中间段对爆炸免疫；点燃后仍会从一头烧到另一头 */
   igniteAtEndsOnly: boolean;
   /** 非空 = 碰到即死，值是死亡提示 */
-  hazard: string | null;
+  hazard: DeathKey | null;
   /** 危险格真正致命的区域（格内像素坐标）；不设 = 整格 */
-  hazardBox: { x: number; y: number; w: number; h: number } | null;
+  hazardBox: CellBox | null;
   /** 挂在下面那一格上（比如尖刺）：下面那格被炸掉 / 掉下去、不再是实心，它就跟着碎掉 */
   mounted: boolean;
+  /** 挂着的砖下面空了也能改挂在旁边（尖刺）：左 / 右 / 两边各用哪一帧、哪块区域致命。不设 = 只能挂在下面 */
+  sideMount: SideMount | null;
   /** 单向平台：玩家和怪物只能从上面落到它上面站着，从下面、侧面都能穿过去（薄木板） */
   oneWay: boolean;
   /** 箱子不和它碰撞：箱子会从它上面漏下去、也能被推着穿过它 */
@@ -36,6 +39,18 @@ export interface TileCaps {
   crackTo: string | null;
   /** 防火：引线烧过这一格时它不受影响（锁着的门、Boss 封门）。引线本身照样烧过去 */
   fireproof: boolean;
+}
+
+/** 格内的一块矩形（像素） */
+export interface CellBox { x: number; y: number; w: number; h: number }
+
+/** 挂着的砖挂在哪：下面（默认）、左边、右边、两边 */
+export type MountSide = 'down' | 'left' | 'right' | 'both';
+
+/** 改挂在旁边时的样子：每种挂法的帧和致命区域（挂在下面用砖块本身的 frame / hazardBox） */
+export interface SideMount {
+  frames: Record<Exclude<MountSide, 'down'>, number>;
+  boxes: Record<Exclude<MountSide, 'down'>, CellBox[]>;
 }
 
 /** 一条能力特征（Trait），可组合 */

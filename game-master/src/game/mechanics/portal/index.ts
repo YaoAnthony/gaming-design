@@ -5,6 +5,7 @@ import type { Point } from '@/type';
 import { floorAfter } from '@/game/world/WorldModel';
 import type { PlayContext } from '@/game/core/PlayContext';
 import { defineMechanic, type Mechanic } from '../define';
+import { Colors } from '@/game/palette';
 
 /** 离门多近（像素）算走进去 */
 const ENTER_PX = 24;
@@ -35,6 +36,6 @@ const portal = defineMechanic({
 });
 
 portal.entity({
-  id: 'T', name: '小城堡', desc: '走进城门到下一层', texture: 'castle', color: 0x4cc9f0, origin: [0.5, 1],
+  id: 'T', name: '小城堡', desc: '走进城门到下一层', texture: 'castle', color: Colors.sky, origin: [0.5, 1],
   spawn: (p, at) => p.addPortal({ x: at.x, y: at.y }),
 });

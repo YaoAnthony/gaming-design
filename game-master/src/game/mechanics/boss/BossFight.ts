@@ -5,8 +5,7 @@
 import Phaser from 'phaser';
 import type { CellRef, EnemySpawn, EntryState, Point, RoomCoord } from '@/type';
 import { floorIndex } from '@/game/world/WorldModel';
-import { store } from '@/redux/store';
-import { forgetBoss, progressKey, winBoss, type BossWin } from '@/redux/slices/progressSlice';
+import { progressKey, type BossWin } from '@/redux/slices/progressSlice';
 import { Enemy } from '@/sprite';
 import { playCrush } from '@/particle';
 import type { PlayContext, Suckable } from '@/game/core/PlayContext';
@@ -15,6 +14,7 @@ import { Boss } from './Boss';
 import { SparkBurst } from './SparkBurst';
 import { hueShiftedTexture } from './minionTexture';
 import { SEAL } from './seal';
+import { Colors, hex } from '@/game/palette';
 
 /** Boss 战的音乐（音频清单里的 key） */
 const BOSS_MUSIC = 'bossMusic';
@@ -40,7 +40,7 @@ export class BossFight implements Mechanic {
   private sealEntry: EntryState | null = null;
   /** 这一层、这一关打赢的 Boss（在 Redux 里）：复活点（封门处）、倒下的位置、Boss 房 */
   private get progressKey(): string { return progressKey(this.ctx.floor.id, this.ctx.player.stage); }
-  private get won(): BossWin | null { return store.getState().progress.bossWins[this.progressKey] ?? null; }
+  private get won(): BossWin | null { return this.ctx.progress.bossWin(this.progressKey); }
   private bursts: SparkBurst[] = [];
   /** Boss 吐出来的小史莱姆（上限只数这些，地图上的巡逻怪不算）；Boss 死的时候一起死 */
   private minions: Enemy[] = [];
@@ -114,7 +114,7 @@ export class BossFight implements Mechanic {
 
   private inWonRoom(r: RoomCoord): boolean { return !!this.won && this.ctx.rooms.same(this.ctx.rooms.of(this.won.entry.x, this.won.entry.y), r); }
   /** 当作没打过：Boss 会在下次进房 / 重置时回来 */
-  private forgetWin(): void { if (this.won) store.dispatch(forgetBoss(this.progressKey)); this.defeated.clear(); }
+  private forgetWin(): void { if (this.won) this.ctx.progress.forgetBoss(this.progressKey); this.defeated.clear(); }
 
   /** 玩家进 Boss 房：先不出 Boss，只记下要封的门（房间四条边上所有不是实心的格子），等玩家走进来一点再封门、再出场 */
   private startBoss(r: RoomCoord): void {
@@ -162,7 +162,7 @@ export class BossFight implements Mechanic {
     ctx.hud.boss({ hp: this.boss.hp, max: this.boss.maxHp });
     ctx.music.play(BOSS_MUSIC);
     ctx.scene.cameras.main.shake(300, 0.012);
-    ctx.fx.flash('msg.bossAppears', '#9b5de5');
+    ctx.fx.flash('msg.bossAppears', hex(Colors.violet));
     ctx.fx.fogDirty();
   }
 
@@ -192,8 +192,8 @@ export class BossFight implements Mechanic {
     if (!dead) return;
     this.killMinions();
     this.explode(boss.x, boss.y);
-    ctx.fx.flash('msg.bossDefeated', '#ffd166');
-    if (this.sealEntry && this.room) store.dispatch(winBoss({ key: this.progressKey, win: { entry: { ...this.sealEntry }, at: { x: boss.x, y: boss.y }, room: ctx.rooms.key(this.room) } }));
+    ctx.fx.flash('msg.bossDefeated', hex(Colors.gold));
+    if (this.sealEntry && this.room) ctx.progress.winBoss(this.progressKey, { entry: { ...this.sealEntry }, at: { x: boss.x, y: boss.y }, room: ctx.rooms.key(this.room) });
     this.end(true);
   }
 
@@ -281,7 +281,7 @@ export class BossFight implements Mechanic {
       if (ctx.igniteFuses(ends)) lit++;
       return true;
     }));
-    if (lit) ctx.fx.flash('msg.fuseLit', '#ff7b54');
+    if (lit) ctx.fx.flash('msg.fuseLit', hex(Colors.ember));
     this.bursts = this.bursts.filter(b => b.alive);
   }
 }

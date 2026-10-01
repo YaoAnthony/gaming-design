@@ -87,22 +87,22 @@ function player(): any { return scene().player; }
 export function status(): string {
   const sc = scene(), p = player(), b = p.body, T = sc.cfg.tile;
   const cx = Math.floor(b.center.x / T), cy = Math.floor((b.bottom - 1) / T);
-  const lx = cx - sc.room.rx * sc.roomW, ly = cy - sc.room.ry * sc.roomH;
+  const lx = cx - sc.rooms.current.rx * sc.rooms.w, ly = cy - sc.rooms.current.ry * sc.rooms.h;
   const where = p.onGround ? 'ground' : p.onWallLeft ? 'wall-L' : p.onWallRight ? 'wall-R' : 'air';
   const held = mech('Carry')?.holding?.id ?? '-';
   const hat = mech('Hat')?.wearing ? ' hat' : '';
-  const room = sc.model.layout[sc.room.ry]?.[sc.room.rx] ?? '?';
-  const flags = [sc.dead && 'DEAD', sc.won && 'WON', sc.leaving && 'LEAVING', sc.respawning && 'respawning'].filter(Boolean).join(' ');
+  const room = sc.model.layout[sc.rooms.current.ry]?.[sc.rooms.current.rx] ?? '?';
+  const flags = [sc.respawn.dead && 'DEAD', sc.won && 'WON', sc.leaving && 'LEAVING', sc.respawn.respawning && 'respawning'].filter(Boolean).join(' ');
   return `房间 ${room} 格(${lx},${ly}) 速度(${Math.round(b.velocity.x)},${Math.round(b.velocity.y)}) ${where} 手上:${held}${hat}${flags ? ' ' + flags : ''}`;
 }
 
 export function state(): Record<string, unknown> {
   const sc = scene(), p = player(), b = p.body, T = sc.cfg.tile;
   return {
-    room: sc.model.layout[sc.room.ry]?.[sc.room.rx], rx: sc.room.rx, ry: sc.room.ry,
-    cell: [Math.floor(b.center.x / T) - sc.room.rx * sc.roomW, Math.floor((b.bottom - 1) / T) - sc.room.ry * sc.roomH],
+    room: sc.model.layout[sc.rooms.current.ry]?.[sc.rooms.current.rx], rx: sc.rooms.current.rx, ry: sc.rooms.current.ry,
+    cell: [Math.floor(b.center.x / T) - sc.rooms.current.rx * sc.rooms.w, Math.floor((b.bottom - 1) / T) - sc.rooms.current.ry * sc.rooms.h],
     px: [Math.round(b.center.x), Math.round(b.bottom)], v: [Math.round(b.velocity.x), Math.round(b.velocity.y)],
-    onGround: p.onGround, held: mech('Carry')?.holding?.id ?? null, dead: sc.dead, won: sc.won, jumps: sc.stats.jumps,
+    onGround: p.onGround, held: mech('Carry')?.holding?.id ?? null, dead: sc.respawn.dead, won: sc.won, jumps: sc.stats.jumps,
   };
 }
 
@@ -112,8 +112,8 @@ export function state(): Record<string, unknown> {
  * 迷雾里还看不见的格子画成 ?（reveal: true 全显示）
  */
 export function view(opts: { reveal?: boolean } = {}): string {
-  const sc = scene(), T = sc.cfg.tile, t = sc.terrain, W = sc.roomW, H = sc.roomH;
-  const x0 = sc.room.rx * W, y0 = sc.room.ry * H;
+  const sc = scene(), T = sc.cfg.tile, t = sc.terrain, W = sc.rooms.w, H = sc.rooms.h;
+  const x0 = sc.rooms.current.rx * W, y0 = sc.rooms.current.ry * H;
   const grid: string[][] = [];
   const doors = new Map<string, number>();
   (mech('Locks')?.data?.doors ?? []).forEach((d: any) => doors.set(`${d.x},${d.y}`, d.group));
@@ -170,7 +170,7 @@ function walk(dir: 1 | -1, dist: number): void {
   setDirs(dir > 0 ? { right: true } : { left: true });
   for (let i = 0; i < 600 && Math.abs(p.body.center.x - start) < dist - COAST_PX; i++) {
     step(1);
-    if (scene().dead) break;
+    if (scene().respawn.dead) break;
     stuck = Math.abs(p.body.center.x - last) < 0.5 ? stuck + 1 : 0;
     last = p.body.center.x;
     if (stuck > 6) break;
@@ -189,16 +189,16 @@ function jump(dirs: Dirs, frames?: number): void {
   const max = frames ?? 180;
   for (let i = 1; i < max; i++) {
     step(1);
-    if (scene().dead) break;
+    if (scene().respawn.dead) break;
     if (frames === undefined && i > 3 && p.onGround) break;
   }
 }
 
 async function reset(): Promise<void> {
   release();
-  if (scene().dead) step(24);   // 刚死的 0.3 秒里不响应
+  if (scene().respawn.dead) step(24);   // 刚死的 0.3 秒里不响应
   setButton(BUTTON.Y, true); step(1); setButton(BUTTON.Y, false); step(2);
-  for (let i = 0; i < 300 && (scene().respawning || scene().crumpling); i++) step(1);
+  for (let i = 0; i < 300 && (scene().respawn.respawning || scene().crumple.active); i++) step(1);
   step(5);
 }
 
@@ -211,19 +211,19 @@ export async function run(script: string): Promise<string> {
     const T = scene().cfg.tile;
     if (op === 'left' || op === 'right') walk(op === 'right' ? 1 : -1, Number(a ?? 1) * T);
     else if (op === 'to') {
-      const sc = scene(), target = (sc.room.rx * sc.roomW + Number(a)) * T + T / 2, p = player();
+      const sc = scene(), target = (sc.rooms.current.rx * sc.rooms.w + Number(a)) * T + T / 2, p = player();
       const dir = target > p.body.center.x ? 1 : -1;
       walk(dir, Math.abs(target - p.body.center.x));
     } else if (op === 'hold') { setDirs(parseDirs(a)); step(Number(b ?? 1)); }
     else if (op === 'jump') { const n = Number(a); if (a !== undefined && !Number.isNaN(n)) jump({}, n); else jump(parseDirs(a), b === undefined ? undefined : Number(b)); }
     else if (op === 'wait') { release(); step(Number(a ?? 1)); }
-    else if (op === 'land') { release(); for (let i = 0; i < 180 && !player().onGround && !scene().dead; i++) step(1); }
+    else if (op === 'land') { release(); for (let i = 0; i < 180 && !player().onGround && !scene().respawn.dead; i++) step(1); }
     else if (op === 'down') { setDirs({ down: true }); step(2); release(); step(1); }
     else if (op === 'reset') await reset();
     else if (op === 'view') { out.push(view()); continue; }
     else { out.push(`不认识的命令：${cmd}\n${COMMANDS}`); break; }
     out.push(`${cmd.padEnd(16)} → ${status()}`);
-    if (scene().dead) { out.push('死了（reset 复活）'); break; }
+    if (scene().respawn.dead) { out.push('死了（reset 复活）'); break; }
     if (scene().won) { out.push('通关了'); break; }
   }
   return out.join('\n');
@@ -272,7 +272,7 @@ export async function load(opts: { level?: string; floor?: string; room?: string
   release();
   game().loop.sleep();
   scene().scene.restart({ project, floorId: floor.id, playtest: false, startRoom, entry, held: opts.held, hat: opts.hat, stage: opts.stage });
-  for (let i = 0; i < 600 && !(scene().player?.body && !scene().respawning); i++) step(1);
+  for (let i = 0; i < 600 && !(scene().player?.body && !scene().respawn.respawning); i++) step(1);
   step(10);
   return view();
 }

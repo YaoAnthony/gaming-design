@@ -48,7 +48,7 @@ const REST_EASE = 0.12, TILT_EASE = 0.25;
 const SQUASH_WIDEN = 0.6;
 
 export class LooseKeys {
-  /** 所有地上钥匙的物理体：移动方块也要和它们碰撞（Carry.terrainBodies） */
+  /** 所有地上钥匙的物理体（登记为实心体里的钥匙：移动方块、纸驮得住它们） */
   readonly group: Phaser.Physics.Arcade.Group;
   private list: LooseKey[] = [];
   /** 落地溅的火花（染成那把钥匙的颜色） */
@@ -57,6 +57,7 @@ export class LooseKeys {
   constructor(private ctx: PlayContext) {
     const { scene, terrain } = ctx;
     this.group = scene.physics.add.group();
+    ctx.solids.register(this.group, 'key');
     scene.physics.add.collider(this.group, terrain.layer, undefined, terrain.landsOnOneWay);   // 木板：从上面落下来站得住
     this.burst = scene.add.particles(0, 0, 'spark', {
       speedX: { min: -110, max: 110 }, speedY: { min: -130, max: -30 }, gravityY: 500,
@@ -69,7 +70,7 @@ export class LooseKeys {
   start(): void {
     const { scene, enemies } = this.ctx;
     scene.physics.add.collider(enemies.group, this.group, this.pushedByEnemy, syncDeltas);
-    this.ctx.mech('pushBlock')?.terrainBodies?.().forEach(g => scene.physics.add.collider(this.group, g, undefined, syncDeltas));
+    this.ctx.solids.groups('crate').forEach(g => scene.physics.add.collider(this.group, g, undefined, syncDeltas));
   }
 
   /** 放一把钥匙：(x, y) = 钥匙贴图停在地上时的中心；贴图的底边就是物理体的底边 */

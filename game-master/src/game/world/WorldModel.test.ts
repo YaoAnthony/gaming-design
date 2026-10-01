@@ -122,15 +122,15 @@ describe('locks', () => {
     for (let i = 0; i < 7; i++) addLockGroup(m);
     expect(addLockGroup(m)).toBeNull();
   });
-  it('门只烘进空气格，钥匙记坐标；删组后全部消失', () => {
+  it('门烘进砖块行：空气格直接是门，盖在别的砖上的记下底下是什么（开门后露出来）；钥匙记坐标；删组后全部消失', () => {
     const m = base();
     const g = addLockGroup(m)!;
-    setDoorCell(m, 'A', 1, 1, g.id); setDoorCell(m, 'A', 2, 2, g.id);   // (2,2) 是碎岩，烘不进去
+    setDoorCell(m, 'A', 1, 1, g.id); setDoorCell(m, 'A', 2, 2, g.id);   // (2,2) 是碎岩：门盖在它上面
     setKeyCell(m, 'A', 3, 1, g.id);
     const { model, doors, keys } = bakeLocks(m);
     expect(model.rooms.A[1]).toBe('R%..R');
-    expect(model.rooms.A[2]).toBe('R.r.R');
-    expect(doors.map(d => [d.x, d.y, d.group])).toEqual([[1, 1, 1]]);   // 碎岩上的门不算
+    expect(model.rooms.A[2]).toBe('R.%.R');
+    expect(doors).toEqual([{ x: 1, y: 1, group: 1 }, { x: 2, y: 2, group: 1, under: 'r' }]);
     expect(keys).toEqual([{ x: 3, y: 1, group: 1 }]);
     expect(m.rooms.A[1]).toBe('R...R');                                    // 原模型不动
     removeLockGroup(m, g.id);

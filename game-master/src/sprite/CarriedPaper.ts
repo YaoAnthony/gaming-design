@@ -2,7 +2,7 @@
 import type Phaser from 'phaser';
 import type { Chunk, ChunkCell, Terrain } from '@/game/terrain/Terrain';
 import { rectHitsCells } from '@/game/core/solid';
-import { PaperBody, type Carrier } from './PaperBody';
+import { PaperBody, carryLine, type Carrier } from './PaperBody';
 
 export class CarriedPaper {
   readonly container: Phaser.GameObjects.Container;
@@ -31,8 +31,8 @@ export class CarriedPaper {
     this.update();
   }
 
-  /** 包围盒顶边贴到头顶时的 y（像素） */
-  get top(): number { return this.carrier.body.top - this.h; }
+  /** 包围盒顶边贴到头顶时的 y（像素）；比一格矮的怪物按一格高托（见 carryLine） */
+  get top(): number { return carryLine(this.carrier, this.T) - this.h; }
   /** 包围盒左边（像素） */
   get left(): number { return this.carrier.x + this.offsetX; }
 
@@ -41,6 +41,7 @@ export class CarriedPaper {
     const T = this.T;
     this.container.setPosition(this.left - this.minX * T, this.top - this.minY * T);
     this.platform.place(this.left, this.top);
+    if (this.carrier.liftsToTile) this.carrier.carryLift = this.carrier.body.top - carryLine(this.carrier, T);
   }
 
   /** 按驮它的东西现在的位置摆，纸会不会撞进实心格里（贴着边不算） */
@@ -53,8 +54,12 @@ export class CarriedPaper {
   drop(terrain: Terrain, T: number): Chunk {
     const cells = this.cells.map(c => ({ ...c, x: Math.round((c.x * T + this.container.x) / T), y: Math.round((c.y * T + this.container.y) / T) }));
     this.platform.destroy();
+    this.unlift();
     return terrain.addChunk(cells, this.container);
   }
 
-  destroy(): void { this.platform.destroy(); this.container.destroy(); }
+  destroy(): void { this.platform.destroy(); this.container.destroy(); this.unlift(); }
+
+  /** 不驮了：身子缩回去 */
+  private unlift(): void { if (this.carrier.liftsToTile && this.carrier.active) this.carrier.carryLift = 0; }
 }

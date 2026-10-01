@@ -3,7 +3,7 @@
 // 连锁只沿上下左右相邻、同色的门传：同色但不相连的另一片门还锁着，要另一把钥匙。传一格的间隔是 config.lockChainDelayMs。
 // 整张地图重置（死亡 / R）：开过的门全部关回来，用掉的、没动过的钥匙回到原位；拿在手上的还拿在手上，
 // 人自己丢下的留在丢下的地方。进入下一关全部回原位。只重置房间时开过的门不关。
-// 门在建地形前烘成 % 砖（bake），这里按组染色。
+// 门在建地形前烘成 % 砖（bake），这里按组染色。门可以盖在别的砖上（比如尖刺）：开门后那一格露出底下的砖，不是空气。
 import type Phaser from 'phaser';
 import { DOOR_CHAR, lockGroup, type LockCell } from '@/game/world/WorldModel';
 import type { PlayContext } from '@/game/core/PlayContext';
@@ -59,7 +59,7 @@ export class Locks implements Mechanic {
       return;
     }
     const cells = this.data.doors.filter(c => this.opened.has(this.index(c)) && this.isDoor(c));
-    if (cells.length) this.ctx.terrain.destroyCellsForce(cells);
+    if (cells.length) this.reveal(cells);
     this.tint();
   }
 
@@ -114,8 +114,15 @@ export class Locks implements Mechanic {
       const glow = ctx.scene.add.rectangle(x, y, T, T, this.color(c.group), 0.85).setDepth(9).setBlendMode('ADD');
       ctx.scene.tweens.add({ targets: glow, scale: 1.6, alpha: 0, duration: 260, ease: 'Quad.out', onComplete: () => glow.destroy() });
     });
-    ctx.terrain.destroyCellsForce(still);
+    this.reveal(still);
     ctx.fx.fogDirty();
+  }
+
+  /** 门拿掉：先当成空出来（掉落、挂着的东西照常判），门后面藏着砖的再把那块砖放回去（比如露出尖刺） */
+  private reveal(cells: LockCell[]): void {
+    const t = this.ctx.terrain;
+    t.destroyCellsForce(cells);
+    cells.forEach(c => { if (c.under) t.set(c.x, c.y, c.under); });
   }
 
   private cancelPending(): void {

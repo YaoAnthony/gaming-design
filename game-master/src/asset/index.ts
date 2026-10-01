@@ -76,6 +76,8 @@ export const TILE_FRAMES = {
   spikesLeft: 26,
   spikesRight: 27,
   spikesBoth: 28,
+  /** 王之炸药：史莱姆王死了就炸开周围 3x3 */
+  bossCharge: 29,
 } as const;
 
 export const AUTOTILE_VARIANTS = 16;

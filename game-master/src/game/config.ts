@@ -49,7 +49,7 @@ export const DEFAULT_CONFIG: GameConfig = {
   knockbackX: 220,
   knockbackY: 300,
   knockbackMs: 220,
-  bossHp: 8,
+  bossHp: 6,
   bossHopMs: 1400,
   bossSpitMs: 5000,
   bossMaxMinions: 6,

@@ -86,7 +86,7 @@ class Canvas {
 const T = 32;
 
 // ---- 砖块图集：0 泥土 1 岩石 2 脆岩 3 沙土 4 尖刺 ----
-const tiles = new Canvas(T * 29, T);   // 0-4 基础砖块，5-20 引线的 16 种连接图案（只在编辑器里显示，白色，按引线颜色染色），21 纸，22 字块，23 门（白底，运行时按组染色），24 木板，25 碎岩，26-28 尖刺挂左 / 挂右 / 两边
+const tiles = new Canvas(T * 30, T);   // 0-4 基础砖块，5-20 引线的 16 种连接图案（只在编辑器里显示，白色，按引线颜色染色），21 纸，22 字块，23 门（白底，运行时按组染色），24 木板，25 碎岩，26-28 尖刺挂左 / 挂右 / 两边，29 王之炸药
 // 泥土
 tiles.rect(0, 0, T, T, 0x8d5a3b);
 tiles.rect(4, 6, 6, 4, 0x6f452c); tiles.rect(18, 12, 8, 4, 0x6f452c); tiles.rect(8, 22, 6, 4, 0x6f452c); tiles.rect(22, 24, 5, 3, 0x6f452c);
@@ -160,6 +160,21 @@ for (let k = 0; k < 4; k++) {
 for (let k = 0; k < 8; k++) {
   tiles.tri(28 * T, k * 4, 28 * T + 7, k * 4 + 2, 28 * T, k * 4 + 4, 0xef476f);
   tiles.tri(29 * T, k * 4, 29 * T - 7, k * 4 + 2, 29 * T, k * 4 + 4, 0xef476f);
+}
+// 29 王之炸药：深紫灰的石块，中间一颗发光的红核，四道裂纹从核心往外透光，四角铆钉（史莱姆王死了它就炸）
+{
+  const ox = 29 * T;
+  tiles.rect(ox, 0, T, T, 0x2e2238);
+  tiles.rect(ox + 1, 1, T - 2, T - 2, 0x45344f);
+  tiles.rect(ox + 1, 1, T - 2, 2, 0x6a5578);                       // 顶上一道亮边
+  tiles.rect(ox + 1, T - 3, T - 2, 2, 0x241a2c);                   // 底下一道暗边
+  for (const [x, y] of [[3, 3], [26, 3], [3, 26], [26, 26]]) { tiles.rect(ox + x, y, 3, 3, 0x241a2c); tiles.set(ox + x, y, 0x8a7398); }   // 铆钉
+  for (const [x2, y2] of [[5, 5], [27, 6], [6, 27], [26, 26]]) tiles.line(ox + 16, 16, ox + x2, y2, 0xff6b8a, 1);   // 透光的裂纹
+  for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) {        // 发光的核心：外圈红、里面粉白
+    const d = Math.hypot(x + 0.5 - 16, y + 0.5 - 16);
+    if (d <= 7) tiles.set(ox + x, y, d <= 2.5 ? 0xfff0f4 : d <= 4.5 ? 0xff8fa8 : 0xef476f);
+    else if (d <= 8.2) tiles.set(ox + x, y, 0x7a1630);
+  }
 }
 tiles.save('tiles.png');
 

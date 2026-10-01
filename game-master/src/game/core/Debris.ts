@@ -3,7 +3,7 @@
 import Phaser from 'phaser';
 import type { Chunk } from '@/game/terrain/Terrain';
 import { Tiles } from '@/game/registry/registry';
-import { CarriedPaper, Enemy, PaperBody } from '@/sprite';
+import { CarriedPaper, Enemy, PaperBody, carryLine } from '@/sprite';
 import { playLand } from '@/particle';
 import type { PlayContext } from './PlayContext';
 import { INSET, pushRiderOutOfWalls, rectHitsCells } from './solid';
@@ -29,7 +29,7 @@ export class Debris {
 
   constructor(private ctx: PlayContext) {
     this.platforms = ctx.scene.physics.add.group({ allowGravity: false, immovable: true });
-    ctx.solids.register(this.platforms, 'platform', this.hitsPlayer);   // 玩家、怪物、箱子、钥匙都能站在纸上、撞到纸
+    ctx.solids.register(this.platforms, 'platform', { player: this.hitsPlayer, enemy: this.hitsEnemy });   // 玩家、怪物、箱子、钥匙都能站在纸上、撞到纸
   }
 
   /** 碎块被别的东西吃掉了（比如砸中 Boss）：平台由 onChunkRemoved 一起删 */
@@ -69,10 +69,10 @@ export class Debris {
     const xs = ch.cells.map(c => c.x), ys = ch.cells.map(c => c.y);
     const left = Math.min(...xs) * T + ch.container.x, right = (Math.max(...xs) + 1) * T + ch.container.x;
     const bottom = (Math.max(...ys) + 1) * T + ch.py;
-    const onHead = (b: Phaser.Physics.Arcade.Body) => bottom >= b.top - CATCH_ABOVE && bottom <= b.top + CATCH_BELOW && right > b.left && left < b.right;
+    // line = 纸底要贴的那条线（头顶；比一格矮的怪物按一格高算，见 carryLine）
+    const onHead = (b: Phaser.Physics.Arcade.Body, line = b.top) => bottom >= line - CATCH_ABOVE && bottom <= line + CATCH_BELOW && right > b.left && left < b.right;
     for (const e of ctx.enemies.list()) {
-      const b = e.body;
-      if (!onHead(b)) continue;
+      if (!onHead(e.body, carryLine(e, T))) continue;
       // 飘落时的平台直接交给"被驮着"的纸，碰撞体不中断
       const platform = this.falling.get(ch.id);
       this.falling.delete(ch.id);
@@ -114,6 +114,13 @@ export class Debris {
     const overlapY = Math.min(p.bottom, b.bottom) - Math.max(p.top, b.top);
     return overlapX <= overlapY;
   };
+
+  /**
+   * 怪物和纸的碰撞器的 process 回调：驮着纸的怪物不和自己背上的纸撞。纸是直接改位置挪的，物理引擎按位移算出很大的速度，
+   * 和底下的怪物一分离，怪物会被一下子弹出去几十像素（纸跟过去又弹，一路瞬移）
+   */
+  readonly hitsEnemy: Phaser.Types.Physics.Arcade.ArcadePhysicsCallback = (enemy, part) =>
+    ((part as Phaser.Physics.Arcade.Image).getData('paper') as PaperBody | undefined)?.carriedBy !== enemy;
 
   // ---------- 每帧 ----------
   update(): void {
@@ -169,8 +176,11 @@ export class Debris {
     if (dx === 0 || ctx.dead) return;
     const dir = Math.sign(dx), left = c.left, top = c.top;
     const rects = c.platform.rects().map(r => ({ x0: left + r.x0, x1: left + r.x1, y0: top + r.y0, y1: top + r.y1 }));
-    // 横向只要有重叠就会推（一帧才推一像素，不能往里收）；竖向往里收，刚好站在纸上 / 头顶擦着纸底的不算
-    const pushes = (b: Phaser.Physics.Arcade.Body) => rects.filter(r => b.right > r.x0 && b.left < r.x1 && b.bottom - INSET > r.y0 && b.top + INSET < r.y1);
+    // 横向只要有重叠就会推（一帧才推一像素，不能往里收）；竖向往里收，刚好站在纸上 / 头顶擦着纸底的不算。
+    // 只算纸的前沿插进去的（在前进方向上挡着的）：刚掉头时纸还和身后的东西重叠着一两像素，
+    // 要是也算进来，会按新方向量出「整个重叠」那么远，把怪物一下推到箱子 / 墙的另一边，下一帧又推回来，来回瞬移
+    const ahead = (b: Phaser.Physics.Arcade.Body, r: { x0: number; x1: number }) => dir > 0 ? r.x0 < b.left : r.x1 > b.right;
+    const pushes = (b: Phaser.Physics.Arcade.Body) => rects.filter(r => b.right > r.x0 && b.left < r.x1 && b.bottom - INSET > r.y0 && b.top + INSET < r.y1 && ahead(b, r));
     // 背后贴着墙或箱子
     const solid = (cx: number, cy: number) => ctx.blocked(cx, cy) || ctx.occupied(cx, cy);
     const pinned = (b: Phaser.Physics.Arcade.Body) => dir > 0 ? rectHitsCells(b.right, b.right + 2, b.top + INSET, b.bottom - INSET, T, solid)
@@ -190,6 +200,12 @@ export class Debris {
       if (!b.enable) continue;
       const hit = pushes(b);
       if (hit.length) squeeze(b, hit);
+    }
+    // 墙：纸的前沿插进了实心砖（怪物比一格矮、按一格高托着纸，纸能从箱子上面过去，再往前就是墙）→ 退回墙外、掉头
+    for (const r of rects) {
+      const cx = Math.floor((dir > 0 ? r.x1 - 1 : r.x0) / T);
+      if (!rectHitsCells(cx * T + 1, cx * T + T - 1, r.y0 + INSET, r.y1 - INSET, T, ctx.blocked)) continue;
+      overlap = Math.max(overlap, dir > 0 ? r.x1 - cx * T : (cx + 1) * T - r.x0);
     }
     if (!overlap) return;
     e.x -= dir * overlap;

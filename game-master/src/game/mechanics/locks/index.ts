@@ -15,7 +15,7 @@ defineMechanic({
   id: 'locks', name: '钥匙与门', desc: '同色钥匙碰到同色的门就开，并沿相连的同色门连锁打开；一把钥匙开连在一起的一片',
   scope: 'global',
   activeOn: floor => !!floor.model.locks?.groups.length,
-  /** 门烘成 % 砖（只占空气格），钥匙位置记下来 */
+  /** 门烘成 % 砖（盖在别的砖上的，底下那块记着，开门后露出来），钥匙位置记下来 */
   bake: model => { const r = bakeLocks(model); return { model: r.model, data: { doors: r.doors, keys: r.keys } satisfies LockData }; },
   create: (ctx, data) => new Locks(ctx, data as LockData),
 });

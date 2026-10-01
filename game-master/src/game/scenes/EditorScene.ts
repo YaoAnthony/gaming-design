@@ -18,6 +18,8 @@ import { Colors, hex } from '@/game/palette';
 export class EditorScene extends Phaser.Scene {
   private layer!: Phaser.Tilemaps.TilemapLayer;
   private entityImgs = new Map<string, Phaser.GameObjects.Image>();
+  /** 门后面藏着的砖：在门那一格右下角画个小图标（门可以盖在别的砖上，开门后露出来） */
+  private hiddenImgs: Phaser.GameObjects.Image[] = [];
   private overlay!: Phaser.GameObjects.Graphics;
   private fogLayer!: Phaser.GameObjects.Graphics;
   /** 引线：每种颜色一层（白色贴图按颜色染色），交叉的格子两层叠着都看得见 */
@@ -285,11 +287,18 @@ export class EditorScene extends Phaser.Scene {
     const key = this.key();
     const blocks = key ? m.texts?.[key] ?? [] : [];
     blocks.forEach(b => layoutText(b.text, b.x, b.y).forEach(c => { if (grid[c.y]?.[c.x] === '.') grid[c.y][c.x] = b.tile; }));
-    // 门也烘进网格（只占空气格），画完再按组染色
+    // 门也烘进网格（盖在什么砖上都行，和游戏里一样），画完再按组染色；盖住的砖记下来，右下角画个小图标
     const doorRows = key ? m.locks?.doors[key] : undefined;
-    doorRows?.forEach((row, y) => [...row].forEach((ch, x) => { if (grid[y]?.[x] === '.' && lockGroup(m, Number(ch))) grid[y][x] = DOOR_CHAR; }));
+    const hidden: { x: number; y: number; id: string }[] = [];
+    doorRows?.forEach((row, y) => [...row].forEach((ch, x) => {
+      if (!lockGroup(m, Number(ch)) || grid[y]?.[x] === undefined) return;
+      if (grid[y][x] !== '.' && grid[y][x] !== DOOR_CHAR) hidden.push({ x, y, id: grid[y][x] });
+      grid[y][x] = DOOR_CHAR;
+    }));
     for (let y = 0; y < m.roomH; y++) for (let x = 0; x < m.roomW; x++) this.refreshCell(x, y, grid);
     doorRows?.forEach((row, y) => [...row].forEach((ch, x) => { const g = lockGroup(m, Number(ch)); const t = g && grid[y]?.[x] === DOOR_CHAR ? this.layer.getTileAt(x, y) : null; if (t) t.tint = g!.color; }));
+    this.hiddenImgs.forEach(i => i.destroy());
+    this.hiddenImgs = hidden.map(h => this.add.image(h.x * T + T * 0.74, h.y * T + T * 0.74, 'tiles', Terrain.frameOf(h.id, 'editor')).setScale(0.46).setDepth(2.25));
     this.drawKeys(key ? m.locks?.keys[key] : undefined);
     this.drawTextBlocks(blocks);
     this.drawFogZones();

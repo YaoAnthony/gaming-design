@@ -16,6 +16,9 @@ import type { PlayContext, Suckable } from '@/game/core/PlayContext';
 import type { Mechanic } from '../define';
 import { Boss, type Arena } from './Boss';
 import { BOSS_TEX } from './bossArt';
+import { CHARGE } from './charge';
+import { FUSE_CHANNELS } from '@/game/fuse/channels';
+import type { FuseEnd } from '@/game/fuse/Fuse';
 import { SparkBurst } from './SparkBurst';
 import { hueShiftedTexture } from './minionTexture';
 import { SEAL } from './seal';
@@ -49,6 +52,8 @@ const SLIME_MS = 10000, SLIME_FADE_MS = 1500;
 const ICE_ACCEL = 320, ICE_FRICTION = 90;
 /** 甩出去的黏液团最多飞多久（落不了地就算了） */
 const BLOB_TTL_MS = 3000;
+/** 王之炸药炸到另一块王之炸药：隔多久接着炸 */
+const CHARGE_CHAIN_MS = 140;
 
 export class BossFight implements Mechanic {
   private spawns: EnemySpawn[] = [];
@@ -88,6 +93,8 @@ export class BossFight implements Mechanic {
   private blobGroup: Phaser.Physics.Arcade.Group | null = null;
   /** 玩家在黏液上滑的速度（不在黏液上 = null） */
   private iceVx: number | null = null;
+  /** 排着队等炸的王之炸药（重置时取消） */
+  private chargeTimers: Phaser.Time.TimerEvent[] = [];
 
   constructor(private ctx: PlayContext) {}
 
@@ -114,6 +121,7 @@ export class BossFight implements Mechanic {
 
   onClear(): void {
     this.cancelIntro();
+    this.chargeTimers.forEach(t => t.remove(false)); this.chargeTimers = [];
     if (this.boss || this.doors.length || this.doorsPending.length) this.end(false);
     this.bursts.forEach(b => b.destroy()); this.bursts = [];
   }
@@ -465,6 +473,52 @@ export class BossFight implements Mechanic {
     for (let i = 0; i < 6; i++) ctx.sparks.explode(10, x + (Math.random() - 0.5) * 80, y + (Math.random() - 0.5) * 60);
     this.bursts.push(new SparkBurst(ctx.scene, x, y, ctx.cfg.bossBurstCount, ctx.cfg.bossBurstSpeed, ctx.cfg.tile, ctx.cfg.bossBurstTtl));
     ctx.scene.cameras.main.shake(400, 0.015);
+    this.detonateCharges(x, y);
+  }
+
+  // ---------- 王之炸药 ----------
+  /** Boss 炸开：这个 Boss 房里的王之炸药按离它多远排队，火花圈扩到哪块，哪块就炸 */
+  private detonateCharges(x: number, y: number): void {
+    const { ctx } = this, T = ctx.cfg.tile, r = ctx.rooms.of(x, y);
+    const x0 = r.rx * ctx.rooms.w, y0 = r.ry * ctx.rooms.h;
+    for (let cy = y0; cy < y0 + ctx.rooms.h; cy++) for (let cx = x0; cx < x0 + ctx.rooms.w; cx++) {
+      if (ctx.terrain.get(cx, cy) !== CHARGE.id) continue;
+      const d = Math.hypot((cx + 0.5) * T - x, (cy + 0.5) * T - y);
+      this.queueCharge(cx, cy, (d / ctx.cfg.bossBurstSpeed) * 1000);
+    }
+  }
+
+  private queueCharge(cx: number, cy: number, ms: number): void {
+    const t = this.ctx.scene.time.delayedCall(ms, () => { this.chargeTimers = this.chargeTimers.filter(o => o !== t); this.blastCharge(cx, cy); });
+    this.chargeTimers.push(t);
+  }
+
+  /**
+   * 一块王之炸药炸开：周围 3x3 的实心方块全没（锁着的门、Boss 封门这些防火的不动），挨着的另一块王之炸药排队接着炸，
+   * 范围里每一格上的引线（不管是不是端点、什么颜色）都从这里点着，周围会松脱的（脆岩、纸）震下来。不伤人
+   */
+  private blastCharge(cx: number, cy: number): void {
+    const { ctx } = this, t = ctx.terrain, T = ctx.cfg.tile;
+    if (t.get(cx, cy) !== CHARGE.id) return;   // 已经炸过了
+    const area: CellRef[] = [];
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) area.push({ x: cx + dx, y: cy + dy });
+    const doomed = area.filter(c => {
+      const id = t.get(c.x, c.y);
+      if (id === CHARGE.id && (c.x !== cx || c.y !== cy)) { this.queueCharge(c.x, c.y, CHARGE_CHAIN_MS); return false; }
+      const def = t.def(c.x, c.y);
+      return def.solid && (!def.fireproof || id === CHARGE.id);
+    });
+    t.destroyCellsForce(doomed);
+    t.shake([{ x: cx, y: cy }], 1.5);
+    const starts: FuseEnd[] = [];
+    area.forEach(c => FUSE_CHANNELS.forEach((_, ch) => { if (ctx.fuses.has(c.x, c.y, ch)) starts.push({ x: c.x, y: c.y, ch }); }));
+    if (starts.length && ctx.igniteFuses(starts)) ctx.fx.flash('msg.fuseLit', hex(Colors.ember));
+    const px = (cx + 0.5) * T, py = (cy + 0.5) * T;
+    playCrush(ctx.sparks, px, py);
+    ctx.sparks.explode(18, px, py);
+    if (ctx.scene.cache.audio.exists('boom')) ctx.scene.sound.play('boom', { volume: 0.7 });
+    ctx.scene.cameras.main.shake(180, 0.01);
+    ctx.fx.fogDirty();
   }
 
   /** 打赢之后死了：Boss 出现即炸开，重演开路那一下 */

@@ -385,8 +385,12 @@ function setLockCell(m: WorldModel, layer: 'doors' | 'keys', key: string, x: num
 export const setDoorCell = (m: WorldModel, key: string, x: number, y: number, id: number): void => setLockCell(m, 'doors', key, x, y, id);
 export const setKeyCell = (m: WorldModel, key: string, x: number, y: number, id: number): void => setLockCell(m, 'keys', key, x, y, id);
 
-export interface LockCell extends CellRef { group: number }
-/** 门烘进砖块行（只占空气格）；返回门格和钥匙格的世界坐标 + 组号 */
+export interface LockCell extends CellRef {
+  group: number;
+  /** 门后面藏着的砖（门画在别的砖上，比如尖刺）：开门后露出来；没有 = 空气 */
+  under?: string;
+}
+/** 门烘进砖块行（盖在什么砖上都行，底下的砖记在 under 里，开门后露出来）；返回门格和钥匙格的世界坐标 + 组号 */
 export function bakeLocks(m: WorldModel): { model: WorldModel; doors: LockCell[]; keys: LockCell[] } {
   const model = cloneModel(m);
   const doors: LockCell[] = [], keys: LockCell[] = [];
@@ -400,12 +404,13 @@ export function bakeLocks(m: WorldModel): { model: WorldModel; doors: LockCell[]
       rows.forEach((row, y) => [...row].forEach((ch, x) => {
         const group = Number(ch);
         if (!(group >= 1 && group <= 9) || !valid.has(group)) return;
+        let under: string | undefined;
         if (bake) {
-          const r = model.rooms[key][y];
-          if (r[x] !== '.') return;
+          const r = model.rooms[key][y], cur = r[x];
+          if (cur !== '.' && cur !== DOOR_CHAR) under = cur;
           model.rooms[key][y] = r.substring(0, x) + DOOR_CHAR + r.substring(x + 1);
         }
-        out.push({ x: pos.rx * model.roomW + x, y: pos.ry * model.roomH + y, group });
+        out.push({ x: pos.rx * model.roomW + x, y: pos.ry * model.roomH + y, group, ...(under ? { under } : {}) });
       }));
     });
   };

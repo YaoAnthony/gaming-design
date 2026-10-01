@@ -2,7 +2,7 @@
 // 命令行工具是 scripts/level.mjs；开发时 bot（src/dev/bot.ts）直接在浏览器里用它编译 levels/*.txt 试玩。格式见 levels/README.md。
 
 /** 主图里的字符：砖块 */
-export const TILES = new Set(['.', 'R', 'r', 'B', 'S', 'X', 'Z', '=', '_']);
+export const TILES = new Set(['.', 'R', 'r', 'B', 'S', 'X', 'Z', '=', '_', 'E']);
 /** 主图里的字符：物件（底下是空气） */
 export const ENTITIES = new Set(['P', 'M', 'G', 'T', 'C', 'h', 'b', 'D', 'q', 'Q', 'N', 'K', 'k']);
 /** 主图里的字符：门（底下是空气）→ 组号；钥匙直接写组号 1-9 */

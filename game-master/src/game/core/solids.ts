@@ -13,6 +13,8 @@ interface Entry {
   kind: SolidKind;
   /** 平台和玩家撞时的判断（比如纸正压在头上时不挡） */
   playerProcess?: Process;
+  /** 平台和怪物撞时的判断（比如怪物不和自己背上驮着的纸撞） */
+  enemyProcess?: Process;
 }
 
 export class Solids {
@@ -23,8 +25,8 @@ export class Solids {
   /** @param actors 玩家和怪物组（玩家在 start() 之后才有，所以传取值函数） */
   constructor(private readonly scene: Phaser.Scene, private readonly actors: () => { player: Phaser.GameObjects.GameObject; enemies: Group }) {}
 
-  register(group: Group, kind: SolidKind, playerProcess?: Process): void {
-    const e: Entry = { group, kind, playerProcess };
+  register(group: Group, kind: SolidKind, process?: { player?: Process; enemy?: Process }): void {
+    const e: Entry = { group, kind, playerProcess: process?.player, enemyProcess: process?.enemy };
     this.entries.push(e);
     if (this.started) this.wire(e);
   }
@@ -49,7 +51,7 @@ export class Solids {
     const riders = e.kind === 'platform' ? this.entries.filter(o => o.kind !== 'platform' && this.paired.has(o.group)) : [e];
     if (e.kind === 'platform') {
       this.scene.physics.add.collider(player, e.group, undefined, e.playerProcess);
-      this.scene.physics.add.collider(enemies, e.group);
+      this.scene.physics.add.collider(enemies, e.group, undefined, e.enemyProcess);
     }
     platforms.forEach(p => riders.forEach(r => this.scene.physics.add.collider(r.group, p.group)));
     this.paired.add(e.group);

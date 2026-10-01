@@ -88,7 +88,7 @@ export function Palette() {
             <div className="icon"><span className="keyicon" style={{ background: hex(g.color) }} /></div>
             <div className="label"><b>{colorName(g.color)}钥匙</b><small>{g.id}</small></div>
           </button>,
-          <button key={'d' + g.id} className={'item' + (brush === 'door:' + g.id ? ' active' : '')} title={`${colorName(g.color)}门：只占空气格，右键擦`} onClick={() => dispatch(setBrush('door:' + g.id))}>
+          <button key={'d' + g.id} className={'item' + (brush === 'door:' + g.id ? ' active' : '')} title={`${colorName(g.color)}门：可以盖在别的砖上（比如尖刺），开门后露出来；右键擦`} onClick={() => dispatch(setBrush('door:' + g.id))}>
             <div className="icon"><div className="frame" style={{ backgroundImage: `url(${tilesUrl})`, backgroundPosition: `-${TILE_FRAMES.door * TILE_SIZE}px 0`, backgroundColor: hex(g.color), backgroundBlendMode: 'multiply' }} /></div>
             <div className="label"><b>{colorName(g.color)}门</b><span className="mini" role="button" tabIndex={0} title="删除这组" onClick={e => { e.stopPropagation(); confirmRemoveLock(g.id, g.color); }} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); confirmRemoveLock(g.id, g.color); } }}>✕</span></div>
           </button>,

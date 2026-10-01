@@ -3,6 +3,7 @@
 // Boss 房里可以再涂「Boss 触发点」（一格一格涂，连成线 / 一片都行）：玩家碰到其中任何一格才封门出 Boss；没涂就是进房走离门口一格半就开打。
 // 物品栏里它紧跟在 Boss 后面注册，所以和 Boss 一左一右挨着。
 import { defineMechanic, floorHasEntities } from '../define';
+import './charge';   // 王之炸药（砖块）
 import { BossFight } from './BossFight';
 import { Colors } from '@/game/palette';
 

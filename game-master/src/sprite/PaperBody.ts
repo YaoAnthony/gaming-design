@@ -8,7 +8,23 @@ import type { CellRef } from '@/type';
 import { makeSolidBody, settleBody, solidRuns, standsOn, type SolidRun } from '@/game/core/solid';
 
 /** 能驮纸的东西：怪物、玩家。纸贴在它头顶（body.top），横向跟着它的 x 走 */
-export type Carrier = Phaser.Physics.Arcade.Sprite & { body: Phaser.Physics.Arcade.Body };
+export type Carrier = Phaser.Physics.Arcade.Sprite & {
+  body: Phaser.Physics.Arcade.Body;
+  /** 比一格矮的时候按一格高托（怪物）：纸底对齐格线，能从一格高的箱子 / 台阶上面过去；身子往上伸着顶住纸（carryLift） */
+  readonly liftsToTile?: boolean;
+  /** 纸底比头顶高出多少像素（画面上身子伸长这么多）；没驮 = 0 */
+  carryLift?: number;
+};
+
+/** 按一格高托的时候，纸底再比格线高这么多（像素）：正好贴着一格高的箱子顶的话，浮点误差会让两者重叠一丝，
+ * 物理引擎就会把箱子往旁边挤，一帧挤一点，最后从墙（碎岩）的另一边挤出去 */
+const TILE_LINE_GAP = 1;
+
+/** 纸托在哪条线上（纸底的 y，像素）：一般是头顶；liftsToTile 的矮个子按一格高算 */
+export function carryLine(c: Carrier, T: number): number {
+  const b = c.body;
+  return c.liftsToTile ? Math.min(b.top, b.bottom - T - TILE_LINE_GAP) : b.top;
+}
 
 export class PaperBody {
   /** 谁驮着它（null = 还在往下飘：压到人头上时不挡；玩家驮着的不挡玩家自己） */

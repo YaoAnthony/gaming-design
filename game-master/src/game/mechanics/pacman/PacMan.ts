@@ -114,6 +114,9 @@ export class PacMan implements FloorMechanic {
 
   onClear(): void { this.bombs.clear(); }
 
+  /** 吃豆人层被抓到：鬼还守在旁边，不重置的话一出来又被抓，所以总是重开 */
+  resetsRoomOnDeath(): boolean { return true; }
+
   /** 死亡 / R：鬼回巢重新按节拍出；4 颗大力丸刷新、2 阶段的加成清零；剧情还没开始的话小豆子也全部复原 */
   onReset(): void {
     this.ghosts?.reset(this.ctx.scene.time.now);

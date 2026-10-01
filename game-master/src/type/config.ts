@@ -60,8 +60,14 @@ export interface GameConfig {
   /** 定向爆炸：地面起跳时按着左/右，爆炸中心往那边挪 directionalOffset 格 */
   directionalBlast: boolean;
   directionalOffset: number;
-  /** 死亡、按 R 都重置整张地图：地形、怪物、箱子、钥匙回原位，开过的门关回来（否则只重置当前房间） */
-  deathResetsWorld: boolean;
+  /**
+   * 死了之后重置什么：
+   * - none：什么都不重置，解过的就算解过了（炸掉的砖、烧过的引线、开过的门、推过的箱子、打死的怪都保持原样），人回到这个房间的入口；
+   *   R 重置当前房间（卡关时的出路）。Boss 战打到一半、吃豆人层被抓到例外，重开这个房间（机制的 resetsRoomOnDeath）
+   * - room：重置当前房间；R 也是
+   * - world：重置整张地图（地形、怪物、箱子、钥匙回原位，开过的门关回来）；R 也是
+   */
+  deathReset: 'none' | 'room' | 'world';
   /** 音乐音量 0-1 */
   musicVolume: number;
   /** 生命值：几颗心；碰到尖刺 / 怪物 / Boss 扣一颗（被压、被埋还是直接死），扣光才死 */

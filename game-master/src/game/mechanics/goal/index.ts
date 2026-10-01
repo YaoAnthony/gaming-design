@@ -1,9 +1,10 @@
-// ===== 通用机制：终点（假通关） =====
-// 到达终点建筑：第 1、2 关是假通关，弹「通关！」弹窗，可以「进入下一关」或 X 关掉继续玩。「进入下一关」其实是
-// 画面淡出、地图复原、回到本层出生点，站着长高一阶（1 → 1.5 → 2 格），再玩一次。第 3 关（2 格高）到终点才是真正通关，「再来一次」从起点重开。
+// ===== 通用机制：出口 =====
+// 走到出口门：有下一层就是假通关，弹「通关！」弹窗，点「进入下一关」跳到下一层，X 关掉继续玩（走远一点再回来会再弹）；
+// 最后一层的出口是真通关，「再来一次」从起点重开。
+// （以前假通关是回出生点长高一阶再玩一次；长大的仪式还在 core/Growth.ts，留着以后做成药水之类的道具）
 import Phaser from 'phaser';
 import type { Point } from '@/type';
-import { MAX_STAGE } from '@/sprite/Player';
+import { floorAfter } from '@/game/world/WorldModel';
 import type { PlayContext } from '@/game/core/PlayContext';
 import { defineMechanic, type Mechanic } from '../define';
 import { Colors } from '@/game/palette';
@@ -38,8 +39,8 @@ class Goal implements Mechanic {
       if (!g.armed) { if (d >= REACH_PX * 2) g.armed = true; continue; }   // 关掉弹窗继续玩：走远一点门才会再触发
       if (d >= REACH_PX) continue;
       g.armed = false;
-      // 还没长到最高（第 1、2 关）：假通关，弹窗里可以「进入下一关」；长到最高（第 3 关）：真通关。假通关的门留着，下一关回来再碰
-      if (p.stage >= MAX_STAGE) { g.done = true; ctx.win(true); } else ctx.win(false);
+      // 有下一层：假通关，弹窗里「进入下一关」跳过去（GameScene.fakeNextLevel）；最后一层：真通关
+      if (floorAfter(ctx.project, ctx.floor.id)) ctx.win(false); else { g.done = true; ctx.win(true); }
       return;
     }
   }
@@ -48,24 +49,26 @@ class Goal implements Mechanic {
   private drawBuilding(cx: number, baseY: number): void {
     const T = this.ctx.cfg.tile;
     const g = this.ctx.scene.add.graphics().setDepth(-5);
+    // 小楼：主楼 4.5 格宽、4.5 格高，上面一座 1.5 格宽的小塔加尖顶；窗 3 列 2 排，塔上一扇
+    const win = (x: number, y: number) => g.fillRect(x - 6, y - 8, 12, 16);   // (x, y) = 窗的中心
     g.fillStyle(0x151a2e, 1);
-    g.fillRect(cx - 4 * T, baseY - 9 * T, 8 * T, 9 * T);
-    g.fillRect(cx - 1.5 * T, baseY - 13 * T, 3 * T, 4 * T);
-    g.fillTriangle(cx - 1.5 * T, baseY - 13 * T, cx + 1.5 * T, baseY - 13 * T, cx, baseY - 15.5 * T);
+    g.fillRect(cx - 2.25 * T, baseY - 4.5 * T, 4.5 * T, 4.5 * T);
+    g.fillRect(cx - 0.75 * T, baseY - 6.5 * T, 1.5 * T, 2 * T);
+    g.fillTriangle(cx - 0.75 * T, baseY - 6.5 * T, cx + 0.75 * T, baseY - 6.5 * T, cx, baseY - 7.8 * T);
     g.fillStyle(Colors.gold, 0.85);
-    for (let r = 0; r < 4; r++) for (let k = 0; k < 3; k++) g.fillRect(cx - 3 * T + k * 2.5 * T + 8, baseY - 8 * T + r * 2 * T + 6, 20, 28);
-    g.fillRect(cx - 10, baseY - 12 * T + 8, 20, 28);
-    g.fillStyle(Colors.gold, 0.08); g.fillCircle(cx, baseY - 8 * T, 7 * T);
+    for (const y of [baseY - 3.6 * T, baseY - 2.3 * T]) for (const k of [-1, 0, 1]) win(cx + k * 1.25 * T, y);
+    win(cx, baseY - 5.5 * T);
+    g.fillStyle(Colors.gold, 0.08); g.fillCircle(cx, baseY - 4 * T, 3.5 * T);
   }
 }
 
 const goal = defineMechanic({
-  id: 'goal', name: '终点', desc: '第一次到达是假通关：回出生点长成 2 格高再弹通关；第二次到达真通关',
+  id: 'goal', name: '出口', desc: '到达弹「通关」窗口，点「进入下一关」到下一层；最后一层的出口是真通关',
   scope: 'global',
   create: ctx => new Goal(ctx),
 });
 
 goal.entity({
-  id: 'G', name: '终点', desc: '碰到即通关，上面会画一座建筑', texture: 'door', color: Colors.gold,
+  id: 'G', name: '出口', desc: '碰到弹「通关」窗口，点「进入下一关」到下一层（最后一层是真通关），上面会画一座小楼', texture: 'door', color: Colors.gold,
   spawn: (g, at) => g.addGoal({ x: at.x, y: at.y }),
 });

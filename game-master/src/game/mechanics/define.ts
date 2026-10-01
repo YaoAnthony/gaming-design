@@ -34,6 +34,8 @@ export interface Mechanic {
    * level = 进入下一关（整张图重来、这一关之前打过的都不算，不要重演什么）。返回复活点 = 改玩家的复活位置
    */
   onReset?(scope: 'room' | 'world' | 'level'): { x: number; y: number; vx: number; vy: number } | void;
+  /** 死了不重置的模式下（config.deathReset = 'none'）：这次死了还是要重置当前房间吗（比如 Boss 战打到一半：Boss 重新出场） */
+  resetsRoomOnDeath?(): boolean;
   /** 引线烧过这些格子 */
   onFuseBurn?(cells: FuseBurnCell[]): void;
   /** 换层时要带到下一层的状态（手上的道具、帽子……） */

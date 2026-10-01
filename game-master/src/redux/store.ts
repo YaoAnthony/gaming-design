@@ -2,7 +2,6 @@ import { configureStore } from '@reduxjs/toolkit';
 import configReducer from './slices/configSlice';
 import editorReducer, { roomOfStart, type EditorState } from './slices/editorSlice';
 import hudReducer from './slices/hudSlice';
-import progressReducer from './slices/progressSlice';
 import inputReducer from './slices/inputSlice';
 import settingsReducer, { type SettingsState } from './slices/settingsSlice';
 import { loadPersisted, schedulePersist } from './persist';
@@ -26,7 +25,7 @@ const preloadedState: { editor: EditorState; config: GameConfig; settings: Setti
 };
 
 export const store = configureStore({
-  reducer: { config: configReducer, editor: editorReducer, hud: hudReducer, progress: progressReducer, input: inputReducer, settings: settingsReducer },
+  reducer: { config: configReducer, editor: editorReducer, hud: hudReducer, input: inputReducer, settings: settingsReducer },
   preloadedState,
   // 撤销栈里存着上百份项目：开发期的不可变 / 可序列化检查每次派发都会整个遍历，画格子会卡。跳过它们（项目本身照样检查）
   middleware: getDefault => getDefault({

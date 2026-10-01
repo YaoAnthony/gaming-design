@@ -6,7 +6,7 @@ import { InputNumber, Select } from 'antd';
 
 /** 左边栏底部：游戏设置（文件操作在右边栏的 FilePanel） */
 export function Toolbar() {
-  const { skill, deathResetsWorld, directionalBlast, playerHeight, explosionRadius } = useAppSelector(s => s.config);
+  const { skill, deathReset, directionalBlast, playerHeight, explosionRadius } = useAppSelector(s => s.config);
   const dispatch = useAppDispatch();
 
   return (
@@ -26,7 +26,14 @@ export function Toolbar() {
       </div>
       <div className="hint">单位都是格。身高小于 1 才能钻一格高的缝（建议 0.94）。改完下次试玩生效；默认值在 game/config.ts。</div>
       <label className="check"><input type="checkbox" checked={directionalBlast} onChange={e => dispatch(setConfig({ directionalBlast: e.target.checked }))} /> 定向爆炸（按住方向起跳，炸那边两格）</label>
-      <label className="check"><input type="checkbox" checked={deathResetsWorld} onChange={e => dispatch(setConfig({ deathResetsWorld: e.target.checked }))} /> 死亡 / R 重置整张地图</label>
+      <div className="row">
+        <span className="hint" style={{ flex: 'none', alignSelf: 'center', width: 60 }}>死了之后</span>
+        <Select size="small" value={deathReset} onChange={v => dispatch(setConfig({ deathReset: v }))} options={[
+          { value: 'none', label: '什么都不重置（R 重置房间）', title: '解过的就算解过了；Boss 战、吃豆人层例外，重开这个房间' },
+          { value: 'room', label: '重置当前房间', title: '死亡和 R 都重置当前房间' },
+          { value: 'world', label: '重置整张地图', title: '死亡和 R 都重置整张地图' },
+        ]} />
+      </div>
 
     </>
   );

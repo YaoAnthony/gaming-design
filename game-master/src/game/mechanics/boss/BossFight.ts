@@ -3,13 +3,9 @@
 // 过场中它不动、打不疼、碰到也不死，落地不震松地形（不然 Boss 房里设计好的脆岩会提前掉）。
 // 被玩家贴得太紧吓跑时（Boss 的 flee 事件）：脚下铺一滩黏液、朝玩家那边甩两团，落地也摊成一滩。黏液滑：
 // 玩家站在上面像溜冰，松手停不下来、转身很慢（updateAlive 里在正常移动之后改速度，不动玩家自己的移动代码）。
-// 打赢之后：第一层、死在别的房间 → 回到 Boss 房，Boss 在你眼前再炸一次（引线重新点、路重新开）；
-// 死在 Boss 房里、或不在第一层 → Boss 回来，重新打。
-// 「打赢过」记在 Redux 的 progress 里，按「层 + 关」分开：第 1 关打赢的不算第 2、3 关的；进入下一关 Boss 重新出场。
+// 打赢过的 Boss 房记在 defeated 里，不再出 Boss；在那个房间里按 R（房间复原）、重置整张地图时 Boss 回来，重新打。
 import Phaser from 'phaser';
-import type { CellRef, EnemySpawn, EntryState, Point, RoomCoord } from '@/type';
-import { floorIndex } from '@/game/world/WorldModel';
-import { progressKey, type BossWin } from '@/redux/slices/progressSlice';
+import type { CellRef, EnemySpawn, RoomCoord } from '@/type';
 import { Enemy } from '@/sprite';
 import { playCrush } from '@/particle';
 import type { PlayContext, Suckable } from '@/game/core/PlayContext';
@@ -68,12 +64,8 @@ export class BossFight implements Mechanic {
   private doors: CellRef[] = [];
   /** 还没封上的门（等玩家离开门口再封） */
   private doorsPending: CellRef[] = [];
+  /** 打赢过的 Boss 房（房间 key） */
   private defeated = new Set<string>();
-  /** 封门时的位置：打赢之后死了就回到这里 */
-  private sealEntry: EntryState | null = null;
-  /** 这一层、这一关打赢的 Boss（在 Redux 里）：复活点（封门处）、倒下的位置、Boss 房 */
-  private get progressKey(): string { return progressKey(this.ctx.floor.id, this.ctx.player.stage); }
-  private get won(): BossWin | null { return this.ctx.progress.bossWin(this.progressKey); }
   private bursts: SparkBurst[] = [];
   /** Boss 吐出来的小史莱姆（上限只数这些，地图上的巡逻怪不算）；Boss 死的时候一起死 */
   private minions: Enemy[] = [];
@@ -126,31 +118,16 @@ export class BossFight implements Mechanic {
     this.bursts.forEach(b => b.destroy()); this.bursts = [];
   }
 
-  onReset(scope: 'room' | 'world' | 'level'): EntryState | void {
+  onReset(scope: 'room' | 'world' | 'level'): void {
     const { ctx } = this;
-    if (scope === 'level') {
-      // 进入下一关：这一关打赢过也不算了，Boss 在下一关重新出场（人回出生点后 onRoomChanged 会再判一次）
-      this.forgetWin();
-      return;
-    }
-    if (scope === 'room') {
-      // 在 Boss 房里重置：Boss 回来，重新打
-      if (this.inWonRoom(ctx.rooms.current)) this.forgetWin();
-      if (this.hasBoss(ctx.rooms.current)) this.startBoss(ctx.rooms.current);
-      return;
-    }
-    const replay = !!this.won && floorIndex(ctx.project, ctx.floor.id) === 0 && !this.inWonRoom(ctx.rooms.current);
-    const won = replay ? this.won : null;
-    if (!replay) this.forgetWin();
-    this.defeated.clear();
-    if (won?.room) this.defeated.add(won.room);
-    if (won) {
-      // 直接回到 Boss 房，Boss 再炸一次
-      this.replayDeath(won.at);
-      return won.entry;
-    }
-    if (this.hasBoss(ctx.rooms.current)) this.startBoss(ctx.rooms.current);
+    // 在打赢过的 Boss 房里按 R（房间复原）：Boss 回来，重新打；重置整张地图、进入下一关（长大）：所有 Boss 都回来
+    if (scope === 'room') { const key = ctx.rooms.key(ctx.rooms.current); if (key) this.defeated.delete(key); }
+    else this.defeated.clear();
+    if (scope !== 'level' && this.hasBoss(ctx.rooms.current)) this.startBoss(ctx.rooms.current);   // 进入下一关：人回出生点后 onRoomChanged 会再判一次
   }
+
+  /** 死了不重置的模式下，Boss 战打到一半死了：还是重开这个房间（Boss 重新出场、房间里的落石和引线复原），不然 Boss 压在复活点上、能砸它的东西也用光了 */
+  resetsRoomOnDeath(): boolean { return !!this.boss || this.doors.length > 0 || this.doorsPending.length > 0; }
 
   onFuseBurn(cells: CellRef[]): void {
     if (this.boss && this.ctx.terrain.cellsOverlapRect(cells, this.boss.body)) this.hurt(FUSE_DAMAGE);
@@ -166,9 +143,6 @@ export class BossFight implements Mechanic {
     return this.spawns.some(sp => this.ctx.rooms.same(sp, r)) || this.ctx.rooms.flag(r, 'boss');
   }
 
-  private inWonRoom(r: RoomCoord): boolean { return !!this.won && this.ctx.rooms.same(this.ctx.rooms.of(this.won.entry.x, this.won.entry.y), r); }
-  /** 当作没打过：Boss 会在下次进房 / 重置时回来 */
-  private forgetWin(): void { if (this.won) this.ctx.progress.forgetBoss(this.progressKey); this.defeated.clear(); }
 
   /** 玩家进 Boss 房：先不出 Boss，只记下要封的门（房间四条边上所有不是实心的格子），等玩家走进来一点再封门、再出场 */
   private startBoss(r: RoomCoord): void {
@@ -210,7 +184,6 @@ export class BossFight implements Mechanic {
     ctx.scene.cameras.main.shake(120, 0.005);
     ctx.fx.fogDirty();
     ctx.entry = { x: ctx.player.x, y: ctx.player.y, vx: 0, vy: 0 };
-    this.sealEntry = ctx.entry;
     this.startIntro();
   }
 
@@ -324,7 +297,6 @@ export class BossFight implements Mechanic {
     this.killMinions();
     this.explode(boss.x, boss.y);
     ctx.fx.flash('msg.bossDefeated', hex(Colors.gold));
-    if (this.sealEntry && this.room) ctx.progress.winBoss(this.progressKey, { entry: { ...this.sealEntry }, at: { x: boss.x, y: boss.y }, room: ctx.rooms.key(this.room) });
     this.end(true);
   }
 
@@ -519,13 +491,6 @@ export class BossFight implements Mechanic {
     if (ctx.scene.cache.audio.exists('boom')) ctx.scene.sound.play('boom', { volume: 0.7 });
     ctx.scene.cameras.main.shake(180, 0.01);
     ctx.fx.fogDirty();
-  }
-
-  /** 打赢之后死了：Boss 出现即炸开，重演开路那一下 */
-  private replayDeath(at: Point): void {
-    const scene = this.ctx.scene;
-    const ghost = scene.add.image(at.x, at.y, 'boss').setDepth(5).setAlpha(0.85).setScale(0.6);
-    scene.tweens.add({ targets: ghost, scale: 1.15, alpha: 1, duration: 320, ease: 'Back.out', onComplete: () => { ghost.destroy(); this.explode(at.x, at.y); } });
   }
 
   private updateBursts(dt: number): void {

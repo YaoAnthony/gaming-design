@@ -10,7 +10,6 @@ import type { Player } from '@/sprite';
 import type { SparkEmitter } from '@/particle';
 import type { StartGameData } from '@/game/bridge';
 import type { Mechanic } from '@/game/mechanics/define';
-import type { BossWin } from '@/redux/slices/progressSlice';
 import type { Solids } from './solids';
 import type { DeathKey, MsgKey } from '@/i18n/keys';
 import type { Dialogue } from './Dialogue';
@@ -76,12 +75,6 @@ export interface PlayContext {
   /** 统计 */
   stats: { jumps: number; destroyed: number };
   pushStats(): void;
-  /** 进度（这一局打赢过的 Boss）：机制不直接碰 store */
-  progress: {
-    bossWin(key: string): BossWin | null;
-    winBoss(key: string, win: BossWin): void;
-    forgetBoss(key: string): void;
-  };
   /** 玩家设置的实时值（cfg 是进层时的快照）和改设置：滑块用 */
   settings: {
     config(): GameConfig;

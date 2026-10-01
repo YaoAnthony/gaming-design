@@ -40,7 +40,7 @@ export const DEFAULT_CONFIG: GameConfig = {
   fuseIgniteRadius: 2.5,
   directionalBlast: false,
   directionalOffset: 2,
-  deathResetsWorld: true,
+  deathReset: 'none',
   musicVolume: 0.35,
   playerHearts: 3,
   hurtInvulnMs: 1500,

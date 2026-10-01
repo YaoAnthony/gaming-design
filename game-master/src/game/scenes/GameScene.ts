@@ -6,7 +6,7 @@ import Phaser from 'phaser';
 import type { CarryOver, CellRef, CoreHost, EnemySpawn, Floor, GameConfig, Point, Project, WorldModel } from '@/type';
 import { classify } from '@/game/registry/registry';
 import { Terrain } from '@/game/terrain/Terrain';
-import { entityRows, fogRows, fuseRows, roomKeyAt, worldRows } from '@/game/world/WorldModel';
+import { entityRows, floorAfter, fogRows, fuseRows, roomKeyAt, worldRows } from '@/game/world/WorldModel';
 import { FuseNet } from '@/game/fuse/Fuse';
 import { FogOfWar } from '@/game/fog/Fog';
 import { bridge, EVT, SCENE, type StartGameData } from '@/game/bridge';
@@ -17,7 +17,6 @@ import { resizeGame } from '@/game/resize';
 import { Music } from '@/game/Music';
 import { DEFAULT_MUSIC } from '@/asset';
 import { flash, setBoss, setBossIntro, setControls, setHearts, setDialogue, setMode, setPlace, setScore, setStats } from '@/redux/slices/hudSlice';
-import { forgetBoss, resetProgress, winBoss } from '@/redux/slices/progressSlice';
 import { setConfig } from '@/redux/slices/configSlice';
 import { mapText, tr } from '@/i18n';
 import { floorMechanicOf, globalMechanicsOf, type FloorMechanic, type FuseBurnCell, type Mechanic, type MechanicDef } from '@/game/mechanics/define';
@@ -88,7 +87,6 @@ export class GameScene extends Phaser.Scene {
 
   init(data: StartGameData): void {
     this.startData = data;
-    if (!data.origin) store.dispatch(resetProgress());   // 这一局的第一个场景（开始游戏 / 再来一次 / 试玩）：进度清空；换层带着 origin，不清
     this.project = data.project;
     this.floor = (data.floorId && this.project.floors.find(f => f.id === data.floorId)) || this.project.floors[0];
     this.mechs = []; this.mechById = new Map();
@@ -286,11 +284,6 @@ export class GameScene extends Phaser.Scene {
         boss: v => store.dispatch(setBoss(v)),
         bossIntro: v => store.dispatch(setBossIntro(v)),
       },
-      progress: {
-        bossWin: key => store.getState().progress.bossWins[key] ?? null,
-        winBoss: (key, win) => store.dispatch(winBoss({ key, win })),
-        forgetBoss: key => store.dispatch(forgetBoss(key)),
-      },
       settings: {
         config: () => store.getState().config,
         setConfig: patch => store.dispatch(setConfig(patch)),
@@ -379,12 +372,14 @@ export class GameScene extends Phaser.Scene {
     store.dispatch(setMode({ mode: 'playing', playtest: this.playtest }));
   }
 
-  /** 假通关弹窗里点「进入下一关」：像换了一层，其实是整张地图复原、人回到出生点、长高一阶再玩一次（Growth） */
+  /** 假通关弹窗里点「进入下一关」：跳到下一层（不长大；长大的仪式 Growth 留着以后做成药水） */
   private fakeNextLevel(): void {
-    if (!this.won || this.wonFinal || this.leaving || this.respawn.dead || !this.growth.canGrow) return;
+    if (!this.won || this.wonFinal || this.leaving || this.respawn.dead) return;
+    const next = floorAfter(this.project, this.floor.id);
+    if (!next) return;
     this.won = false;
     store.dispatch(setMode({ mode: 'playing', playtest: this.playtest }));
-    this.growth.begin();
+    this.goToFloor(next.id);
   }
 
   /** 换层。给了 via（门的位置）就先来一段旋涡：画面转着拉近门，人和东西都被吸进去 */

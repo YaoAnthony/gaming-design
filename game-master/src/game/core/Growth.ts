@@ -1,5 +1,6 @@
-// ===== 假通关的仪式："进入下一关"：画面淡出、整张地图复原、人回到出生点，淡入后长高一阶再玩一次 =====
+// ===== 长大的仪式：画面淡出、整张地图复原、人回到出生点，淡入后长高一阶再玩一次 =====
 // 期间不响应输入、不会死（growing）。长大阶段：1 → 1.5 → 2 格
+// 现在没有东西触发它：以前是出口的假通关（「进入下一关」），现在「进入下一关」直接跳到下一层，它留着，以后做成药水之类的道具时接上（begin）
 import Phaser from 'phaser';
 import type { GameConfig, Point } from '@/type';
 import type { Mechanic } from '@/game/mechanics/define';

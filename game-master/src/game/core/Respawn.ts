@@ -1,4 +1,4 @@
-// ===== 死亡与重置：复活点、死、R 重置房间 / 整张图、人重新出现 =====
+// ===== 死亡与重置：复活点、死、复活（默认什么都不重置）、R 重置房间 / 整张图、人重新出现 =====
 // 场景里"人在哪重新出现、什么时候不响应输入"的状态都在这：dead、respawning、entry。
 // 重置的顺序：清掉正在发生的东西 → 地形、引线、怪物、各机制恢复 → 人回到复活点（骷髅手放进来或直接出现）
 import Phaser from 'phaser';
@@ -104,7 +104,7 @@ export class Respawn {
   }
 
   /**
-   * 重置整张地图（死亡、按 R，config.deathResetsWorld 开着时）：所有房间的地形、引线、怪物、箱子、钥匙恢复，开过的门关回来，
+   * 重置整张地图（死亡、按 R，config.deathReset = 'world' 时）：所有房间的地形、引线、怪物、箱子、钥匙恢复，开过的门关回来，
    * 玩家回到重置点；探索记忆保留。机制可以改复活点（Boss 重演）。appearDelayMs 同 resetRoom
    */
   resetWorld(revive = false, appearDelayMs = 0): void {
@@ -120,8 +120,8 @@ export class Respawn {
     this.respawn('msg.mapReset', revive ? 'death' : 'reset', appearDelayMs);
   }
 
-  /** 重置之后玩家回到复活点。delayMs > 0：人（连同帽子、手上的东西）先藏起来冻着，过这么久再出现 */
-  respawn(message: MsgKey, reason: AppearReason, delayMs = 0): void {
+  /** 重置之后玩家回到复活点（message = 顶上闪的提示，null = 不闪）。delayMs > 0：人（连同帽子、手上的东西）先藏起来冻着，过这么久再出现 */
+  respawn(message: MsgKey | null, reason: AppearReason, delayMs = 0): void {
     const p = this.d.player(), { rooms } = this.d;
     this.dead = false;
     this.d.onRespawn?.();
@@ -130,7 +130,7 @@ export class Respawn {
     if (!rooms.same(er, rooms.current)) rooms.enter(er, false);
     rooms.wake(er);
     this.d.fogDirty();
-    this.d.flash(message, '#9ad1ff');
+    if (message) this.d.flash(message, '#9ad1ff');
     if (delayMs <= 0) { this.appear(reason); return; }
     this.respawning = true;   // 藏着的时候不响应按键、不会死、不换房间
     p.freeze(0xffffff); p.clearTint(); p.setVisible(false);
@@ -158,16 +158,31 @@ export class Respawn {
     });
   }
 
-  /** 死亡画面里按 R（或点一下）：按设置重置整张地图或当前房间 */
+  /** 死亡画面里按 R（或点一下）：按设置（config.deathReset）复活、重置当前房间或整张地图 */
   resetAfterDeath(): void {
     if (!this.dead || this.d.scene.time.now - this.diedAt < 300) return;   // 刚死的一瞬间不响应，免得误触
-    if (this.d.cfg.deathResetsWorld) this.resetWorld(true); else this.resetRoom(true);
+    const mode = this.d.cfg.deathReset;
+    if (mode === 'world') this.resetWorld(true);
+    else if (mode === 'room' || this.d.mechs().some(m => m.resetsRoomOnDeath?.())) this.resetRoom(true);
+    else this.revive();
     this.d.setMode('playing');
   }
 
-  /** 按设置重置整张地图或当前房间（活着按 R）；fadeMs = 人藏多久再出现（等特效的新画面淡入） */
+  /**
+   * 死了什么都不重置（config.deathReset = 'none'）：解过的就算解过了。地形、引线、门、箱子、钥匙、怪物都保持原样，
+   * 正在烧的引线、在掉的碎块照常进行；手上拿着的东西也还在手上。只收掉对话和镜头特效，人回到复活点、心回满
+   */
+  private revive(): void {
+    const { scene } = this.d;
+    this.d.dialogue.end();
+    scene.tweens.killTweensOf(scene.cameras.main);
+    scene.cameras.main.shakeEffect.reset();
+    this.respawn(null, 'death');   // 不弹提示：人回来了就是复活了
+  }
+
+  /** 活着按 R：整张地图模式重置整张图，别的模式重置当前房间（死了不重置时，卡关就靠它）；fadeMs = 人藏多久再出现（等特效的新画面淡入） */
   resetByConfig(fadeMs = 0): void {
-    if (this.d.cfg.deathResetsWorld) this.resetWorld(false, fadeMs); else this.resetRoom(false, fadeMs);
+    if (this.d.cfg.deathReset === 'world') this.resetWorld(false, fadeMs); else this.resetRoom(false, fadeMs);
   }
 
   die(reason: DeathKey): void {

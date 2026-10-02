@@ -30,6 +30,7 @@
     "sub": "BOSS",
     "name": "SLIME KING"
   },
+  "rhythm": {"won": "过关 {{percent}}%", "lost": "没过 {{percent}}%", "judge": {"perfect": "完美", "good": "不错", "miss": "漏了"}, "mode": {"dash": "跑", "taiko": "鼓", "mania": "琴", "saber": "砍", "dodge": "躲"}, "hint": {"top": "上排", "bottom": "下排", "red": "红", "blue": "蓝", "lanes": "一条道一个键", "left": "←", "up": "↑", "down": "↓", "right": "→", "switch": "换道", "jump": "跳"}},
   "msg": {
     "roomReset": "房间已重置",
     "mapReset": "地图已重置",

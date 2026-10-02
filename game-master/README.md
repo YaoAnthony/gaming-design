@@ -33,6 +33,7 @@ src/
 ├── protocol/           # 引擎无关的协议（不引入 phaser / three）：bus.ts 事件总线，events.ts 事件名和每个事件带什么参数（emit / on 按它检查），screen.ts 游戏画面的来源，handoff.ts 主角交接的数据
 ├── stage3d/            # three.js 舞台（不引入 phaser）：Stage3D（按需接手显示）、ScreenPlane（游戏画布当实时贴图的那块屏幕）、fx/（舞台特效，每个一个文件夹，define.ts 注册表：tilt 往后倒、crumple 攥纸团）
 ├── world3d/            # 3D 世界（不引入 phaser）：主角跳出画面之后的关卡。World3D（跑在舞台上）、physics（纯计算，有测试）、Hero3D、LevelView、input、levels/（关卡数据）
+├── rhythm/             # 节奏关卡里引擎无关的部分（不引入 phaser / three）：chart（谱面格式）、modes（各玩法的谱面怎么写、在哪个世界玩）、score（判定计分）、flight（音符在路上）——都是纯计算有测试；Conductor（放曲子、报时间）、session、charts/（谱面数据）
 ├── game/               # Phaser 本体
 │   ├── registry/       # 注册表 + 能力特征（registry.ts），基础砖块与核心物件（tiles.ts），角色技能（skills.ts）
 │   ├── mechanics/      # 玩法机制：每个机制一个文件夹（见下面「机制」）
@@ -40,6 +41,7 @@ src/
 │   ├── terrain/        # 格子地形：Terrain（网格、爆炸、支撑、重置）、TerrainView（瓦片层、投影、体积感）、Chunks（碎块下落）；frames / blast / support 是纯函数
 │   ├── world/          # 世界模型纯函数：拼图、找出生点、加房间
 │   ├── scenes/         # Boot（加载资产）、Game、Editor；keys.ts 是场景名
+│   ├── rhythm/         # 节奏关卡的游戏这一侧：RhythmFight（整场的主持 + 2D 段落）、PianoBoss（骷髅王和钢琴）、modes/（2D 的玩法）
 │   ├── palette.ts      # 调色板：反复出现的颜色都从这里拿
 │   ├── inputDevice.ts  # 全局盯着玩家用的是键盘还是手柄，记到 store.input
 │   └── PhaserGame.ts   # 创建 / 销毁 Phaser 实例
@@ -60,6 +62,15 @@ src/
 - **引擎边界**：`game/`（Phaser）和 `stage3d/`、`world3d/`（three.js）互不引入，只通过 `protocol/` 和 Redux 说话；`protocol/` 自己不依赖任何引擎。规则写在 `eslint.config.js`（`no-restricted-imports`），违反了 lint 不过。
 - **3D 舞台**：游戏画面是舞台上的一块屏幕。平时舞台不画，玩家看到的就是游戏画布；有舞台特效在放时，游戏画布藏起来照常画，每帧当贴图贴到屏幕上（`game/core/ScreenFeed.ts` 实现 `protocol/screen.ts` 的 `ScreenSource`），特效放完再还回去。发 `EVT.stageFx` / `EVT.stageFxEnd` 放 / 收一个特效（id 在 `STAGE_FX`），参数在 `config.stage3d`。开发期按 T 试「画面往后倒」（`dev/stageKeys.ts`）。
 - **主角跳出画面**：发 `EVT.heroPopOut`，`game/core/PopOut.ts` 等人归玩家管的时候把人藏起来、发 `EVT.heroLeft`（带 `HeroHandoff`：人在画面上的位置、大小、朝向、贴图、一格多大）；`ui/stage/StageLayer.tsx` 在舞台上把 `World3D` 带起来，人从画面上原来的位置飞出来，落地后归玩家管（方向键 / WASD 走，空格跳；手柄的左摇杆 / 十字键和 A 也一样，触屏按键也能用）。2D 游戏照常在屏幕上跑，只是没人操作、人也死不了。走回屏幕（碰到它）就回 2D：从屏幕的哪碰到的就落在画面的哪——3D 一侧发 `EVT.heroEntry` 问 2D 一侧那里能不能站，是墙或尖刺就给最近的安全空地（`game/core/popOutSpot.ts`，纯计算有测试），人飞到那、镜头回到原位，再发 `EVT.heroReturn`（带落点）。在 3D 世界里按 R：画面照样被攥成纸团、房间重置，人留在 3D 世界；这时攥屏幕的披风骷髅本人站在屏幕左边，是真的三维（`stage3d/fx/crumple/Reaper.ts`）：只有上半身，从屏幕左边的地里探出来、侧身朝着屏幕；身体是把 `skeleton.png` 上半截一个像素一个方块立起来（每一行按宽度鼓成椭圆），靠镜头这边的手伸出去抓屏幕，手臂和手是一根根骨头（`handBones.ts`，和 `grab_hand.png` 同一副骨架，手指按握拳程度一节节弯过去扣住纸团，纯计算有测试），动作和 2D 里伸进画面的那只手是同一条时间线，镜头拉远看着它，攥完再回到人身后。关卡数据在 `world3d/levels/`（单位是格，原点在屏幕底边中点），手感和镜头在 `config.world3d`。存档里人在 3D 世界时，继续游戏会先在 2D 出场再跳出去（3D 里的位置不记）。开发期按 P 跳出 / 回去。
+- **节奏关卡（技术验证）**：骷髅王在房间里弹钢琴，主角跟着曲子玩，**每一段换一种玩法**；前面一直在 2D 画面里，曲子最高潮时破屏到 3D。开发期按 B 开一场 / 中途退出；发 `EVT.rhythmStart`（带谱面 id）/ `EVT.rhythmStop` 也一样，结束时发 `EVT.rhythmEnd`。
+  - **谁管什么**：`rhythm/` 是引擎无关的部分（谱面、判定计分、指挥），两边共用；`game/rhythm/RhythmFight.ts` 是整场的主持，也管 2D 的段落（画在游戏画面里：压暗房间、骷髅王和钢琴、主角的替身——真的主角藏在原地不动）；轮到 3D 的段落它让主角从替身的位置跳出去，舞台上的 `world3d/rhythm/RhythmWorld.ts` 接着玩（屏幕往后倒 `screenTilt` 度，画面里的四条道接上画面外的大道），轮完、或者谱面走完，人回到画面里。
+  - **对拍**：两边都听同一个指挥（`rhythm/Conductor.ts`：曲子现在第几毫秒，以音频播放位置为准），音符的位置按时间算、不按帧累加，卡顿也不跑拍。
+  - **谱面**（`rhythm/charts/`）分成几段，每段写明玩法；按「步」写，一行一步、一条道一个字符，`bar()` 写一小节。`chartErrors` 检查字符、整小节、一行几个音符、躲不掉的行、每段开头留没留空（音符提前 `config.world3d.rhythm.travelBeats` 拍出发，换玩法和破屏也在这一小节里）。
+  - **玩法**（`rhythm/modes.ts` 里登记谱面怎么写、在哪个世界）：2D 的在 `game/rhythm/modes/`——`dash` 喵斯快跑（上下两排，按上 / 下）、`taiko` 太鼓（红的按左、蓝的按右）、`mania` 节奏大师（四条道从钢琴往下落，A W S D / ← ↑ ↓ →）；3D 的在 `world3d/rhythm/modes/`——`saber` 光剑（方块上画着方向，到跟前按那个方向）、`dodge` 躲（左右换道，横杠跳过去）。方向键、WASD、手柄、触屏都是同一套「左上下右」。
+  - **计分**（`rhythm/score.ts`，纯计算有测试）：每个音符判 Perfect / Good / Miss（时间窗在 `config.world3d.rhythm.windows`），连击遇 Miss 归零；躲的那段被打中算 Miss、躲过去算 Perfect。不扣心。谱面走完时拿到满分的 `passRatio` 以上算过关。右上角是分数，画面上方弹判定和连击。
+  - **击中反馈**：每次按键打击点都亮一下（空按也亮，淡一些，让人知道键按到了）；打中了在音符那里炸开一圈、人鼓一下、当场出一声（`rhythm/hitsound.ts`，WebAudio 合成，Perfect / Good / Miss 三种音），画面上方弹判定和连击；漏了打击点红一下。2D 的零件（`burst` / `Receptor`）在 `game/rhythm/modes/define.ts`，3D 的（`Bursts`）在 `world3d/rhythm/modes/define.ts`。画面底下一排键帽提示现在这种玩法按什么键（`ui/Hud.tsx` 的 `RHYTHM_KEYS`）。
+  - **加一种玩法**：`rhythm/modes.ts` 里加一条，对应那一边的 `modes/` 里加一个文件（2D 实现 `FlatMode`，3D 实现 `RhythmMode`：`update` 判定、`draw` 画音符，3D 的还有机位和站位）并在 `modes/index.ts` 注册，谱面里就能用了。
+  - 曲子不进仓库：谱面的 `audio` 指向 `public/local/` 下的文件（`.gitignore` 排除了）。文件不在时照常能玩，只是没有曲子、每拍合成一声「嗒」。
 - **没去过的房间先睡着**：会自己动的东西（巡逻的怪物、移动方块）所在的房间玩家这一局还没进过，就原地等着；进过（`Rooms.isAwake`）才开始动，开始了就一直动（怪物走进没去过的房间也接着走）。引线、碎块下落、钥匙和箱子掉落这些玩家引起的后果不管房间醒没醒都照常发生。死亡 / R 重置整张图时所有房间重新睡着，只叫醒复活点所在的那间。
 - **实心体**：会动的实心地形（移动方块、纸）和要站在它们上面的东西（箱子、钥匙）在 `core/solids.ts` 登记，碰撞器统一挂，机制之间不用互相打听。
 - **文案 key**：`src/i18n/keys.ts` 从 en.json 推出 key 的类型，`ctx.die` / `ctx.fx.flash` 只收合法的 key。

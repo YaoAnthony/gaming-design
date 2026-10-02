@@ -1,5 +1,6 @@
 // ===== 把 3D 舞台挂到游戏舞台上：一块盖在游戏画布上面、HUD 下面的画布 =====
 // 第一次有特效要放时才建舞台（建 WebGL 上下文）；没有 WebGL 就不放，直接回「放完了」。
+// 有节奏关卡在进行（rhythm/session）时主角跳出来，带起来的是 RhythmWorld（那一场由 game/rhythm/RhythmFight 主持）。
 // 主角跳出画面（EVT.heroLeft）时在舞台上把 3D 世界带起来，人走回画面再交还（EVT.heroReturn）；人在哪个世界记进存档（试玩不记）
 import { useEffect, useRef } from 'react';
 import { bridge, EVT, STAGE_FX, type HeroHandoff, type StageFxRef } from '@/protocol';
@@ -9,6 +10,8 @@ import { store } from '@/redux/store';
 import { Stage3D } from '@/stage3d/Stage3D';
 import { World3D } from '@/world3d/World3D';
 import { levelById } from '@/world3d/levels';
+import { RhythmWorld } from '@/world3d/rhythm/RhythmWorld';
+import { rhythmSession } from '@/rhythm';
 import { setRealm } from '@/redux/slices/runSlice';
 import { IMAGES } from '@/asset';
 
@@ -49,9 +52,20 @@ export function StageLayer() {
     const onFx = (ref: StageFxRef) => { if (!ensure()?.start(ref.id) && !stage?.isRunning(ref.id)) bridge.emit(EVT.stageFxDone, ref); };
     const onEnd = (ref: StageFxRef) => { stage?.end(ref.id); };
     const onHeroLeft = (handoff: HeroHandoff) => {
+      const heroImage = (IMAGES.find(i => i.key === handoff.texture) ?? IMAGES[0]).url, session = rhythmSession();
+      // 节奏关卡轮到 3D 的段落：带起来的是 RhythmWorld，人回到画面后那一场接着由 2D 一侧主持
+      if (session) {
+        const cfg = () => store.getState().config;
+        const world = ensure()?.add(STAGE_FX.world, ctx => new RhythmWorld(ctx, handoff, {
+          config: () => cfg().world3d.rhythm, session, heroUrl: heroImage, returnMs: cfg().world3d.returnMs,
+          onExit: () => { bridge.emit(EVT.heroReturn, null); },
+        }));
+        if (!world) bridge.emit(EVT.heroReturn, null);
+        return;
+      }
       const { run, hud } = store.getState(), saves = !hud.playtest;
       const level = levelById(run.deep?.levelId);
-      const heroUrl = (IMAGES.find(i => i.key === handoff.texture) ?? IMAGES[0]).url;
+      const heroUrl = heroImage;
       const world = ensure()?.add(STAGE_FX.world, ctx => new World3D(ctx, handoff, {
         config: () => store.getState().config.world3d, level, heroUrl,
         onExit: at => { if (saves) store.dispatch(setRealm({ realm: 'flat' })); bridge.emit(EVT.heroReturn, at); },

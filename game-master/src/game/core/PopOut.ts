@@ -22,21 +22,27 @@ export class PopOut {
   /** 人不在画面里（在 3D 世界） */
   away = false;
   private pending = false;
+  /** 从画面的哪跳出去（人的中心，游戏世界的像素）；null = 人现在站的地方 */
+  private from: { x: number; y: number } | null = null;
 
   constructor(private readonly d: PopOutDeps) {}
 
-  /** 请求跳出去；没有 3D 舞台接手（没人听 heroLeft）就不跳 */
-  request(): void {
-    if (!this.away && bridge.listenerCount(EVT.heroLeft) > 0) this.pending = true;
+  /**
+   * 请求跳出去；没有 3D 舞台接手（没人听 heroLeft）就不跳。
+   * from = 从画面的哪跳出去（节奏关卡里画面上动的是替身，要从替身那跳）；不给就是人现在站的地方
+   */
+  request(from?: { x: number; y: number }): void {
+    if (this.away || bridge.listenerCount(EVT.heroLeft) === 0) return;
+    this.pending = true; this.from = from ?? null;
   }
 
   /** 每帧：有请求、又能跳了，就跳 */
   update(): void {
     if (!this.pending || !this.d.canLeave()) return;
     this.pending = false;
-    const p = this.d.player(), cam = this.d.scene.cameras.main;
+    const p = this.d.player(), cam = this.d.scene.cameras.main, at = this.from ?? p;
     const handoff: HeroHandoff = {
-      x: (p.x - cam.scrollX) / cam.width, y: (p.y - cam.scrollY) / cam.height,
+      x: (at.x - cam.scrollX) / cam.width, y: (at.y - cam.scrollY) / cam.height,
       w: p.displayWidth / cam.width, h: p.displayHeight / cam.height,
       facing: p.flipX ? -1 : 1,
       texture: p.texture.key,

@@ -140,6 +140,39 @@ export interface World3DConfig {
   camera: { distance: number; height: number; lookUp: number; followMs: number };
   /** 走回画面：镜头和人回到原位用多久（毫秒） */
   returnMs: number;
+  /** 节奏关卡（world3d/rhythm） */
+  rhythm: RhythmConfig;
+}
+
+/**
+ * 节奏关卡：一条和屏幕一样宽的大道从屏幕底边铺到镜头前，各种玩法都在这上面。标了「屏幕宽」的长度是屏幕宽度的倍数。
+ * 各玩法自己的手感（镜头摆哪、音符多大）在 world3d/rhythm/modes/ 各自的文件顶部
+ */
+export interface RhythmConfig {
+  /** 主角那一排离屏幕多远、道在主角身后还延伸多远（屏幕宽） */
+  heroZ: number;
+  tail: number;
+  /** 主角放大几倍 */
+  heroScale: number;
+  /** 音符提前几拍出发；从画面里飞出来的那些，在这之前先在 2D 画面里从钢琴落到画面底边，用几拍 */
+  travelBeats: number;
+  dropBeats: number;
+  /** 要按键打的玩法：按下的时刻离拍点多少毫秒以内算 Perfect / Good，再远不算打中，过了 Good 的范围还没打算漏 */
+  windows: { perfect: number; good: number };
+  /** 拿到满分的几成（0..1）才算过关 */
+  passRatio: number;
+  /** 躲：弹幕到主角那一排的前后多少毫秒内，站在那条道上就算被打中 */
+  hitWindowMs: number;
+  /** 脚离地这么高（格）就跳得过横杠 */
+  barClear: number;
+  /** 起跳速度（格 / 秒）、重力（格 / 秒²）：决定滞空多久 */
+  jumpVelocity: number;
+  gravity: number;
+  /** 人从画面飞到道上用多久（毫秒）；换玩法时镜头跟过去的快慢（毫秒，越小越快） */
+  enterMs: number;
+  cameraMs: number;
+  /** 破屏到 3D 时屏幕往后倒多少度：画面里的四条道顺势接上画面外的大道 */
+  screenTilt: number;
 }
 
 export interface Stage3DConfig {

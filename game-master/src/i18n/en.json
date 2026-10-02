@@ -30,6 +30,7 @@
     "sub": "BOSS",
     "name": "SLIME KING"
   },
+  "rhythm": {"won": "Cleared {{percent}}%", "lost": "Failed {{percent}}%", "judge": {"perfect": "PERFECT", "good": "GOOD", "miss": "MISS"}, "mode": {"dash": "DASH", "taiko": "DRUM", "mania": "KEYS", "saber": "SLASH", "dodge": "DODGE"}, "hint": {"top": "top row", "bottom": "bottom row", "red": "red", "blue": "blue", "lanes": "one key per lane", "left": "←", "up": "↑", "down": "↓", "right": "→", "switch": "switch lane", "jump": "jump"}},
   "msg": {
     "roomReset": "Room reset",
     "mapReset": "Map reset",

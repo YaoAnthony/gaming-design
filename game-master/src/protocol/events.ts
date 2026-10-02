@@ -42,6 +42,11 @@ export const STAGE_FX = {
 export type StageFxId = typeof STAGE_FX[keyof typeof STAGE_FX];
 export interface StageFxRef { id: StageFxId }
 
+/** 开一场节奏关卡：用哪张谱（rhythm/charts 里的 id） */
+export interface RhythmStart { chartId: string }
+/** 节奏关卡结束：过没过关 */
+export interface RhythmEnd { won: boolean }
+
 /** 编辑器地图上点的一格：key 是房间，x/y 是房间里的格子，wx/wy 是整层地图上的格子 */
 export interface PickedCell { key: string; x: number; y: number; wx: number; wy: number }
 
@@ -74,6 +79,12 @@ export const EVT = {
   stageFxEnd: 'stage:fx-end',
   /** 舞台 →：这个特效放完、撤掉了；参数是 StageFxRef */
   stageFxDone: 'stage:fx-done',
+  /** → Phaser：开一场节奏关卡（骷髅王在画面里弹琴，主角跟着曲子玩，每段换一种玩法）；参数是 RhythmStart */
+  rhythmStart: 'rhythm:start',
+  /** → Phaser：正在进行的节奏关卡中途退出 */
+  rhythmStop: 'rhythm:stop',
+  /** Phaser →：节奏关卡结束了；参数是 RhythmEnd */
+  rhythmEnd: 'rhythm:end',
   /** → Phaser：让主角从画面里跳出来（人归玩家管的时候才跳；没挂 3D 舞台就不跳） */
   heroPopOut: 'hero:pop-out',
   /** Phaser → 3D：人已经藏起来了，交给你；参数是 HeroHandoff */
@@ -102,6 +113,9 @@ export interface BridgeEvents {
   [EVT.stageFx]: [StageFxRef];
   [EVT.stageFxEnd]: [StageFxRef];
   [EVT.stageFxDone]: [StageFxRef];
+  [EVT.rhythmStart]: [RhythmStart];
+  [EVT.rhythmStop]: [];
+  [EVT.rhythmEnd]: [RhythmEnd];
   [EVT.heroPopOut]: [];
   [EVT.heroLeft]: [HeroHandoff];
   [EVT.heroEntry]: [HeroEntryQuery];

@@ -22,6 +22,8 @@ export interface WorldMove {
   z: number;
   /** 这一帧按下了跳 */
   jump: boolean;
+  /** 这一帧刚按下的方向（按着不放只算一次）：节奏玩法用 */
+  press: { left: boolean; right: boolean; up: boolean; down: boolean };
 }
 
 export class WorldInput {
@@ -29,6 +31,10 @@ export class WorldInput {
   private jumpQueued = false;
   /** 上一帧手柄的跳是不是按着：只在按下的那一刻算一次。一开始当按着，免得从 2D 带过来的那一下也算 */
   private padJumpHeld = true;
+  /** 上一帧四个方向是不是按着（手柄、触屏靠它认出「刚按下」） */
+  private wasDown = { left: false, right: false, up: false, down: false };
+  /** 键盘上刚按下、还没被读走的方向：按得再快（一帧之内按下又松开）也不漏 */
+  private readonly tapped = new Set<Action>();
 
   constructor() {
     window.addEventListener('keydown', this.onDown);
@@ -43,12 +49,21 @@ export class WorldInput {
     const padJump = anyPressed(pads, GAMEPAD_BUTTONS.jump);
     if (padJump && !this.padJumpHeld) this.jumpQueued = true;
     this.padJumpHeld = padJump;
-    const on = (a: Action, other: boolean) => (this.held.has(a) || other ? 1 : 0);
-    const move = {
-      x: on('right', touch.right || pad.right) - on('left', touch.left || pad.left),
-      z: on('down', touch.down || pad.down) - on('up', touch.up || pad.up),
-      jump: this.jumpQueued,
+    const down = {
+      left: this.held.has('left') || touch.left || pad.left, right: this.held.has('right') || touch.right || pad.right,
+      up: this.held.has('up') || touch.up || pad.up, down: this.held.has('down') || touch.down || pad.down,
     };
+    const was = this.wasDown;
+    const move = {
+      x: +down.right - +down.left,
+      z: +down.down - +down.up,
+      jump: this.jumpQueued,
+      press: {
+        left: (down.left && !was.left) || this.tapped.has('left'), right: (down.right && !was.right) || this.tapped.has('right'),
+        up: (down.up && !was.up) || this.tapped.has('up'), down: (down.down && !was.down) || this.tapped.has('down'),
+      },
+    };
+    this.wasDown = down; this.tapped.clear();
     this.jumpQueued = false;
     return move;
   }
@@ -64,6 +79,7 @@ export class WorldInput {
     const a = ACTION_OF.get(e.code);
     if (!a) return;
     if (a === 'jump' && !e.repeat) this.jumpQueued = true;
+    if (!e.repeat) this.tapped.add(a);
     this.held.add(a);
   };
   private readonly onUp = (e: KeyboardEvent): void => { const a = ACTION_OF.get(e.code); if (a) this.held.delete(a); };

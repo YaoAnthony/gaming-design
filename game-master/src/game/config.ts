@@ -75,5 +75,13 @@ export const DEFAULT_CONFIG: GameConfig = {
     popOut: { out: 8, up: 9 },
     camera: { distance: 18, height: 7, lookUp: 1.5, followMs: 260 },
     returnMs: 700,
+    rhythm: {
+      heroZ: 0.75, tail: 0.2, heroScale: 2.5,
+      travelBeats: 4, dropBeats: 1,
+      windows: { perfect: 60, good: 130 }, passRatio: 0.6,
+      hitWindowMs: 80, barClear: 0.6,
+      jumpVelocity: 11, gravity: 60,
+      enterMs: 700, cameraMs: 350, screenTilt: 50,
+    },
   },
 };

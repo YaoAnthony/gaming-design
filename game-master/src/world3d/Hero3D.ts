@@ -38,6 +38,12 @@ export class Hero3D {
     this.texture.offset.x = dir < 0 ? 1 : 0;
   }
 
+  /** 人现在在哪（脚底中心） */
+  get position(): THREE.Vector3 { return this.sprite.position; }
+
+  /** 整个人有多实（挨打后一闪一闪）：1 = 原样 */
+  fade(opacity: number): void { this.sprite.material.opacity = opacity; }
+
   /** 影子落在人正下方的地面上；groundY = null（脚下是空的）就不画 */
   castShadow(groundY: number | null): void {
     this.shadow.visible = groundY !== null;

@@ -7,6 +7,15 @@ import { AVATARS, HEART_ICONS } from '@/asset';
 import { Typewriter } from './Typewriter';
 import { ResetButtonIcon } from './PadIcons';
 
+/** 节奏关卡每种玩法的按键提示：按哪些键、干什么（文案在 i18n 的 rhythm.hint 下） */
+const RHYTHM_KEYS: Record<string, { keys: string[]; hint: string }[]> = {
+  dash: [{ keys: ['W'], hint: 'top' }, { keys: ['S'], hint: 'bottom' }],
+  taiko: [{ keys: ['A'], hint: 'red' }, { keys: ['D'], hint: 'blue' }],
+  mania: [{ keys: ['A', 'W', 'S', 'D'], hint: 'lanes' }],
+  saber: [{ keys: ['A'], hint: 'left' }, { keys: ['W'], hint: 'up' }, { keys: ['S'], hint: 'down' }, { keys: ['D'], hint: 'right' }],
+  dodge: [{ keys: ['A', 'D'], hint: 'switch' }, { keys: ['␣'], hint: 'jump' }],
+};
+
 /** 叠在画布上的 HUD：事件提示、通关画面（不显示常驻提示条） */
 export function Hud() {
   const hud = useAppSelector(s => s.hud);
@@ -57,6 +66,20 @@ export function Hud() {
       )}
       {hud.place && <div className="place">{t('place', { place: hud.place })}</div>}
       {hud.score !== null && <div className="score">{hud.score}</div>}
+      {hud.rhythm?.mode && RHYTHM_KEYS[hud.rhythm.mode] && (
+        <div className="rhythm-keys">
+          {RHYTHM_KEYS[hud.rhythm.mode].map(k => (
+            <span key={k.hint} className="rk-item">{k.keys.map(c => <kbd key={c}>{c}</kbd>)}<span>{t(`rhythm.hint.${k.hint}`)}</span></span>
+          ))}
+        </div>
+      )}
+      {hud.rhythm?.judge && (
+        // key 带上 seq：每次判定重新挂载，播一次弹出的动画
+        <div key={hud.rhythm.seq} className={'rhythm-judge ' + hud.rhythm.judge}>
+          <div className="rj-word">{t(`rhythm.judge.${hud.rhythm.judge}`)}</div>
+          {hud.rhythm.combo > 1 && <div className="rj-combo">{hud.rhythm.combo}</div>}
+        </div>
+      )}
       {hud.message && <div className={'hud-msg' + (msgVisible ? ' show' : '')} style={{ color: hud.message.color }}>{hud.message.text}</div>}
       {hud.mode === 'playing' && hud.dialogue && (
         <div className={'dialogue pos-' + (hud.dialogue.pos ?? 'bottom')}>

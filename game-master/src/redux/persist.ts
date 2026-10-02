@@ -1,8 +1,9 @@
-// localStorage 持久化：编辑器项目（多层）、试玩起始状态、上次写入 / 载入的文件指纹、玩家自己的设置（音量、语言）
+// localStorage 持久化：编辑器项目（多层）、试玩起始状态、上次写入 / 载入的文件指纹、玩家自己的设置（音量、语言）、玩家的进度（存档）
 // 所有要存的东西都经这里，别的地方不直接碰 localStorage
 import type { EditorState, PlayLoadout } from './slices/editorSlice';
 import type { SettingsState } from './slices/settingsSlice';
-import type { GameConfig, Project, RoomCoord, WorldModel } from '@/type';
+import { RUN_VERSION, type GameConfig, type Project, type RoomCoord, type RunState, type WorldModel } from '@/type';
+import { EMPTY_RUN } from './slices/runSlice';
 import { asProject, roomKeyAt } from '@/game/world/WorldModel';
 import { DEFAULT_WORLD_HASH } from '@/game/world/defaultWorld';
 
@@ -14,6 +15,8 @@ export interface PersistedState {
   config?: Partial<GameConfig>;
   /** 语言 */
   settings?: Partial<SettingsState>;
+  /** 玩家的进度（存档） */
+  run?: RunState;
   /** 存这份编辑副本时打包地图的指纹 */
   defaultHash?: string;
 }
@@ -28,6 +31,27 @@ function readLoadout(v: unknown): Partial<PlayLoadout> | undefined {
   if (typeof o.hat === 'boolean') out.hat = o.hat;
   if (typeof o.held === 'string') out.held = o.held;
   return out;
+}
+
+/** 存档：版本不对、不是进行中的一局就不要；字段不对的用默认值 */
+export function readRun(v: unknown): RunState | undefined {
+  if (!v || typeof v !== 'object') return undefined;
+  const o = v as Record<string, unknown>;
+  if (o.version !== RUN_VERSION || o.active !== true) return undefined;
+  const count = (n: unknown) => (Number.isInteger(n) && (n as number) >= 0 ? n as number : 0);
+  const stats = (o.stats && typeof o.stats === 'object' ? o.stats : {}) as Record<string, unknown>;
+  const deep = (o.deep && typeof o.deep === 'object' ? o.deep : {}) as Record<string, unknown>;
+  const flags = Object.fromEntries(Object.entries(o.flags && typeof o.flags === 'object' ? o.flags : {}).filter(([, on]) => on === true)) as Record<string, true>;
+  return {
+    ...EMPTY_RUN, active: true,
+    realm: o.realm === 'deep' ? 'deep' : 'flat',
+    floorId: typeof o.floorId === 'string' ? o.floorId : null,
+    room: isRoom(o.room) ? { rx: o.room.rx, ry: o.room.ry } : null,
+    stage: count(o.stage), hat: o.hat === true, held: typeof o.held === 'string' ? o.held : null,
+    stats: { jumps: count(stats.jumps), destroyed: count(stats.destroyed) },
+    flags,
+    deep: typeof deep.levelId === 'string' ? { levelId: deep.levelId } : null,
+  };
 }
 
 export function loadPersisted(): PersistedState {
@@ -54,6 +78,9 @@ export function loadPersisted(): PersistedState {
     if (typeof p.config?.musicVolume === 'number') out.config = { musicVolume: Math.max(0, Math.min(1, p.config.musicVolume)) };
     const lang = p.settings?.lang ?? localStorage.getItem('climb:lang');   // 旧版单独存的
     if (lang === 'zh' || lang === 'en') out.settings = { lang };
+    // 线上：打包的地图换了，旧进度里的层和房间可能对不上，作废
+    const run = stale ? undefined : readRun(p.run);
+    if (run) out.run = run;
     return out;
   } catch { return {}; }
 }

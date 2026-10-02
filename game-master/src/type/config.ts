@@ -121,4 +121,30 @@ export interface GameConfig {
    * 蜡烛 / 引线头周围的一小圈暖光、房顶斜照下来的光束（game/core/sceneFx.ts）
    */
   sceneFx: { shadow: boolean; depth: boolean; vignette: boolean; dust: boolean; lights: boolean; shafts: boolean };
+  /** 3D 舞台（src/stage3d）：游戏画面是舞台上的一块屏幕 */
+  stage3d: Stage3DConfig;
+  /** 3D 世界（src/world3d）：主角跳出画面之后 */
+  world3d: World3DConfig;
+}
+
+/** 长度单位是「格」（画面里一格砖那么大），速度是格 / 秒 */
+export interface World3DConfig {
+  /** 走路速度、起跳速度、重力（格 / 秒²）、最快下落 */
+  moveSpeed: number;
+  jumpVelocity: number;
+  gravity: number;
+  maxFall: number;
+  /** 跳出画面那一下：往画面外、往上的速度 */
+  popOut: { out: number; up: number };
+  /** 镜头：在人身后多远、比人高多少、看向人脚上方多高；跟上的快慢（毫秒，越小跟得越紧） */
+  camera: { distance: number; height: number; lookUp: number; followMs: number };
+  /** 走回画面：镜头和人回到原位用多久（毫秒） */
+  returnMs: number;
+}
+
+export interface Stage3DConfig {
+  /** 相机的竖直视角（度）：越大透视越强 */
+  fov: number;
+  /** 画面往后倒：倒多少度、倒下去 / 扶起来各用多久（毫秒）。绕画面底边转 */
+  tilt: { angle: number; ms: number };
 }

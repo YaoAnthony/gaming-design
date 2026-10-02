@@ -30,14 +30,16 @@ src/
 ├── map/                # world.json：房间字符画 + 布局（唯一地图数据源）
 ├── sprite/             # Player（移动、滑墙、蹬墙跳）、Enemy（巡逻）、碎块平台
 ├── particle/           # 爆炸、落石压扁等特效
+├── protocol/           # 引擎无关的协议（不引入 phaser / three）：bus.ts 事件总线，events.ts 事件名和每个事件带什么参数（emit / on 按它检查），screen.ts 游戏画面的来源，handoff.ts 主角交接的数据
+├── stage3d/            # three.js 舞台（不引入 phaser）：Stage3D（按需接手显示）、ScreenPlane（游戏画布当实时贴图的那块屏幕）、fx/（舞台特效，每个一个文件夹，define.ts 注册表：tilt 往后倒、crumple 攥纸团）
+├── world3d/            # 3D 世界（不引入 phaser）：主角跳出画面之后的关卡。World3D（跑在舞台上）、physics（纯计算，有测试）、Hero3D、LevelView、input、levels/（关卡数据）
 ├── game/               # Phaser 本体
 │   ├── registry/       # 注册表 + 能力特征（registry.ts），基础砖块与核心物件（tiles.ts），角色技能（skills.ts）
 │   ├── mechanics/      # 玩法机制：每个机制一个文件夹（见下面「机制」）
 │   ├── core/           # GameScene 的核心部件：PlayContext（给机制的上下文）、Rooms（房间与镜头）、Respawn（死亡与重置）、Growth（长大仪式）、CrumpleFx（攥纸团）、GameInput（按键）、solids（实心体登记）、对话、怪物、碎块、旋涡、物理小工具
 │   ├── terrain/        # 格子地形：Terrain（网格、爆炸、支撑、重置）、TerrainView（瓦片层、投影、体积感）、Chunks（碎块下落）；frames / blast / support 是纯函数
 │   ├── world/          # 世界模型纯函数：拼图、找出生点、加房间
-│   ├── scenes/         # Boot（加载资产）、Game、Editor
-│   ├── bridge.ts       # React ↔ Phaser 事件总线（BridgeEvents 里每个事件带什么参数，emit / on 按它检查）与场景名
+│   ├── scenes/         # Boot（加载资产）、Game、Editor；keys.ts 是场景名
 │   ├── palette.ts      # 调色板：反复出现的颜色都从这里拿
 │   ├── inputDevice.ts  # 全局盯着玩家用的是键盘还是手柄，记到 store.input
 │   └── PhaserGame.ts   # 创建 / 销毁 Phaser 实例
@@ -52,9 +54,12 @@ src/
 
 - **房间布局**：`layout` 是稀疏网格，`null` 是空位（游戏里是实心岩石）。编辑器里房间以缩略图显示，可拖拽交换 / 移动，任意空位点「+」新建，选中的房间可删除。
 - **地图**：`map/world.json` 是默认地图（多层项目 `{ floors: [{ id, name, model }] }`，旧的单层格式也能读）；运行时在 Redux `editor.project` 里，编辑器改的就是它，游戏也用它。自动存进 localStorage。开发服务器下编辑器有「写入 src/map/world.json」按钮（Vite 插件 `climb-save-map` 提供的 `POST /__climb/save-map`），一键写回源码；打包版本用「导出 world.json」手动覆盖。
-- **存档**：目前没有。游戏页只有「开始游戏」，每次从头开始；换层时各机制用 `persist` 把要带走的东西（手上的道具、帽子）交给下一层。迷雾和引线的 `toState` 留着，将来做「继续游戏」时用。
+- **存档**：玩家的进度在 Redux 的 `run` 切片（结构见 `type/run.ts`），2D 和 3D 共用一份，`redux/persist.ts` 落盘，带版本号。只在检查点写：进层、换房间（`GameScene.saveCheckpoint`）、跳出 / 回到画面；记的是哪一层哪个房间、长大阶段、帽子、手上的道具、统计数字、人在哪个世界。读档 = 回到检查点：那一层按初始状态重建，人出现在那个房间（炸掉的地形不记）。标题页有存档时提示变成「继续」，左上角多一个「新游戏」；真通关后存档清空。编辑器试玩不读不写存档。层与层之间在 Phaser 里还是用 `StartGameData` 带东西（试玩也走这条路）。迷雾和引线的 `toState` 留着，将来要存它们时用。
 - **参数**：`game/config.ts` 是默认值，运行时在 Redux `config` 里，将来可以做调参面板。
-- **Phaser → React**：场景和 core 把展示数据 dispatch 到 `hud`；机制不直接碰 store，设置走 `PlayContext.settings`。**React → Phaser**：`game/bridge.ts` 的事件总线（事件和参数都有类型），或场景启动时传数据。
+- **Phaser → React**：场景和 core 把展示数据 dispatch 到 `hud`；机制不直接碰 store，设置走 `PlayContext.settings`。**React → Phaser**：`protocol/` 的事件总线（事件和参数都有类型），或场景启动时传数据。
+- **引擎边界**：`game/`（Phaser）和 `stage3d/`、`world3d/`（three.js）互不引入，只通过 `protocol/` 和 Redux 说话；`protocol/` 自己不依赖任何引擎。规则写在 `eslint.config.js`（`no-restricted-imports`），违反了 lint 不过。
+- **3D 舞台**：游戏画面是舞台上的一块屏幕。平时舞台不画，玩家看到的就是游戏画布；有舞台特效在放时，游戏画布藏起来照常画，每帧当贴图贴到屏幕上（`game/core/ScreenFeed.ts` 实现 `protocol/screen.ts` 的 `ScreenSource`），特效放完再还回去。发 `EVT.stageFx` / `EVT.stageFxEnd` 放 / 收一个特效（id 在 `STAGE_FX`），参数在 `config.stage3d`。开发期按 T 试「画面往后倒」（`dev/stageKeys.ts`）。
+- **主角跳出画面**：发 `EVT.heroPopOut`，`game/core/PopOut.ts` 等人归玩家管的时候把人藏起来、发 `EVT.heroLeft`（带 `HeroHandoff`：人在画面上的位置、大小、朝向、贴图、一格多大）；`ui/stage/StageLayer.tsx` 在舞台上把 `World3D` 带起来，人从画面上原来的位置飞出来，落地后归玩家管（方向键 / WASD 走，空格跳；手柄的左摇杆 / 十字键和 A 也一样，触屏按键也能用）。2D 游戏照常在屏幕上跑，只是没人操作、人也死不了。走回屏幕（碰到它）就回 2D：从屏幕的哪碰到的就落在画面的哪——3D 一侧发 `EVT.heroEntry` 问 2D 一侧那里能不能站，是墙或尖刺就给最近的安全空地（`game/core/popOutSpot.ts`，纯计算有测试），人飞到那、镜头回到原位，再发 `EVT.heroReturn`（带落点）。在 3D 世界里按 R：画面照样被攥成纸团、房间重置，人留在 3D 世界；这时攥屏幕的披风骷髅本人站在屏幕左边，是真的三维（`stage3d/fx/crumple/Reaper.ts`）：只有上半身，从屏幕左边的地里探出来、侧身朝着屏幕；身体是把 `skeleton.png` 上半截一个像素一个方块立起来（每一行按宽度鼓成椭圆），靠镜头这边的手伸出去抓屏幕，手臂和手是一根根骨头（`handBones.ts`，和 `grab_hand.png` 同一副骨架，手指按握拳程度一节节弯过去扣住纸团，纯计算有测试），动作和 2D 里伸进画面的那只手是同一条时间线，镜头拉远看着它，攥完再回到人身后。关卡数据在 `world3d/levels/`（单位是格，原点在屏幕底边中点），手感和镜头在 `config.world3d`。存档里人在 3D 世界时，继续游戏会先在 2D 出场再跳出去（3D 里的位置不记）。开发期按 P 跳出 / 回去。
 - **没去过的房间先睡着**：会自己动的东西（巡逻的怪物、移动方块）所在的房间玩家这一局还没进过，就原地等着；进过（`Rooms.isAwake`）才开始动，开始了就一直动（怪物走进没去过的房间也接着走）。引线、碎块下落、钥匙和箱子掉落这些玩家引起的后果不管房间醒没醒都照常发生。死亡 / R 重置整张图时所有房间重新睡着，只叫醒复活点所在的那间。
 - **实心体**：会动的实心地形（移动方块、纸）和要站在它们上面的东西（箱子、钥匙）在 `core/solids.ts` 登记，碰撞器统一挂，机制之间不用互相打听。
 - **文案 key**：`src/i18n/keys.ts` 从 en.json 推出 key 的类型，`ctx.die` / `ctx.fx.flash` 只收合法的 key。
@@ -243,13 +248,13 @@ defineSkill({
 
 - 流程（要无缝）：`GameScene.requestRoomReset` → `crumpleWorld(after, grab?)`（`grab` = 攥住的位置，画面的比例坐标，默认正中）发 `EVT.crumple`：
   1. 游戏照常跑（能操作、音乐继续），手先伸到正在进行的画面上，左上角位置这类界面淡出（它们不在游戏画布里，攥不进纸团）；
-  2. 手碰到画面时特效发 `EVT.crumpleFreeze`：场景暂停、声音停，等下一帧画完把游戏画布原样复制一份，发回 `EVT.crumpleFrozen`；
-  3. 特效在同一帧换成摆在原位的「纸」（和冻住的画面逐像素一样，看不出切换），然后攥拳、揉、捏紧、蓄力、甩出去；
-  4. 纸团飞出画面后发 `EVT.crumpleDone`（带淡入时长 `fadeMs`）：场景恢复，调 `after(fadeMs)` 重置房间；人（连同帽子、手上的东西）先藏着，这一层淡出 = 新房间淡入，`fadeMs` 之后骷髅手再把人放进来。
-  - 没挂特效层（比如没有 WebGL）时 `crumpleWorld` 返回 false，直接重置。编辑器试玩里也挂着特效层。
-- 特效在 `ui/crumple/`，盖在游戏舞台上的一层（`CrumpleOverlay`，挂在 `GameView` 和编辑器试玩里），不走 Phaser：
+  2. 手碰到画面时特效发 `EVT.crumpleFreeze`：场景暂停、声音停，等下一帧画完发回 `EVT.crumpleFrozen`；
+  3. 3D 舞台上的屏幕在同一帧换成摆在原位的「纸」（和冻住的画面一样，看不出切换），然后攥拳、揉、捏紧、蓄力、甩出去；
+  4. 纸团飞出画面后发 `EVT.crumpleDone`（带淡入时长 `fadeMs`）：场景恢复，调 `after(fadeMs)` 重置房间；人（连同帽子、手上的东西）先藏着，新房间在舞台上淡入，`fadeMs` 之后骷髅手再把人放进来。
+  - 没挂特效层时 `crumpleWorld` 返回 false，直接重置；没有 WebGL（舞台起不来）时特效层直接回「放完了」。编辑器试玩里也挂着特效层和舞台。
+- 时间线、手、声音在 `ui/crumple/`（`CrumpleOverlay`，挂在 `GameView` 和编辑器试玩里）；纸在 3D 舞台上（`stage3d/fx/crumple/`），每帧把纸的状态交给它画：
   - `crumpleMesh.ts`：纯几何，有单元测试。纸分成一片片，每片揉的时候各自转、缩、歪，片与片之间折出折痕；再叠两层 Voronoi「金字塔」细褶子；从捏住点由近到远包到拳心的球上，球面坑洼里压暗、棱上墨裂开露出白纸；纸翻过去的面画成纸背面；扔出去时整团转、翻、缩（`spin / tumble / ballScale`）。手感参数在文件顶部的 `TUNE`。
-  - `CrumpleGL.ts`：自己的 WebGL 画布（深度测试 + 每个三角形单独的明暗）。冻住之前是透明的，底下的游戏照常显示。
+  - `CrumplePaper.ts`：把屏幕换成纸，按上面算好的三角形画（深度测试 + 每个三角形单独的明暗，纸背面和墨裂开的地方是白纸）。纸挂在屏幕上，屏幕倒着纸也跟着倒。
   - `crumpleSound.ts`：揉纸声、攥住那一下、手伸进来 / 甩出去的风声，全用 WebAudio 合成，没有音频文件。
   - `CrumpleOverlay.tsx`：时间线（各段时长在 `DUR`，松手时机 `RELEASE`）、手的位置 / 帧 / 影子 / 紫光、蓄力和甩的路线（`HAND.windup / swing`）、纸团飞走的弧线和转速（`FLY`）、画面震动。
   - 手：`grab_hand.png`，6 帧横排、从张开攥成拳头（`npm run gen-art -- grab_hand.png` 生成，手指按关节角度一节节卷起来）。手心朝镜头、拇指朝上、四指朝右，从左边水平伸进来，拳心对准攥住的地方；放大到手臂末端出了画面左边，拳头比纸团小一圈（`HAND.fistToBall`），揉皱的纸从指缝和拳头四周鼓出来；松手时倒着放回张开。换成手绘图时改 `asset/index.ts` 的 `GRAB_HAND`（帧数、帧大小、拳心位置、拳头高度）。

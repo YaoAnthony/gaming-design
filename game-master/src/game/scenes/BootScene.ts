@@ -1,7 +1,7 @@
 // ===== 加载资产，然后跳到目标场景 =====
 import Phaser from 'phaser';
 import { AUDIO, IMAGES, SPRITESHEETS, TILE_SIZE } from '@/asset';
-import { SCENE } from '@/game/bridge';
+import { SCENE } from '@/game/scenes/keys';
 import i18n from '@/i18n';
 import { FogOfWar } from '@/game/fog/Fog';
 import { buildWallTexture } from '@/game/terrain/walls';

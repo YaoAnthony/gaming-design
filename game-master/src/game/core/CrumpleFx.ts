@@ -1,8 +1,8 @@
 // ===== 第四面墙：整个画面被攥成纸团（特效本身在 React 的 CrumpleOverlay，这里管游戏这一侧的冻住 / 恢复）=====
-// 流程：start 发 EVT.crumple，游戏照常跑、骷髅手先伸进来；手碰到画面时特效发 EVT.crumpleFreeze，这里冻住并把画布复制给它；
+// 流程：start 发 EVT.crumple，游戏照常跑、骷髅手先伸进来；手碰到画面时特效发 EVT.crumpleFreeze，这里冻住，冻住的那一帧画出来后回 EVT.crumpleFrozen；
 // 纸团扔掉后特效发 EVT.crumpleDone，这里恢复并做说好的事（比如重置房间），fadeMs = 新画面淡入要多久
 import Phaser from 'phaser';
-import { bridge, EVT, type CrumpleDone } from '@/game/bridge';
+import { bridge, EVT, type CrumpleDone } from '@/protocol';
 
 export class CrumpleFx {
   /** 特效放着 / 已经冻住了 */
@@ -24,8 +24,8 @@ export class CrumpleFx {
   }
 
   /**
-   * 冻住：场景暂停、声音停；等下一帧画完，把游戏画布原样复制一份交给特效。
-   * 特效把它当成纸，摆在原位和冻住的画面一模一样，换上去看不出来
+   * 冻住：场景暂停、声音停；等下一帧画完（对话框已经关掉）再告诉特效。
+   * 特效把屏幕换成一张纸，摆在原位和冻住的画面一模一样，换上去看不出来
    */
   freeze(): void {
     if (this.frozen) return;
@@ -33,12 +33,7 @@ export class CrumpleFx {
     this.onFreeze();
     this.scene.sound.pauseAll();
     this.scene.scene.pause();
-    this.scene.game.events.once(Phaser.Core.Events.POST_RENDER, () => {
-      const src = this.scene.game.canvas, image = document.createElement('canvas');
-      image.width = src.width; image.height = src.height;
-      image.getContext('2d')!.drawImage(src, 0, 0);   // 刚画完、还没交给浏览器合成，WebGL 画布这时读得到
-      bridge.emit(EVT.crumpleFrozen, { image });
-    });
+    this.scene.game.events.once(Phaser.Core.Events.POST_RENDER, () => { bridge.emit(EVT.crumpleFrozen); });
   }
 
   end(d: CrumpleDone): void {

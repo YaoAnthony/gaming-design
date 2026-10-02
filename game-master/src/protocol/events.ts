@@ -1,9 +1,9 @@
-// ===== React ↔ Phaser 桥接 =====
-// React → Phaser：通过这个事件总线（编辑器重载、重置、试玩退出、攥纸团特效的往返）。
-// Phaser → React：展示数据 dispatch 到 Redux 的 hud 切片（只在场景和 core 里做，机制通过 PlayContext）。
-// 事件名在 EVT，每个事件带什么参数在 BridgeEvents：emit / on 都按它检查，名字和参数对不上编译不过。
-import Phaser from 'phaser';
+// ===== 事件表：总线上有哪些事件、每个事件带什么参数 =====
+// React → Phaser：编辑器重载、重置、试玩退出、攥纸团特效的往返。
+// Phaser → React：展示数据 dispatch 到 Redux 的 hud 切片（只在场景和 core 里做，机制通过 PlayContext），不走这里。
+// 事件名在 EVT，参数在 BridgeEvents。
 import type { Project, RoomCoord } from '@/type';
+import type { HeroEntryQuery, HeroHandoff, ScreenSpot } from './handoff';
 
 export interface StartGameData {
   /** 整个项目（多层）；游戏从 floorId 那层开始，缺省第一层 */
@@ -27,15 +27,23 @@ export interface StartGameData {
 
 /** 第四面墙特效（攥纸团）开始：手攥住的位置（画面上的比例坐标 0..1） */
 export interface CrumpleStart { grab: { x: number; y: number } }
-/** 游戏冻住了：冻住那一帧的画面（从游戏画布复制出来的一张画布） */
-export interface CrumpleFrozen { image: HTMLCanvasElement }
 /** 特效放完：接下来遮罩淡出、新画面淡入要多久（毫秒）。人等淡入完再由骷髅手放进来 */
 export interface CrumpleDone { fadeMs: number }
 
+/** 3D 舞台上的特效（实现在 stage3d/fx，按这里的 id 注册） */
+export const STAGE_FX = {
+  /** 整个画面往后倒，游戏接着玩 */
+  tilt: 'tilt',
+  /** 屏幕变成一张纸，被攥成团（由 ui/crumple 的时间线带着走，不能单发事件放） */
+  crumple: 'crumple',
+  /** 3D 世界：主角跳出画面之后的关卡（由 EVT.heroLeft 带起来，不能单发事件放） */
+  world: 'world',
+} as const;
+export type StageFxId = typeof STAGE_FX[keyof typeof STAGE_FX];
+export interface StageFxRef { id: StageFxId }
+
 /** 编辑器地图上点的一格：key 是房间，x/y 是房间里的格子，wx/wy 是整层地图上的格子 */
 export interface PickedCell { key: string; x: number; y: number; wx: number; wy: number }
-
-export const SCENE = { boot: 'Boot', game: 'Game', editor: 'Editor' } as const;
 
 export const EVT = {
   editorReload: 'editor:reload',
@@ -56,10 +64,24 @@ export const EVT = {
   crumple: 'fx:crumple',
   /** React → Phaser：手碰到画面了，冻住游戏、复制这一帧 */
   crumpleFreeze: 'fx:crumple-freeze',
-  /** Phaser → React：冻住了；参数是 CrumpleFrozen */
+  /** Phaser → React：冻住了，冻住的那一帧已经画出来 */
   crumpleFrozen: 'fx:crumple-frozen',
   /** React → Phaser：纸团扔掉了，做攥之前说好的事（比如重置房间）、接着玩；参数是 CrumpleDone */
   crumpleDone: 'fx:crumple-done',
+  /** → 舞台：放一个特效；参数是 StageFxRef。已经在放、或这个特效不能单发事件放，直接回 stageFxDone */
+  stageFx: 'stage:fx',
+  /** → 舞台：请这个特效收场（比如倒下去的画面扶起来）；参数是 StageFxRef */
+  stageFxEnd: 'stage:fx-end',
+  /** 舞台 →：这个特效放完、撤掉了；参数是 StageFxRef */
+  stageFxDone: 'stage:fx-done',
+  /** → Phaser：让主角从画面里跳出来（人归玩家管的时候才跳；没挂 3D 舞台就不跳） */
+  heroPopOut: 'hero:pop-out',
+  /** Phaser → 3D：人已经藏起来了，交给你；参数是 HeroHandoff */
+  heroLeft: 'hero:left',
+  /** 3D → Phaser：人要从画面的这个位置走回去，实际能落在哪；参数是 HeroEntryQuery（当场填 answer） */
+  heroEntry: 'hero:entry',
+  /** 3D → Phaser：人走回画面了，放出来接着玩；参数是落在哪（HeroEntryQuery 的 answer），null = 原地 */
+  heroReturn: 'hero:return',
 } as const;
 
 /** 每个事件带什么参数（元组）：没有参数就是 [] */
@@ -75,23 +97,17 @@ export interface BridgeEvents {
   [EVT.nextLevel]: [];
   [EVT.crumple]: [CrumpleStart];
   [EVT.crumpleFreeze]: [];
-  [EVT.crumpleFrozen]: [CrumpleFrozen];
+  [EVT.crumpleFrozen]: [];
   [EVT.crumpleDone]: [CrumpleDone];
+  [EVT.stageFx]: [StageFxRef];
+  [EVT.stageFxEnd]: [StageFxRef];
+  [EVT.stageFxDone]: [StageFxRef];
+  [EVT.heroPopOut]: [];
+  [EVT.heroLeft]: [HeroHandoff];
+  [EVT.heroEntry]: [HeroEntryQuery];
+  [EVT.heroReturn]: [ScreenSpot | null];
   /** 触屏按键（常量在 input.ts，字面量要和那边一致） */
   'input:jump': [];
   'input:action': [];
 }
 export type BridgeEvent = keyof BridgeEvents;
-type Handler<K extends BridgeEvent> = (...args: BridgeEvents[K]) => void;
-
-/** 带类型的事件总线：只认 BridgeEvents 里的事件，参数按表检查 */
-class Bridge {
-  private readonly emitter = new Phaser.Events.EventEmitter();
-  on<K extends BridgeEvent>(event: K, fn: Handler<K>): this { this.emitter.on(event, fn); return this; }
-  off<K extends BridgeEvent>(event: K, fn: Handler<K>): this { this.emitter.off(event, fn); return this; }
-  emit<K extends BridgeEvent>(event: K, ...args: BridgeEvents[K]): boolean { return this.emitter.emit(event, ...args); }
-  /** 有没有人在听这个事件（比如没挂特效层就直接做事） */
-  listenerCount(event: BridgeEvent): number { return this.emitter.listenerCount(event); }
-}
-
-export const bridge = new Bridge();

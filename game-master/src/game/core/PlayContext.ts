@@ -8,7 +8,7 @@ import type { FogOfWar } from '@/game/fog/Fog';
 import type { Music } from '@/game/Music';
 import type { Player } from '@/sprite';
 import type { SparkEmitter } from '@/particle';
-import type { StartGameData } from '@/game/bridge';
+import type { StartGameData } from '@/protocol';
 import type { Mechanic } from '@/game/mechanics/define';
 import type { Solids } from './solids';
 import type { DeathKey, MsgKey } from '@/i18n/keys';

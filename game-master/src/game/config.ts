@@ -69,4 +69,11 @@ export const DEFAULT_CONFIG: GameConfig = {
   fogMemoryAlpha: 0.6,
   fogUnseenAlpha: 0.85,
   sceneFx: { shadow: true, depth: true, vignette: true, dust: true, lights: true, shafts: true },
+  stage3d: { fov: 40, tilt: { angle: 30, ms: 700 } },
+  world3d: {
+    moveSpeed: 7, jumpVelocity: 13, gravity: 36, maxFall: 28,
+    popOut: { out: 8, up: 9 },
+    camera: { distance: 18, height: 7, lookUp: 1.5, followMs: 260 },
+    returnMs: 700,
+  },
 };

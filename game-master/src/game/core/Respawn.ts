@@ -36,6 +36,8 @@ export interface RespawnDeps {
   setMode: (mode: 'playing' | 'dead') => void;
   /** 人回到复活点（复活、R、重置整张图）：生命值回满之类 */
   onRespawn?: () => void;
+  /** 人不在画面里（在 3D 世界）：重置后回到复活点接着藏着，不出场 */
+  away: () => boolean;
 }
 
 export class Respawn {
@@ -131,6 +133,7 @@ export class Respawn {
     rooms.wake(er);
     this.d.fogDirty();
     if (message) this.d.flash(message, '#9ad1ff');
+    if (this.d.away()) { p.respawn(this.entry); p.freeze(0xffffff); p.clearTint(); p.setVisible(false); return; }
     if (delayMs <= 0) { this.appear(reason); return; }
     this.respawning = true;   // 藏着的时候不响应按键、不会死、不换房间
     p.freeze(0xffffff); p.clearTint(); p.setVisible(false);

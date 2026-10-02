@@ -12,6 +12,7 @@ if (import.meta.env.DEV) {
   const hook: Record<string, unknown> = { store, getGame };
   (window as unknown as { __climb: unknown }).__climb = hook;
   void import('@/dev/bot').then(m => { hook.bot = m.bot; });
+  void import('@/dev/stageKeys').then(m => m.watchStageKeys());
 }
 
 watchInputDevice();

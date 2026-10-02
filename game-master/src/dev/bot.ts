@@ -12,7 +12,7 @@
 import { getGame } from '@/game/PhaserGame';
 import { store } from '@/redux/store';
 import { setConfig } from '@/redux/slices/configSlice';
-import { SCENE } from '@/game/bridge';
+import { SCENE } from '@/game/scenes/keys';
 import { asProject } from '@/game/world/WorldModel';
 
 const FRAME = 1000 / 60;

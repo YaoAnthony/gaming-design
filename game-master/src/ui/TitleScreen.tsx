@@ -8,8 +8,11 @@ import { useAppSelector } from '@/redux/hooks';
 import { store } from '@/redux/store';
 import { ConfirmButtonIcon, ControllerIcon } from './PadIcons';
 
-/** 标题页：GAME MASTER + 一直在跳的小人；空格 / 回车 / 手柄 A、Start / 点击开始；右上角切换语言。认出手柄后提示换成手柄图标 */
-export function TitleScreen({ onStart, touch }: { onStart: () => void; touch: boolean }) {
+/**
+ * 标题页：GAME MASTER + 一直在跳的小人；空格 / 回车 / 手柄 A、Start / 点击开始；右上角切换语言。认出手柄后提示换成手柄图标。
+ * 有存档时给 onNew：提示换成「继续」，左上角多一个「新游戏」
+ */
+export function TitleScreen({ onStart, onNew, touch }: { onStart: () => void; onNew?: () => void; touch: boolean }) {
   const { t, i18n } = useTranslation();
   /** 最后用的输入设备（全局识别，见 game/inputDevice.ts）：提示按它显示 */
   const device = useAppSelector(s => s.input.device);
@@ -58,10 +61,11 @@ export function TitleScreen({ onStart, touch }: { onStart: () => void; touch: bo
         <span>GAME</span>
         <span className="title-line2">MASTER<img className="title-hero" src={playerUrl} alt="" /></span>
       </h1>
+      {onNew && <button className="title-new" onClick={e => { e.stopPropagation(); onNew(); }}>{t('newGame')}</button>}
       <button className="title-lang" onClick={e => { e.stopPropagation(); setLang(i18n.language === 'zh' ? 'en' : 'zh'); }}>{t('lang')}</button>
       {device !== 'keyboard'
-        ? <div className="title-prompt title-prompt-pad"><ControllerIcon /><span>{t('startPad.before')}</span><ConfirmButtonIcon kind={device} /><span>{t('startPad.after')}</span></div>
-        : <div className="title-prompt">{t(touch ? 'startTouch' : 'startKey')}</div>}
+        ? <div className="title-prompt title-prompt-pad"><ControllerIcon /><span>{t(onNew ? 'continuePad.before' : 'startPad.before')}</span><ConfirmButtonIcon kind={device} /><span>{t(onNew ? 'continuePad.after' : 'startPad.after')}</span></div>
+        : <div className="title-prompt">{t(onNew ? (touch ? 'continueTouch' : 'continueKey') : (touch ? 'startTouch' : 'startKey'))}</div>}
     </div>
   );
 }

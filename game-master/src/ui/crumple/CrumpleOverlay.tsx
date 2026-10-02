@@ -1,13 +1,16 @@
 // ===== 第四面墙：骷髅手从屏幕左边伸进来，一把攥住整个游戏画面，揉成纸团，扔掉 =====
 // 要无缝：GameScene 发 EVT.crumple 时游戏照常跑，手先伸到正在进行的画面上；手碰到画面时发 EVT.crumpleFreeze，
-// 游戏冻住并把那一帧原样复制过来（EVT.crumpleFrozen），这一层同一帧换成摆在原位的「纸」（和冻住的画面一模一样），然后才开始攥。
-// 纸团扔出画面后发 EVT.crumpleDone（带上淡入时长）：游戏做攥之前说好的事（重置房间），这一层淡出 = 新画面淡入，淡入完骷髅手再把人放下来。
+// 游戏冻住（EVT.crumpleFrozen），3D 舞台上的屏幕同一帧换成摆在原位的「纸」（和冻住的画面一模一样），然后才开始攥。
+// 纸团扔出画面后发 EVT.crumpleDone（带上淡入时长）：游戏做攥之前说好的事（重置房间），新画面在舞台上淡入，淡入完骷髅手再把人放下来。
+// 这里管时间线、手、声音；纸本身在 3D 舞台上（stage3d/fx/crumple 的 CrumplePaper），每帧把纸的状态交给它画。
+// 人在 3D 世界里时不画这只伸进画面的手：手的主人（披风骷髅）就站在屏幕旁边，同一套动作交给舞台上的骷髅去做。
 import { useEffect, useRef, useState } from 'react';
-import { bridge, EVT, type CrumpleDone, type CrumpleFrozen, type CrumpleStart } from '@/game/bridge';
+import { bridge, EVT, STAGE_FX, type CrumpleDone, type CrumpleStart } from '@/protocol';
 import { getGame } from '@/game/PhaserGame';
 import { GRAB_HAND } from '@/asset';
-import { CrumpleMesh, VERTEX_FLOATS, type CrumpleState, type Vec2 } from './crumpleMesh';
-import { CrumpleGL } from './CrumpleGL';
+import type { CrumpleState, Vec2 } from '@/stage3d/fx/crumple/crumpleMesh';
+import { CrumplePaper } from '@/stage3d/fx/crumple/CrumplePaper';
+import { acquireStage } from '@/ui/stage/StageLayer';
 import { createCrumpleSound } from './crumpleSound';
 
 /** 各段时长（毫秒）：手伸进来 / 攥拳 / 接着揉 / 捏紧 / 停一下 / 往回收（蓄力） / 甩出去 / 纸团飞走 / 空着 / 新画面淡入 */
@@ -75,7 +78,8 @@ function planHand(stageW: number, stageH: number, grab: Vec2, ballRadius: number
 interface Pose extends CrumpleState {
   handAt: Vec2;
   handVisible: boolean;
-  /** 手的第几帧：0 张开 … frames-1 握拳 */
+  /** 握拳程度 0..1，和它对应的是手的第几帧：0 张开 … frames-1 握拳 */
+  curl: number;
   frame: number;
   /** 手的缩放、角度（度）、离纸的高度 0..1（影子的远近） */
   scale: number; angle: number; height: number;
@@ -120,6 +124,7 @@ function pose(t: number, p: HandPlan): Pose {
     spin: fl * FLY.spins * Math.PI * 2, tumble: fl * FLY.tumbles * Math.PI * 2, ballScale: 1 - FLY.shrink * fl,
     handAt,
     handVisible: t < AT.empty,
+    curl: curl * (1 - opened),
     frame: Math.round(curl * (1 - opened) * (GRAB_HAND.frames - 1)),
     scale: 1 + HAND.hover * (1 - easeOut(progress(t, 'approach'))) - 0.05 * sq * (1 - opened),
     angle,
@@ -128,6 +133,9 @@ function pose(t: number, p: HandPlan): Pose {
     paperGone: t >= AT.empty,
   };
 }
+
+/** 人在 3D 世界里时披风骷髅出场 / 退场各用多久（毫秒）：手伸出去之前从地里升起来，纸团扔掉后淡出 */
+const REAPER_MS = { rise: 350, fade: 300 };
 
 /** 开发期调试：window.__crumpleDebug = { speed: 0.2 } 慢放，{ at: 2000 } 停在第 2000 毫秒 */
 function debugClock(): { speed: number; at?: number } {
@@ -150,29 +158,31 @@ export function CrumpleOverlay() {
 
 function CrumpleRun({ data, onEnd }: { data: CrumpleStart; onEnd: () => void }) {
   const rootRef = useRef<HTMLDivElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const layerRef = useRef<HTMLDivElement>(null);
   const handRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const root = rootRef.current!, canvas = canvasRef.current!, layer = layerRef.current!, hand = handRef.current!;
+    const root = rootRef.current!, layer = layerRef.current!, hand = handRef.current!;
     const stage = root.getBoundingClientRect();
     const r = getGame()?.canvas.getBoundingClientRect() ?? stage;
     const paper = { x: r.left - stage.left, y: r.top - stage.top, w: r.width, h: r.height };
     const grab = { x: paper.x + data.grab.x * paper.w, y: paper.y + data.grab.y * paper.h };
-    const mesh = new CrumpleMesh({ ...paper, grab });
-    const verts = new Float32Array(mesh.vertexCount * VERTEX_FLOATS);
-    let gl: CrumpleGL;
-    try {
-      gl = new CrumpleGL(canvas, stage.width, stage.height, Math.min(2, window.devicePixelRatio || 1), 4 * Math.max(stage.width, stage.height));
-    } catch {
-      bridge.emit(EVT.crumpleDone, { fadeMs: 0 } satisfies CrumpleDone); onEnd(); return;   // 没有 WebGL：不放特效，直接接着做
+    const stage3d = acquireStage();
+    const sheet = stage3d?.add(STAGE_FX.crumple, ctx => new CrumplePaper(ctx, data.grab));
+    if (!stage3d || !sheet) {
+      bridge.emit(EVT.crumpleDone, { fadeMs: 0 } satisfies CrumpleDone); onEnd(); return;   // 没有舞台（没有 WebGL）：不放特效，直接接着做
     }
     let frozen = false, askedFreeze = false;
-    const onFrozen = (d: CrumpleFrozen) => { gl.setImage(d.image); frozen = true; };
+    const onFrozen = () => { sheet.show(); frozen = true; };
     bridge.on(EVT.crumpleFrozen, onFrozen);
 
-    const plan = planHand(stage.width, stage.height, grab, mesh.ballRadius);
+    const plan = planHand(stage.width, stage.height, grab, sheet.ballRadius);
+    // 人在 3D 世界里：手交给舞台上的披风骷髅
+    const deep = stage3d.isRunning(STAGE_FX.world);
+    if (deep) {
+      const rest = sheet.summonReaper(plan.scale);
+      plan.from = { x: rest.x + paper.x, y: rest.y + paper.y };   // 手不是从画面外伸进来，是从骷髅身边伸出去
+    }
     const [gx, gy] = GRAB_HAND.grip;
     hand.style.width = `${plan.w}px`; hand.style.height = `${plan.h}px`;
     hand.style.backgroundImage = `url(${GRAB_HAND.url})`;
@@ -194,35 +204,39 @@ function CrumpleRun({ data, onEnd }: { data: CrumpleStart; onEnd: () => void }) 
       if (!askedFreeze && t >= AT.grab - FREEZE_LEAD) { askedFreeze = true; bridge.emit(EVT.crumpleFreeze); }
       if (!frozen && t > AT.grab) { t = AT.grab; if (dbg.at === undefined) clock = AT.grab; }
       const p = pose(t, plan);
-      mesh.update(p, verts);
-      gl.draw(verts, mesh.vertexCount, p.crumple > 0 || p.pinch > 0, !frozen ? 'none' : p.paperGone ? 'empty' : 'paper');
+      // 纸跟着画面一起震；纸用屏幕本地坐标（左上角是原点）
+      const shake = p.shake > 0 ? { x: (Math.random() * 2 - 1) * p.shake, y: (Math.random() * 2 - 1) * p.shake } : { x: 0, y: 0 };
+      sheet.set({ ...p, hand: { x: p.hand.x - paper.x, y: p.hand.y - paper.y } }, shake);
+      if (p.paperGone) sheet.clear();
 
-      hand.style.visibility = p.handVisible ? 'visible' : 'hidden';
+      if (deep) sheet.setReaper({
+        x: p.handAt.x - paper.x, y: p.handAt.y - paper.y, angle: p.angle, scale: p.scale, curl: p.curl,
+        rise: t / REAPER_MS.rise, opacity: (AT.fade - t) / REAPER_MS.fade,
+      });
+      hand.style.visibility = p.handVisible && !deep ? 'visible' : 'hidden';
       hand.style.backgroundPosition = `${p.frame / (GRAB_HAND.frames - 1) * 100}% 0`;
       hand.style.transform = `translate(${p.handAt.x - gx * plan.w}px, ${p.handAt.y - gy * plan.h}px) rotate(${p.angle}deg) scale(${p.scale})`;
       // 影子：手离纸越高，影子越远越虚（光从左上来）；外面一圈紫光，和放玩家下来的那只手一样
       const h = p.height;
       layer.style.filter = `drop-shadow(${10 + 50 * h}px ${14 + 60 * h}px ${4 + 18 * h}px rgba(0, 0, 0, ${0.5 - 0.2 * h})) drop-shadow(0 0 12px ${HAND.glow})`;
-      root.style.transform = p.shake > 0 ? `translate(${(Math.random() * 2 - 1) * p.shake}px, ${(Math.random() * 2 - 1) * p.shake}px)` : '';
+      root.style.transform = p.shake > 0 ? `translate(${shake.x}px, ${shake.y}px)` : '';
 
       if (t >= AT.fade && dbg.at === undefined) {
         const done: CrumpleDone = { fadeMs: DUR.fade };
         bridge.emit(EVT.crumpleDone, done);
-        root.style.transition = `opacity ${DUR.fade}ms`;
-        root.classList.add('fading');
+        sheet.finish(DUR.fade);
         fadeTimer = window.setTimeout(onEnd, DUR.fade);
         return;
       }
       raf = requestAnimationFrame(frame);
     };
     raf = requestAnimationFrame(frame);
-    return () => { cancelAnimationFrame(raf); clearTimeout(fadeTimer); bridge.off(EVT.crumpleFrozen, onFrozen); gl.destroy(); sfx.close(); };
+    return () => { cancelAnimationFrame(raf); clearTimeout(fadeTimer); bridge.off(EVT.crumpleFrozen, onFrozen); stage3d.remove(STAGE_FX.crumple, sheet); sfx.close(); };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 每次特效只跑一遍（key 换了才重来）
   }, []);
 
   return (
     <div className="crumple" ref={rootRef}>
-      <canvas ref={canvasRef} />
       <div className="crumple-hand-layer" ref={layerRef}>
         <div className="crumple-hand" ref={handRef} />
       </div>

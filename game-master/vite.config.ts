@@ -58,7 +58,7 @@ export default defineConfig({
     rollupOptions: {
       output: {
         // 引擎和 React 单独成包：改游戏代码后，浏览器缓存里的这两个大包还能用
-        manualChunks: { phaser: ['phaser'], react: ['react', 'react-dom', 'react-redux', '@reduxjs/toolkit'] },
+        manualChunks: { phaser: ['phaser'], three: ['three'], react: ['react', 'react-dom', 'react-redux', '@reduxjs/toolkit'] },
       },
     },
     // Phaser 压缩后本身就一百多万字节，拆不开；其它包超过这个大小才提醒

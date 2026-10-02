@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { createGame, destroyGame, type GameMode } from '@/game/PhaserGame';
-import type { StartGameData } from '@/game/bridge';
+import type { StartGameData } from '@/protocol';
 
 interface Props { mode: GameMode; data?: StartGameData; size?: { w: number; h: number }; onReady?: () => void }
 

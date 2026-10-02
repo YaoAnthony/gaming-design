@@ -17,6 +17,9 @@ export const GAMEPAD_BUTTONS = {
   start: [0, 9],
 } as const satisfies Record<string, readonly number[]>;
 
+/** 十字键的按钮编号（标准布局） */
+export const GAMEPAD_DPAD = { up: 12, down: 13, left: 14, right: 15 } as const;
+
 /** 游戏里按钮能做的事 */
 export type PadAction = 'jump' | 'reset' | 'exit';
 const PAD_ACTIONS: readonly PadAction[] = ['jump', 'reset', 'exit'];
@@ -46,6 +49,21 @@ export function readPads(plugin: Phaser.Input.Gamepad.GamepadPlugin | null | und
     const d = padDirs(p.leftStick, { left: p.left, right: p.right, up: p.up, down: p.down });
     out.left ||= d.left; out.right ||= d.right; out.up ||= d.up; out.down ||= d.down;
   });
+  return out;
+}
+
+/** 浏览器给的一个手柄里用得上的部分（navigator.getGamepads() 的元素） */
+export interface NativePad { axes: ArrayLike<number>; buttons: ArrayLike<{ pressed: boolean }> }
+
+/** 和 readPads 一样，但直接读浏览器的手柄（不经过 Phaser）：3D 世界用 */
+export function readNativePads(pads: ArrayLike<NativePad | null>): MoveInput {
+  const out: MoveInput = { left: false, right: false, up: false, down: false };
+  for (const p of Array.from(pads)) {
+    if (!p) continue;
+    const on = (i: number) => !!p.buttons[i]?.pressed;
+    const d = padDirs({ x: p.axes[0] ?? 0, y: p.axes[1] ?? 0 }, { left: on(GAMEPAD_DPAD.left), right: on(GAMEPAD_DPAD.right), up: on(GAMEPAD_DPAD.up), down: on(GAMEPAD_DPAD.down) });
+    out.left ||= d.left; out.right ||= d.right; out.up ||= d.up; out.down ||= d.down;
+  }
   return out;
 }
 

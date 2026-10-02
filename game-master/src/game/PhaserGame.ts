@@ -6,7 +6,8 @@ import '@/game/mechanics';         // 注册所有机制和它们的物件
 import { BootScene } from './scenes/BootScene';
 import { GameScene } from './scenes/GameScene';
 import { EditorScene } from './scenes/EditorScene';
-import { SCENE, type StartGameData } from './bridge';
+import type { StartGameData } from '@/protocol';
+import { SCENE } from '@/game/scenes/keys';
 import { store } from '@/redux/store';
 export { resizeGame } from './resize';
 import type { WorldModel } from '@/type';

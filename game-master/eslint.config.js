@@ -18,6 +18,19 @@ export default tseslint.config(
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
     },
   },
+  // 引擎边界：Phaser 一侧和 3D 一侧互不引入，只通过 src/protocol 和 Redux 说话；协议本身不依赖任何引擎
+  {
+    files: ['src/protocol/**/*.ts'],
+    rules: { 'no-restricted-imports': ['error', { paths: ['phaser', 'three'], patterns: ['three/*', '@/game/*', '@/sprite/*', '@/stage3d/*', '@/world3d/*', '@/ui/*'] }] },
+  },
+  {
+    files: ['src/game/**/*.ts', 'src/sprite/**/*.ts', 'src/particle/**/*.ts'],
+    rules: { 'no-restricted-imports': ['error', { paths: ['three'], patterns: ['three/*', '@/stage3d/*', '@/world3d/*'] }] },
+  },
+  {
+    files: ['src/stage3d/**/*.{ts,tsx}', 'src/world3d/**/*.{ts,tsx}'],
+    rules: { 'no-restricted-imports': ['error', { paths: ['phaser'], patterns: ['@/sprite/*', '@/particle/*', '@/game/scenes/*', '@/game/core/*', '@/game/mechanics/*'] }] },
+  },
   {
     files: ['vite.config.ts', 'scripts/**/*.mjs', 'eslint.config.js'],
     languageOptions: { globals: globals.node },

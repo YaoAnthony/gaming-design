@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { anyPressed, GAMEPAD_BUTTONS, padAction, padDirs, padKind, STICK_DEADZONE } from './gamepad';
+import { anyPressed, GAMEPAD_BUTTONS, GAMEPAD_DPAD, padAction, padDirs, padKind, readNativePads, STICK_DEADZONE } from './gamepad';
 
 const NONE = { left: false, right: false, up: false, down: false };
 
@@ -60,5 +60,20 @@ describe('标题画面查按钮', () => {
   it('没有手柄', () => {
     expect(anyPressed([], [0])).toBe(false);
     expect(anyPressed([null, null], [0])).toBe(false);
+  });
+});
+
+describe('直接读浏览器的手柄', () => {
+  const pad = (axes: number[], pressed: number[] = []) => ({ axes, buttons: Array.from({ length: 16 }, (_, i) => ({ pressed: pressed.includes(i) })) });
+
+  it('左摇杆和十字键合成方向；空位（没插的手柄）跳过', () => {
+    expect(readNativePads([null, pad([1, 0])])).toEqual({ ...NONE, right: true });
+    expect(readNativePads([pad([0, 0], [GAMEPAD_DPAD.up, GAMEPAD_DPAD.left])])).toEqual({ ...NONE, up: true, left: true });
+  });
+
+  it('几个手柄任何一个往那边推都算；都没动就是不动', () => {
+    expect(readNativePads([pad([-1, 0]), pad([0, 1])])).toEqual({ ...NONE, left: true, down: true });
+    expect(readNativePads([pad([0, 0]), null])).toEqual(NONE);
+    expect(readNativePads([])).toEqual(NONE);
   });
 });

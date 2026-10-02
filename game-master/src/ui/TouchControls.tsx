@@ -1,7 +1,7 @@
 import { useEffect, type PointerEvent } from 'react';
 import { useTranslation } from 'react-i18next';
 import { touch, TOUCH_ACTION, TOUCH_JUMP } from '@/game/input';
-import { bridge } from '@/game/bridge';
+import { bridge } from '@/protocol';
 
 interface Props { layout?: 'jump' | 'dpad' }
 

@@ -2,8 +2,7 @@
 // 方向每帧读（read）；一次性的按钮（跳、重置、退出试玩）和 React 发来的请求（重置、继续、再来一次、下一关、攥纸团）走 handlers
 import Phaser from 'phaser';
 import type { MoveInput } from '@/game/mechanics/define';
-import type { CrumpleDone } from '@/game/bridge';
-import { bridge, EVT } from '@/game/bridge';
+import { bridge, EVT, type CrumpleDone, type HeroEntryQuery, type ScreenSpot } from '@/protocol';
 import { INPUT_DOWN, touch, TOUCH_ACTION, TOUCH_JUMP } from '@/game/input';
 import { padAction, readPads } from '@/game/gamepad';
 
@@ -21,6 +20,10 @@ export interface InputHandlers {
   exitPlaytest(): void;
   crumpleFreeze(): void;
   crumpleDone(d: CrumpleDone): void;
+  /** 让主角跳出画面 / 主角要从这里走回画面，能落在哪 / 主角走回画面了 */
+  popOut(): void;
+  heroEntry(q: HeroEntryQuery): void;
+  heroReturn(at: ScreenSpot | null): void;
 }
 
 export class GameInput {
@@ -43,6 +46,7 @@ export class GameInput {
     bridge.on(EVT.requestReset, h.reset); bridge.on(EVT.continueGame, h.continueGame); bridge.on(EVT.restartGame, h.restartRun); bridge.on(EVT.nextLevel, h.nextLevel);
     bridge.on(EVT.requestPlaytestExit, h.exitPlaytest);
     bridge.on(EVT.crumpleFreeze, h.crumpleFreeze); bridge.on(EVT.crumpleDone, h.crumpleDone);
+    bridge.on(EVT.heroPopOut, h.popOut); bridge.on(EVT.heroEntry, h.heroEntry); bridge.on(EVT.heroReturn, h.heroReturn);
     // 手柄按钮：和对应的键盘键做同样的事（映射表在 game/gamepad.ts）；方向在 read 里读
     const onPad = (_pad: Phaser.Input.Gamepad.Gamepad, button: Phaser.Input.Gamepad.Button) => {
       const action = padAction(button.index);
@@ -57,6 +61,7 @@ export class GameInput {
       bridge.off(EVT.requestReset, h.reset); bridge.off(EVT.continueGame, h.continueGame); bridge.off(EVT.restartGame, h.restartRun); bridge.off(EVT.nextLevel, h.nextLevel);
       bridge.off(EVT.requestPlaytestExit, h.exitPlaytest);
       bridge.off(EVT.crumpleFreeze, h.crumpleFreeze); bridge.off(EVT.crumpleDone, h.crumpleDone);
+      bridge.off(EVT.heroPopOut, h.popOut); bridge.off(EVT.heroEntry, h.heroEntry); bridge.off(EVT.heroReturn, h.heroReturn);
       touch.left = false; touch.right = false; touch.up = false; touch.down = false;
     });
   }

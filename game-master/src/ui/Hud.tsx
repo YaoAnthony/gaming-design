@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAppSelector } from '@/redux/hooks';
 import { WinModal } from './WinModal';
-import { bridge, EVT } from '@/game/bridge';
+import { bridge, EVT } from '@/protocol';
 import { AVATARS, HEART_ICONS } from '@/asset';
 import { Typewriter } from './Typewriter';
 import { ResetButtonIcon } from './PadIcons';

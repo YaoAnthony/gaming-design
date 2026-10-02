@@ -28,7 +28,7 @@ export interface Carryable {
   origin?: number;
 }
 /** 场上的一把钥匙：哪一组、碰得到门的范围（像素）、用掉它 */
-export interface KeyContact { group: number; area: Phaser.Geom.Rectangle; use: () => void }
+export interface KeyContact { group: number; area: Phaser.Geom.Rectangle; /** 地图上的第几把（认不出 = undefined） */ origin?: number; use: () => void }
 interface GroundThing {
   /** (x, y) = 贴图停在地上时的中心；钥匙每帧按物理体更新 */
   carry: Carryable; x: number; y: number; sprite: Phaser.GameObjects.Image;
@@ -143,11 +143,11 @@ export class Carry implements Mechanic {
   keysInPlay(): KeyContact[] {
     const out: KeyContact[] = [];
     const held = this.held?.carry.key;
-    if (held !== undefined) out.push({ group: held, area: this.ctx.player.rect(), use: () => this.consume() });
+    if (held !== undefined) out.push({ group: held, area: this.ctx.player.rect(), origin: this.held?.carry.origin, use: () => this.consume() });
     this.ground.forEach(g => {
       if (g.carry.key === undefined || !g.loose) return;
       const b = g.loose.body;
-      out.push({ group: g.carry.key, area: new Phaser.Geom.Rectangle(b.x, b.y, b.width, b.height), use: () => this.useGround(g) });
+      out.push({ group: g.carry.key, area: new Phaser.Geom.Rectangle(b.x, b.y, b.width, b.height), origin: g.carry.origin, use: () => this.useGround(g) });
     });
     return out;
   }

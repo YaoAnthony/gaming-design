@@ -1,8 +1,10 @@
 // ===== 钥匙与门：钥匙碰到同色的门，这扇门打开，并且沿相邻的同色门一格格连锁打开，钥匙用掉 =====
 // 开门的是钥匙本身，不管它在哪：拿在手上的（人碰到门就算）、地上的、正在往下掉的、被怪物推着走的都一样。
 // 连锁只沿上下左右相邻、同色的门传：同色但不相连的另一片门还锁着，要另一把钥匙。传一格的间隔是 config.lockChainDelayMs。
-// 整张地图重置（死亡 / R）：开过的门全部关回来，用掉的、没动过的钥匙回到原位；拿在手上的还拿在手上，
-// 人自己丢下的留在丢下的地方。进入下一关全部回原位。只重置房间时开过的门不关。
+// 整张地图重置：开过的门全部关回来，用掉的、没动过的钥匙回到原位；拿在手上的还拿在手上，
+// 人自己丢下的留在丢下的地方。进入下一关全部回原位。
+// 只重置房间（R、Boss 战打到一半死了）：这个房间里开过的门关回来，开这些门用掉的钥匙回到原位（不管是从哪个房间带来的，
+// 不然门关了钥匙没了就卡死）；别的房间的门不动，用在别的房间的钥匙也不回来（不然能刷出两把）。
 // 门在建地形前烘成 % 砖（bake），这里按组染色。门可以盖在别的砖上（比如尖刺）：开门后那一格露出底下的砖，不是空气。
 import type Phaser from 'phaser';
 import { DOOR_CHAR, lockGroup, type LockCell } from '@/game/world/WorldModel';
@@ -19,6 +21,8 @@ const TOUCH_PX = 3;
 export class Locks implements Mechanic {
   /** 开过的门（格子序号）：重置时放回来的门要再拿掉。连锁一开始整片就记上，传到一半重置也算开了 */
   private opened = new Set<number>();
+  /** 用掉的钥匙（地图上的第几把）→ 它开的那扇门：重置那扇门所在的房间时钥匙回到原位 */
+  private used = new Map<number, LockCell>();
   /** 连锁还没传到的那几格 */
   private pending: Phaser.Time.TimerEvent[] = [];
 
@@ -40,7 +44,9 @@ export class Locks implements Mechanic {
     const T = this.ctx.cfg.tile, locked = (c: LockCell) => this.isDoor(c) && !this.opened.has(this.index(c));
     for (const key of this.carry?.keysInPlay() ?? []) {
       const door = touchedDoor(this.data.doors, key.group, key.area, T, TOUCH_PX, locked);
-      if (door && this.open(door)) key.use();
+      if (!door || !this.open(door)) continue;
+      key.use();
+      if (key.origin !== undefined) this.used.set(key.origin, door);
     }
   }
 
@@ -48,18 +54,25 @@ export class Locks implements Mechanic {
   onClear(): void { this.cancelPending(); }
 
   /**
-   * 重置把门放回来了。整张地图（死亡 / R）：门就这样关着，钥匙回原位，手上拿着的、人丢下的不动；下一关：全部回原位；
-   * 只重置房间：开过的门（包括连锁传到一半的）再拿掉
+   * 重置把门放回来了。整张地图：门就这样关着，钥匙回原位，手上拿着的、人丢下的不动；下一关：全部回原位；
+   * 只重置房间：这个房间的门就这样关着（地形复原时放回来了），开它们用掉的钥匙放回原位
    */
   onReset(scope: 'room' | 'world' | 'level'): void {
     if (scope !== 'room') {
-      this.opened.clear();
+      this.opened.clear(); this.used.clear();
       this.spawnKeys(this.carry?.clearKeys(scope === 'world'));
       this.tint();
       return;
     }
-    const cells = this.data.doors.filter(c => this.opened.has(this.index(c)) && this.isDoor(c));
-    if (cells.length) this.reveal(cells);
+    const { rooms, cfg } = this.ctx, T = cfg.tile;
+    const inRoom = (c: LockCell) => rooms.same(rooms.of(c.x * T + T / 2, c.y * T + T / 2), rooms.current);
+    this.data.doors.forEach(c => { if (inRoom(c)) this.opened.delete(this.index(c)); });
+    this.used.forEach((door, i) => {
+      if (!inRoom(door)) return;
+      this.used.delete(i);
+      const c = this.data.keys[i];
+      if (c) this.carry?.spawnGround(keyCarryable(c.group, this.color(c.group), i), c.x * T + T / 2, c.y * T + T / 2);
+    });
     this.tint();
   }
 

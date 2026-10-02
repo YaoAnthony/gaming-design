@@ -57,6 +57,11 @@ export class BossFight implements Mechanic {
   private triggers: EnemySpawn[] = [];
   /** 这次进房玩家已经碰过触发线了：等他离开门口够远就封门 */
   private armed = false;
+  /**
+   * 重置前门已经封上了（Boss 战打到一半死了 / 按 R）：重置后不用再碰触发点。复活点在封门处（场地里面），
+   * 触发点多半在门口外面，人碰不到它，门就一直不封、Boss 一直不来，玩家困在空的 Boss 房里
+   */
+  private rearm = false;
   private boss: Boss | null = null;
   /** Boss 和地形的碰撞器，必须随 Boss 一起销毁：留着会每帧去碰一个没有物理体的对象，把物理循环炸掉 */
   private collider: Phaser.Physics.Arcade.Collider | null = null;
@@ -112,6 +117,7 @@ export class BossFight implements Mechanic {
   updateAlive(_now: number, dt: number): void { this.skate(dt); }
 
   onClear(): void {
+    this.rearm = this.doors.length > 0;
     this.cancelIntro();
     this.chargeTimers.forEach(t => t.remove(false)); this.chargeTimers = [];
     if (this.boss || this.doors.length || this.doorsPending.length) this.end(false);
@@ -123,7 +129,11 @@ export class BossFight implements Mechanic {
     // 在打赢过的 Boss 房里按 R（房间复原）：Boss 回来，重新打；重置整张地图、进入下一关（长大）：所有 Boss 都回来
     if (scope === 'room') { const key = ctx.rooms.key(ctx.rooms.current); if (key) this.defeated.delete(key); }
     else this.defeated.clear();
-    if (scope !== 'level' && this.hasBoss(ctx.rooms.current)) this.startBoss(ctx.rooms.current);   // 进入下一关：人回出生点后 onRoomChanged 会再判一次
+    if (scope !== 'level' && this.hasBoss(ctx.rooms.current)) {   // 进入下一关：人回出生点后 onRoomChanged 会再判一次
+      this.startBoss(ctx.rooms.current);
+      if (this.rearm) this.armed = true;   // 打到一半重来：人在场地里复活，直接等他站稳就封门、Boss 重新出场
+    }
+    this.rearm = false;
   }
 
   /** 死了不重置的模式下，Boss 战打到一半死了：还是重开这个房间（Boss 重新出场、房间里的落石和引线复原），不然 Boss 压在复活点上、能砸它的东西也用光了 */

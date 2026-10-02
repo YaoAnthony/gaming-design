@@ -272,6 +272,17 @@ label.check { display: flex; align-items: center; gap: 6px; margin: 8px 0; color
 
 /* 技术验证编辑器（开发工具） */
 .lab { padding: 16px; overflow: auto; }
+/* 节奏关卡试玩：上面一排按钮，下面是游戏画面 */
+.lab-toolbar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--line); background: var(--panel); font-size: 13px; color: var(--muted); }
+.lab-jump { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; padding: 4px 10px; line-height: 1.2; }
+.lab-jump span { font: 11px monospace; color: var(--muted); }
+.lab-jump.now { border-color: #ffd166; }
+.lab-from { display: flex; align-items: center; gap: 6px; margin-left: 8px; }
+.lab-from input { width: 64px; padding: 6px 8px; cursor: text; }
+.lab-check { display: flex; align-items: center; gap: 4px; cursor: pointer; }
+.lab-now { font: bold 16px monospace; color: var(--text); min-width: 64px; }
+.lab-right { margin-left: auto; }
+.lab-timeline { display: block; width: 100%; flex: none; cursor: pointer; border-bottom: 1px solid var(--line); }
 .lab-panel { display: flex; flex-direction: column; gap: 12px; max-width: 900px; }
 .lab-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .lab-clock { display: flex; align-items: center; gap: 16px; padding: 14px 16px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; font-family: monospace; }

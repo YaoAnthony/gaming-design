@@ -24,6 +24,8 @@ export class Scoreboard {
   combo = 0;
   maxCombo = 0;
   points = 0;
+  /** 玩家亲手接住的（按出来的 Perfect / Good；自动判的——躲过去的弹幕——不算）：骷髅王的血按它掉 */
+  struck = 0;
   /** 最近一次判定（HUD 上闪一下） */
   last: Judgement | null = null;
   private readonly listeners: ((j: Judgement, by: JudgedBy) => void)[] = [];
@@ -40,6 +42,7 @@ export class Scoreboard {
     this.combo = j === 'miss' ? 0 : this.combo + 1;
     this.maxCombo = Math.max(this.maxCombo, this.combo);
     this.points += POINTS[j];
+    if (by === 'press' && j !== 'miss') this.struck++;
     this.last = j;
     this.listeners.forEach(fn => fn(j, by));
   }

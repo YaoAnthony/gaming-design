@@ -9,7 +9,7 @@ import { Terrain } from '@/game/terrain/Terrain';
 import { entityRows, floorAfter, fogRows, fuseRows, roomKeyAt, worldRows } from '@/game/world/WorldModel';
 import { FuseNet } from '@/game/fuse/Fuse';
 import { FogOfWar } from '@/game/fog/Fog';
-import { bridge, EVT, type StartGameData } from '@/protocol';
+import { bridge, EVT, type StartGameData, type RhythmTest } from '@/protocol';
 import { SCENE } from '@/game/scenes/keys';
 import { Player } from '@/sprite';
 import { createSparkEmitter, type SparkEmitter } from '@/particle';
@@ -213,9 +213,9 @@ export class GameScene extends Phaser.Scene {
       onBoss: v => store.dispatch(setBoss(v)),
       onHp: v => { if (v) store.dispatch(setHearts({ ...v, tiered: true })); else this.health.reset(); },   // 打完换回平时的心
       onBreak: () => { store.dispatch(whiteout()); this.cameras.main.flash(BREAK_FLASH_MS); },
-      onResult: (won, percent) => {
+      onResult: (won, percent, test) => {
         this.flash(won ? 'rhythm.won' : 'rhythm.lost', hex(won ? Colors.mint : Colors.rose), { percent });
-        if (won && chartOfArena(this.floor.id)) this.win(true);   // 在庆典大厅打赢了骷髅王：通关
+        if (won && !test && chartOfArena(this.floor.id)) this.win(true);   // 在庆典大厅打赢了：通关（试玩不算）
       },
     });
     this.solids = new Solids(this, () => ({ player: this.player, enemies: this.enemies.group }));
@@ -281,7 +281,7 @@ export class GameScene extends Phaser.Scene {
       popOut: () => this.popOut.request(),
       heroEntry: q => this.popOut.answerEntry(q),
       heroReturn: at => this.popOut.comeBack(at),
-      rhythmStart: r => this.startRhythm(r.chartId),
+      rhythmStart: r => this.startRhythm(r.chartId, r.test),
       rhythmStop: () => this.rhythm.stop(),
     }, this.playtest);
     // 玩家出场：换层带着 origin（这一局早就开始了），没有就是这一局的第一次出现
@@ -289,7 +289,7 @@ export class GameScene extends Phaser.Scene {
     this.saveCheckpoint();
     // 这一层是哪张谱的场地（庆典大厅）：骷髅王已经在等了，人一落地就开打
     const festival = chartOfArena(this.floor.id);
-    if (festival) this.rhythm.stage(festival.id, true);
+    if (festival) this.rhythm.stage(festival.id, !this.startData.rhythmLab);   // 技术验证编辑器里的试玩：摆好场子等着，不自动开打
     // 存档里人在 3D 世界：出场之后接着跳出去
     if (!this.playtest && store.getState().run.realm === 'deep') this.popOut.request();
 
@@ -499,9 +499,9 @@ export class GameScene extends Phaser.Scene {
   }
 
   /** 开一场节奏关卡：这张谱有自己的场地、人又不在那一层，就先传过去（到了那边自己开打）；否则就地开 */
-  private startRhythm(chartId: string): void {
+  private startRhythm(chartId: string, test?: RhythmTest): void {
     const arena = chartById(chartId)?.arena;
-    if (!arena || arena === this.floor.id) { this.rhythm.start(chartId); return; }
+    if (!arena || arena === this.floor.id) { this.rhythm.start(chartId, test); return; }
     if (this.frozen || this.crumple.active) return;
     // 这份地图里没有那一层（编辑器里的地图是旧的）：从打包的默认地图里借过来
     const floor = this.project.floors.find(f => f.id === arena) ?? DEFAULT_PROJECT.floors.find(f => f.id === arena);

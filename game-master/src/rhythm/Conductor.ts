@@ -17,6 +17,7 @@ export class Conductor {
   private startedAt: number | null = null;
   private clicks: AudioContext | null = null;
   private lastBeat = -1;
+  private fromMs = 0;
 
   /** @param url 曲子的完整地址 */
   constructor(private readonly chart: Chart, url: string, volume: number) {
@@ -29,12 +30,13 @@ export class Conductor {
 
   get started(): boolean { return this.startedAt !== null; }
 
-  /** 开始放（从头） */
-  start(): void {
+  /** 开始放。fromMs = 从曲子的第几毫秒开始（试玩时从中间起） */
+  start(fromMs = 0): void {
     if (this.startedAt !== null) return;
-    this.startedAt = performance.now();
+    this.startedAt = performance.now() - fromMs;
+    this.fromMs = fromMs;
     if (this.usable === false) return;
-    this.audio.currentTime = 0;
+    this.audio.currentTime = fromMs / 1000;
     this.audio.play().catch(() => { this.usable = false; });
   }
 
@@ -42,11 +44,12 @@ export class Conductor {
   timeMs(): number {
     if (this.startedAt === null) return 0;
     const wall = performance.now() - this.startedAt;
-    if (this.usable !== false && !this.audio.paused && this.audio.currentTime > 0) return this.audio.currentTime * 1000;
+    const at = this.audio.currentTime * 1000, moving = at > this.fromMs;   // 播放位置动了才算真的响了
+    if (this.usable !== false && !this.audio.paused && moving) return at;
     // 曲子迟迟不响（浏览器不让自动播放、文件一直读不出来）：不等了，按系统时钟走
-    if (this.usable !== false && wall > START_WAIT_MS && this.audio.currentTime === 0) { this.usable = false; this.audio.pause(); }
+    if (this.usable !== false && wall - this.fromMs > START_WAIT_MS && !moving) { this.usable = false; this.audio.pause(); }
     if (this.usable === false) this.click(wall);
-    return this.usable === false ? wall : 0;   // 曲子还在起播：先停在 0，等它真的响了再走
+    return this.usable === false ? wall : this.fromMs;   // 曲子还在起播：先停在起点，等它真的响了再走
   }
 
   /** 谱面走完了 */

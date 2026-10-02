@@ -3,26 +3,14 @@
 // 时间以音频的播放位置为准，和游戏里的指挥（rhythm/Conductor）是同一个钟。
 // 这是开发工具，界面保持中文（和地图编辑器一样）。
 import { useEffect, useRef, useState } from 'react';
+import { keyName as shortKey, MODE_KEYS, type Press } from './modeKeys';
 import { beatMs, CHARTS, endMs, RHYTHM_MODES, sectionAt, sectionStarts, type Chart } from '@/rhythm';
 
-/** 一下按键：曲子的第几毫秒按下、按的哪个键（KeyboardEvent.code）、第几毫秒松开（长按看它；录到一半停了就没有） */
-interface Press { ms: number; code: string; upMs?: number }
-
-/** 每种玩法在游戏里按哪些键：录的时候照着按，之后好对应到道上 */
-const MODE_KEYS: Record<string, string> = {
-  giveup: '空格 = 跳（上高柱 / 跨尖刺）',
-  dash: 'W / 空格 = 上排，S = 下排',
-  taiko: 'A = 红，D = 蓝',
-  mania: 'A S D = 三条道（按住 = 长按）',
-  osu: 'Q W E R = 四列的圈（按住 = 长按）',
-  saber: 'Q W E R = 方块在哪条道（游戏里是 A D 移过去、空格砍）',
-  dodge: '障碍出现的位置：Q W E R = 四条道，空格 = 一整排黄杠',
-};
 /** 这些键按了不让浏览器滚动页面；最近的按键显示多少个；节拍灯每拍亮多久（占一拍的比例） */
 const BLOCKED = ['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'], RECENT = 14, BLINK = 0.25;
 
 const clock = (ms: number) => { const s = Math.max(0, ms) / 1000; return `${Math.floor(s / 60)}:${(s % 60).toFixed(2).padStart(5, '0')}`; };
-const keyName = (code: string) => code.replace(/^Key/, '').replace(/^Arrow/, '').replace('Space', '空格');
+const keyName = (code: string) => shortKey(code).replace('␣', '空格');
 
 export function ChartRecorder({ onBack }: { onBack: () => void }) {
   const [chart, setChart] = useState<Chart>(CHARTS[0]);
@@ -49,7 +37,10 @@ export function ChartRecorder({ onBack }: { onBack: () => void }) {
     const onKey = (e: KeyboardEvent) => {
       if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
       if (BLOCKED.includes(e.code)) e.preventDefault();
-      pressesRef.current.push({ ms: Math.round(audio.currentTime * 1000), code: e.code });
+      // 只认现在这一段在游戏里用的键：只能按空格的地方按 A W S D 不记
+      const ms = Math.round(audio.currentTime * 1000), allowed = MODE_KEYS[chart.sections[sectionAt(chart, ms)].mode]?.codes;
+      if (allowed && !allowed.includes(e.code)) return;
+      pressesRef.current.push({ ms, code: e.code });
       setPresses([...pressesRef.current]);
     };
     // 松开：记到这个键最近那一下还没松开的按键上（按了多久 = 长按）
@@ -62,7 +53,7 @@ export function ChartRecorder({ onBack }: { onBack: () => void }) {
     raf = requestAnimationFrame(tick);
     window.addEventListener('keydown', onKey); window.addEventListener('keyup', onKeyUp);
     return () => { cancelAnimationFrame(raf); window.removeEventListener('keydown', onKey); window.removeEventListener('keyup', onKeyUp); };
-  }, [recording]);
+  }, [recording, chart]);
   useEffect(() => () => { audioRef.current?.pause(); }, []);
 
   const recordingData = () => ({ chartId: chart.id, bpm: chart.bpm, offsetMs: chart.offsetMs, recordedAt: new Date().toISOString(), presses });
@@ -99,7 +90,7 @@ export function ChartRecorder({ onBack }: { onBack: () => void }) {
         <button className="btn" disabled={recording || !presses.length} onClick={save}>保存</button>
         <button className="btn" disabled={recording || !presses.length} onClick={download}>下载</button>
       </div>
-      <div className="hint">点「开始录」后曲子从头放，听着按键盘就行，每一下都会记下来（按在曲子的第几毫秒、哪个键、按了多久——按住不放就是长按）。录完点「保存」，文件在 recordings/ 里。</div>
+      <div className="hint">点「开始录」后曲子从头放，听着按键盘就行，每一段只记这一段在游戏里用的键（按在曲子的第几毫秒、哪个键、按了多久——按住不放就是长按）。录完点「保存」，文件在 recordings/ 里。</div>
 
       <div className="lab-clock">
         <span className={'lab-beat' + (recording && onBeat ? ' on' : '') + (inBar === 1 ? ' first' : '')} />
@@ -115,7 +106,7 @@ export function ChartRecorder({ onBack }: { onBack: () => void }) {
           </div>
         ))}
       </div>
-      <div className="hint">现在这一段（按现有谱面的分段）：<b>{mode}</b>（{RHYTHM_MODES[mode].realm === 'flat' ? '2D' : '3D'}）—— 游戏里的键：{MODE_KEYS[mode]}</div>
+      <div className="hint">现在这一段（按现有谱面的分段）：<b>{mode}</b>（{RHYTHM_MODES[mode].realm === 'flat' ? '2D' : '3D'}）—— 这一段只认：{MODE_KEYS[mode]?.hint}</div>
 
       <div className="lab-keys">
         {presses.slice(-RECENT).map((p, i) => <span key={presses.length - RECENT + i} className="lab-key"><kbd>{keyName(p.code)}</kbd>{clock(p.ms)}</span>)}

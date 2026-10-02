@@ -23,10 +23,16 @@ let current: RhythmSession | null = null;
 
 export const rhythmSession = (): RhythmSession | null => current;
 
-/** 开一场（已经有一场在进行就返回 null）。audioUrl = 曲子的完整地址 */
-export function beginRhythm(chart: Chart, audioUrl: string, volume: number): RhythmSession | null {
+/** 从中间开始时，开始之后这么多毫秒以内的音符也不要（给人一点反应时间） */
+const HEAD_START_MS = 600;
+
+/**
+ * 开一场（已经有一场在进行就返回 null）。audioUrl = 曲子的完整地址；
+ * fromMs = 从曲子的第几毫秒开始（试玩用）：那之前的音符不要了，成绩只算剩下的
+ */
+export function beginRhythm(chart: Chart, audioUrl: string, volume: number, fromMs = 0): RhythmSession | null {
   if (current) return null;
-  const notes = notesOf(chart);
+  const notes = fromMs > 0 ? notesOf(chart).filter(n => n.timeMs >= fromMs + HEAD_START_MS) : notesOf(chart);
   current = {
     chart, notes, conductor: new Conductor(chart, audioUrl, volume),
     score: new Scoreboard(notes.length + notes.filter(n => n.holdMs).length),   // 长按算两下：头和尾巴

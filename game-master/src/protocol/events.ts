@@ -21,6 +21,8 @@ export interface StartGameData {
   /** 长大阶段（0 = 1 格高，1 = 1.5 格，2 = 2 格；假通关「进入下一关」每次长一阶；换层时带过去） */
   stage?: number;
   playtest?: boolean;
+  /** 技术验证编辑器里的试玩：到了节奏关卡的场地不自动开打，等 EVT.rhythmStart 带着 test 来 */
+  rhythmLab?: boolean;
   /** 这一局最开始的启动数据（换层时一路带着）：「再来一次」从这里重开 */
   origin?: StartGameData;
 }
@@ -42,8 +44,10 @@ export const STAGE_FX = {
 export type StageFxId = typeof STAGE_FX[keyof typeof STAGE_FX];
 export interface StageFxRef { id: StageFxId }
 
-/** 开一场节奏关卡：用哪张谱（rhythm/charts 里的 id） */
-export interface RhythmStart { chartId: string }
+/** 试玩节奏关卡（技术验证编辑器用）：从曲子的第几毫秒开始；god = 主角不掉血。不说开场白、不放板、不填血条，直接开打，打完不算通关 */
+export interface RhythmTest { fromMs: number; god: boolean }
+/** 开一场节奏关卡：用哪张谱（rhythm/charts 里的 id）；test = 试玩（正在打就先收掉再从那开始） */
+export interface RhythmStart { chartId: string; test?: RhythmTest }
 /** 节奏关卡结束：过没过关 */
 export interface RhythmEnd { won: boolean }
 

@@ -8,8 +8,8 @@
 // 2D 里接住的音符弹回去砸他。
 import Phaser from 'phaser';
 import type { GameConfig } from '@/type';
-import { bridge, EVT, STAGE_FX } from '@/protocol';
-import { beatMs, beginRhythm, chartById, createHitsound, endRhythm, LANE_ARROWS, LANE_KEYS, notesOf, RHYTHM_MODES, sectionAt, sectionStarts, travelMsOf, type Chart, type Hitsound, type Judgement, type ModeId, type RhythmSession } from '@/rhythm';
+import { bridge, EVT, STAGE_FX, type RhythmTest } from '@/protocol';
+import { beatMs, beginRhythm, chartById, createHitsound, endRhythm, LANE_ARROWS, LANE_KEYS, notesOf, RHYTHM_MODES, sectionAt, sectionStarts, travelMsOf, type Chart, type Hitsound, type Judgement, type ModeId, type RhythmSession, type Note } from '@/rhythm';
 import type { MoveInput } from '@/game/mechanics/define';
 import type { Player } from '@/sprite';
 import { Colors } from '@/game/palette';
@@ -53,8 +53,8 @@ export interface RhythmFightDeps {
   onHp(v: { hp: number; max: number } | null): void;
   /** 破屏的那一刻：整个画面闪一下 */
   onBreak(): void;
-  /** 结束：过没过关、拿到满分的百分之几 */
-  onResult(won: boolean, percent: number): void;
+  /** 结束：过没过关、拿到满分的百分之几；test = 这一场是试玩（不算通关） */
+  onResult(won: boolean, percent: number, test: boolean): void;
 }
 
 /** 键盘上哪些键算哪个方向（KeyboardEvent.code）；空格、四条道的键（Q W E R）单算 */
@@ -95,6 +95,9 @@ export class RhythmFight {
   /** 开场白还没说完：这时候人还归玩家管（跳一下翻一句） */
   private talking = false;
   private lure: Lure | null = null;
+  /** 等着开的试玩（技术验证编辑器点了「从这开始」）：手头的收干净、人回到画面里就开；正在打的这一场是不是试玩 */
+  private pending: RhythmTest | null = null;
+  private test: RhythmTest | null = null;
   /** 血条正在填：从哪一刻（真实时间）开始填的、上一次涨到了第几步；null = 没在填 */
   private fill: { last: number; hp: number; fullAt: number; sound: BossSound; max: number; on: { x: number; left: number; right: number } } | null = null;
   /** 下一次破屏前的震动已经起过了（记的是那一段的下标）；换段前的那句话已经说过了（同上） */
@@ -127,8 +130,15 @@ export class RhythmFight {
     this.piano = new PianoBoss(scene, this.room, this.ground, cfg.tile, DEPTH);
   }
 
-  /** 开一场：场子还没摆就先摆；已经在说话 / 在打就不管 */
-  start(chartId: string): void {
+  /** 开一场：场子还没摆就先摆；已经在说话 / 在打就不管。test = 试玩：正在打就先收掉，然后跳过开场直接从那一刻开打 */
+  start(chartId: string, test?: RhythmTest): void {
+    if (test) {
+      if (this.phase === 'off') this.stage(chartId, false);
+      if (this.phase === 'intro') return;   // 开场白说到一半：不打断
+      this.pending = test;
+      this.stop();
+      return;
+    }
     if (this.phase === 'off') this.stage(chartId, true);
     else if (this.phase === 'staged') this.autoStart = true;
   }
@@ -146,6 +156,13 @@ export class RhythmFight {
   update(): void {
     const cfg = this.d.cfg.world3d.rhythm;
     if (this.phase === 'off') return;
+    if (this.phase === 'staged' && this.pending && !this.d.away() && this.d.canStart()) {
+      // 试玩：不说开场白、不放板、不填血条，钢琴变出来就从那一刻开打
+      const test = this.pending;
+      this.pending = null; this.phase = 'intro';
+      this.piano?.summon(() => { if (this.phase === 'intro') this.play(null, test); });
+      return;
+    }
     if (this.phase === 'staged' && this.autoStart && this.d.canStart()) { this.intro(); return; }
     if (this.phase === 'lure') {
       this.piano?.update(0, null, cfg);
@@ -243,10 +260,11 @@ export class RhythmFight {
     });
   }
 
-  /** 开打。on = 主角踩着的那块板：正中的 x，左边、右边各有几块落好了 */
-  private play(on: { x: number; left: number; right: number }): void {
+  /** 开打。on = 主角踩着的那块板：正中的 x，左边、右边各有几块落好了（null = 没有引子，人在哪就在哪开）；test = 试玩 */
+  private play(on: { x: number; left: number; right: number } | null, test: RhythmTest | null = null): void {
     const chart = this.chart!, { scene, cfg } = this.d, room = this.room;
-    const session = beginRhythm(chart, import.meta.env.BASE_URL + chart.audio, cfg.musicVolume);
+    this.test = test;
+    const session = beginRhythm(chart, import.meta.env.BASE_URL + chart.audio, cfg.musicVolume, test?.fromMs ?? 0);
     if (!session) { this.phase = 'staged'; this.autoStart = false; this.d.onBoss(null); this.d.onEnd(); this.d.player().unfreeze(); return; }
     this.session = session; this.section = -1; this.stopping = false; this.rumbled = -1; this.said = -1; this.phase = 'play';
     this.hp = cfg.world3d.rhythm.heroHp; this.graceUntil = 0;
@@ -265,7 +283,7 @@ export class RhythmFight {
     chart.sections.forEach((s, i) => {
       if (RHYTHM_MODES[s.mode].realm !== 'flat') return;
       this.modes.set(i, createFlatMode(s.mode, {
-        scene, room, ground: this.ground, heroX: on.x, built: { left: on.left, right: on.right }, source: { x: piano.rect.x, y: piano.rect.y }, boss: piano.hand, tile: cfg.tile, depth: DEPTH, hero, score: session.score,
+        scene, room, ground: this.ground, heroX: on?.x ?? p.x, built: on && { left: on.left, right: on.right }, source: { x: piano.rect.x, y: piano.rect.y }, boss: piano.hand, tile: cfg.tile, depth: DEPTH, hero, score: session.score,
         travelMs: travelMsOf(chart, s.mode, rc().travelBeats), beat: { ms: beatMs(chart), offsetMs: chart.offsetMs }, config: rc, punch, hurt: () => this.hurt(), boom: () => session.boom(), strikeBoss: (x, y, size, color) => this.strikeBoss(x, y, size, color),
       }, session.notes.filter(n => n.section === i)));
     });
@@ -285,15 +303,15 @@ export class RhythmFight {
     session.bossHit = () => piano.flinch();
     session.boom = () => scene.sound.play(BOOM.key, { volume: BOOM.volume });
     scene.input.keyboard?.on('keydown', this.onKey);
-    session.conductor.start();
+    if (!on) this.d.onBegin();   // 没经过填血条那一步：这一层的音乐在这让位
+    session.conductor.start(test?.fromMs ?? 0);
   }
 
   /** 主角踩上了一块板：锁住他，这一层的音乐停下，骷髅王的血条出现（空的），开始填 */
   private lock(on: { x: number; left: number; right: number }): void {
     const { scene, cfg } = this.d, p = this.d.player(), rc = cfg.world3d.rhythm;
     p.freeze(0xffffff); p.clearTint();
-    const total = notesOf(this.chart!).reduce((n, note) => n + (note.holdMs ? 2 : 1), 0);   // 长按算两下，和成绩里一样
-    this.fill = { last: scene.time.now, hp: 0, fullAt: 0, sound: createBossSound(scene), max: Math.ceil(total * rc.passRatio), on };
+    this.fill = { last: scene.time.now, hp: 0, fullAt: 0, sound: createBossSound(scene), max: this.bossMax(this.chart!, notesOf(this.chart!)), on };
     this.phase = 'fill';
     this.d.onBegin();
     this.d.onBoss({ hp: 0, max: this.fill.max, per: rc.bossHp });
@@ -327,7 +345,7 @@ export class RhythmFight {
   /** 主角挨了一下：扣一滴血（刚挨过的一小段时间里不扣）；扣光了这一场就输了 */
   private hurt(): void {
     const s = this.session;
-    if (!s || this.phase !== 'play' || this.stopping) return;
+    if (!s || this.phase !== 'play' || this.stopping || this.test?.god) return;   // 试玩开了无敌：不掉血
     const now = s.conductor.timeMs(), cfg = this.d.cfg.world3d.rhythm;
     if (now < this.graceUntil) return;
     this.graceUntil = now + cfg.hurtGraceMs;
@@ -339,8 +357,18 @@ export class RhythmFight {
 
   /** 骷髅王的血：一共 = 整张谱音符数的六成（passRatio），接住一个（Perfect / Good）掉一滴；per = 一管多少滴 */
   private bossHp(): { hp: number; max: number; per: number } {
-    const cfg = this.d.cfg.world3d.rhythm, score = this.session!.score, max = Math.ceil(score.total * cfg.passRatio);
-    return { hp: Math.max(0, max - score.perfect - score.good), max, per: cfg.bossHp };
+    const s = this.session!, max = this.bossMax(s.chart, s.notes);
+    return { hp: Math.max(0, max - s.score.struck), max, per: this.d.cfg.world3d.rhythm.bossHp };
+  }
+
+  /**
+   * 骷髅王一共多少血：能打到他的音符（躲弹幕那一段不算；长按算两下，和成绩里一样）的六成（passRatio），
+   * 再凑成整管（一管 bossHp 滴）——血条填满时每一管都是满的
+   */
+  private bossMax(chart: Chart, notes: readonly Note[]): number {
+    const cfg = this.d.cfg.world3d.rhythm, per = cfg.bossHp;
+    const total = notes.reduce((n, note) => n + (RHYTHM_MODES[chart.sections[note.section].mode].hurtsBoss ? (note.holdMs ? 2 : 1) : 0), 0);
+    return Math.max(1, Math.round(total * cfg.passRatio / per)) * per;
   }
 
   /** 接住的音符弹回去砸骷髅王：划一道弧线飞到他身上，砸到了他缩一下 */
@@ -385,7 +413,8 @@ export class RhythmFight {
     this.d.onBoss(null);
     this.d.onHp(null);
     this.d.onEnd();
-    this.d.onResult(won, percent);
+    if (!this.pending) this.d.onResult(won, percent, this.test !== null);   // 马上要从别处重开的试玩：不弹结果
+    this.test = null;
     bridge.emit(EVT.rhythmEnd, { won });
   }
 

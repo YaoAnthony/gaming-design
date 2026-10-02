@@ -40,6 +40,7 @@ describe('谱面', () => {
     expect(bad(['x^..'], 'saber')).toHaveLength(1);  // 光剑不认方向了
     expect(bad(['xxx'], 'mania')).toHaveLength(1);   // 一次最多按两条道
     expect(bad(['|..'], 'mania')).toHaveLength(1);   // '|' 上面没有长按的头
+    expect(chartErrors({ ...TINY, sections: [{ mode: 'mania', rows: [...repeat(['...'], 6), 'H..', '|.x'] }] }, 1)).toHaveLength(1);   // 按着长按的时候别处有音符
     expect(chartErrors({ ...TINY, sections: [{ mode: 'mania', rows: [...repeat(['...'], 6), 'H..', '|..'] }] }, 1)).toEqual([]);
     expect(bad(['xx'], 'dash')).toHaveLength(1);
     expect(chartErrors({ ...TINY, sections: [{ mode: 'dodge', rows: ['o...', ...repeat(['....'], 7)] }] }, 1)).toHaveLength(1);   // 开头没空出来

@@ -81,7 +81,7 @@ export function notesOf(c: Chart): Note[] {
 /**
  * 谱面写得对不对：每行字符数对、只用那种玩法认识的字符、一行里的音符不超过那种玩法的上限、
  * 没有哪一行整排都是躲不掉的、每段都是整小节、每段开头空出了 leadBeats 拍（音符要提前这么久出发）、
- * 长按的 '|' 上面接着长按的头或者另一个 '|'
+ * 长按的 '|' 上面接着长按的头或者另一个 '|'、按着长按的那几步别的道上没有音符（手占着，顾不上别处）
  */
 export function chartErrors(c: Chart, leadBeats: number): string[] {
   const errors: string[] = [];
@@ -94,6 +94,7 @@ export function chartErrors(c: Chart, leadBeats: number): string[] {
         const above = s.rows[i - 1]?.[lane] ?? '.';
         if (ch === HOLD_BODY && above !== HOLD_BODY && !(spec.holds as string).includes(above)) errors.push(`${at(i)}：'|' 上面要接着长按的头`);
       });
+      if (row.includes(HOLD_BODY) && notes.length) errors.push(`${at(i)}：按着长按的时候别的道上不能有音符`);
       if (row.length !== spec.lanes) errors.push(`${at(i)}：要 ${spec.lanes} 个字符，写了 ${row.length} 个`);
       if (notes.some(ch => !spec.chars.includes(ch))) errors.push(`${at(i)}：有这种玩法不认识的字符（${row}）`);
       if (notes.length > spec.maxPerRow) errors.push(`${at(i)}：一行最多 ${spec.maxPerRow} 个音符`);

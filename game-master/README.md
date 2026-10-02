@@ -70,7 +70,7 @@ src/
   - **计分**（`rhythm/score.ts`，纯计算有测试）：每个音符判 Perfect / Good / Miss（时间窗在 `config.world3d.rhythm.windows`），连击遇 Miss 归零；躲的那段被打中算 Miss、躲过去算 Perfect。不扣心。谱面走完时拿到满分的 `passRatio` 以上算过关。右上角是分数，画面上方弹判定和连击。
   - **击中反馈**：每次按键打击点都亮一下（空按也亮，淡一些，让人知道键按到了）；打中了在音符那里炸开一圈、人鼓一下、当场出一声（`rhythm/hitsound.ts`，WebAudio 合成，Perfect / Good / Miss 三种音），画面上方弹判定和连击；漏了打击点红一下。2D 的零件（`burst` / `Receptor`）在 `game/rhythm/modes/define.ts`，3D 的（`Bursts`）在 `world3d/rhythm/modes/define.ts`。画面底下一排键帽提示现在这种玩法按什么键（`ui/Hud.tsx` 的 `RHYTHM_KEYS`）。
   - **加一种玩法**：`rhythm/modes.ts` 里加一条，对应那一边的 `modes/` 里加一个文件（2D 实现 `FlatMode`，3D 实现 `RhythmMode`：`update` 判定、`draw` 画音符，3D 的还有机位和站位）并在 `modes/index.ts` 注册，谱面里就能用了。
-  - 曲子不进仓库：谱面的 `audio` 指向 `public/local/` 下的文件（`.gitignore` 排除了）。文件不在时照常能玩，只是没有曲子、每拍合成一声「嗒」。
+  - 曲子：谱面的 `audio` 指向 `public/local/` 下的文件（技术验证用的曲子有版权，正式版要换掉）。文件不在时照常能玩，只是没有曲子、每拍合成一声「嗒」。
 - **没去过的房间先睡着**：会自己动的东西（巡逻的怪物、移动方块）所在的房间玩家这一局还没进过，就原地等着；进过（`Rooms.isAwake`）才开始动，开始了就一直动（怪物走进没去过的房间也接着走）。引线、碎块下落、钥匙和箱子掉落这些玩家引起的后果不管房间醒没醒都照常发生。死亡 / R 重置整张图时所有房间重新睡着，只叫醒复活点所在的那间。
 - **实心体**：会动的实心地形（移动方块、纸）和要站在它们上面的东西（箱子、钥匙）在 `core/solids.ts` 登记，碰撞器统一挂，机制之间不用互相打听。
 - **文案 key**：`src/i18n/keys.ts` 从 en.json 推出 key 的类型，`ctx.die` / `ctx.fx.flash` 只收合法的 key。

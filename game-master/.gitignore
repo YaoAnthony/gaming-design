@@ -1,6 +1,3 @@
 node_modules/
 dist/
 *.local
-
-# 本地试验用的素材（有版权的曲子等）：不进仓库
-public/local/

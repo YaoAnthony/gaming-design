@@ -1,8 +1,9 @@
 // ===== osu!（3D，像 QTE）：圈悬在半空，外面一圈大环往里缩，缩到和圈重合的那一刻按圈上写的键，人飞过去把它点掉 =====
 // 圈不飞：到点之前一段时间出现在原地，看环缩。四列从左到右是 Q W E R，谱面上的数字是圈悬多高。
 // 长按的圈（谱面上的 a b c）：点中之后别松手，圈里面有一圈亮环慢慢缩，缩完了才算按完；提前松手算漏。
+// 滑条（A B C 往右、x y z 往左）：也是按住不放，圈带着人沿着一条轨道滑到隔壁那一列，滑到头才松手。
 import * as THREE from 'three';
-import { LANE_KEYS, noteProgress, NoteTrack, RHYTHM_MODES, tailProgress } from '@/rhythm';
+import { LANE_KEYS, noteProgress, NoteTrack, RHYTHM_MODES, tailProgress, type Note } from '@/rhythm';
 import { Colors, hex } from '@/game/palette';
 import { Bursts, defineRhythmMode, letterTexture } from './define';
 
@@ -21,8 +22,17 @@ const FEEL = { burstMs: 240, burstGrow: 2, missMs: 220, missAlpha: 0.35, color: 
 
 defineRhythmMode('osu', (ctx, notes) => {
   const laneW = ctx.w / LANES, laneX = (lane: number) => (lane + 0.5) * laneW - ctx.w / 2;
-  /** 谱面上 1 2 3 是点一下的圈，a b c 是长按的圈：都是低、中、高 */
-  const heightOf = (char: string) => CIRCLE.heights['123'.indexOf(char)] ?? CIRCLE.heights['abc'.indexOf(char)] ?? CIRCLE.heights[0];
+  /** 谱面上 1 2 3 是点一下的圈，a b c 是长按的圈，A B C / x y z 是往右 / 往左的滑条：都是低、中、高 */
+  const heightOf = (char: string) => CIRCLE.heights[['1aAx', '2bBy', '3cCz'].findIndex(set => set.includes(char))] ?? CIRCLE.heights[0];
+  /** 滑条往哪边滑（+1 右，-1 左）；不是滑条是 0 */
+  const slideOf = (char: string) => ('ABC'.includes(char) ? 1 : 'xyz'.includes(char) ? -1 : 0);
+  /** 这个音符的圈现在在哪（滑条被按着的时候圈在滑；别的都在原地） */
+  const xOf = (n: Note, now: number, holding: boolean) => {
+    const from = laneX(n.lane), slide = slideOf(n.char);
+    if (!slide || !holding || !n.holdMs) return from;
+    const to = laneX(Math.max(0, Math.min(LANES - 1, n.lane + slide)));
+    return from + (to - from) * Math.max(0, Math.min(1, (now - n.timeMs) / n.holdMs));
+  };
   const track = new NoteTrack(notes, ctx.score);
   const plane = new THREE.PlaneGeometry(1, 1), ringGeo = new THREE.RingGeometry(0.46, 0.5, 48);
   const disposables: { dispose(): void }[] = [plane, ringGeo];
@@ -42,6 +52,8 @@ defineRhythmMode('osu', (ctx, notes) => {
       rings: instanced(ringGeo, new THREE.MeshBasicMaterial({ color: TINT[lane], transparent: true, depthWrite: false, side: THREE.DoubleSide })),
       // 长按的圈里面那一圈：按住的时候慢慢缩
       holds: instanced(ringGeo, new THREE.MeshBasicMaterial({ color: Colors.paper, transparent: true, depthWrite: false, side: THREE.DoubleSide })),
+      // 滑条的轨道：一条横杠，从圈铺到隔壁那一列
+      rails: instanced(plane, new THREE.MeshBasicMaterial({ color: TINT[lane], transparent: true, opacity: 0.45, depthWrite: false, side: THREE.DoubleSide })),
     };
   });
   const bursts = new Bursts(ctx.root, FEEL.burstMs, FEEL.burstGrow, 8, new THREE.RingGeometry(0.38, 0.5, 48));   // 点中：一个环荡开
@@ -71,9 +83,9 @@ defineRhythmMode('osu', (ctx, notes) => {
       });
       // 长按：按住的时候人挂在圈上不往下掉；按完再炸一下，提前松手闪一下
       const holds = track.holds(now, cfg.windows, n => move.lanesHeld[n.lane]);
-      for (const n of holds.kept) bursts.spawn(laneX(n.lane), heightOf(n.char), ctx.heroZ, CIRCLE.size, FEEL.color.perfect);
+      for (const n of holds.kept) bursts.spawn(xOf(n, now, true), heightOf(n.char), ctx.heroZ, CIRCLE.size, FEEL.color.perfect);   // 滑条在滑到头的地方炸
       if (holds.dropped.length) missLeft = FEEL.missMs;
-      if (track.holding.length) { const n = track.holding[track.holding.length - 1]; x = laneX(n.lane); feetY = heightOf(n.char) - CIRCLE.size / 2; velY = 0; }
+      if (track.holding.length) { const n = track.holding[track.holding.length - 1]; x = xOf(n, now, true); feetY = heightOf(n.char) - CIRCLE.size / 2; velY = 0; }
       if (track.sweep(now, cfg.windows).length) missLeft = FEEL.missMs;
       missLeft = Math.max(0, missLeft - dt * 1000);
       velY -= cfg.gravity * dt;
@@ -85,7 +97,7 @@ defineRhythmMode('osu', (ctx, notes) => {
       ctx.hero.castShadow(0);
     },
     draw(now) {
-      const counts = columns.map(() => 0), holdCounts = columns.map(() => 0);
+      const counts = columns.map(() => 0), holdCounts = columns.map(() => 0), railCounts = columns.map(() => 0);
       while (first < notes.length && tailProgress(notes[first], now, ctx.travelMs) > CIRCLE.past) first++;
       for (let i = first; i < notes.length; i++) {
         const note = notes[i], p = noteProgress(note, now, ctx.travelMs);
@@ -93,7 +105,14 @@ defineRhythmMode('osu', (ctx, notes) => {
         const n = counts[note.lane], holding = track.holding.includes(note);
         if ((track.done.has(i) && !holding) || n >= CIRCLE.max) continue;   // 点掉的不画了（正按着的长按还画着）
         const col = columns[note.lane];
-        pos.set(laneX(note.lane), heightOf(note.char), ctx.heroZ);
+        // 滑条的轨道：从出发的那一列铺到隔壁那一列（画在圈后面一点）
+        const slide = slideOf(note.char);
+        if (slide && note.holdMs) {
+          const a = laneX(note.lane), b = laneX(Math.max(0, Math.min(LANES - 1, note.lane + slide)));
+          pos.set((a + b) / 2, heightOf(note.char), ctx.heroZ - 0.05);
+          col.rails.setMatrixAt(railCounts[note.lane]++, m.compose(pos, q, scale.set(Math.abs(b - a) + CIRCLE.size * 0.5, CIRCLE.size * 0.5, 1)));
+        }
+        pos.set(xOf(note, now, holding), heightOf(note.char), ctx.heroZ);
         // 长按的圈：里面一圈亮环，从圈那么大缩到中心，缩完就是按够了
         if (note.holdMs) {
           const left = Math.max(0, Math.min(1, (note.timeMs + note.holdMs - now) / note.holdMs)), inner = CIRCLE.size * 0.86 * left;
@@ -108,13 +127,13 @@ defineRhythmMode('osu', (ctx, notes) => {
         counts[note.lane] = n + 1;
       }
       columns.forEach((c, k) => {
-        c.discs.count = c.rings.count = counts[k]; c.holds.count = holdCounts[k];
-        c.discs.instanceMatrix.needsUpdate = true; c.rings.instanceMatrix.needsUpdate = true; c.holds.instanceMatrix.needsUpdate = true;
+        c.discs.count = c.rings.count = counts[k]; c.holds.count = holdCounts[k]; c.rails.count = railCounts[k];
+        [c.discs, c.rings, c.holds, c.rails].forEach(mesh => { mesh.instanceMatrix.needsUpdate = true; });
       });
     },
     dispose() {
       bursts.dispose();
-      columns.forEach(c => [c.discs, c.rings, c.holds].forEach(mesh => { mesh.removeFromParent(); mesh.dispose(); }));
+      columns.forEach(c => [c.discs, c.rings, c.holds, c.rails].forEach(mesh => { mesh.removeFromParent(); mesh.dispose(); }));
       disposables.forEach(d => d.dispose());
     },
   };

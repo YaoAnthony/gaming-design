@@ -13,6 +13,7 @@ import { Colors } from '@/game/palette';
 import { Hero3D } from '../Hero3D';
 import { WorldInput } from '../input';
 import { createRhythmMode, guideLines, type ModeContext, type RhythmMode } from './modes/define';
+import { BossHands } from './BossHands';
 import './modes';
 
 /** 一帧最多按多久算（毫秒） */
@@ -54,6 +55,11 @@ export class RhythmWorld implements StageFxRun {
   private readonly disposables: { dispose(): void }[] = [];
   /** 大道（地面和线）：进场时从屏幕底边往镜头这边铺开 */
   private readonly road = new THREE.Group();
+  /** 骷髅王伸到画面外面来的两只手：3D 里的音符是它们放出来的 */
+  private readonly hands: BossHands;
+  /** 下一个还没出发的音符；每个 3D 段落的音符提前多久出发（毫秒，下标 = 第几段） */
+  private nextNote = 0;
+  private readonly travel = new Map<number, number>();
   /** 落地时地上荡开的那一圈 */
   private readonly ring: THREE.Mesh<THREE.RingGeometry, THREE.MeshBasicMaterial>;
   private ringLeft = 0;
@@ -69,6 +75,8 @@ export class RhythmWorld implements StageFxRun {
   private readonly aim = new THREE.Matrix4();
   private readonly quat = new THREE.Quaternion();
   private readonly rollQuat = new THREE.Quaternion();
+  /** 第 lane 条道（一共 lanes 条）的中线在哪（x） */
+  private readonly laneOf: (lane: number, lanes: number) => number;
 
   constructor(private readonly ctx: StageFxContext, handoff: HeroHandoff, private readonly o: RhythmWorldOptions) {
     const size = ctx.screen.size, base = ctx.screen.base, unit = handoff.tile * size.w, cfg = o.config(), { chart, notes } = o.session;
@@ -93,11 +101,22 @@ export class RhythmWorld implements StageFxRun {
     ctx.scene.add(this.root);
     this.root.updateMatrixWorld(true);
 
-    const mctx: Omit<ModeContext, 'travelMs'> = { root: this.root, hero: this.hero, w, h, heroZ, config: o.config, score: o.session.score };
+    const mctx: Omit<ModeContext, 'travelMs'> = {
+      root: this.root, hero: this.hero, w, h, heroZ, config: o.config, score: o.session.score,
+      hurt: () => o.session.hurt(), bossHit: () => o.session.bossHit(), boom: () => o.session.boom(),
+      // 骷髅王在画面上的位置换成这里的坐标：屏幕绕底边往后倒了 tilt 度，他离底边多高就沿着斜面上去多远
+      bossAt: () => {
+        const up = (1 - o.session.boss.y) * h, a = THREE.MathUtils.degToRad(this.tilt);
+        return new THREE.Vector3((o.session.boss.x - 0.5) * w, up * Math.cos(a), -up * Math.sin(a));
+      },
+    };
     chart.sections.forEach((s, i) => {
       if (RHYTHM_MODES[s.mode].realm !== 'deep') return;
-      this.modes.set(i, createRhythmMode(s.mode, { ...mctx, travelMs: travelMsOf(chart, s.mode, cfg.travelBeats) }, notes.filter(n => n.section === i)));
+      this.travel.set(i, travelMsOf(chart, s.mode, cfg.travelBeats));
+      this.modes.set(i, createRhythmMode(s.mode, { ...mctx, travelMs: this.travel.get(i)! }, notes.filter(n => n.section === i)));
     });
+    this.hands = new BossHands(this.root, w / DIVIDERS);
+    this.laneOf = (lane, lanes) => (lane + 0.5) / lanes * w - w / 2;
     // 进场飞向接下来第一个 3D 段落的站位
     const now = sectionAt(chart, o.session.conductor.timeMs());
     const next = [...this.modes.keys()].find(i => i >= now) ?? [...this.modes.keys()][0];
@@ -139,6 +158,14 @@ export class RhythmWorld implements StageFxRun {
     this.spread(dtMs);
     const now = this.o.session.conductor.timeMs();
     this.modes.forEach(m => m.draw(now));
+    // 音符出发的那一刻，骷髅王的手在那条道上方往下一松
+    for (const all = this.o.session.notes; this.nextNote < all.length; this.nextNote++) {
+      const n = all[this.nextNote], travel = this.travel.get(n.section);
+      if (travel !== undefined && n.timeMs - travel > now) break;
+      if (travel !== undefined && now - (n.timeMs - travel) < travel) this.hands.drop(this.laneOf(n.lane, RHYTHM_MODES[chart.sections[n.section].mode].lanes));
+    }
+    // 手：进场时跟着伸出来，离场时缩回去
+    this.hands.update(dtMs, this.phase === 'in' ? this.k : this.phase === 'play' ? 1 : this.phase === 'back' ? 1 - this.k : 0);
     return true;
   }
 
@@ -148,6 +175,7 @@ export class RhythmWorld implements StageFxRun {
   dispose(): void {
     this.input.dispose();
     this.modes.forEach(m => m.dispose());
+    this.hands.dispose();
     this.root.removeFromParent();
     this.hero.dispose();
     this.disposables.forEach(d => d.dispose());

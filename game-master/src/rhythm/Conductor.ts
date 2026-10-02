@@ -3,6 +3,10 @@
 // 时间以音频的播放位置为准；曲子读不出来（文件不在、浏览器不让放）就按系统时钟走，每拍合成一声「嗒」。
 import { endMs, type Chart } from './chart';
 
+/** 开始之后曲子最多等多久（毫秒）还不响就不等了 */
+const START_WAIT_MS = 1500;
+/** 淡出时每隔多久调一次音量（毫秒） */
+const FADE_STEP_MS = 40;
 /** 没有曲子时打拍子的那一声：频率（赫兹）、多长（秒）、多响 */
 const CLICK = { hz: 880, seconds: 0.05, gain: 0.25 };
 
@@ -39,6 +43,8 @@ export class Conductor {
     if (this.startedAt === null) return 0;
     const wall = performance.now() - this.startedAt;
     if (this.usable !== false && !this.audio.paused && this.audio.currentTime > 0) return this.audio.currentTime * 1000;
+    // 曲子迟迟不响（浏览器不让自动播放、文件一直读不出来）：不等了，按系统时钟走
+    if (this.usable !== false && wall > START_WAIT_MS && this.audio.currentTime === 0) { this.usable = false; this.audio.pause(); }
     if (this.usable === false) this.click(wall);
     return this.usable === false ? wall : 0;   // 曲子还在起播：先停在 0，等它真的响了再走
   }
@@ -46,11 +52,17 @@ export class Conductor {
   /** 谱面走完了 */
   get finished(): boolean { return this.timeMs() >= endMs(this.chart); }
 
-  stop(): void {
-    this.audio.pause();
-    this.audio.removeAttribute('src');
+  /** 停。fadeMs > 0：曲子用这么久慢慢小下去再停，不是戛然而止 */
+  stop(fadeMs = 0): void {
     void this.clicks?.close();
     this.clicks = null;
+    const audio = this.audio, from = audio.volume, t0 = performance.now();
+    const halt = () => { audio.pause(); audio.removeAttribute('src'); };
+    if (fadeMs <= 0 || audio.paused) { halt(); return; }
+    const timer = window.setInterval(() => {
+      const k = (performance.now() - t0) / fadeMs;
+      if (k >= 1) { window.clearInterval(timer); halt(); } else audio.volume = from * (1 - k) ** 2;
+    }, FADE_STEP_MS);
   }
 
   /** 没有曲子：每过一拍合成一声 */

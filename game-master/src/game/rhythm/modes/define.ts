@@ -22,6 +22,8 @@ export interface FlatContext {
   heroX: number;
   source: { x: number; y: number };
   boss: { x: number; y: number };
+  /** 接着引子开场（game/rhythm/Lure.ts）：主角踩着的那块板左边、右边各有几块已经落好了；没有引子是 null */
+  built: { left: number; right: number } | null;
   /** 一格多少像素；画在哪一层（往上加一点点排前后） */
   tile: number;
   depth: number;
@@ -35,6 +37,12 @@ export interface FlatContext {
   config(): RhythmConfig;
   /** 打中了：替身鼓一下 */
   punch(): void;
+  /** 主角挨了一下（撞墙、踩到尖刺）：扣一滴血 */
+  hurt(): void;
+  /** 出一声起跳爆炸 */
+  boom(): void;
+  /** 接住的音符弹回去砸骷髅王：从哪飞出去、多大、什么颜色 */
+  strikeBoss(x: number, y: number, size: number, color: number): void;
 }
 
 export interface FlatMode {

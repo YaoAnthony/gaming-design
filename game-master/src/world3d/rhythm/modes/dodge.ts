@@ -60,6 +60,7 @@ defineRhythmMode('dodge', (ctx, notes) => {
         if (spent.has(i) || !struck(notes[i], lane, feetY, now, cfg.hitWindowMs, cfg.barClear)) continue;
         spent.add(i);
         ctx.score.add('miss');
+        ctx.hurt();
         hurtLeft = HURT.ms;
       }
       // 过了那一排还没被打中的：躲过去了

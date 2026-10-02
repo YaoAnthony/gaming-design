@@ -37,7 +37,8 @@ describe('谱面', () => {
     expect(bad(['ox..'])).toHaveLength(1);           // 这种玩法不认识的字符
     expect(bad(['oooo'])).toHaveLength(1);           // 整排都躲不掉
     expect(bad(['____'])).toEqual([]);               // 整排横杠能跳过去
-    expect(bad(['x^..'], 'saber')).toHaveLength(1);  // 光剑不认方向了
+    expect(bad(['x^..'], 'saber').length).toBeGreaterThan(0);  // 光剑不认方向了
+    expect(chartErrors({ ...TINY, sections: [{ mode: 'saber', rows: [...repeat(['....'], 4), 'x...', '....', '...x', '....'] }] }, 1)).toHaveLength(1);   // 半拍里换三条道：来不及
     expect(bad(['xxx'], 'mania')).toHaveLength(1);   // 一次最多按两条道
     expect(bad(['|..'], 'mania')).toHaveLength(1);   // '|' 上面没有长按的头
     expect(chartErrors({ ...TINY, sections: [{ mode: 'mania', rows: [...repeat(['...'], 6), 'H..', '|.x'] }] }, 1)).toHaveLength(1);   // 按着长按的时候别处有音符

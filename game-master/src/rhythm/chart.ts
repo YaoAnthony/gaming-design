@@ -7,6 +7,8 @@ import { HOLD_BODY, RHYTHM_MODES, type ModeId } from './modes';
 export interface Section {
   mode: ModeId;
   rows: string[];
+  /** 换到这一段之前骷髅王在对话框里说的一句（台词的 i18n key）：上一段快结束时开始说，说到这一段开头空着的那一小节 */
+  say?: string;
 }
 
 export interface Chart {
@@ -81,15 +83,23 @@ export function notesOf(c: Chart): Note[] {
 /**
  * 谱面写得对不对：每行字符数对、只用那种玩法认识的字符、一行里的音符不超过那种玩法的上限、
  * 没有哪一行整排都是躲不掉的、每段都是整小节、每段开头空出了 leadBeats 拍（音符要提前这么久出发）、
- * 长按的 '|' 上面接着长按的头或者另一个 '|'、按着长按的那几步别的道上没有音符（手占着，顾不上别处）
+ * 长按的 '|' 上面接着长按的头或者另一个 '|'、按着长按的那几步别的道上没有音符（手占着，顾不上别处）、
+ * 要人自己走过去的玩法（reach）里相邻两个音符之间来得及换道
  */
 export function chartErrors(c: Chart, leadBeats: number): string[] {
   const errors: string[] = [];
   c.sections.forEach((s, si) => {
     const spec = RHYTHM_MODES[s.mode], at = (i: number) => `第 ${si} 段（${s.mode}）第 ${i} 行`;
     if (s.rows.length % (c.stepsPerBeat * 4) !== 0) errors.push(`第 ${si} 段（${s.mode}）：${s.rows.length} 行，不是整小节`);
+    // 要人自己走过去的玩法：上一个音符在哪条道、在第几行
+    let last: { lane: number; row: number } | null = null;
     s.rows.forEach((row, i) => {
       const notes = [...row].filter(ch => ch !== '.' && ch !== HOLD_BODY);
+      if (spec.reach > 0 && notes.length === 1) {
+        const lane = [...row].findIndex(ch => ch !== '.' && ch !== HOLD_BODY);
+        if (last && Math.abs(lane - last.lane) > (i - last.row) / c.stepsPerBeat * spec.reach) errors.push(`${at(i)}：离上一个音符隔了 ${Math.abs(lane - last.lane)} 条道，来不及换过去`);
+        last = { lane, row: i };
+      }
       [...row].forEach((ch, lane) => {
         const above = s.rows[i - 1]?.[lane] ?? '.';
         if (ch === HOLD_BODY && above !== HOLD_BODY && !(spec.holds as string).includes(above)) errors.push(`${at(i)}：'|' 上面要接着长按的头`);

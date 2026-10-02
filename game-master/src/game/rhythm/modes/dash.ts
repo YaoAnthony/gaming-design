@@ -1,9 +1,9 @@
-// ===== 喵斯快跑（2D 横版）：主角站在左边，方块分上下两排从右边骷髅王的钢琴那边过来，到框里时按 W / 空格（上排）、S（下排）把它打掉 =====
+// ===== 喵斯快跑（2D 横版）：主角站在左边，方块分上下两排从右边骷髅王的钢琴那边过来，到框里时按空格跳起来打上排（和平时起跳一样，带一声爆炸）、按 S 打下排；接住的方块弹回去砸骷髅王 =====
 import { NoteTrack } from '@/rhythm';
 import { Colors } from '@/game/palette';
 import { burst, defineFlatMode, JUDGE_COLOR, makeKit, NoteSprites, Receptor, tossIn, tossOut } from './define';
 
-/** 下排、上排的中心离地多高（格）；打击点在人前面几格；方块多大（格）；按上时人在上排停多久（毫秒） */
+/** 下排、上排的中心离地多高（格）；打击点在人前面几格；方块多大（格）；跳起来时人在上排停多久（毫秒） */
 const TRACK = { bottom: 0.5, top: 3.1, reach: 1.8, size: 0.9, upMs: 160, past: 1.08 };
 
 defineFlatMode('dash', (ctx, notes) => {
@@ -24,21 +24,21 @@ defineFlatMode('dash', (ctx, notes) => {
   const sprites = new NoteSprites(track, ctx.travelMs, TRACK.past,
     n => scene.add.rectangle(0, 0, size, size, n.lane === 0 ? Colors.sky : Colors.mint).setStrokeStyle(2, Colors.ink).setDepth(ctx.depth + 1),
     (o, n, p) => { o.setPosition(fromX + (hitX - fromX) * p, rowY(n.lane)); });
-  /** 人这会儿在上排（刚按了上） */
+  /** 人这会儿在上排（刚跳起来） */
   let upUntil = 0;
   const strike = (lane: number, now: number) => {
     const hit = track.press(now, ctx.config().windows, n => n.lane === lane);
     receptors[lane].pulse(hit?.judgement ?? null);
-    if (hit) { burst(scene, hitX, rowY(lane), size, JUDGE_COLOR[hit.judgement], ctx.depth + 2); ctx.punch(); }
+    if (hit) { burst(scene, hitX, rowY(lane), size, JUDGE_COLOR[hit.judgement], ctx.depth + 2); ctx.punch(); ctx.strikeBoss(hitX, rowY(lane), size, lane === 0 ? Colors.sky : Colors.mint); }
   };
 
   return {
     setActive(on) { if (on) { tossIn(scene, kit, ctx.boss); ctx.hero.setFlipX(false); } else tossOut(scene, kit); },
     update(now, press) {
-      if (press.up || press.jump) { strike(0, now); upUntil = now + TRACK.upMs; }
+      if (press.jump) { ctx.boom(); strike(0, now); upUntil = now + TRACK.upMs; }   // 跳：空格，不是按上
       if (press.down) { strike(1, now); upUntil = 0; }
       for (const n of track.sweep(now, ctx.config().windows)) receptors[n.lane].pulse('miss');
-      // 人平时站在地上（下排），按上跳到上排去打
+      // 人平时站在地上（下排），按空格跳到上排去打
       ctx.hero.setPosition(ctx.heroX, now < upUntil ? rowY(0) : ctx.ground - ctx.hero.displayHeight / 2);
     },
     draw(now) { sprites.draw(now); },

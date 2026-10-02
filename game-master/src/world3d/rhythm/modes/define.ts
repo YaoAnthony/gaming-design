@@ -20,6 +20,13 @@ export interface ModeContext {
   config(): RhythmConfig;
   /** 这一场的成绩：判定记到这里 */
   score: Scoreboard;
+  /** 主角挨了一下（被墙撞到）：扣一滴血 */
+  hurt(): void;
+  /** 出一声起跳爆炸 */
+  boom(): void;
+  /** 骷髅王现在在哪（屏幕倒着，他跟着在斜面上）；砸到他了：他缩一下 */
+  bossAt(): THREE.Vector3;
+  bossHit(): void;
 }
 
 export interface RhythmMode {
@@ -144,4 +151,42 @@ export function letterTexture(text: string, color: string, o: { px: number; font
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
   return t;
+}
+
+/** 飞出去的方块：从一处飞到另一处，边飞边转边缩小，到了叫一声 onArrive。几个轮着用 */
+export class Flyers {
+  private readonly items: { mesh: THREE.Mesh<THREE.BoxGeometry, THREE.MeshBasicMaterial>; from: THREE.Vector3; to: THREE.Vector3; left: number; size: number }[] = [];
+  private readonly geo = new THREE.BoxGeometry(1, 1, 1);
+  private next = 0;
+
+  /** @param ms 飞多久；shrink 到了的时候缩到几成；count 同时最多几个 */
+  constructor(parent: THREE.Object3D, private readonly ms: number, private readonly shrink: number, count: number, color: number, private readonly onArrive: () => void) {
+    for (let i = 0; i < count; i++) {
+      const mesh = new THREE.Mesh(this.geo, new THREE.MeshBasicMaterial({ color }));
+      mesh.visible = false;
+      parent.add(mesh);
+      this.items.push({ mesh, from: new THREE.Vector3(), to: new THREE.Vector3(), left: 0, size: 1 });
+    }
+  }
+
+  launch(from: THREE.Vector3, to: THREE.Vector3, size: number): void {
+    const it = this.items[this.next = (this.next + 1) % this.items.length];
+    it.from.copy(from); it.to.copy(to); it.left = this.ms; it.size = size;
+    it.mesh.visible = true;
+  }
+
+  update(dtMs: number): void {
+    for (const it of this.items) {
+      if (it.left <= 0) continue;
+      it.left -= dtMs;
+      const k = 1 - Math.max(0, it.left) / this.ms;
+      it.mesh.position.lerpVectors(it.from, it.to, k);
+      it.mesh.scale.setScalar(it.size * (1 + (this.shrink - 1) * k));
+      it.mesh.rotation.set(k * 9, k * 7, 0);
+      if (it.left <= 0) { it.mesh.visible = false; this.onArrive(); }
+    }
+  }
+
+  clear(): void { this.items.forEach(it => { it.left = 0; it.mesh.visible = false; }); }
+  dispose(): void { this.items.forEach(it => { it.mesh.removeFromParent(); it.mesh.material.dispose(); }); this.geo.dispose(); }
 }

@@ -371,6 +371,32 @@ sk.rect(13, 17, 2, 12, bone); sk.rect(10, 20, 8, 1, bone); sk.rect(10, 23, 8, 1,
 sk.rect(10, 31, 3, 5, bone); sk.rect(15, 31, 3, 5, bone);
 sk.save('skeleton.png');
 
+// ---- 骷髅的侧面 28x36（脸朝左）：节奏关卡里坐在钢琴前的骷髅王用（game/rhythm/BossRig.ts 把它切成头和身子两块，
+//      上面 14 行是头，下面是身子；胳膊不画在贴图上，是骨架现画的）----
+{
+  const c = new Canvas(28, 36);
+  // 披风：背后（右边）拖下去，前面（左边）敞着口，露出里面的黑和几根肋骨
+  c.tri(12, 14, 27, 35, 12, 35, redDk);                                 // 背后的下摆
+  c.rect(8, 15, 13, 17, red); c.rect(10, 14, 9, 2, red);
+  c.tri(21, 15, 25, 31, 21, 31, red);                                   // 背往后鼓出去一点
+  c.rect(8, 29, 15, 2, redDk); c.rect(9, 32, 16, 2, redDk);             // 褶皱阴影
+  c.rect(8, 18, 4, 13, dark);                                           // 敞口里面是黑的
+  c.rect(11, 17, 2, 13, bone);                                          // 脊柱
+  c.rect(8, 20, 4, 1, bone); c.rect(8, 23, 4, 1, bone); c.rect(9, 26, 3, 1, bone);   // 肋骨往前伸
+  c.rect(8, 15, 3, 3, gold); c.rect(9, 16, 1, 1, dark);                 // 领口的金扣
+  // 腿：一前一后
+  c.rect(10, 32, 3, 4, bone); c.rect(15, 32, 3, 4, bone);
+  // 头骨：后脑勺圆圆地鼓出去，脸在左边
+  c.roundRect(7, 0, 16, 13, 5, bone);
+  c.rect(5, 6, 4, 6, bone);                                             // 鼻梁、上颌往前突
+  c.rect(6, 10, 10, 4, shade);                                          // 下颌
+  c.rect(9, 3, 5, 5, dark); c.rect(10, 4, 2, 2, eye);                   // 眼窝、红眼
+  c.rect(5, 7, 2, 2, dark);                                             // 鼻孔
+  c.rect(6, 11, 8, 2, dark); c.rect(7, 11, 1, 2, bone); c.rect(9, 11, 1, 2, bone); c.rect(11, 11, 1, 2, bone);   // 牙
+  c.rect(17, 5, 4, 1, shade); c.rect(18, 7, 3, 1, shade);               // 后脑勺上两道裂纹
+  c.save('skeleton_side.png');
+}
+
 // ---- 小城堡 128x112（通往下一层的门在正中底部）----
 const ca = new Canvas(128, 112);
 const wall = 0x6c7386, wallDk = 0x4f566a, wallLt = 0x8a92a8, roof = 0x9b2f3a, roofDk = 0x6e1f28, glow = 0xffd166;

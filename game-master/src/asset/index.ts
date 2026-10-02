@@ -10,6 +10,7 @@ import sparkUrl from './spark.png';
 import fuseNodeUrl from './fusenode.png';
 import bossUrl from './boss.png';
 import skeletonUrl from './skeleton.png';
+import skeletonSideUrl from './skeleton_side.png';
 import castleUrl from './castle.png';
 import heartFullUrl from './heart_full.png';
 import heartEmptyUrl from './heart_empty.png';
@@ -100,6 +101,8 @@ export const IMAGES: ImageAsset[] = [
   { key: 'fusenode', url: fuseNodeUrl },
   { key: 'boss', url: bossUrl },
   { key: 'skeleton', url: skeletonUrl },
+  /** 骷髅的侧面（脸朝左）：节奏关卡里弹钢琴的骷髅王 */
+  { key: 'skeleton_side', url: skeletonSideUrl },
   { key: 'castle', url: castleUrl },
   { key: 'candle', url: candleUrl },
   { key: 'volume', url: volumeUrl },

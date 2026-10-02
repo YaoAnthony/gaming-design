@@ -39,6 +39,8 @@ h2 { font-size: 12px; color: var(--muted); margin: 14px 0 6px; text-transform: u
 .dialogue-body { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .dialogue-name { color: #ffd166; font-size: clamp(11px, 1.1cqw, 22px); margin-bottom: .3em; }
 .dialogue-text { flex: 1; color: #e6e8f0; font-size: clamp(14px, 1.7cqw, 38px); line-height: 1.45; word-break: break-word; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; }
+/* 越说越大的台词：不截行，字再大也按底对齐 */
+.dialogue-text.grow { display: block; overflow: visible; line-height: 1.15; }
 .dialogue-hint { color: #f1efe6; font-size: clamp(12px, 1.3cqw, 26px); text-align: right; margin-top: .2em; animation: nudge 1s ease-in-out infinite; }
 @keyframes nudge { 0%, 100% { opacity: .5; transform: translateX(0); } 50% { opacity: 1; transform: translateX(3px); } }
 .dialogue.pos-top { bottom: auto; top: 6cqh; }
@@ -48,6 +50,8 @@ h2 { font-size: 12px; color: var(--muted); margin: 14px 0 6px; text-transform: u
 /* 生命值：左上角一排像素心，地点名挪到心下面。心的大小跟着画面高度走（--heart），手机端固定小一点、让开刘海 */
 .hud .hearts { --heart: clamp(24px, 4.2cqh, 48px); position: absolute; top: 1.2cqh; left: .9cqw; display: flex; gap: calc(var(--heart) * .12); z-index: 3; filter: drop-shadow(0 2px 0 rgba(0,0,0,.55)); }
 .hud .hearts .heart { width: var(--heart); height: var(--heart); image-rendering: pixelated; }
+/* 金色的心：红心的贴图调个色 */
+.hud .hearts .heart.gold { filter: sepia(1) saturate(5) hue-rotate(-8deg) brightness(1.35); }
 .hud .hearts .heart.empty { animation: heart-lose .45s ease-out; }
 @keyframes heart-lose { 0% { transform: scale(1.5) rotate(-12deg); filter: brightness(2.2); } 30% { transform: scale(.85) rotate(8deg); } 60% { transform: translateX(-3px) rotate(-4deg); } 100% { transform: none; } }
 .hud .hearts ~ .place { top: calc(1.2cqh + clamp(24px, 4.2cqh, 48px) + .8cqh); }
@@ -62,6 +66,11 @@ h2 { font-size: 12px; color: var(--muted); margin: 14px 0 6px; text-transform: u
 .rhythm-judge.perfect .rj-word { color: #ffd166; }
 .rhythm-judge.good .rj-word { color: #4cc9f0; }
 .rhythm-judge.miss .rj-word { color: #ef476f; }
+/* 对话里吼出来的那一行大字：从很大砸下来，抖几下，一直发着光 */
+.dialogue-shout { position: absolute; left: 0; right: 0; top: 34cqh; text-align: center; font-family: "PingFang SC", "Microsoft YaHei", sans-serif; font-weight: 900; font-size: clamp(48px, 13cqw, 260px); line-height: 1; color: #ef476f; letter-spacing: .04em; text-shadow: 0 0 .12em #ef476f, 0 0 .35em rgba(239, 71, 111, .7), .04em .05em 0 #0b0b14; pointer-events: none; animation: shout-slam .5s cubic-bezier(.2, 1.6, .4, 1) 1s both, shout-shake .12s linear 1.5s infinite; }
+@keyframes shout-slam { from { transform: scale(4); opacity: 0; filter: blur(8px); } 60% { opacity: 1; filter: none; } to { transform: scale(1); opacity: 1; } }
+@keyframes shout-shake { 0% { transform: translate(0, 0) rotate(0); } 25% { transform: translate(-.02em, .015em) rotate(-.6deg); } 50% { transform: translate(.02em, -.02em) rotate(.5deg); } 75% { transform: translate(-.015em, -.01em) rotate(.3deg); } 100% { transform: translate(0, 0) rotate(0); } }
+@media (prefers-reduced-motion: reduce) { .dialogue-shout { animation: shout-slam .01s 1s both; } }
 /* 破屏的那一刻：整个画面闪一下白光 */
 .whiteout { position: absolute; inset: 0; background: #fff; pointer-events: none; animation: whiteout .5s ease-out both; }
 @keyframes whiteout { from { opacity: .95; } to { opacity: 0; } }
@@ -168,6 +177,15 @@ label.check { display: flex; align-items: center; gap: 6px; margin: 8px 0; color
 .boss-bar .seg { width: 26px; height: 12px; border-radius: 3px; background: #2a1a22; }
 .boss-bar .seg.on { background: #ef476f; box-shadow: 0 0 6px rgba(239,71,111,.6); }
 .boss-bar .seg.on { animation: boss-seg-pop .22s ease-out; }
+/* 好几管血：只画最上面那一管，格子窄一点；一管一个颜色（三种轮着来），打空的格子露出下一管的颜色；旁边写还剩几管 */
+.boss-bar.tubes { gap: 2px; align-items: center; }
+.boss-bar.tubes .seg { width: 14px; }
+.boss-bar.tubes .seg.on { animation: none; }
+.boss-bar .seg.tube-0 { background: #ef476f; box-shadow: 0 0 6px rgba(239,71,111,.6); }
+.boss-bar .seg.tube-1 { background: #ffd166; box-shadow: 0 0 6px rgba(255,209,102,.6); }
+.boss-bar .seg.tube-2 { background: #b388ff; box-shadow: 0 0 6px rgba(179,136,255,.6); }
+.boss-bar .seg.under { opacity: .38; box-shadow: none; }
+.boss-bar .tube-count { margin-left: 6px; color: #f1efe6; font: 700 13px monospace; }
 @keyframes boss-seg-pop { 0% { transform: scaleY(1.9); background: #fff; } 100% { transform: none; } }
 /* Boss 出场：WARNING 警报条（红黑斜纹上下两道，中间字一闪一闪）、名字卡（像素字体，金色，从大缩到正常） */
 .boss-warning { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(120,0,20,.18); animation: boss-warn-flash .4s steps(1) infinite; }

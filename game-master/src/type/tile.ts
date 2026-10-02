@@ -118,6 +118,10 @@ export interface DialogueLine {
   autoMs?: number;
   /** 对话框放上面还是下面；不写就自动躲开玩家（人在下半屏就放上面） */
   pos?: 'top' | 'bottom';
+  /** 说这一句的同时砸在画面正中的一行大字（i18n key）：吼出来的那种 */
+  shout?: string;
+  /** 越说越大：台词用 | 分成几截，一截比一截大 */
+  grow?: boolean;
 }
 
 export interface NpcSpawn extends Point {

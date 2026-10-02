@@ -45,8 +45,10 @@ import { applySceneFx, type SceneFx } from '@/game/core/sceneFx';
 import { vortex } from '@/game/core/vortex';
 import { Colors, hex } from '@/game/palette';
 
-/** 节奏关卡：开打前骷髅王那句话显示多久、破屏那一刻画面闪多久（毫秒） */
-const FESTIVAL_LINE_MS = 1800, BREAK_FLASH_MS = 220;
+/** 节奏关卡：破屏那一刻画面闪多久（毫秒） */
+const BREAK_FLASH_MS = 220;
+/** 骷髅王（i18n key）；节奏关卡开场白里跳不过去的那两句各显示多久（毫秒）：越说越大的「来吧」、带大字的最后一句（大字晚一秒才砸下来） */
+const KING = 'npc.skeletonKing', INTRO_AUTO = { grow: 2600, shout: 3200 };
 
 export class GameScene extends Phaser.Scene {
   private startData!: StartGameData;
@@ -192,7 +194,15 @@ export class GameScene extends Phaser.Scene {
       },
       canStart: () => !this.busy && !this.crumple.active && this.player.body.blocked.down,
       away: () => this.popOut.away, popOut: from => this.popOut.request(from),
-      say: (line, done) => this.dialogue.cutscene('npc.skeletonKing', [{ text: line, autoMs: FESTIVAL_LINE_MS }], this.time.now, done),
+      // 开场白：前三句跳一下翻一句；从「来吧」开始跳不过去了，自己往下走（一声比一声大，最后砸下一行大字）
+      talk: (locked, done) => this.dialogue.talk({ name: KING, avatar: 'default', lines: [0, 1, 2].map(i => ({ text: `dialogue.festival.${i}`, pos: 'top' as const })) }, () => {
+        locked();
+        this.dialogue.cutscene(KING, [
+          { text: 'dialogue.festival.3', grow: true, autoMs: INTRO_AUTO.grow, pos: 'top' },
+          { text: 'dialogue.festival.4', shout: 'dialogue.festivalShout', autoMs: INTRO_AUTO.shout, pos: 'top' },
+        ], this.time.now, done);
+      }),
+      say: (line, ms, done) => this.dialogue.cutscene(KING, [{ text: line, autoMs: ms, pos: 'top' }], this.time.now, done),
       onBegin: () => this.music.play(NO_MUSIC), onEnd: () => this.music.playBase(),
       onMode: mode => { store.dispatch(setRhythmMode(mode)); },
       taunt: mode => tr(`rhythm.taunt.${mode}`),
@@ -201,6 +211,7 @@ export class GameScene extends Phaser.Scene {
         if (!v || v.judge || v.fresh) store.dispatch(setRhythm(v && { combo: v.combo, judge: v.judge }));   // 自动判的只动分数，不把上一次的判定字冲掉
       },
       onBoss: v => store.dispatch(setBoss(v)),
+      onHp: v => { if (v) store.dispatch(setHearts({ ...v, tiered: true })); else this.health.reset(); },   // 打完换回平时的心
       onBreak: () => { store.dispatch(whiteout()); this.cameras.main.flash(BREAK_FLASH_MS); },
       onResult: (won, percent) => {
         this.flash(won ? 'rhythm.won' : 'rhythm.lost', hex(won ? Colors.mint : Colors.rose), { percent });

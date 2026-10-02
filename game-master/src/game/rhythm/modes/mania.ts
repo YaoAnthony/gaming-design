@@ -49,11 +49,11 @@ defineFlatMode('mania', (ctx, notes) => {
         heroLane = lane;   // 跑到这条道上
         const hit = track.press(now, w, n => n.lane === lane);
         receptors[lane].pulse(hit?.judgement ?? null);
-        if (hit) { burst(scene, midX(lane), lineY, T * 1.2, JUDGE_COLOR[hit.judgement], ctx.depth + 2); ctx.punch(); }
+        if (hit) { burst(scene, midX(lane), lineY, T * 1.2, JUDGE_COLOR[hit.judgement], ctx.depth + 2); ctx.punch(); if (!hit.note.holdMs) ctx.strikeBoss(midX(lane), lineY, T * 0.6, JUDGE_COLOR[hit.judgement]); }
       });
       // 长按：按到尾巴炸一下；提前松手红一下
       const holds = track.holds(now, w, n => press.held[MANIA_KEYS[n.lane].dir]);
-      for (const n of holds.kept) { burst(scene, midX(n.lane), lineY, T * 1.2, JUDGE_COLOR.perfect, ctx.depth + 2); ctx.punch(); }
+      for (const n of holds.kept) { burst(scene, midX(n.lane), lineY, T * 1.2, JUDGE_COLOR.perfect, ctx.depth + 2); ctx.punch(); ctx.strikeBoss(midX(n.lane), lineY, T * 0.6, JUDGE_COLOR.perfect); }
       for (const n of [...holds.dropped, ...track.sweep(now, w)]) receptors[n.lane].pulse('miss');
       ctx.hero.setPosition(midX(heroLane), ctx.ground - ctx.hero.displayHeight / 2);
     },

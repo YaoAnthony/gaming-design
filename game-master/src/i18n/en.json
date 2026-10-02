@@ -129,8 +129,14 @@
       "Huh?! Where'd they all go?"
     ],
     "festival": [
-      "Ready for the festival?!"
-    ]
+      "So you chose to come after all.",
+      "You are such a perfect player.",
+      "I can barely hold myself back.",
+      "Come on.|Come on.|Come on.",
+      "Let me...",
+      "Not bad, huh? Then let's turn up the heat?!"
+    ],
+    "festivalShout": "ENJOY THIS MORE!"
   },
   "map": {},
   "touch": {

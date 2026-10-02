@@ -159,9 +159,14 @@ export interface RhythmConfig {
   dropBeats: number;
   /** 要按键打的玩法：按下的时刻离拍点多少毫秒以内算 Perfect / Good，再远不算打中，过了 Good 的范围还没打算漏 */
   windows: { perfect: number; good: number };
-  /** 拿到满分的几成（0..1）才算过关 */
+  /** 接住整张谱的几成（0..1）才算过关：骷髅王的总血量就是音符数的这么多成 */
   passRatio: number;
-  /** 骷髅王的血条分几格：分数每往过关线走一步就掉一格，掉光 = 够过关了 */
+  /** 主角在节奏关卡里有几滴血（HUD 上两滴一格：满格金色，剩一滴红色）；挨一下之后多久不再扣（毫秒） */
+  heroHp: number;
+  hurtGraceMs: number;
+  /** 打完之后曲子用多久慢慢小下去（毫秒） */
+  fadeOutMs: number;
+  /** 骷髅王的血条一管多少滴（总血量 = 整张谱音符数 × passRatio，接住一个掉一滴，掉光 = 够过关了） */
   bossHp: number;
   /** 躲：弹幕到主角那一排的前后多少毫秒内，站在那条道上就算被打中 */
   hitWindowMs: number;

@@ -1,11 +1,15 @@
 // ===== 对话服务 =====
 // 两种对话共用一个对话框（hud.dialogue）：
 // - talk：角色对话，按一下（平台层 = 跳一下）翻一句，说完回调
-// - cutscene：剧情对话，每句按 autoMs 自动翻页
+// - cutscene：剧情对话，每句按 autoMs 自动翻页（字还没打完就再等等：打完之后才翻）
 import type { DialogueLine } from '@/type';
 import { store } from '@/redux/store';
 import { setDialogue } from '@/redux/slices/hudSlice';
 import { tr } from '@/i18n';
+import { typingMs } from '@/protocol/typing';
+
+/** 自动翻页的台词：字打完之后至少再停多久（毫秒） */
+const AFTER_TYPED_MS = 800;
 
 export interface Speaker { name: string; avatar?: string; lines: DialogueLine[] }
 
@@ -66,13 +70,14 @@ export class Dialogue {
   private showTalk(): void {
     const t = this.talk_; if (!t) return;
     const line = t.who.lines[t.index];
-    store.dispatch(setDialogue({ speaker: tr(t.who.name), text: tr(line.text), avatar: line.avatar ?? t.who.avatar, index: t.index, total: t.who.lines.length, pos: this.pos(line) }));
+    store.dispatch(setDialogue({ speaker: tr(t.who.name), text: tr(line.text), avatar: line.avatar ?? t.who.avatar, index: t.index, total: t.who.lines.length, pos: this.pos(line), shout: line.shout ? tr(line.shout) : undefined, grow: line.grow }));
   }
 
   private showScene(now: number): void {
     const c = this.scene_; if (!c) return;
     const line = c.lines[c.index];
-    c.until = now + (line.autoMs ?? 2500);
-    store.dispatch(setDialogue({ speaker: tr(c.speaker), text: tr(line.text), avatar: line.avatar ?? 'default', index: c.index, total: c.lines.length, auto: true, pos: this.pos(line) }));
+    // 字打完之前不翻页：至少等打完再停一会
+    c.until = now + Math.max(line.autoMs ?? 2500, typingMs(tr(line.text), line.grow) + AFTER_TYPED_MS);
+    store.dispatch(setDialogue({ speaker: tr(c.speaker), text: tr(line.text), avatar: line.avatar ?? 'default', index: c.index, total: c.lines.length, auto: true, pos: this.pos(line), shout: line.shout ? tr(line.shout) : undefined, grow: line.grow }));
   }
 }

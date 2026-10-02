@@ -10,13 +10,25 @@ import { ResetButtonIcon } from './PadIcons';
 /** 节奏关卡每种玩法的按键提示：按哪些键、干什么（文案在 i18n 的 rhythm.hint 下） */
 const RHYTHM_KEYS: Record<string, { keys: string[]; hint: string }[]> = {
   giveup: [{ keys: ['␣'], hint: 'hop' }],
-  dash: [{ keys: ['W'], hint: 'top' }, { keys: ['S'], hint: 'bottom' }],
+  dash: [{ keys: ['␣'], hint: 'top' }, { keys: ['S'], hint: 'bottom' }],
   taiko: [{ keys: ['A'], hint: 'red' }, { keys: ['D'], hint: 'blue' }],
   mania: [{ keys: ['A', 'S', 'D'], hint: 'lanes' }, { keys: ['━'], hint: 'hold' }],
   osu: [{ keys: ['Q', 'W', 'E', 'R'], hint: 'ring' }, { keys: ['━'], hint: 'hold' }],
   saber: [{ keys: ['A', 'D'], hint: 'move' }, { keys: ['␣'], hint: 'slash' }],
   dodge: [{ keys: ['A', 'D'], hint: 'switch' }, { keys: ['␣'], hint: 'jump' }],
 };
+
+/** Boss 的血条。per = 一管多少滴：血多的时候分成好几管，只画最上面那一管，打空的格子露出下一管的颜色，旁边写还剩几管 */
+function BossBar({ hp, max, per }: { hp: number; max: number; per?: number }) {
+  if (!per || max <= per) return <div className="boss-bar">{Array.from({ length: max }, (_, i) => <span key={i} className={'seg' + (i < hp ? ' on' : '')} />)}</div>;
+  const bars = Math.ceil(hp / per), top = hp - (bars - 1) * per;   // 还剩几管；最上面那一管剩几滴
+  return (
+    <div className="boss-bar tubes">
+      {Array.from({ length: per }, (_, i) => <span key={i} className={'seg' + (i < top && bars > 0 ? ' on tube-' + (bars % 3) : bars > 1 ? ' under tube-' + ((bars - 1) % 3) : '')} />)}
+      <span className="tube-count">×{bars}</span>
+    </div>
+  );
+}
 
 /** 叠在画布上的 HUD：事件提示、通关画面（不显示常驻提示条） */
 export function Hud() {
@@ -53,11 +65,18 @@ export function Hud() {
         </div>
       )}
       {hud.boss && (
-        <div className="boss-bar">
-          {Array.from({ length: hud.boss.max }, (_, i) => <span key={i} className={'seg' + (i < hud.boss!.hp ? ' on' : '')} />)}
+        <BossBar {...hud.boss} />
+      )}
+      {hud.hearts?.tiered && (
+        <div className="hearts" aria-label={`${hud.hearts.hp} / ${hud.hearts.max}`}>
+          {/* 两滴血一格：满格金色，剩一滴红色，空了是空格。key 带上状态：变了就重新挂载，播一次「掉心」动画 */}
+          {Array.from({ length: Math.ceil(hud.hearts.max / 2) }, (_, i) => {
+            const left = hud.hearts!.hp - i * 2, state = left >= 2 ? 'gold' : left === 1 ? 'full' : 'empty';
+            return <img key={`${i}-${state}`} className={'heart ' + state} src={state === 'empty' ? HEART_ICONS.empty : HEART_ICONS.full} alt="" draggable={false} />;
+          })}
         </div>
       )}
-      {hud.hearts && (
+      {hud.hearts && !hud.hearts.tiered && (
         <div className="hearts" aria-label={`${hud.hearts.hp} / ${hud.hearts.max}`}>
           {/* key 带上满 / 空：一颗心从满变空时重新挂载，播一次「掉心」动画 */}
           {Array.from({ length: hud.hearts.max }, (_, i) => {
@@ -84,12 +103,13 @@ export function Hud() {
         </div>
       )}
       {hud.message && <div className={'hud-msg' + (msgVisible ? ' show' : '')} style={{ color: hud.message.color }}>{hud.message.text}</div>}
+      {hud.mode === 'playing' && hud.dialogue?.shout && <div key={hud.dialogue.index} className="dialogue-shout">{hud.dialogue.shout}</div>}
       {hud.mode === 'playing' && hud.dialogue && (
         <div className={'dialogue pos-' + (hud.dialogue.pos ?? 'bottom')}>
           {hud.dialogue.avatar && AVATARS[hud.dialogue.avatar] && <img className="dialogue-avatar" src={AVATARS[hud.dialogue.avatar]} alt="" />}
           <div className="dialogue-body">
             <div className="dialogue-name">{hud.dialogue.speaker}</div>
-            <div className="dialogue-text"><Typewriter key={hud.dialogue.index + ":" + hud.dialogue.text} text={hud.dialogue.text} /></div>
+            <div className={'dialogue-text' + (hud.dialogue.grow ? ' grow' : '')}><Typewriter key={hud.dialogue.index + ":" + hud.dialogue.text} text={hud.dialogue.text} grow={hud.dialogue.grow} /></div>
             {!hud.dialogue.auto && <div className="dialogue-hint">▸</div>}
           </div>
         </div>

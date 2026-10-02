@@ -51,7 +51,7 @@ defineRhythmMode('dodge', (ctx, notes) => {
       // 左右：按下的那一刻换一条道，立刻到位
       const dir = +move.press.right - +move.press.left;
       if (dir !== 0) { lane = Math.max(0, Math.min(LANES - 1, lane + dir)); ctx.hero.face(dir > 0 ? 1 : -1); }
-      if ((move.jump || move.press.up) && feetY <= 0) velY = cfg.jumpVelocity;
+      if ((move.jump || move.press.up) && feetY <= 0) { velY = cfg.jumpVelocity; ctx.boom(); }   // 跳：起跳爆炸的那一声
       velY -= cfg.gravity * dt;
       feetY = Math.max(0, feetY + velY * dt);
       if (feetY <= 0) velY = 0;

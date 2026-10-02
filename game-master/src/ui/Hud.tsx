@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAppSelector } from '@/redux/hooks';
 import { WinModal } from './WinModal';
@@ -10,7 +10,7 @@ import { ResetButtonIcon } from './PadIcons';
 /** 节奏关卡每种玩法的按键提示：按哪些键、干什么（文案在 i18n 的 rhythm.hint 下） */
 const RHYTHM_KEYS: Record<string, { keys: string[]; hint: string }[]> = {
   giveup: [{ keys: ['␣'], hint: 'hop' }],
-  dash: [{ keys: ['␣'], hint: 'top' }, { keys: ['S'], hint: 'bottom' }],
+  dash: [{ keys: ['␣'], hint: 'flip' }],
   taiko: [{ keys: ['A'], hint: 'red' }, { keys: ['D'], hint: 'blue' }],
   mania: [{ keys: ['A', 'S', 'D'], hint: 'lanes' }, { keys: ['━'], hint: 'hold' }],
   osu: [{ keys: ['Q', 'W', 'E', 'R'], hint: 'ring' }, { keys: ['━'], hint: 'hold' }],
@@ -18,14 +18,21 @@ const RHYTHM_KEYS: Record<string, { keys: string[]; hint: string }[]> = {
   dodge: [{ keys: ['A', 'D'], hint: 'switch' }, { keys: ['␣'], hint: 'jump' }],
 };
 
-/** Boss 的血条。per = 一管多少滴：血多的时候分成好几管，只画最上面那一管，打空的格子露出下一管的颜色，旁边写还剩几管 */
+/** 好几管血时，除了最上面那一管（金色）之外的颜色有几种，轮着用（样式在 app.css 的 .tube-cN） */
+const TUBE_COLORS = 6;
+
+/**
+ * Boss 的血条。per = 一管多少滴：血多的时候分成好几管，只画最上面那一管，打空的格子露出下一管的颜色，旁边写还剩几管。
+ * 管越多血条越大、一管一个颜色；满管数的那一管（最后填上的）是金色的，带流光
+ */
 function BossBar({ hp, max, per }: { hp: number; max: number; per?: number }) {
   if (!per || max <= per) return <div className="boss-bar">{Array.from({ length: max }, (_, i) => <span key={i} className={'seg' + (i < hp ? ' on' : '')} />)}</div>;
-  const bars = Math.ceil(hp / per), top = hp - (bars - 1) * per;   // 还剩几管；最上面那一管剩几滴
+  const tubes = Math.ceil(max / per), bars = Math.ceil(hp / per), top = hp - (bars - 1) * per;   // 一共几管；还剩几管；最上面那一管剩几滴
+  const color = (n: number) => (n >= tubes ? ' tube-gold' : ' tube-c' + ((n - 1) % TUBE_COLORS));   // 第 n 管（1 起）什么颜色
   return (
-    <div className="boss-bar tubes">
-      {Array.from({ length: per }, (_, i) => <span key={i} className={'seg' + (i < top && bars > 0 ? ' on tube-' + (bars % 3) : bars > 1 ? ' under tube-' + ((bars - 1) % 3) : '')} />)}
-      <span className="tube-count">×{bars}</span>
+    <div className={'boss-bar tubes' + (bars >= tubes && bars > 0 ? ' crowned' : '')} style={{ '--tube': Math.max(0, bars - 1) } as CSSProperties}>
+      {Array.from({ length: per }, (_, i) => <span key={i} className={'seg' + (i < top ? ' on' + color(bars) : bars > 1 ? ' under' + color(bars - 1) : '')} />)}
+      <span key={bars} className="tube-count">×{bars}</span>
     </div>
   );
 }

@@ -9,7 +9,7 @@
 import Phaser from 'phaser';
 import type { GameConfig } from '@/type';
 import { bridge, EVT, STAGE_FX } from '@/protocol';
-import { beatMs, beginRhythm, chartById, createHitsound, endRhythm, LANE_ARROWS, LANE_KEYS, RHYTHM_MODES, sectionAt, sectionStarts, travelMsOf, type Chart, type Hitsound, type Judgement, type ModeId, type ModeSpec, type RhythmSession } from '@/rhythm';
+import { beatMs, beginRhythm, chartById, createHitsound, endRhythm, LANE_ARROWS, LANE_KEYS, notesOf, RHYTHM_MODES, sectionAt, sectionStarts, travelMsOf, type Chart, type Hitsound, type Judgement, type ModeId, type RhythmSession } from '@/rhythm';
 import type { MoveInput } from '@/game/mechanics/define';
 import type { Player } from '@/sprite';
 import { Colors } from '@/game/palette';
@@ -66,14 +66,17 @@ const PUNCH = { scale: 1.25, ms: 55 };
 const BOOM = { key: 'boom', volume: 0.8 };   // 起跳爆炸的那一声（asset 里的 key）、多响：和平时起跳一样
 /** 接住的音符弹回去砸骷髅王：飞多久（毫秒）、弧线多高（格）、一路转多少度 */
 const RETURN = { ms: 260, arc: 1.2, spin: 360 };
-/** 开打前血条填满：一共用多久（毫秒）、隔多久涨一次（每次「滴」一声）、填满之后停多久再起曲子 */
-const FILL = { ms: 2600, stepMs: 65, holdMs: 500 };
+/**
+ * 开打前血条一格一格填满，每格「滴」一声：第一管一格隔多久（毫秒）、每多一管快到上一管的几成、最快一格隔多久；
+ * 每填满一管画面震多久、多大；全满之后停多久再起曲子
+ */
+const FILL = { cellMs: 70, faster: 0.82, minMs: 22, shake: { ms: 140, strength: 0.005 }, holdMs: 700 };
 const DEPTH = 40, DIM = 0.35, RUMBLE = { ms: 600, strength: 0.007 };
 /** 开场白说完之后安静多久（毫秒）；换段之前的那句话：提前几拍开始说、说到下一段开头再过几拍 */
 const QUIET_MS = 1000, SAY = { leadBeats: 2, tailBeats: 3 };
 
-/** off = 没有；staged = 场子摆好了，骷髅王站着等；intro = 他在说话、变钢琴；lure = 他在放板，等主角跳上去；play = 在打 */
-type Phase = 'off' | 'staged' | 'intro' | 'lure' | 'play';
+/** off = 没有；staged = 场子摆好了，骷髅王站着等；intro = 他在说话、变钢琴；lure = 他在放板，等主角跳上去；fill = 踩上去了，血条在填（别的都不动）；play = 在打 */
+type Phase = 'off' | 'staged' | 'intro' | 'lure' | 'fill' | 'play';
 
 export class RhythmFight {
   private phase: Phase = 'off';
@@ -93,7 +96,7 @@ export class RhythmFight {
   private talking = false;
   private lure: Lure | null = null;
   /** 血条正在填：从哪一刻（真实时间）开始填的、上一次涨到了第几步；null = 没在填 */
-  private fill: { at: number; step: number; sound: BossSound } | null = null;
+  private fill: { last: number; hp: number; fullAt: number; sound: BossSound; max: number; on: { x: number; left: number; right: number } } | null = null;
   /** 下一次破屏前的震动已经起过了（记的是那一段的下标）；换段前的那句话已经说过了（同上） */
   private rumbled = -1;
   private said = -1;
@@ -111,7 +114,7 @@ export class RhythmFight {
   constructor(private readonly d: RhythmFightDeps) {}
 
   /** 开场白说完了（他在变钢琴）或者正在打：按键归节奏关卡，人不归玩家管 */
-  get active(): boolean { return (this.phase === 'intro' && !this.talking) || this.phase === 'play'; }
+  get active(): boolean { return (this.phase === 'intro' && !this.talking) || this.phase === 'fill' || this.phase === 'play'; }
 
   /** 摆好场子：骷髅王和钢琴站到房间右边。auto = 人一能动就开打 */
   stage(chartId: string, auto: boolean): void {
@@ -133,7 +136,10 @@ export class RhythmFight {
   /** 中途退出 */
   stop(): void {
     if (this.phase === 'play') this.stopping = true;
-    else if (this.phase === 'lure') { this.lure?.destroy(); this.lure = null; this.phase = 'staged'; this.autoStart = false; }   // 还在放板：收掉，不打了
+    else if (this.phase === 'lure' || this.phase === 'fill') {   // 还在放板 / 填血条：收掉，不打了
+      if (this.phase === 'fill') { this.d.onBoss(null); this.d.onEnd(); this.d.player().unfreeze(); }
+      this.lure?.destroy(); this.lure = null; this.fill = null; this.phase = 'staged'; this.autoStart = false;
+    }
   }
 
   /** 每帧 */
@@ -144,11 +150,16 @@ export class RhythmFight {
     if (this.phase === 'lure') {
       this.piano?.update(0, null, cfg);
       const on = this.lure!.update();
-      if (on) { this.lure!.destroy(); this.lure = null; this.play(on); }   // 跳上去的那一瞬间：锁定，开打
+      if (on) this.lock(on);   // 跳上去的那一瞬间：锁定
+      return;
+    }
+    if (this.phase === 'fill') {   // 一步一步来：先只填血条（板还摆着、人站着），填满了才有后面的演出
+      this.piano?.update(0, null, cfg);
+      this.lure?.update();
+      this.fillBar();
       return;
     }
     if (this.phase !== 'play') { this.piano?.update(0, null, cfg); return; }
-    if (this.fill) this.fillBar();   // 血条填满了曲子才起（这之前曲子的时间停在 0：柱子摆着、人站着等）
     const s = this.session!, now = s.conductor.timeMs(), away = this.d.away();
     if (this.stopping || s.conductor.finished) {
       // 人还在画面外：等他回来（谱面走完了他自己会回；中途退出的请他回）
@@ -236,7 +247,7 @@ export class RhythmFight {
   private play(on: { x: number; left: number; right: number }): void {
     const chart = this.chart!, { scene, cfg } = this.d, room = this.room;
     const session = beginRhythm(chart, import.meta.env.BASE_URL + chart.audio, cfg.musicVolume);
-    if (!session) { this.phase = 'staged'; this.autoStart = false; this.d.player().unfreeze(); return; }
+    if (!session) { this.phase = 'staged'; this.autoStart = false; this.d.onBoss(null); this.d.onEnd(); this.d.player().unfreeze(); return; }
     this.session = session; this.section = -1; this.stopping = false; this.rumbled = -1; this.said = -1; this.phase = 'play';
     this.hp = cfg.world3d.rhythm.heroHp; this.graceUntil = 0;
     this.backdrop = scene.add.rectangle(room.x + room.w / 2, room.y + room.h / 2, room.w, room.h, Colors.ink, DIM).setDepth(DEPTH - 2);
@@ -261,12 +272,12 @@ export class RhythmFight {
     // 每次判定：当场出一声、HUD 上弹字（自动判的——躲过去的弹幕——不出声不弹字，只记分）；血条跟着分数掉
     const hitsound = this.hitsound = createHitsound(cfg.musicVolume);
     session.score.listen((j, by) => {
-      if (by === 'press' && !(RHYTHM_MODES[chart.sections[Math.max(0, this.section)].mode] as ModeSpec).boom) hitsound.play(j);   // 出爆炸声的玩法不再叠一声判定音
+      if (by === 'press' && j === 'miss') hitsound.play(j);   // 按键的声音统一是起跳爆炸（各玩法自己出）；这里只剩漏掉时的那一声
       this.d.onScore({ points: session.score.points, combo: session.score.combo, judge: by === 'press' ? j : null });
       this.d.onBoss(this.bossHp());
     });
     this.d.onScore({ points: 0, combo: 0, judge: null, fresh: true });
-    this.d.onBoss({ ...this.bossHp(), hp: 0 });   // 血条先是空的，下面一管管填满
+    this.d.onBoss(this.bossHp());
     this.d.onHp({ hp: this.hp, max: this.hp });
     // 3D 那一半要用的：骷髅王在画面的哪、主角挨了一下、骷髅王挨了一下
     session.boss = { x: (piano.body.x - room.x) / room.w, y: (piano.body.y - room.y) / room.h };
@@ -274,20 +285,43 @@ export class RhythmFight {
     session.bossHit = () => piano.flinch();
     session.boom = () => scene.sound.play(BOOM.key, { volume: BOOM.volume });
     scene.input.keyboard?.on('keydown', this.onKey);
-    this.d.onBegin();
-    this.fill = { at: scene.time.now, step: 0, sound: createBossSound(scene) };
+    session.conductor.start();
   }
 
-  /** 开打前把骷髅王的血条填满：隔一小会涨一截、「滴」一声，一管满了接着填下一管；全满之后停一下，曲子开始 */
+  /** 主角踩上了一块板：锁住他，这一层的音乐停下，骷髅王的血条出现（空的），开始填 */
+  private lock(on: { x: number; left: number; right: number }): void {
+    const { scene, cfg } = this.d, p = this.d.player(), rc = cfg.world3d.rhythm;
+    p.freeze(0xffffff); p.clearTint();
+    const total = notesOf(this.chart!).reduce((n, note) => n + (note.holdMs ? 2 : 1), 0);   // 长按算两下，和成绩里一样
+    this.fill = { last: scene.time.now, hp: 0, fullAt: 0, sound: createBossSound(scene), max: Math.ceil(total * rc.passRatio), on };
+    this.phase = 'fill';
+    this.d.onBegin();
+    this.d.onBoss({ hp: 0, max: this.fill.max, per: rc.bossHp });
+  }
+
+  /** 把骷髅王的血条填满：一格一格涨、每格「滴」一声，越往后的管填得越快、声音越高；每满一管震一下。全满之后停一下，才开打 */
   private fillBar(): void {
-    const f = this.fill!, s = this.session!, full = this.bossHp(), steps = Math.ceil(FILL.ms / FILL.stepMs);
-    const since = this.d.scene.time.now - f.at, step = Math.min(steps, Math.floor(since / FILL.stepMs));
-    if (step > f.step) {
-      f.step = step;
-      this.d.onBoss({ ...full, hp: Math.round(full.max * step / steps) });
-      f.sound.beep(step - 1, steps);
+    const f = this.fill!, { scene, cfg } = this.d, per = cfg.world3d.rhythm.bossHp, real = scene.time.now;
+    if (f.hp >= f.max) {
+      if (real - f.fullAt < FILL.holdMs) return;
+      this.fill = null;
+      this.lure?.destroy(); this.lure = null;
+      this.play(f.on);
+      return;
     }
-    if (since >= FILL.ms + FILL.holdMs) { this.fill = null; s.conductor.start(); }
+    /** 正在填第几管（0 起）时一格隔多久 */
+    const cellMs = (tube: number) => Math.max(FILL.minMs, FILL.cellMs * FILL.faster ** tube);
+    const before = f.hp;
+    while (f.hp < f.max && real - f.last >= cellMs(Math.floor(f.hp / per))) {
+      f.last += cellMs(Math.floor(f.hp / per));
+      f.hp++;
+      if (f.hp % per === 0 || f.hp === f.max) scene.cameras.main.shake(FILL.shake.ms, FILL.shake.strength);   // 满了一管
+    }
+    if (f.hp === before) return;
+    this.d.onBoss({ hp: f.hp, max: f.max, per });
+    const tubes = Math.ceil(f.max / per), tube = Math.floor((f.hp - 1) / per);
+    f.sound.beep((f.hp - 1) % per + tube * per / 2, per + tubes * per / 2);   // 一管里音越来越高，下一管从更高的地方起
+    if (f.hp >= f.max) f.fullAt = real;
   }
 
   /** 主角挨了一下：扣一滴血（刚挨过的一小段时间里不扣）；扣光了这一场就输了 */
@@ -369,6 +403,6 @@ export class RhythmFight {
     this.talking = false; this.fill = null;
     const wasPlaying = this.session !== null;
     this.session = null; this.tapped.clear();
-    if (wasPlaying || this.phase === 'intro') { const p = this.d.player(); p.setVisible(true); p.unfreeze(); }
+    if (wasPlaying || this.phase === 'intro' || this.phase === 'fill') { const p = this.d.player(); p.setVisible(true); p.unfreeze(); }
   }
 }

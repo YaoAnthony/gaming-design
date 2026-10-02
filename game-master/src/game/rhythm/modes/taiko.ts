@@ -34,6 +34,7 @@ defineFlatMode('taiko', (ctx, notes) => {
       for (const [char, k] of Object.entries(KIND)) {
         if (!press[k.key]) continue;
         struckAt = now; struckColor = k.color;
+        ctx.boom();   // 敲一下：起跳爆炸的那一声
         const hit = track.press(now, w, n => n.char === char);
         if (hit) { burst(scene, hitX, y, drumR * 2, JUDGE_COLOR[hit.judgement], ctx.depth + 2); ctx.punch(); ctx.strikeBoss(hitX, y, drumR, JUDGE_COLOR[hit.judgement]); }
       }

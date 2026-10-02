@@ -57,6 +57,7 @@
       "dodge": "躲"
     },
     "hint": {
+      "flip": "翻转重力",
       "top": "上排",
       "bottom": "下排",
       "red": "红",
@@ -107,7 +108,7 @@
   },
   "npc": {
     "skeleton": "骷髅",
-    "skeletonKing": "骷髅王"
+    "skeletonKing": "Game Master"
   },
   "dialogue": {
     "skeleton": [

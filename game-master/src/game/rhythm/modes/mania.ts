@@ -47,6 +47,7 @@ defineFlatMode('mania', (ctx, notes) => {
       MANIA_KEYS.forEach((k, lane) => {
         if (!press[k.dir]) return;
         heroLane = lane;   // 跑到这条道上
+        ctx.boom();   // 按一下：起跳爆炸的那一声
         const hit = track.press(now, w, n => n.lane === lane);
         receptors[lane].pulse(hit?.judgement ?? null);
         if (hit) { burst(scene, midX(lane), lineY, T * 1.2, JUDGE_COLOR[hit.judgement], ctx.depth + 2); ctx.punch(); if (!hit.note.holdMs) ctx.strikeBoss(midX(lane), lineY, T * 0.6, JUDGE_COLOR[hit.judgement]); }

@@ -57,6 +57,7 @@
       "dodge": "DODGE"
     },
     "hint": {
+      "flip": "flip gravity",
       "top": "top row",
       "bottom": "bottom row",
       "red": "red",
@@ -107,7 +108,7 @@
   },
   "npc": {
     "skeleton": "Skeleton",
-    "skeletonKing": "Skeleton King"
+    "skeletonKing": "Game Master"
   },
   "dialogue": {
     "skeleton": [

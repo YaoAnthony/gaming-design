@@ -177,15 +177,28 @@ label.check { display: flex; align-items: center; gap: 6px; margin: 8px 0; color
 .boss-bar .seg { width: 26px; height: 12px; border-radius: 3px; background: #2a1a22; }
 .boss-bar .seg.on { background: #ef476f; box-shadow: 0 0 6px rgba(239,71,111,.6); }
 .boss-bar .seg.on { animation: boss-seg-pop .22s ease-out; }
-/* 好几管血：只画最上面那一管，格子窄一点；一管一个颜色（三种轮着来），打空的格子露出下一管的颜色；旁边写还剩几管 */
-.boss-bar.tubes { gap: 2px; align-items: center; }
+/* 好几管血：只画最上面那一管，格子窄一点；打空的格子露出下一管的颜色；旁边写还剩几管。
+   管越多血条越大（--tube = 已经叠了几管，从顶边正中往外长）；一管一个颜色，满管数的那一管是金色的、带流光 */
+.boss-bar.tubes { gap: 2px; align-items: center; transform: translateX(-50%) scale(calc(1 + var(--tube, 0) * .07)); transform-origin: 50% 0; transition: transform .18s cubic-bezier(.2, 1.8, .4, 1); }
 .boss-bar.tubes .seg { width: 14px; }
-.boss-bar.tubes .seg.on { animation: none; }
-.boss-bar .seg.tube-0 { background: #ef476f; box-shadow: 0 0 6px rgba(239,71,111,.6); }
-.boss-bar .seg.tube-1 { background: #ffd166; box-shadow: 0 0 6px rgba(255,209,102,.6); }
-.boss-bar .seg.tube-2 { background: #b388ff; box-shadow: 0 0 6px rgba(179,136,255,.6); }
-.boss-bar .seg.under { opacity: .38; box-shadow: none; }
-.boss-bar .tube-count { margin-left: 6px; color: #f1efe6; font: 700 13px monospace; }
+.boss-bar.tubes .seg.on { animation: boss-seg-pop .12s ease-out; }
+.boss-bar .seg.tube-c0 { --c: 239, 71, 111; }
+.boss-bar .seg.tube-c1 { --c: 255, 140, 66; }
+.boss-bar .seg.tube-c2 { --c: 6, 214, 160; }
+.boss-bar .seg.tube-c3 { --c: 76, 201, 240; }
+.boss-bar .seg.tube-c4 { --c: 179, 136, 255; }
+.boss-bar .seg.tube-c5 { --c: 255, 105, 180; }
+.boss-bar .seg[class*="tube-c"] { background: rgb(var(--c)); box-shadow: 0 0 6px rgba(var(--c), .6); }
+.boss-bar .seg.tube-gold { background: linear-gradient(110deg, #ffb300 0%, #fff3b0 35%, #ffd700 50%, #ff9e00 100%); background-size: 300% 100%; box-shadow: 0 0 8px rgba(255, 215, 0, .9), 0 0 16px rgba(255, 140, 0, .5); animation: tube-shimmer 1.1s linear infinite; }
+.boss-bar.tubes .seg.on.tube-gold { animation: boss-seg-pop .12s ease-out, tube-shimmer 1.1s linear infinite; }
+.boss-bar .seg.under { opacity: .38; box-shadow: none; animation: none; }
+.boss-bar.crowned { border-color: #ffd700; box-shadow: 0 0 14px rgba(255, 215, 0, .55), inset 0 0 10px rgba(255, 180, 0, .25); animation: tube-crown 1.4s ease-in-out infinite; }
+.boss-bar .tube-count { margin-left: 6px; color: #f1efe6; font: 700 13px monospace; animation: tube-count-pop .25s cubic-bezier(.2, 1.8, .4, 1); }
+.boss-bar.crowned .tube-count { color: #ffd700; text-shadow: 0 0 6px rgba(255, 215, 0, .8); }
+@keyframes tube-shimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+@keyframes tube-crown { 0%, 100% { box-shadow: 0 0 10px rgba(255, 215, 0, .45), inset 0 0 8px rgba(255, 180, 0, .2); } 50% { box-shadow: 0 0 24px rgba(255, 215, 0, .9), inset 0 0 14px rgba(255, 180, 0, .4); } }
+@keyframes tube-count-pop { from { transform: scale(2.2); } to { transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .boss-bar .seg.tube-gold, .boss-bar.crowned, .boss-bar .tube-count { animation: none; } }
 @keyframes boss-seg-pop { 0% { transform: scaleY(1.9); background: #fff; } 100% { transform: none; } }
 /* Boss 出场：WARNING 警报条（红黑斜纹上下两道，中间字一闪一闪）、名字卡（像素字体，金色，从大缩到正常） */
 .boss-warning { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(120,0,20,.18); animation: boss-warn-flash .4s steps(1) infinite; }

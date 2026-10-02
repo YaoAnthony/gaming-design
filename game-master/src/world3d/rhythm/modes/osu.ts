@@ -73,6 +73,7 @@ defineRhythmMode('osu', (ctx, notes) => {
       const cfg = ctx.config();
       move.press.lanes.forEach((down, lane) => {
         if (!down) return;
+        ctx.boom();   // 按一下：起跳爆炸的那一声
         const hit = track.press(now, cfg.windows, n => n.lane === lane);
         if (!hit) return;
         // 点中：人一下飞到圈那（脚踩在圈底），圈原地炸开；之后人自己落回地面

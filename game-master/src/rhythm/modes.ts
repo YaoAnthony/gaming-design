@@ -22,8 +22,6 @@ export interface ModeSpec {
   speed: number;
   /** 要人自己换道走过去才打得到的玩法：一拍来得及换几条道（谱面里相邻两个音符不能隔得比这远）；0 = 不用走 */
   reach: number;
-  /** 按键出的是平时起跳爆炸的那一声（按一下响一下），不出判定音 */
-  boom?: boolean;
 }
 
 export const RHYTHM_MODES = {
@@ -31,7 +29,7 @@ export const RHYTHM_MODES = {
    * Give It Up（2D）：小人跟着拍子在一排柱子上一格一格地跳，自己会跳，不用管；只有两种时候要在起跳的那一拍按空格：
    * 'u' 下一根柱子高一截（按了才跳得上去），'x' 下一根是尖刺（按了一下跨过去，落在再下一根上）。只能写在整拍上
    */
-  giveup: { realm: 'flat', lanes: 1, chars: 'ux', holds: '', maxPerRow: 1, blocking: '', fromScreen: false, speed: 1, reach: 0, boom: true },
+  giveup: { realm: 'flat', lanes: 1, chars: 'ux', holds: '', maxPerRow: 1, blocking: '', fromScreen: false, speed: 1, reach: 0 },
   /** 喵斯快跑（2D 横版）：上下两排，'x' 从右边过来，到跟前按上 / 下。第一个字符是上排 */
   dash: { realm: 'flat', lanes: 2, chars: 'x', holds: '', maxPerRow: 1, blocking: '', fromScreen: false, speed: 1.4, reach: 0 },
   /** 太鼓达人（2D）：一条轨道，'r' 红（咚）按左、'b' 蓝（咔）按右 */
@@ -45,7 +43,7 @@ export const RHYTHM_MODES = {
    */
   osu: { realm: 'deep', lanes: 4, chars: '123abcABCxyz', holds: 'abcABCxyz', maxPerRow: 1, blocking: '', fromScreen: false, speed: 2, reach: 0 },
   /** 节奏光剑（3D）：四条道，方块 'x' 迎面冲过来；A D 换到它那条道上，到跟前按空格砍掉，砍中的方块弹回去砸骷髅王 */
-  saber: { realm: 'deep', lanes: 4, chars: 'x', holds: '', maxPerRow: 1, blocking: '', fromScreen: true, speed: 2, reach: 2, boom: true },
+  saber: { realm: 'deep', lanes: 4, chars: 'x', holds: '', maxPerRow: 1, blocking: '', fromScreen: true, speed: 2, reach: 2 },
   /** 躲（3D）：四条道，'o' 红墙（只能换道躲）、'_' 黄杠（跳得过） */
   dodge: { realm: 'deep', lanes: 4, chars: 'o_', holds: '', maxPerRow: 4, blocking: 'o', fromScreen: true, speed: 1.5, reach: 0 },
 } as const satisfies Record<string, ModeSpec>;

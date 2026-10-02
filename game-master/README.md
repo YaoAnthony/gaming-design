@@ -69,7 +69,7 @@ src/
   - **玩法**（`rhythm/modes.ts` 里登记谱面怎么写、在哪个世界、音符飞多快）。2D 的在 `game/rhythm/modes/`：`giveup` Give It Up（小人跟着拍子在柱子上自己跳，上高柱 / 跨尖刺的那一拍按空格）、`dash` 喵斯快跑（上下两排，W / S）、`taiko` 太鼓（红的按 A、蓝的按 D，按哪个鼓面变哪个颜色）、`mania` 节奏大师（三条道从上面落下来，A S D，带长按，每拍有拍线）。3D 的在 `world3d/rhythm/modes/`：`osu` 点圈（像 QTE：环缩到和圈重合时按 Q W E R，带长按的圈）、`saber` 光剑（A D 换道、镜头跟着歪，方块到跟前按空格砍）、`dodge` 躲（A D 换道躲红墙，空格跳过黄杠，地面提前亮出下一排撞哪）。
   - **长按**：谱面上长按的头（玩法的 `holds` 字符）下面跟着几行 `|` 就按住几步；头和尾巴各算一次判定（按到尾巴 Perfect，提前松手 Miss）。判定在 `rhythm/score.ts` 的 `NoteTrack.holds`。
   - **2D 的衔接**：每种玩法的道具（轨道、鼓、打击框……）是一个容器，轮到它时骷髅王从手里扔过来（划弧线、转着、由小变大落到位），轮完原地缩小淡出；同时他头顶弹出一句话（`rhythm.taunt.*`，比如太鼓是「欢乐时光！」）。
-  - **骷髅王操控画面**：整个画面跟着拍子动——2D 里每拍放大一下、左右慢慢晃；到了 3D，屏幕每拍往后点一下头、左右歪。数值在 `config.world3d.rhythm.sway`。
+  - **骷髅王操控画面**（默认关着，晃起来头晕）：整个画面可以跟着拍子动——2D 里每拍放大一下、左右慢慢晃；到了 3D，屏幕每拍往后点一下头、左右歪。数值在 `config.world3d.rhythm.sway`，现在都是 0。
   - **计分**（`rhythm/score.ts`，纯计算有测试）：每个音符判 Perfect / Good / Miss（时间窗在 `config.world3d.rhythm.windows`），连击遇 Miss 归零；躲的那段被打中算 Miss、躲过去算 Perfect。不扣心。骷髅王的血条（`bossHp` 格）跟着分数掉：分数走到过关线（满分的 `passRatio`）的几成，血就掉几成；谱面走完时血条空了算赢，在庆典大厅打赢就是通关。右上角是分数，画面上方弹判定和连击。各玩法的音符可以飞得快慢不同（`rhythm/modes.ts` 的 `speed`，光剑是 2 倍）。
   - **破屏的演出**：前半秒画面先震起来；到点整个画面闪一下白光，屏幕往后一倒（倒过头再弹回来一点），大道从屏幕底边一路铺到镜头前，人高高地飞出来；落地那一下脚下荡开一圈、镜头往下一沉。数值在 `world3d/rhythm/RhythmWorld.ts` 的 `BREAK` 和 `game/rhythm/RhythmFight.ts` 的 `RUMBLE`。
   - **击中反馈**：每次按键打击点都亮一下（空按也亮，淡一些，让人知道键按到了）；打中了在音符那里炸开一圈、人鼓一下、当场出一声（`rhythm/hitsound.ts`，WebAudio 合成，Perfect / Good / Miss 三种音），画面上方弹判定和连击；漏了打击点红一下。2D 的零件（`burst` / `Receptor`）在 `game/rhythm/modes/define.ts`，3D 的（`Bursts`）在 `world3d/rhythm/modes/define.ts`。画面底下一排键帽提示现在这种玩法按什么键（`ui/Hud.tsx` 的 `RHYTHM_KEYS`）。

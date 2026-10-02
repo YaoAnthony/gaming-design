@@ -82,7 +82,7 @@ export const DEFAULT_CONFIG: GameConfig = {
       hitWindowMs: 80, barClear: 0.6,
       jumpVelocity: 21, gravity: 58,   // 跳 3.8 格高、滞空 0.72 秒
       enterMs: 900, cameraMs: 350, screenTilt: 50,
-      sway: { zoom: 0.014, rollDeg: 0.8, nodDeg: 3, screenRollDeg: 2.5 },
+      sway: { zoom: 0, rollDeg: 0, nodDeg: 0, screenRollDeg: 0 },   // 都关着：晃起来头晕。想要再调大
     },
   },
 };

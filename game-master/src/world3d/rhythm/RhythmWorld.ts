@@ -1,12 +1,13 @@
 // ===== 节奏关卡的 3D 那一半：曲子最高潮时主角破屏跳出来，在屏幕外的大道上接着玩 =====
 // 和 World3D 一样跑在 3D 舞台上、同一套坐标（原点在屏幕底边中点，单位是格，+z 朝镜头）。
 // 谱面里 realm = deep 的那几段归这里：管大道、主角进出场、轮到哪一段、镜头跟到那一段的机位；怎么玩、怎么画在 modes/ 里。
-// 轮到 2D 的段落、或者谱面走完了，人就回画面里去。破屏时屏幕往后倒，画面里的四条道顺势接上画面外的大道。
+// 轮到 2D 的段落、或者谱面走完了，人就回画面里去。
+// 破屏的演出：屏幕往后一倒（倒过头再弹回来一点），大道从屏幕底边一路铺到镜头前，人高高地飞出来；落地那一下地上荡开一圈、镜头往下一沉。
 // 时间都听指挥的（rhythm/Conductor）：音符在哪是按「曲子现在第几毫秒」算的，不是一帧帧累加的。
 import * as THREE from 'three';
 import type { HeroHandoff } from '@/protocol';
 import type { RhythmConfig } from '@/type';
-import { beatMs, RHYTHM_MODES, sectionAt, type RhythmSession } from '@/rhythm';
+import { beatMs, RHYTHM_MODES, sectionAt, travelMsOf, type RhythmSession } from '@/rhythm';
 import type { StageFxContext, StageFxRun } from '@/stage3d/fx/define';
 import { Colors } from '@/game/palette';
 import { Hero3D } from '../Hero3D';
@@ -17,7 +18,17 @@ import './modes';
 /** 一帧最多按多久算（毫秒） */
 const MAX_STEP_MS = 50;
 /** 人飞到道上时中途抬多高（格）；道上画几条分隔线 */
-const ENTER_ARC = 3, DIVIDERS = RHYTHM_MODES.saber.lanes;
+const ENTER_ARC = 6, DIVIDERS = RHYTHM_MODES.saber.lanes;
+/**
+ * 破屏的演出：屏幕倒下去时倒过头多少（回弹的劲，0 = 不过头）；大道在进场的前几成时间里铺完；
+ * 落地：地上那一圈荡多久（毫秒）、荡到多大（格）、镜头往下沉多少（格）
+ */
+const BREAK = { overshoot: 1.6, unroll: 0.7, ringMs: 450, ringSize: 9, jolt: 1.6 };
+/** 镜头自己的坐标里朝前的轴（歪头绕它转） */
+const FORWARD = new THREE.Vector3(0, 0, -1);
+/** 倒过头再弹回来（k 从 0 到 1） */
+const easeOutBack = (k: number, s: number) => 1 + (s + 1) * (k - 1) ** 3 + s * (k - 1) ** 2;
+
 
 export interface RhythmWorldOptions {
   config(): RhythmConfig;
@@ -41,6 +52,11 @@ export class RhythmWorld implements StageFxRun {
   /** 进场时飞向哪一段的站位 */
   private readonly entry: RhythmMode;
   private readonly disposables: { dispose(): void }[] = [];
+  /** 大道（地面和线）：进场时从屏幕底边往镜头这边铺开 */
+  private readonly road = new THREE.Group();
+  /** 落地时地上荡开的那一圈 */
+  private readonly ring: THREE.Mesh<THREE.RingGeometry, THREE.MeshBasicMaterial>;
+  private ringLeft = 0;
   private readonly home: THREE.Vector3;
   private readonly camHome: THREE.Vector3;
   private phase: Phase = 'in';
@@ -52,6 +68,7 @@ export class RhythmWorld implements StageFxRun {
   private readonly look = new THREE.Vector3();
   private readonly aim = new THREE.Matrix4();
   private readonly quat = new THREE.Quaternion();
+  private readonly rollQuat = new THREE.Quaternion();
 
   constructor(private readonly ctx: StageFxContext, handoff: HeroHandoff, private readonly o: RhythmWorldOptions) {
     const size = ctx.screen.size, base = ctx.screen.base, unit = handoff.tile * size.w, cfg = o.config(), { chart, notes } = o.session;
@@ -66,15 +83,21 @@ export class RhythmWorld implements StageFxRun {
     this.hero.place(this.home.x, this.home.y, 0, 1);
     this.hero.castShadow(null);
     this.floor(w, heroZ + cfg.tail * w, heroZ);
-    this.root.add(this.hero.object);
+    this.road.scale.z = 0.001;
+    const ringGeo = new THREE.RingGeometry(0.42, 0.5, 40), ringMat = new THREE.MeshBasicMaterial({ color: Colors.gold, transparent: true, depthWrite: false, side: THREE.DoubleSide });
+    this.ring = new THREE.Mesh(ringGeo, ringMat);
+    this.ring.rotation.x = -Math.PI / 2;
+    this.ring.visible = false;
+    this.disposables.push(ringGeo, ringMat);
+    this.root.add(this.road, this.ring, this.hero.object);
     ctx.scene.add(this.root);
     this.root.updateMatrixWorld(true);
 
-    const mctx: ModeContext = {
-      root: this.root, hero: this.hero, w, h, heroZ, travelMs: cfg.travelBeats * beatMs(chart),
-      config: o.config, score: o.session.score,
-    };
-    chart.sections.forEach((s, i) => { if (RHYTHM_MODES[s.mode].realm === 'deep') this.modes.set(i, createRhythmMode(s.mode, mctx, notes.filter(n => n.section === i))); });
+    const mctx: Omit<ModeContext, 'travelMs'> = { root: this.root, hero: this.hero, w, h, heroZ, config: o.config, score: o.session.score };
+    chart.sections.forEach((s, i) => {
+      if (RHYTHM_MODES[s.mode].realm !== 'deep') return;
+      this.modes.set(i, createRhythmMode(s.mode, { ...mctx, travelMs: travelMsOf(chart, s.mode, cfg.travelBeats) }, notes.filter(n => n.section === i)));
+    });
     // 进场飞向接下来第一个 3D 段落的站位
     const now = sectionAt(chart, o.session.conductor.timeMs());
     const next = [...this.modes.keys()].find(i => i >= now) ?? [...this.modes.keys()][0];
@@ -91,7 +114,7 @@ export class RhythmWorld implements StageFxRun {
     const cfg = this.o.config(), { conductor, chart } = this.o.session;
     if (this.phase === 'in') {
       this.aimAt(this.entry);
-      this.fly(dtMs / cfg.enterMs, this.entry.spot(), this.eye, this.quat, 1, cfg.heroScale, 0, cfg.screenTilt, () => { this.phase = 'play'; });
+      this.fly(dtMs / cfg.enterMs, this.entry.spot(), this.eye, this.quat, 1, cfg.heroScale, 0, cfg.screenTilt, () => { this.phase = 'play'; this.land(); });
     } else if (this.phase === 'back') {
       this.fly(dtMs / this.o.returnMs, this.home, this.camHome, this.quat.identity(), cfg.heroScale, 1, this.tilt, 0, () => { this.phase = 'handing'; this.o.onExit(); });
     } else {
@@ -108,7 +131,12 @@ export class RhythmWorld implements StageFxRun {
       this.aimAt(mode);
       const k = cfg.cameraMs > 0 ? 1 - Math.exp(-dtMs / cfg.cameraMs) : 1, cam = this.ctx.camera;
       cam.position.lerp(this.eye, k); cam.quaternion.slerp(this.quat, k);
+      // 骷髅王在操控屏幕：每拍往后点一下头，左右慢慢歪（两小节一个来回）
+      const beats = (now - chart.offsetMs) / beatMs(chart), phase = ((beats % 1) + 1) % 1;
+      this.ctx.screen.setTilt(this.tilt + cfg.sway.nodDeg * Math.exp(-phase * 5));
+      this.ctx.screen.setRoll(cfg.sway.screenRollDeg * Math.sin(beats / 8 * Math.PI * 2));
     }
+    this.spread(dtMs);
     const now = this.o.session.conductor.timeMs();
     this.modes.forEach(m => m.draw(now));
     return true;
@@ -123,12 +151,30 @@ export class RhythmWorld implements StageFxRun {
     this.root.removeFromParent();
     this.hero.dispose();
     this.disposables.forEach(d => d.dispose());
-    this.ctx.screen.setTilt(0);
+    this.ctx.screen.setTilt(0); this.ctx.screen.setRoll(0);
     this.ctx.resetCamera();
+  }
+
+  /** 落地那一下：脚下荡开一圈，镜头往下一沉（之后跟着机位自己回上来） */
+  private land(): void {
+    const at = this.hero.position;
+    this.ring.position.set(at.x, 0.05, at.z);
+    this.ringLeft = BREAK.ringMs;
+    this.ctx.camera.position.y -= BREAK.jolt * this.root.scale.y;
+  }
+
+  private spread(dtMs: number): void {
+    if (this.ringLeft <= 0) { this.ring.visible = false; return; }
+    this.ringLeft -= dtMs;
+    const k = 1 - Math.max(0, this.ringLeft) / BREAK.ringMs;
+    this.ring.visible = true;
+    this.ring.scale.setScalar(1 + (BREAK.ringSize - 1) * (1 - (1 - k) ** 2));
+    this.ring.material.opacity = 0.9 * (1 - k);
   }
 
   private leave(): void {
     this.phase = 'back'; this.k = 0;
+    this.ctx.screen.setRoll(0);
     this.modes.get(this.section)?.setActive(false);
     this.hero.fade(1);
     this.hero.castShadow(null);
@@ -141,6 +187,7 @@ export class RhythmWorld implements StageFxRun {
     const c = mode.camera();
     this.root.localToWorld(this.eye.copy(c.eye)); this.root.localToWorld(this.look.copy(c.look));
     this.quat.setFromRotationMatrix(this.aim.lookAt(this.eye, this.look, this.ctx.camera.up));
+    if (c.roll) this.quat.multiply(this.rollQuat.setFromAxisAngle(FORWARD, -THREE.MathUtils.degToRad(c.roll)));   // 绕镜头自己朝前的轴歪
   }
 
   /** 人和镜头一起从一处飞到另一处（进场、回画面）：人走一条弧线，大小从 s0 变到 s1，屏幕从倒 t0 度变到 t1 度 */
@@ -151,8 +198,11 @@ export class RhythmWorld implements StageFxRun {
       f.hero.x + (to.x - f.hero.x) * e, f.hero.y + (to.y - f.hero.y) * e + Math.sin(Math.PI * e) * ENTER_ARC, f.hero.z + (to.z - f.hero.z) * e,
       s0 + (s1 - s0) * e,
     );
-    this.tilt = t0 + (t1 - t0) * e;
+    // 进场：屏幕倒过头再弹回来一点，大道跟着铺开；回画面：老老实实扶起来、收回去
+    const entering = this.phase === 'in';
+    this.tilt = t0 + (t1 - t0) * (entering ? easeOutBack(this.k, BREAK.overshoot) : e);
     this.ctx.screen.setTilt(this.tilt);
+    this.road.scale.z = Math.max(0.001, entering ? Math.min(1, this.k / BREAK.unroll) : 1 - e);
     this.ctx.camera.position.lerpVectors(f.cam, cam, e);
     this.ctx.camera.quaternion.slerpQuaternions(f.quat, quat, e);
     if (this.k >= 1) { this.k = 0; then(); }
@@ -164,9 +214,9 @@ export class RhythmWorld implements StageFxRun {
     const ground = new THREE.Mesh(plane, fill);
     ground.rotation.x = -Math.PI / 2;
     ground.position.set(0, 0, len / 2);
-    this.root.add(ground);
+    this.road.add(ground);
     const lift = 0.02, dividers: number[] = [];
     for (let i = 0; i <= DIVIDERS; i++) { const x = i * w / DIVIDERS - w / 2; dividers.push(x, lift, 0, x, lift, len); }
-    this.disposables.push(plane, fill, guideLines(this.root, dividers, Colors.paper), guideLines(this.root, [-w / 2, lift, heroZ, w / 2, lift, heroZ], Colors.gold));
+    this.disposables.push(plane, fill, guideLines(this.road, dividers, Colors.paper), guideLines(this.road, [-w / 2, lift, heroZ, w / 2, lift, heroZ], Colors.gold));
   }
 }

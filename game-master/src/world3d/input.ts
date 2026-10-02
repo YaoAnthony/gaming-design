@@ -3,6 +3,7 @@
 import { bridge } from '@/protocol';
 import { touch, TOUCH_ACTION, TOUCH_JUMP } from '@/game/input';
 import { anyPressed, GAMEPAD_BUTTONS, readNativePads } from '@/game/gamepad';
+import { LANE_ARROWS, LANE_KEYS } from '@/rhythm';
 
 /** 键盘上哪些键算哪个动作（KeyboardEvent.code） */
 const KEYS = {
@@ -22,8 +23,10 @@ export interface WorldMove {
   z: number;
   /** 这一帧按下了跳 */
   jump: boolean;
-  /** 这一帧刚按下的方向（按着不放只算一次）：节奏玩法用 */
-  press: { left: boolean; right: boolean; up: boolean; down: boolean };
+  /** 这一帧刚按下的方向（按着不放只算一次）、四条道（从左到右 Q W E R；方向键、手柄、触屏的 ← ↑ ↓ → 也算）：节奏玩法用 */
+  press: { left: boolean; right: boolean; up: boolean; down: boolean; lanes: boolean[] };
+  /** 四条道的键现在按没按着（长按用） */
+  lanesHeld: boolean[];
 }
 
 export class WorldInput {
@@ -33,8 +36,13 @@ export class WorldInput {
   private padJumpHeld = true;
   /** 上一帧四个方向是不是按着（手柄、触屏靠它认出「刚按下」） */
   private wasDown = { left: false, right: false, up: false, down: false };
-  /** 键盘上刚按下、还没被读走的方向：按得再快（一帧之内按下又松开）也不漏 */
+  /** 键盘上刚按下、还没被读走的方向 / 键（KeyboardEvent.code）：按得再快（一帧之内按下又松开）也不漏 */
   private readonly tapped = new Set<Action>();
+  private readonly tappedCodes = new Set<string>();
+  /** 键盘上现在按着的键（KeyboardEvent.code） */
+  private readonly heldCodes = new Set<string>();
+  /** 上一帧手柄、触屏四个方向是不是按着 */
+  private wasRemote = [false, false, false, false];
 
   constructor() {
     window.addEventListener('keydown', this.onDown);
@@ -54,6 +62,7 @@ export class WorldInput {
       up: this.held.has('up') || touch.up || pad.up, down: this.held.has('down') || touch.down || pad.down,
     };
     const was = this.wasDown;
+    const remote = [touch.left || pad.left, touch.up || pad.up, touch.down || pad.down, touch.right || pad.right];
     const move = {
       x: +down.right - +down.left,
       z: +down.down - +down.up,
@@ -61,9 +70,12 @@ export class WorldInput {
       press: {
         left: (down.left && !was.left) || this.tapped.has('left'), right: (down.right && !was.right) || this.tapped.has('right'),
         up: (down.up && !was.up) || this.tapped.has('up'), down: (down.down && !was.down) || this.tapped.has('down'),
+        // 四条道：Q W E R、方向键，或者手柄 / 触屏的方向（键盘上的 A S D 不算：它们不在一排上）
+        lanes: remote.map((on, i) => this.tappedCodes.has(LANE_KEYS[i].code) || this.tappedCodes.has(LANE_ARROWS[i]) || (on && !this.wasRemote[i])),
       },
+      lanesHeld: remote.map((on, i) => on || this.heldCodes.has(LANE_KEYS[i].code) || this.heldCodes.has(LANE_ARROWS[i])),
     };
-    this.wasDown = down; this.tapped.clear();
+    this.wasDown = down; this.wasRemote = remote; this.tapped.clear(); this.tappedCodes.clear();
     this.jumpQueued = false;
     return move;
   }
@@ -76,13 +88,15 @@ export class WorldInput {
   }
 
   private readonly onDown = (e: KeyboardEvent): void => {
+    if (!e.repeat) this.tappedCodes.add(e.code);
+    this.heldCodes.add(e.code);
     const a = ACTION_OF.get(e.code);
     if (!a) return;
     if (a === 'jump' && !e.repeat) this.jumpQueued = true;
     if (!e.repeat) this.tapped.add(a);
     this.held.add(a);
   };
-  private readonly onUp = (e: KeyboardEvent): void => { const a = ACTION_OF.get(e.code); if (a) this.held.delete(a); };
-  private readonly onBlur = (): void => { this.held.clear(); };
+  private readonly onUp = (e: KeyboardEvent): void => { this.heldCodes.delete(e.code); const a = ACTION_OF.get(e.code); if (a) this.held.delete(a); };
+  private readonly onBlur = (): void => { this.held.clear(); this.tappedCodes.clear(); this.heldCodes.clear(); };
   private readonly onTouchJump = (): void => { this.jumpQueued = true; };
 }

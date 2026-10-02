@@ -2,7 +2,7 @@
 import { defineConfig, normalizePath, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { fileURLToPath, URL } from 'node:url';
-import { readFile, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 
 const MAP_FILE = fileURLToPath(new URL('./src/map/world.json', import.meta.url));
 /** Vite 给钩子的路径是正斜杠；Windows 上 MAP_FILE 是反斜杠，直接比较永远不相等 */
@@ -48,10 +48,48 @@ function saveMapPlugin(): Plugin {
   };
 }
 
+const RECORDINGS_DIR = fileURLToPath(new URL('./recordings/', import.meta.url));
+
+/**
+ * 开发期专用：谱面录制（技术验证编辑器）POST /__climb/save-recording，把录下来的按键写进 recordings/<谱面 id>.json
+ * （同一张谱再录一次就覆盖；另外留一份带时间的备份）。只在 `npm run dev` 的开发服务器上存在。
+ */
+function saveRecordingPlugin(): Plugin {
+  return {
+    name: 'climb-save-recording',
+    apply: 'serve',
+    // 录制文件不是代码：写了不刷新页面
+    handleHotUpdate(ctx) { if (normalizePath(ctx.file).startsWith(normalizePath(RECORDINGS_DIR))) return []; },
+    configureServer(server) {
+      server.middlewares.use('/__climb/save-recording', (req, res) => {
+        if (req.method !== 'POST') { res.statusCode = 405; res.end('POST only'); return; }
+        let body = '';
+        req.on('data', (c: Buffer) => { body += c; });
+        req.on('end', async () => {
+          res.setHeader('Content-Type', 'application/json');
+          try {
+            const r = JSON.parse(body) as { chartId?: unknown; presses?: unknown };
+            const okPress = (p: { ms?: unknown; code?: unknown }) => typeof p?.ms === 'number' && typeof p?.code === 'string';
+            if (typeof r.chartId !== 'string' || !/^[\w-]+$/.test(r.chartId) || !Array.isArray(r.presses) || !r.presses.every(okPress)) throw new Error('不是合法的录制');
+            const text = JSON.stringify(r, null, 2) + '\n', stamp = new Date().toISOString().replace(/[:.]/g, '-');
+            await mkdir(RECORDINGS_DIR, { recursive: true });
+            await writeFile(RECORDINGS_DIR + `${r.chartId}.json`, text, 'utf8');
+            await writeFile(RECORDINGS_DIR + `${r.chartId}-${stamp}.json`, text, 'utf8');
+            res.end(JSON.stringify({ ok: true, file: `recordings/${r.chartId}.json` }));
+          } catch (err) {
+            res.statusCode = 400;
+            res.end(JSON.stringify({ ok: false, error: (err as Error).message }));
+          }
+        });
+      });
+    },
+  };
+}
+
 export default defineConfig({
   // GitHub Pages 是项目子路径：https://<user>.github.io/gaming-design/
   base: process.env.GITHUB_PAGES ? '/gaming-design/' : '/',
-  plugins: [react(), saveMapPlugin()],
+  plugins: [react(), saveMapPlugin(), saveRecordingPlugin()],
   resolve: { alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) } },
   server: { port: 5174, strictPort: true },
   build: {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bar, chartErrors, endMs, notesOf, repeat, sectionAt, sectionStarts, stepMs, type Chart } from './chart';
+import { bar, chartErrors, endMs, notesOf, repeat, sectionAt, sectionStarts, stepMs, withHold, type Chart } from './chart';
 import { CHARTS } from './charts';
 
 const TINY: Chart = {
@@ -37,11 +37,22 @@ describe('谱面', () => {
     expect(bad(['ox..'])).toHaveLength(1);           // 这种玩法不认识的字符
     expect(bad(['oooo'])).toHaveLength(1);           // 整排都躲不掉
     expect(bad(['____'])).toEqual([]);               // 整排横杠能跳过去
-    expect(bad(['<>..'], 'saber')).toHaveLength(1);  // 一次只能砍一个
-    expect(bad(['xxx.'], 'mania')).toHaveLength(1);  // 一次最多按两条道
+    expect(bad(['x^..'], 'saber')).toHaveLength(1);  // 光剑不认方向了
+    expect(bad(['xxx'], 'mania')).toHaveLength(1);   // 一次最多按两条道
+    expect(bad(['|..'], 'mania')).toHaveLength(1);   // '|' 上面没有长按的头
+    expect(chartErrors({ ...TINY, sections: [{ mode: 'mania', rows: [...repeat(['...'], 6), 'H..', '|..'] }] }, 1)).toEqual([]);
     expect(bad(['xx'], 'dash')).toHaveLength(1);
     expect(chartErrors({ ...TINY, sections: [{ mode: 'dodge', rows: ['o...', ...repeat(['....'], 7)] }] }, 1)).toHaveLength(1);   // 开头没空出来
     expect(chartErrors({ ...TINY, sections: [{ mode: 'dodge', rows: repeat(['....'], 7) }] }, 1)).toHaveLength(1);                // 不是整小节
+  });
+
+  it('长按：头下面跟着几行 | 就按住几步；| 自己不算音符', () => {
+    const c: Chart = { ...TINY, sections: [{ mode: 'mania', rows: withHold(bar(3, 8, { 6: '.x.' }), 0, 2, 3, 'H') }] };
+    expect(c.sections[0].rows.slice(2, 7)).toEqual(['H..', '|..', '|..', '|..', '.x.']);
+    expect(notesOf(c)).toEqual([
+      { timeMs: 650, lane: 0, char: 'H', section: 0, holdMs: 750 },
+      { timeMs: 1650, lane: 1, char: 'x', section: 0 },
+    ]);
   });
 
   it('bar：没写的步是空行', () => {

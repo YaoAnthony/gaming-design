@@ -53,4 +53,17 @@ describe('一段音符', () => {
     expect(t.sweep(9999, W).map(n => n.timeMs)).toEqual([3000]);
     expect(b).toMatchObject({ perfect: 1, miss: 2, combo: 0 });
   });
+
+  it('长按：按到尾巴是 Perfect；提前松开是 Miss；头漏了尾巴也算漏', () => {
+    const hold = (t: number): Note => ({ ...note(t, 0, 'H'), holdMs: 1000 });
+    const b = new Scoreboard(6), t = new NoteTrack([hold(1000), hold(4000), hold(7000)], b);
+    t.press(1000, W, () => true);
+    expect(t.holding).toHaveLength(1);
+    expect(t.holds(1500, W, () => true)).toEqual({ kept: [], dropped: [] });   // 还按着
+    expect(t.holds(1900, W, () => false).kept).toHaveLength(1);                // 离尾巴不到一个 Good 窗：松手也算按完
+    t.press(4000, W, () => true);
+    expect(t.holds(4400, W, () => false).dropped).toHaveLength(1);             // 提前松开
+    t.sweep(9999, W);                                                          // 第三个头都没按
+    expect(b).toMatchObject({ perfect: 3, miss: 3 });
+  });
 });

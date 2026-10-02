@@ -58,6 +58,9 @@ export class ScreenPlane {
   /** 往后倒多少度（上边往远处去） */
   setTilt(deg: number): void { this.pivot.rotation.x = -THREE.MathUtils.degToRad(deg); }
 
+  /** 绕底边中点左右歪多少度（往右歪为正） */
+  setRoll(deg: number): void { this.pivot.rotation.z = -THREE.MathUtils.degToRad(deg); }
+
   /** 取这一帧的游戏画面。要在 ScreenSource.onFrame 的回调里调（那时才读得到画布） */
   sync(): void {
     const c = this.source.canvas;

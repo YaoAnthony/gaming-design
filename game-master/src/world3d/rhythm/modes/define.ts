@@ -23,8 +23,8 @@ export interface ModeContext {
 }
 
 export interface RhythmMode {
-  /** 镜头摆在哪、看向哪 */
-  camera(): { eye: THREE.Vector3; look: THREE.Vector3 };
+  /** 镜头摆在哪、看向哪；roll = 镜头往一边歪多少度（往右歪为正），不给就是正的 */
+  camera(): { eye: THREE.Vector3; look: THREE.Vector3; roll?: number };
   /** 轮到这种玩法时人站在哪（脚底中心） */
   spot(): THREE.Vector3;
   /** 轮到 / 轮完：显示、收起自己的辅助线之类 */
@@ -83,16 +83,15 @@ export function guideLines(parent: THREE.Object3D, points: number[], color: numb
   return { object, dispose: () => { object.removeFromParent(); geo.dispose(); mat.dispose(); } };
 }
 
-/** 打中时炸开的方块：从音符那么大放大、淡出。几个轮着用 */
+/** 打中时炸开的形状（默认是方块，也可以给别的，比如一个环）：从音符那么大放大、淡出。几个轮着用 */
 export class Bursts {
-  private readonly items: { mesh: THREE.Mesh<THREE.BoxGeometry, THREE.MeshBasicMaterial>; left: number }[] = [];
-  private readonly geo = new THREE.BoxGeometry(1, 1, 1);
+  private readonly items: { mesh: THREE.Mesh<THREE.BufferGeometry, THREE.MeshBasicMaterial>; left: number }[] = [];
   private next = 0;
 
-  /** @param ms 炸多久；grow 放大到几倍；count 同时最多几个 */
-  constructor(parent: THREE.Object3D, private readonly ms: number, private readonly grow: number, count: number) {
+  /** @param ms 炸多久；grow 放大到几倍；count 同时最多几个；geo 炸开的形状（边长 / 直径 1，用完由这里销毁） */
+  constructor(parent: THREE.Object3D, private readonly ms: number, private readonly grow: number, count: number, private readonly geo: THREE.BufferGeometry = new THREE.BoxGeometry(1, 1, 1)) {
     for (let i = 0; i < count; i++) {
-      const mesh = new THREE.Mesh(this.geo, new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false }));
+      const mesh = new THREE.Mesh(this.geo, new THREE.MeshBasicMaterial({ transparent: true, depthWrite: false, side: THREE.DoubleSide }));
       mesh.visible = false;
       parent.add(mesh);
       this.items.push({ mesh, left: 0 });
@@ -119,5 +118,30 @@ export class Bursts {
     }
   }
 
+  /** 都收掉（轮完这一段：没炸完的不留在场上） */
+  clear(): void { this.items.forEach(it => { it.left = 0; it.mesh.visible = false; }); }
+
   dispose(): void { this.items.forEach(it => { it.mesh.removeFromParent(); it.mesh.material.dispose(); }); this.geo.dispose(); }
+}
+
+/**
+ * 一张小画布当贴图：正中写一个字；disc 给了颜色就先画一个实心圆（带一圈边）当底。
+ * px = 画布边长（像素），font = 字占画布的多少
+ */
+export function letterTexture(text: string, color: string, o: { px: number; font: number; disc?: { fill: string; edge: string } }): THREE.CanvasTexture {
+  const c = document.createElement('canvas');
+  c.width = c.height = o.px;
+  const g = c.getContext('2d')!, mid = o.px / 2;
+  if (o.disc) {
+    g.beginPath(); g.arc(mid, mid, mid * 0.92, 0, Math.PI * 2);
+    g.fillStyle = o.disc.fill; g.fill();
+    g.lineWidth = o.px * 0.07; g.strokeStyle = o.disc.edge; g.stroke();
+  }
+  g.font = `bold ${Math.round(o.px * o.font)}px monospace`;
+  g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillStyle = color;
+  g.fillText(text, mid, mid + o.px * 0.05);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
 }

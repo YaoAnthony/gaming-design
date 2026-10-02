@@ -78,10 +78,11 @@ export const DEFAULT_CONFIG: GameConfig = {
     rhythm: {
       heroZ: 0.75, tail: 0.2, heroScale: 2.5,
       travelBeats: 4, dropBeats: 1,
-      windows: { perfect: 60, good: 130 }, passRatio: 0.6,
+      windows: { perfect: 60, good: 130 }, passRatio: 0.6, bossHp: 16,
       hitWindowMs: 80, barClear: 0.6,
-      jumpVelocity: 11, gravity: 60,
-      enterMs: 700, cameraMs: 350, screenTilt: 50,
+      jumpVelocity: 21, gravity: 58,   // 跳 3.8 格高、滞空 0.72 秒
+      enterMs: 900, cameraMs: 350, screenTilt: 50,
+      sway: { zoom: 0.014, rollDeg: 0.8, nodDeg: 3, screenRollDeg: 2.5 },
     },
   },
 };

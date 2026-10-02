@@ -62,6 +62,10 @@ h2 { font-size: 12px; color: var(--muted); margin: 14px 0 6px; text-transform: u
 .rhythm-judge.perfect .rj-word { color: #ffd166; }
 .rhythm-judge.good .rj-word { color: #4cc9f0; }
 .rhythm-judge.miss .rj-word { color: #ef476f; }
+/* 破屏的那一刻：整个画面闪一下白光 */
+.whiteout { position: absolute; inset: 0; background: #fff; pointer-events: none; animation: whiteout .5s ease-out both; }
+@keyframes whiteout { from { opacity: .95; } to { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .whiteout { animation-duration: .01s; } }
 /* 节奏关卡的按键提示：画面底下一排键帽 */
 .rhythm-keys { position: absolute; bottom: 2.2cqh; left: 0; right: 0; display: flex; justify-content: center; gap: 1.6em; font-size: clamp(12px, 1.5cqw, 28px); color: #e6e8f0; }
 .rhythm-keys .rk-item { display: flex; align-items: center; gap: .35em; padding: .25em .6em; background: rgba(11, 11, 20, .88); border: 1px solid rgba(255,255,255,.2); border-radius: 8px; }
@@ -234,3 +238,22 @@ label.check { display: flex; align-items: center; gap: 6px; margin: 8px 0; color
 .stage:has(> .crumple) > .hud { opacity: 0; }
 .crumple-hand-layer { position: absolute; inset: 0; pointer-events: none; }
 .crumple-hand { position: absolute; left: 0; top: 0; background-repeat: no-repeat; image-rendering: pixelated; will-change: transform; }
+
+/* 技术验证编辑器（开发工具） */
+.lab { padding: 16px; overflow: auto; }
+.lab-panel { display: flex; flex-direction: column; gap: 12px; max-width: 900px; }
+.lab-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.lab-clock { display: flex; align-items: center; gap: 16px; padding: 14px 16px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; font-family: monospace; }
+.lab-time { font-size: 32px; font-weight: bold; color: var(--text); }
+.lab-bar, .lab-count { color: var(--muted); }
+.lab-count { margin-left: auto; }
+.lab-beat { width: 18px; height: 18px; border-radius: 50%; background: #2a3050; }
+.lab-beat.on { background: #4cc9f0; box-shadow: 0 0 10px #4cc9f0; }
+.lab-beat.on.first { background: #ffd166; box-shadow: 0 0 10px #ffd166; }
+.lab-sections { display: flex; gap: 4px; }
+.lab-section { flex-basis: 0; display: flex; flex-direction: column; gap: 2px; padding: 6px 8px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; color: var(--muted); font-size: 12px; overflow: hidden; }
+.lab-section.now { border-color: #ffd166; color: var(--text); }
+.lab-keys { display: flex; flex-wrap: wrap; gap: 6px; min-height: 34px; font-family: monospace; font-size: 12px; color: var(--muted); }
+.lab-key { display: flex; align-items: center; gap: 5px; padding: 3px 7px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; }
+.lab-key kbd { padding: 1px 6px; font-weight: bold; color: #0b0b14; background: #ffd166; border-radius: 4px; }
+.lab-status { color: #80ed99; }

@@ -19,7 +19,7 @@ export const rhythmSession = (): RhythmSession | null => current;
 export function beginRhythm(chart: Chart, audioUrl: string, volume: number): RhythmSession | null {
   if (current) return null;
   const notes = notesOf(chart);
-  current = { chart, notes, conductor: new Conductor(chart, audioUrl, volume), score: new Scoreboard(notes.length) };
+  current = { chart, notes, conductor: new Conductor(chart, audioUrl, volume), score: new Scoreboard(notes.length + notes.filter(n => n.holdMs).length) };   // 长按算两下：头和尾巴
   return current;
 }
 

@@ -1,56 +1,78 @@
-// ===== 节奏大师（2D）：四条道从钢琴往下铺到画面底边，音符从琴键上落下来，到线上时按那条道的键 =====
-// 四条道上窄下宽（上面接着钢琴，下面和画面一样宽）：破屏到 3D 时屏幕往后一倒，这四条道正好接上画面外的大道。
-// 从左到右四条道的键：A、W、S、D（方向键是 ← ↑ ↓ →）。按哪条道的键，小人就跳到哪条道的线上去接那个音符
+// ===== 节奏大师（2D）：三条道竖着铺满整个房间，音符从上面落下来，落到地面那条线上时按那条道的键 =====
+// 从左到右三条道的键：A、S、D（方向键是 ← ↓ →）。按哪条道的键，小人就跑到哪条道上去接那个音符。
+// 长的音符是长按：头落到线上时按下，一直按住到尾巴过线才松手。
+// 拍子看得见：每一拍有一条横线跟着音符一起落下来（小节线更亮），落到判定线上的那一刻判定线亮一下。
 import Phaser from 'phaser';
-import { NoteTrack, RHYTHM_MODES } from '@/rhythm';
+import { MANIA_KEYS, NoteTrack, RHYTHM_MODES } from '@/rhythm';
 import { Colors } from '@/game/palette';
-import { burst, defineFlatMode, JUDGE_COLOR, NoteSprites, Receptor, type Press } from './define';
+import { burst, defineFlatMode, JUDGE_COLOR, makeKit, NoteSprites, Receptor, tossIn, tossOut } from './define';
 
 const LANES = RHYTHM_MODES.mania.lanes;
-/** 判定线在房间的多高（比例）；音符占道宽的多少、落到线上时多高（格）、刚出来时是到线上的几成大；按键时线上亮的那一块多高（格） */
-const TRACK = { lineY: 0.86, width: 0.8, height: 0.5, startScale: 0.45, pad: 0.9, past: 1.06 };
-/** 从左到右每条道按哪个方向、道底下写哪个键 */
-const KEYS: { key: keyof Press; label: string }[] = [{ key: 'left', label: 'A' }, { key: 'up', label: 'W' }, { key: 'down', label: 'S' }, { key: 'right', label: 'D' }];
+/** 判定线比地面高多少（格）；音符占道宽的多少、多高（格）；按键时线上亮的那一块多高（格）；键位写在地面下面多深（格） */
+const TRACK = { line: 0.2, width: 0.8, height: 0.45, pad: 1, label: 1, past: 1.05 };
+/** 拍线：普通拍、小节线各多亮；判定线平时多粗、拍点上多粗（像素），拍点后多久（占一拍的比例）回到平时 */
+const BEAT = { alpha: 0.28, barAlpha: 0.7, line: 4, pulse: 9, decay: 0.35 };
 
 defineFlatMode('mania', (ctx, notes) => {
-  const { scene, room, piano, tile: T } = ctx;
+  const { scene, room, tile: T } = ctx;
   const track = new NoteTrack(notes, ctx.score);
-  const topY = piano.y + piano.h, lineY = room.y + room.h * TRACK.lineY;
-  /** 第 lane 条道的左边线在进度 p（0 = 钢琴底下，1 = 判定线）处的 x */
-  const edgeX = (lane: number, p: number) => Phaser.Math.Linear(piano.x + piano.w * lane / LANES, room.x + room.w * lane / LANES, p);
+  const topY = room.y, lineY = ctx.ground - TRACK.line * T, laneW = room.w / LANES, midX = (lane: number) => room.x + (lane + 0.5) * laneW;
   const y = (p: number) => Phaser.Math.Linear(topY, lineY, p);
-  const midX = (lane: number) => (edgeX(lane, 1) + edgeX(lane + 1, 1)) / 2, laneW = room.w / LANES;
-  // 道：五条边线 + 判定线 + 键位；每条道线上一块按键时会亮的亮片
-  const guide = scene.add.graphics().setDepth(ctx.depth).setVisible(false);
+  // 道具（原点在判定线正中）：道的竖线、键位、每条道线上一块按键时会亮的亮片
+  const kit = makeKit(scene, room.x + room.w / 2, lineY, ctx.depth), rx = (x: number) => x - (room.x + room.w / 2);
+  const guide = scene.add.graphics();
   guide.lineStyle(2, Colors.dim, 0.9);
-  for (let i = 0; i <= LANES; i++) guide.lineBetween(edgeX(i, 0), topY, edgeX(i, 1.2), y(1.2));
-  guide.lineStyle(4, Colors.gold, 1); guide.lineBetween(room.x, lineY, room.x + room.w, lineY);
-  const labels = KEYS.map((k, i) => scene.add.text(midX(i), lineY + T * 0.9, k.label, { fontFamily: 'monospace', fontSize: `${Math.round(T * 0.8)}px`, fontStyle: 'bold', color: '#ffd166' }).setOrigin(0.5).setDepth(ctx.depth + 1).setVisible(false));
-  const receptors = KEYS.map((_, i) => new Receptor(scene, scene.add.rectangle(midX(i), lineY, laneW * 0.96, TRACK.pad * T, Colors.paper).setDepth(ctx.depth).setVisible(false)));
+  for (let i = 0; i <= LANES; i++) guide.lineBetween(rx(room.x + i * laneW), topY - lineY, rx(room.x + i * laneW), 0);
+  const labels = MANIA_KEYS.map((k, i) => scene.add.text(rx(midX(i)), ctx.ground + TRACK.label * T - lineY, k.label, { fontFamily: 'monospace', fontSize: `${Math.round(T * 0.9)}px`, fontStyle: 'bold', color: '#ffd166' }).setOrigin(0.5));
+  const pads = MANIA_KEYS.map((_, i) => scene.add.rectangle(rx(midX(i)), -TRACK.pad * T / 2, laneW * 0.96, TRACK.pad * T, Colors.paper));
+  kit.add([guide, ...labels, ...pads]);
+  const receptors = pads.map(p => new Receptor(scene, p));
+  // 拍线和判定线每帧重画：拍线在落，判定线跟着拍子一粗一细
+  const beats = scene.add.graphics().setDepth(ctx.depth).setVisible(false);
   const sprites = new NoteSprites(track, ctx.travelMs, TRACK.past,
-    () => scene.add.rectangle(0, 0, 1, 1, Colors.violet).setStrokeStyle(2, Colors.paper).setDepth(ctx.depth + 1),
-    (o, n, p) => {
-      const left = edgeX(n.lane, p), right = edgeX(n.lane + 1, p), k = TRACK.startScale + (1 - TRACK.startScale) * Math.min(1, p);
-      o.setPosition((left + right) / 2, y(p)).setSize((right - left) * TRACK.width, TRACK.height * T * k).setOrigin(0.5);
+    n => scene.add.rectangle(0, 0, laneW * TRACK.width, TRACK.height * T, n.holdMs ? Colors.mint : Colors.violet).setStrokeStyle(2, Colors.paper).setDepth(ctx.depth + 1),
+    (o, n, p, tail, holding) => {
+      // 长按：从尾巴画到头；按住的时候头停在线上，尾巴接着往下落
+      const head = y(holding ? 1 : p), end = Math.min(head, y(Math.max(0, tail))), h = Math.max(TRACK.height * T, head - end);
+      o.setPosition(midX(n.lane), head - h / 2 + TRACK.height * T / 2).setSize(laneW * TRACK.width, h).setOrigin(0.5);
     });
-  /** 小人现在在第几条道上（站在判定线上）：一开始在中间偏左那条 */
-  let heroLane = 1;
+  /** 小人现在在第几条道上：一开始在他站的那条 */
+  const homeLane = Phaser.Math.Clamp(Math.floor((ctx.heroX - room.x) / laneW), 0, LANES - 1);
+  let heroLane = homeLane;
 
   return {
-    setActive(on) { guide.setVisible(on); labels.forEach(l => l.setVisible(on)); receptors.forEach(r => r.setVisible(on)); if (on) heroLane = 1; },
+    setActive(on) { beats.setVisible(on); if (on) { tossIn(scene, kit, ctx.boss); heroLane = homeLane; } else tossOut(scene, kit); },
     update(now, press) {
       const w = ctx.config().windows;
-      KEYS.forEach((k, lane) => {
-        if (!press[k.key]) return;
-        heroLane = lane;   // 跳到这条道上
+      MANIA_KEYS.forEach((k, lane) => {
+        if (!press[k.dir]) return;
+        heroLane = lane;   // 跑到这条道上
         const hit = track.press(now, w, n => n.lane === lane);
         receptors[lane].pulse(hit?.judgement ?? null);
         if (hit) { burst(scene, midX(lane), lineY, T * 1.2, JUDGE_COLOR[hit.judgement], ctx.depth + 2); ctx.punch(); }
       });
-      for (const n of track.sweep(now, w)) receptors[n.lane].pulse('miss');
-      ctx.hero.setPosition(midX(heroLane), lineY - ctx.hero.displayHeight / 2);
+      // 长按：按到尾巴炸一下；提前松手红一下
+      const holds = track.holds(now, w, n => press.held[MANIA_KEYS[n.lane].dir]);
+      for (const n of holds.kept) { burst(scene, midX(n.lane), lineY, T * 1.2, JUDGE_COLOR.perfect, ctx.depth + 2); ctx.punch(); }
+      for (const n of [...holds.dropped, ...track.sweep(now, w)]) receptors[n.lane].pulse('miss');
+      ctx.hero.setPosition(midX(heroLane), ctx.ground - ctx.hero.displayHeight / 2);
     },
-    draw(now) { sprites.draw(now); },
-    destroy() { guide.destroy(); labels.forEach(l => l.destroy()); receptors.forEach(r => r.destroy()); sprites.destroy(); },
+    draw(now) {
+      sprites.draw(now);
+      beats.clear();
+      const { ms, offsetMs } = ctx.beat, phase = (now - offsetMs) / ms;
+      // 还在路上的每一拍一条横线：和音符一样的速度落下来，正好在拍点上落到判定线
+      for (let k = Math.ceil(phase); offsetMs + k * ms - now <= ctx.travelMs; k++) {
+        if (k < 0) continue;
+        const p = 1 - (offsetMs + k * ms - now) / ctx.travelMs, bar = k % 4 === 0;
+        beats.lineStyle(bar ? 3 : 1, Colors.paper, bar ? BEAT.barAlpha : BEAT.alpha);
+        beats.lineBetween(room.x, y(p), room.x + room.w, y(p));
+      }
+      // 判定线：拍点上一下变粗，然后收回去
+      const since = phase < 0 ? 1 : phase % 1;
+      beats.lineStyle(BEAT.line + (BEAT.pulse - BEAT.line) * Math.max(0, 1 - since / BEAT.decay), Colors.gold, 1);
+      beats.lineBetween(room.x, lineY, room.x + room.w, lineY);
+    },
+    destroy() { kit.destroy(); beats.destroy(); sprites.destroy(); },
   };
 });

@@ -4,4 +4,4 @@ export * from './score';
 export * from './flight';
 export * from './hitsound';
 export * from './session';
-export { chartById, CHARTS } from './charts';
+export { chartById, chartOfArena, CHARTS } from './charts';

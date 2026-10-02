@@ -1,3 +1,6 @@
 node_modules/
 dist/
 *.local
+
+# 谱面录制留的带时间的备份（recordings/<谱面 id>.json 那一份进仓库）
+recordings/*-20*.json

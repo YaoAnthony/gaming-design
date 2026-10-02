@@ -28,10 +28,12 @@ export interface HudState {
   /** 右上角分数；null = 这一层不显示 */
   score: number | null;
   /** 节奏关卡：连击数、最近一次判定（seq 每次判定加一，同样的判定连着出也重新闪）；null = 不在节奏关卡里 */
+  /** 整个画面闪一下白光（破屏的那一刻）：每闪一次加一 */
+  whiteout: number;
   rhythm: { combo: number; judge: 'perfect' | 'good' | 'miss' | null; seq: number; /** 现在是哪种玩法：底下的按键提示跟着换 */ mode: string | null } | null;
 }
 
-const initialState: HudState = { mode: 'idle', playtest: false, roomKey: '', jumps: 0, destroyed: 0, message: null, boss: null, bossIntro: null, hearts: null, dialogue: null, final: false, wonStage: 0, wonHat: false, place: '', controls: 'jump', score: null, rhythm: null };
+const initialState: HudState = { mode: 'idle', playtest: false, roomKey: '', jumps: 0, destroyed: 0, message: null, boss: null, bossIntro: null, hearts: null, dialogue: null, final: false, wonStage: 0, wonHat: false, place: '', controls: 'jump', score: null, rhythm: null, whiteout: 0 };
 
 const hudSlice = createSlice({
   name: 'hud',
@@ -55,9 +57,10 @@ const hudSlice = createSlice({
     setRhythm(state, action: PayloadAction<{ combo: number; judge: 'perfect' | 'good' | 'miss' | null } | null>) {
       state.rhythm = action.payload && { ...action.payload, seq: (state.rhythm?.seq ?? 0) + 1, mode: state.rhythm?.mode ?? null };
     },
+    whiteout(state) { state.whiteout++; },
     setRhythmMode(state, action: PayloadAction<string>) { if (state.rhythm) state.rhythm.mode = action.payload; },
   },
 });
 
-export const { setMode, setRoomKey, setStats, flash, clearMessage, setBoss, setBossIntro, setHearts, setDialogue, setPlace, setControls, setScore, setRhythm, setRhythmMode } = hudSlice.actions;
+export const { setMode, setRoomKey, setStats, flash, clearMessage, setBoss, setBossIntro, setHearts, setDialogue, setPlace, setControls, setScore, setRhythm, setRhythmMode, whiteout } = hudSlice.actions;
 export default hudSlice.reducer;

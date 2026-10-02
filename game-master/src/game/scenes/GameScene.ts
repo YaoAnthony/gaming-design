@@ -17,7 +17,7 @@ import { store } from '@/redux/store';
 import { resizeGame } from '@/game/resize';
 import { Music } from '@/game/Music';
 import { DEFAULT_MUSIC, NO_MUSIC } from '@/asset';
-import { flash, setBoss, setBossIntro, setControls, setHearts, setDialogue, setMode, setPlace, setRhythm, setRhythmMode, setScore, setStats } from '@/redux/slices/hudSlice';
+import { flash, setBoss, setBossIntro, setControls, setHearts, setDialogue, setMode, setPlace, setRhythm, setRhythmMode, setScore, setStats, whiteout } from '@/redux/slices/hudSlice';
 import { setConfig } from '@/redux/slices/configSlice';
 import { checkpoint, clearRun } from '@/redux/slices/runSlice';
 import { mapText, tr } from '@/i18n';
@@ -34,6 +34,8 @@ import { Growth } from '@/game/core/Growth';
 import { Health } from '@/game/core/Health';
 import { PopOut } from '@/game/core/PopOut';
 import { RhythmFight } from '@/game/rhythm/RhythmFight';
+import { chartById, chartOfArena } from '@/rhythm';
+import { DEFAULT_PROJECT } from '@/game/world/defaultWorld';
 import type { DeathKey } from '@/i18n/keys';
 import { CrumpleFx } from '@/game/core/CrumpleFx';
 import { GameInput } from '@/game/core/GameInput';
@@ -42,6 +44,9 @@ import { buildBackground } from '@/game/core/backdrop';
 import { applySceneFx, type SceneFx } from '@/game/core/sceneFx';
 import { vortex } from '@/game/core/vortex';
 import { Colors, hex } from '@/game/palette';
+
+/** 节奏关卡：开打前骷髅王那句话显示多久、破屏那一刻画面闪多久（毫秒） */
+const FESTIVAL_LINE_MS = 1800, BREAK_FLASH_MS = 220;
 
 export class GameScene extends Phaser.Scene {
   private startData!: StartGameData;
@@ -178,14 +183,29 @@ export class GameScene extends Phaser.Scene {
     // 节奏关卡：骷髅王弹琴时这一层的音乐让位给那首曲子，打完音乐回来
     this.rhythm = new RhythmFight({
       scene: this, cfg: this.cfg, player: () => this.player, held: () => this.controls.read(),
-      canStart: () => !this.busy && !this.crumple.active, away: () => this.popOut.away, popOut: from => this.popOut.request(from),
+      standAt: () => this.respawn.entry,
+      groundBelow: (x, y) => {   // 从这一格往下找到第一格实心的，地面就是它的顶
+        const cx = Math.floor(x / T);
+        let cy = Math.floor(y / T);
+        while (cy < this.terrain.h && !this.terrain.isSolid(cx, cy)) cy++;
+        return cy * T;
+      },
+      canStart: () => !this.busy && !this.crumple.active && this.player.body.blocked.down,
+      away: () => this.popOut.away, popOut: from => this.popOut.request(from),
+      say: (line, done) => this.dialogue.cutscene('npc.skeletonKing', [{ text: line, autoMs: FESTIVAL_LINE_MS }], this.time.now, done),
       onBegin: () => this.music.play(NO_MUSIC), onEnd: () => this.music.playBase(),
-      onMode: mode => { this.flash(`rhythm.mode.${mode}`, hex(Colors.gold)); store.dispatch(setRhythmMode(mode)); },
+      onMode: mode => { store.dispatch(setRhythmMode(mode)); },
+      taunt: mode => tr(`rhythm.taunt.${mode}`),
       onScore: v => {
         store.dispatch(setScore(v ? v.points : null));
         if (!v || v.judge || v.fresh) store.dispatch(setRhythm(v && { combo: v.combo, judge: v.judge }));   // 自动判的只动分数，不把上一次的判定字冲掉
       },
-      onResult: (won, percent) => this.flash(won ? 'rhythm.won' : 'rhythm.lost', hex(won ? Colors.mint : Colors.rose), { percent }),
+      onBoss: v => store.dispatch(setBoss(v)),
+      onBreak: () => { store.dispatch(whiteout()); this.cameras.main.flash(BREAK_FLASH_MS); },
+      onResult: (won, percent) => {
+        this.flash(won ? 'rhythm.won' : 'rhythm.lost', hex(won ? Colors.mint : Colors.rose), { percent });
+        if (won && chartOfArena(this.floor.id)) this.win(true);   // 在庆典大厅打赢了骷髅王：通关
+      },
     });
     this.solids = new Solids(this, () => ({ player: this.player, enemies: this.enemies.group }));
     this.ctx = this.buildContext();
@@ -250,12 +270,15 @@ export class GameScene extends Phaser.Scene {
       popOut: () => this.popOut.request(),
       heroEntry: q => this.popOut.answerEntry(q),
       heroReturn: at => this.popOut.comeBack(at),
-      rhythmStart: r => this.rhythm.start(r.chartId),
+      rhythmStart: r => this.startRhythm(r.chartId),
       rhythmStop: () => this.rhythm.stop(),
     }, this.playtest);
     // 玩家出场：换层带着 origin（这一局早就开始了），没有就是这一局的第一次出现
     this.respawn.appear(this.startData.origin ? 'floor' : 'start');
     this.saveCheckpoint();
+    // 这一层是哪张谱的场地（庆典大厅）：骷髅王已经在等了，人一落地就开打
+    const festival = chartOfArena(this.floor.id);
+    if (festival) this.rhythm.stage(festival.id, true);
     // 存档里人在 3D 世界：出场之后接着跳出去
     if (!this.playtest && store.getState().run.realm === 'deep') this.popOut.request();
 
@@ -462,6 +485,18 @@ export class GameScene extends Phaser.Scene {
   private exitPlaytest(): void {
     bridge.emit(EVT.playtestExit);
     this.scene.start(SCENE.editor);
+  }
+
+  /** 开一场节奏关卡：这张谱有自己的场地、人又不在那一层，就先传过去（到了那边自己开打）；否则就地开 */
+  private startRhythm(chartId: string): void {
+    const arena = chartById(chartId)?.arena;
+    if (!arena || arena === this.floor.id) { this.rhythm.start(chartId); return; }
+    if (this.frozen || this.crumple.active) return;
+    // 这份地图里没有那一层（编辑器里的地图是旧的）：从打包的默认地图里借过来
+    const floor = this.project.floors.find(f => f.id === arena) ?? DEFAULT_PROJECT.floors.find(f => f.id === arena);
+    if (!floor) return;
+    if (!this.project.floors.includes(floor)) this.project = { ...this.project, floors: [...this.project.floors, floor] };
+    this.goToFloor(arena);
   }
 
   // ---------- 引线 / 效果 ----------

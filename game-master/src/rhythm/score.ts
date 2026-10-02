@@ -52,6 +52,8 @@ export class Scoreboard {
 export class NoteTrack {
   /** 处理过的（打中或漏掉）：不再画、不再判 */
   readonly done = new Set<number>();
+  /** 正按着的长按（头已经打中，还没按到尾巴） */
+  readonly holding: Note[] = [];
   /** 这个下标之前的都处理过了 */
   private first = 0;
 
@@ -72,14 +74,35 @@ export class NoteTrack {
     if (!j) return null;
     this.done.add(best);
     this.board.add(j);
+    if (this.notes[best].holdMs) this.holding.push(this.notes[best]);
     return { judgement: j, note: this.notes[best] };
+  }
+
+  /**
+   * 每帧看正按着的长按：held 说这个音符的键还按没按着。按到尾巴（离结束不到一个 Good 窗也算）是 Perfect；
+   * 提前松开是 Miss。返回这次按完的和断掉的
+   */
+  holds(nowMs: number, w: Windows, held: (n: Note) => boolean): { kept: Note[]; dropped: Note[] } {
+    const kept: Note[] = [], dropped: Note[] = [];
+    for (let i = this.holding.length - 1; i >= 0; i--) {
+      const n = this.holding[i], left = n.timeMs + (n.holdMs ?? 0) - nowMs;
+      if (left <= w.good) { kept.push(n); this.board.add('perfect'); }
+      else if (!held(n)) { dropped.push(n); this.board.add('miss'); }
+      else continue;
+      this.holding.splice(i, 1);
+    }
+    return { kept, dropped };
   }
 
   /** 过了时间窗还没打的算漏：返回这次新漏的那些 */
   sweep(nowMs: number, w: Windows): Note[] {
     const missed: Note[] = [];
     while (this.first < this.notes.length && nowMs - this.notes[this.first].timeMs > w.good) {
-      if (!this.done.has(this.first)) { this.done.add(this.first); this.board.add('miss'); missed.push(this.notes[this.first]); }
+      if (!this.done.has(this.first)) {
+        const n = this.notes[this.first];
+        this.done.add(this.first); this.board.add('miss'); missed.push(n);
+        if (n.holdMs) this.board.add('miss', 'auto');   // 长按的头漏了：尾巴也算漏
+      }
       this.first++;
     }
     return missed;

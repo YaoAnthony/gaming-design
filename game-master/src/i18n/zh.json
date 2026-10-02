@@ -1,17 +1,26 @@
 {
   "startKey": "按空格开始",
   "startTouch": "点击开始",
-  "startPad": { "before": "按", "after": "开始" },
+  "startPad": {
+    "before": "按",
+    "after": "开始"
+  },
   "continueKey": "按空格继续",
   "continueTouch": "点击继续",
-  "continuePad": { "before": "按", "after": "继续" },
+  "continuePad": {
+    "before": "按",
+    "after": "继续"
+  },
   "newGame": "新游戏",
   "rotate": "横屏玩",
   "loading": "加载中 {{pct}}%",
   "place": "当前位置: {{place}}",
   "dead": "U DEAD",
   "deadHint": "按 R 重来",
-  "deadPad": { "before": "按", "after": "重来" },
+  "deadPad": {
+    "before": "按",
+    "after": "重来"
+  },
   "won": "通关",
   "wonHat0": "通关！你这帽子真好看",
   "wonHat1": "通关！你竟然还带着这顶帽子",
@@ -30,7 +39,47 @@
     "sub": "BOSS",
     "name": "SLIME KING"
   },
-  "rhythm": {"won": "过关 {{percent}}%", "lost": "没过 {{percent}}%", "judge": {"perfect": "完美", "good": "不错", "miss": "漏了"}, "mode": {"dash": "跑", "taiko": "鼓", "mania": "琴", "saber": "砍", "dodge": "躲"}, "hint": {"top": "上排", "bottom": "下排", "red": "红", "blue": "蓝", "lanes": "一条道一个键", "left": "←", "up": "↑", "down": "↓", "right": "→", "switch": "换道", "jump": "跳"}},
+  "rhythm": {
+    "won": "过关 {{percent}}%",
+    "lost": "没过 {{percent}}%",
+    "judge": {
+      "perfect": "完美",
+      "good": "不错",
+      "miss": "漏了"
+    },
+    "mode": {
+      "giveup": "跳",
+      "dash": "跑",
+      "taiko": "鼓",
+      "mania": "琴",
+      "osu": "圈",
+      "saber": "砍",
+      "dodge": "躲"
+    },
+    "hint": {
+      "top": "上排",
+      "bottom": "下排",
+      "red": "红",
+      "blue": "蓝",
+      "lanes": "一条道一个键",
+      "hold": "长的按住",
+      "ring": "环合上时按",
+      "move": "移动",
+      "slash": "砍",
+      "switch": "躲开红墙",
+      "jump": "跳过黄杠",
+      "hop": "上高柱 / 跨尖刺"
+    },
+    "taunt": {
+      "giveup": "别放弃！",
+      "dash": "跑起来！",
+      "taiko": "欢乐时光！",
+      "mania": "弹起来！",
+      "osu": "接住！",
+      "saber": "砍了它！",
+      "dodge": "滚出去！"
+    }
+  },
   "msg": {
     "roomReset": "房间已重置",
     "mapReset": "地图已重置",
@@ -78,6 +127,9 @@
     "pacKing": [
       "嗯~ 这葡萄真好吃，也不知道这小子被追的怎么样了",
       "诶？！怎么全没了"
+    ],
+    "festival": [
+      "准备好庆典了吗？！"
     ]
   },
   "map": {
@@ -92,7 +144,9 @@
     "Floor 5": "第五层",
     "Paper Mill": "造纸坊",
     "Floor 6": "第六层",
-    "Fuse Works": "引线工坊"
+    "Fuse Works": "引线工坊",
+    "Festival": "庆典",
+    "Festival Hall": "庆典大厅"
   },
   "touch": {
     "up": "上",

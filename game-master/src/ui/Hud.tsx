@@ -9,10 +9,12 @@ import { ResetButtonIcon } from './PadIcons';
 
 /** 节奏关卡每种玩法的按键提示：按哪些键、干什么（文案在 i18n 的 rhythm.hint 下） */
 const RHYTHM_KEYS: Record<string, { keys: string[]; hint: string }[]> = {
+  giveup: [{ keys: ['␣'], hint: 'hop' }],
   dash: [{ keys: ['W'], hint: 'top' }, { keys: ['S'], hint: 'bottom' }],
   taiko: [{ keys: ['A'], hint: 'red' }, { keys: ['D'], hint: 'blue' }],
-  mania: [{ keys: ['A', 'W', 'S', 'D'], hint: 'lanes' }],
-  saber: [{ keys: ['A'], hint: 'left' }, { keys: ['W'], hint: 'up' }, { keys: ['S'], hint: 'down' }, { keys: ['D'], hint: 'right' }],
+  mania: [{ keys: ['A', 'S', 'D'], hint: 'lanes' }, { keys: ['━'], hint: 'hold' }],
+  osu: [{ keys: ['Q', 'W', 'E', 'R'], hint: 'ring' }, { keys: ['━'], hint: 'hold' }],
+  saber: [{ keys: ['A', 'D'], hint: 'move' }, { keys: ['␣'], hint: 'slash' }],
   dodge: [{ keys: ['A', 'D'], hint: 'switch' }, { keys: ['␣'], hint: 'jump' }],
 };
 
@@ -66,6 +68,7 @@ export function Hud() {
       )}
       {hud.place && <div className="place">{t('place', { place: hud.place })}</div>}
       {hud.score !== null && <div className="score">{hud.score}</div>}
+      {hud.whiteout > 0 && <div key={hud.whiteout} className="whiteout" />}
       {hud.rhythm?.mode && RHYTHM_KEYS[hud.rhythm.mode] && (
         <div className="rhythm-keys">
           {RHYTHM_KEYS[hud.rhythm.mode].map(k => (

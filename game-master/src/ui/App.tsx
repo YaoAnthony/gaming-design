@@ -7,8 +7,10 @@ import './app.css';
 
 /** 编辑器（连同 antd）按需加载：只有本地开发的电脑端会打开它 */
 const EditorRoot = lazy(() => import('./editor/EditorRoot'));
+/** 技术验证用的小工具（谱面录制……）：同样只有本地开发的电脑端有 */
+const LabView = lazy(() => import('./lab/LabView'));
 
-type Tab = 'game' | 'editor';
+type Tab = 'game' | 'editor' | 'lab';
 
 export function App() {
   const [tab, setTab] = useState<Tab>('game');
@@ -29,8 +31,9 @@ export function App() {
         <span className="brand">Game Master</span>
         <button className={tab === 'game' ? 'active' : ''} onClick={() => setTab('game')}>游戏</button>
         <button className={tab === 'editor' ? 'active' : ''} onClick={() => setTab('editor')}>地图编辑器</button>
+        <button className={tab === 'lab' ? 'active' : ''} onClick={() => setTab('lab')}>技术验证编辑器1</button>
       </nav>
-      {tab === 'game' ? <GameView /> : <Suspense fallback={null}><EditorRoot /></Suspense>}
+      {tab === 'game' ? <GameView /> : <Suspense fallback={null}>{tab === 'editor' ? <EditorRoot /> : <LabView />}</Suspense>}
       <DevFps />
     </div>
   );

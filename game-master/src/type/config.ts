@@ -161,6 +161,8 @@ export interface RhythmConfig {
   windows: { perfect: number; good: number };
   /** 拿到满分的几成（0..1）才算过关 */
   passRatio: number;
+  /** 骷髅王的血条分几格：分数每往过关线走一步就掉一格，掉光 = 够过关了 */
+  bossHp: number;
   /** 躲：弹幕到主角那一排的前后多少毫秒内，站在那条道上就算被打中 */
   hitWindowMs: number;
   /** 脚离地这么高（格）就跳得过横杠 */
@@ -173,6 +175,11 @@ export interface RhythmConfig {
   cameraMs: number;
   /** 破屏到 3D 时屏幕往后倒多少度：画面里的四条道顺势接上画面外的大道 */
   screenTilt: number;
+  /**
+   * 骷髅王在操控画面：整个画面跟着拍子动。每拍放大一下（比例）、左右晃多少度（两小节晃一个来回）；
+   * 到了 3D，屏幕每拍往后点一下头（度）、左右歪多少度
+   */
+  sway: { zoom: number; rollDeg: number; nodDeg: number; screenRollDeg: number };
 }
 
 export interface Stage3DConfig {

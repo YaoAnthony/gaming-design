@@ -3,18 +3,25 @@
 // 一张谱的每个 2D 段落各有一个玩法实例，只管自己那一段的音符：draw 一直调（音符提前出发，上一段还没完就要开始画），update 只在轮到它时调。
 import Phaser from 'phaser';
 import type { RhythmConfig } from '@/type';
-import { NoteTrack, noteProgress, type Judgement, type ModeId, type Note, type Scoreboard } from '@/rhythm';
+import { NoteTrack, noteProgress, tailProgress, type Judgement, type ModeId, type Note, type Scoreboard } from '@/rhythm';
+import type { MoveInput } from '@/game/mechanics/define';
 import { Colors } from '@/game/palette';
 import type { Rect } from '../PianoBoss';
 
-/** 这一帧刚按下的键（按着不放只算一次）：四个方向（A W S D / 方向键 / 手柄 / 触屏）和空格 */
-export interface Press { left: boolean; right: boolean; up: boolean; down: boolean; jump: boolean }
+/**
+ * 这一帧刚按下的键（按着不放只算一次）：四个方向（A W S D / 方向键 / 手柄 / 触屏）、空格、
+ * 四条道（从左到右 Q W E R；方向键、手柄、触屏的 ← ↑ ↓ → 也算）；held = 四个方向现在按没按着（长按用）
+ */
+export interface Press { left: boolean; right: boolean; up: boolean; down: boolean; jump: boolean; lanes: boolean[]; held: MoveInput }
 
 export interface FlatContext {
   scene: Phaser.Scene;
-  /** 现在这个房间在游戏世界里占的矩形（像素）、钢琴琴键那一条 */
+  /** 现在这个房间在游戏世界里占的矩形（像素）；地面的 y；主角站在哪（x）；音符从哪出来（钢琴琴键的左端）；骷髅王在哪（道具从他手里扔出来） */
   room: Rect;
-  piano: Rect;
+  ground: number;
+  heroX: number;
+  source: { x: number; y: number };
+  boss: { x: number; y: number };
   /** 一格多少像素；画在哪一层（往上加一点点排前后） */
   tile: number;
   depth: number;
@@ -23,13 +30,15 @@ export interface FlatContext {
   score: Scoreboard;
   /** 音符提前多少毫秒出发 */
   travelMs: number;
+  /** 曲子的拍子：一拍多少毫秒、第一拍在曲子的第几毫秒 */
+  beat: { ms: number; offsetMs: number };
   config(): RhythmConfig;
   /** 打中了：替身鼓一下 */
   punch(): void;
 }
 
 export interface FlatMode {
-  /** 轮到 / 轮完：显示、收起自己的轨道 */
+  /** 轮到 / 轮完：摆出、收起自己的道具 */
   setActive(on: boolean): void;
   /** 轮到它时每帧调：按键判定、摆人 */
   update(nowMs: number, press: Press): void;
@@ -52,7 +61,8 @@ export function createFlatMode(id: ModeId, ctx: FlatContext, notes: Note[]): Fla
 
 /**
  * 一段音符在画面上的样子：每个还在路上、还没处理的音符一个物体，出发时建、打掉 / 飞过去时销毁。
- * make 建一个音符的物体，place 按进度（0 = 刚出发，1 = 到拍点）摆它
+ * make 建一个音符的物体；place 摆它：p = 头的进度（0 = 刚出发，1 = 到拍点），tail = 长按尾巴的进度（不是长按就和头一样），
+ * holding = 这个长按正被按着（头已经打中了）
  */
 export class NoteSprites<T extends Phaser.GameObjects.GameObject> {
   private readonly live = new Map<number, T>();
@@ -60,24 +70,57 @@ export class NoteSprites<T extends Phaser.GameObjects.GameObject> {
 
   /** @param past 过了拍点还画多久（进度） */
   constructor(private readonly track: NoteTrack, private readonly travelMs: number, private readonly past: number,
-    private readonly make: (n: Note) => T, private readonly place: (o: T, n: Note, progress: number) => void) {}
+    private readonly make: (n: Note) => T, private readonly place: (o: T, n: Note, p: number, tail: number, holding: boolean) => void) {}
 
   draw(nowMs: number): void {
-    const { notes, done } = this.track;
-    while (this.first < notes.length && noteProgress(notes[this.first], nowMs, this.travelMs) > this.past) this.drop(this.first++);
+    const { notes, done, holding } = this.track;
+    while (this.first < notes.length && tailProgress(notes[this.first], nowMs, this.travelMs) > this.past) this.drop(this.first++);
     for (let i = this.first; i < notes.length; i++) {
-      const p = noteProgress(notes[i], nowMs, this.travelMs);
+      const n = notes[i], p = noteProgress(n, nowMs, this.travelMs);
       if (p < 0) break;
-      if (done.has(i)) { this.drop(i); continue; }
+      const held = holding.includes(n);
+      if (done.has(i) && !held) { this.drop(i); continue; }
       let o = this.live.get(i);
-      if (!o) { o = this.make(notes[i]); this.live.set(i, o); }
-      this.place(o, notes[i], p);
+      if (!o) { o = this.make(n); this.live.set(i, o); }
+      this.place(o, n, p, tailProgress(n, nowMs, this.travelMs), held);
     }
   }
 
   private drop(i: number): void { this.live.get(i)?.destroy(); this.live.delete(i); }
 
   destroy(): void { this.live.forEach(o => o.destroy()); this.live.clear(); }
+}
+
+// ---------- 道具：骷髅王扔过来 ----------
+// 每种玩法的道具（轨道、鼓、打击框……）放进一个容器，容器的原点就是它该在的位置（anchor）。
+// 轮到这种玩法时骷髅王把它扔过来：从他手里划一道弧线、转着、由小变大地落到位；轮完原地缩小淡出。
+
+/** 扔过来用多久（毫秒）、弧线多高（像素）、出手时多小、转几度；收走用多久（毫秒） */
+const TOSS = { ms: 650, arc: 120, from: 0.15, spin: -300, outMs: 200 };
+
+/** 建一个道具容器：原点在 (x, y)，里面的东西用相对它的坐标。先藏着 */
+export function makeKit(scene: Phaser.Scene, x: number, y: number, depth: number): Phaser.GameObjects.Container {
+  return scene.add.container(x, y).setDepth(depth).setVisible(false).setData('anchor', { x, y });
+}
+
+/** 把道具从 from 扔到它该在的位置 */
+export function tossIn(scene: Phaser.Scene, kit: Phaser.GameObjects.Container, from: { x: number; y: number }): void {
+  const to = kit.getData('anchor') as { x: number; y: number }, k = { t: 0 };
+  (kit.getData('toss') as Phaser.Tweens.Tween | undefined)?.stop();
+  kit.setVisible(true).setAlpha(1);
+  const place = () => {
+    kit.setPosition(Phaser.Math.Linear(from.x, to.x, k.t), Phaser.Math.Linear(from.y, to.y, k.t) - Math.sin(Math.PI * k.t) * TOSS.arc);
+    kit.setScale(TOSS.from + (1 - TOSS.from) * k.t).setAngle((1 - k.t) * TOSS.spin);
+  };
+  place();
+  kit.setData('toss', scene.tweens.add({ targets: k, t: 1, duration: TOSS.ms, ease: 'Cubic.easeOut', onUpdate: place, onComplete: place }));
+}
+
+/** 把道具收走：原地缩小淡出 */
+export function tossOut(scene: Phaser.Scene, kit: Phaser.GameObjects.Container): void {
+  (kit.getData('toss') as Phaser.Tweens.Tween | undefined)?.stop();
+  if (!kit.visible) return;
+  kit.setData('toss', scene.tweens.add({ targets: kit, alpha: 0, scale: 0.7, duration: TOSS.outMs, onComplete: () => kit.setVisible(false) }));
 }
 
 // ---------- 击中反馈 ----------
@@ -106,6 +149,5 @@ export class Receptor {
     this.scene.tweens.add({ targets: this.shape, alpha: 0, duration: FEEL.pulseMs });
   }
 
-  setVisible(on: boolean): void { this.shape.setVisible(on); }
   destroy(): void { this.scene.tweens.killTweensOf(this.shape); this.shape.destroy(); }
 }

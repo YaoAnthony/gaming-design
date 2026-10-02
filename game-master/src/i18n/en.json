@@ -1,17 +1,26 @@
 {
   "startKey": "Press Space to start",
   "startTouch": "Tap to start",
-  "startPad": { "before": "Press", "after": "to start" },
+  "startPad": {
+    "before": "Press",
+    "after": "to start"
+  },
   "continueKey": "Press Space to continue",
   "continueTouch": "Tap to continue",
-  "continuePad": { "before": "Press", "after": "to continue" },
+  "continuePad": {
+    "before": "Press",
+    "after": "to continue"
+  },
   "newGame": "New game",
   "rotate": "Rotate to landscape",
   "loading": "Loading {{pct}}%",
   "place": "Location: {{place}}",
   "dead": "U DEAD",
   "deadHint": "Press R",
-  "deadPad": { "before": "Press", "after": "" },
+  "deadPad": {
+    "before": "Press",
+    "after": ""
+  },
   "won": "Cleared",
   "wonHat0": "Cleared! Nice hat.",
   "wonHat1": "Cleared! You're still wearing that hat?!",
@@ -30,7 +39,47 @@
     "sub": "BOSS",
     "name": "SLIME KING"
   },
-  "rhythm": {"won": "Cleared {{percent}}%", "lost": "Failed {{percent}}%", "judge": {"perfect": "PERFECT", "good": "GOOD", "miss": "MISS"}, "mode": {"dash": "DASH", "taiko": "DRUM", "mania": "KEYS", "saber": "SLASH", "dodge": "DODGE"}, "hint": {"top": "top row", "bottom": "bottom row", "red": "red", "blue": "blue", "lanes": "one key per lane", "left": "←", "up": "↑", "down": "↓", "right": "→", "switch": "switch lane", "jump": "jump"}},
+  "rhythm": {
+    "won": "Cleared {{percent}}%",
+    "lost": "Failed {{percent}}%",
+    "judge": {
+      "perfect": "PERFECT",
+      "good": "GOOD",
+      "miss": "MISS"
+    },
+    "mode": {
+      "giveup": "JUMP",
+      "dash": "DASH",
+      "taiko": "DRUM",
+      "mania": "KEYS",
+      "osu": "CIRCLES",
+      "saber": "SLASH",
+      "dodge": "DODGE"
+    },
+    "hint": {
+      "top": "top row",
+      "bottom": "bottom row",
+      "red": "red",
+      "blue": "blue",
+      "lanes": "one key per lane",
+      "hold": "hold the long ones",
+      "ring": "press as the ring closes",
+      "move": "move",
+      "slash": "slash",
+      "switch": "dodge red walls",
+      "jump": "jump yellow bars",
+      "hop": "jump up / over spikes"
+    },
+    "taunt": {
+      "giveup": "DON'T GIVE UP!",
+      "dash": "RUN!",
+      "taiko": "HAPPY TIME!",
+      "mania": "PLAY IT!",
+      "osu": "CATCH THIS!",
+      "saber": "CUT IT!",
+      "dodge": "GET OUT!"
+    }
+  },
   "msg": {
     "roomReset": "Room reset",
     "mapReset": "Map reset",
@@ -78,6 +127,9 @@
     "pacKing": [
       "Mmm~ these grapes are delicious. Wonder how the kid's doing with the chase.",
       "Huh?! Where'd they all go?"
+    ],
+    "festival": [
+      "Ready for the festival?!"
     ]
   },
   "map": {},

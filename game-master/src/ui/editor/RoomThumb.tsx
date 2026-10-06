@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { classify } from '@/game/registry/registry';
 import { decodeFuse, FUSE_CHANNELS, fuseBit } from '@/game/fuse/channels';
-import { Colors, hex } from '@/game/palette';
+import { Colors, hex } from '@/shared/palette';
 
 interface Props { rows: string[]; entities?: string[]; fuse?: string[]; doors?: string[]; keys?: string[]; colors?: Record<number, number>; roomW: number; roomH: number; scale?: number }
 

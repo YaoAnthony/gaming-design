@@ -1,8 +1,8 @@
 // ===== 3D 世界的按键：键盘、手柄、触屏三路合成一套动作 =====
 // 手柄直接读浏览器的（2D 那边走 Phaser 的插件，这里不能用），按钮映射和 2D 是同一张表（game/gamepad.ts）
 import { bridge } from '@/protocol';
-import { touch, TOUCH_ACTION, TOUCH_JUMP } from '@/game/input';
-import { anyPressed, GAMEPAD_BUTTONS, readNativePads } from '@/game/gamepad';
+import { touch, TOUCH_ACTION, TOUCH_JUMP } from '@/shared/input';
+import { anyPressed, GAMEPAD_BUTTONS, readNativePads } from '@/shared/gamepad';
 import { LANE_ARROWS, LANE_KEYS } from '@/rhythm';
 
 /** 键盘上哪些键算哪个动作（KeyboardEvent.code） */

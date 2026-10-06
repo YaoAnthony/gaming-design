@@ -5,7 +5,7 @@ import Phaser from 'phaser';
 import type { RhythmConfig } from '@/type';
 import { NoteTrack, noteProgress, tailProgress, type Judgement, type ModeId, type Note, type Scoreboard } from '@/rhythm';
 import type { MoveInput } from '@/game/mechanics/define';
-import { Colors } from '@/game/palette';
+import { Colors } from '@/shared/palette';
 import type { Rect } from '../PianoBoss';
 
 /**

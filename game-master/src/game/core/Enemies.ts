@@ -4,7 +4,7 @@ import type { EnemySpawn, RoomCoord } from '@/type';
 import { Enemy } from '@/sprite';
 import { playCrush } from '@/particle';
 import type { PlayContext } from './PlayContext';
-import { Colors, hex } from '@/game/palette';
+import { Colors, hex } from '@/shared/palette';
 import { overlaps } from './overlap';
 
 export class Enemies {

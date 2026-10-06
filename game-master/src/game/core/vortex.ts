@@ -2,7 +2,7 @@
 import type Phaser from 'phaser';
 import type { Point } from '@/type';
 import type { PlayContext, Suckable } from './PlayContext';
-import { Colors } from '@/game/palette';
+import { Colors } from '@/shared/palette';
 
 /** @param extra 机制提供的要一起吸走的东西（NPC、Boss……） */
 export function vortex(ctx: PlayContext, p: Point, extra: Suckable[], then: () => void): void {

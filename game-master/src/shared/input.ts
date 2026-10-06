@@ -1,6 +1,9 @@
 // ===== 输入：触屏虚拟按键的状态、几种输入共用的事件（手柄映射在 gamepad.ts）=====
 // React 按钮改这里的状态，游戏场景每帧读；跳跃是一次性事件，走 bridge
-export const touch = { left: false, right: false, up: false, down: false };
+/** 上下左右哪几个按着（键盘、手柄、触屏合起来）：2D 机制和 3D 世界都用 */
+export interface MoveInput { left: boolean; right: boolean; up: boolean; down: boolean }
+
+export const touch: MoveInput = { left: false, right: false, up: false, down: false };
 export const TOUCH_JUMP = 'input:jump';
 /** 俯视层的动作键（炸弹） */
 export const TOUCH_ACTION = 'input:action';

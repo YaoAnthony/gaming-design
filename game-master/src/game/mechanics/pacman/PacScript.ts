@@ -5,7 +5,7 @@ import type { GhostManager } from './Ghosts';
 import type { Bombs } from './Bombs';
 import type { Dir4 } from './GridWalker';
 import { PAC_DIALOGUES } from './dialogues';
-import { Colors, hex } from '@/game/palette';
+import { Colors, hex } from '@/shared/palette';
 
 export type PacPhase = 'play' | 'chase' | 'taunt' | 'bombs' | 'kingWait' | 'king' | 'done';
 

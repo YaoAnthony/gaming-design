@@ -9,7 +9,7 @@ import type { CarryOver, ItemDef } from '@/type';
 import { Items } from '@/game/registry/registry';
 import { lockGroup } from '@/game/world/WorldModel';
 import type { PlayContext } from '@/game/core/PlayContext';
-import { INPUT_DOWN } from '@/game/input';
+import { INPUT_DOWN } from '@/shared/input';
 import type { Mechanic } from '../define';
 import type { Hat } from '../hat/Hat';
 import { LooseKeys, type LooseKey } from './LooseKeys';

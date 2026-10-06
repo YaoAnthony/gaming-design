@@ -24,6 +24,8 @@ npm run desktop    # 打包后用 Electron 打开桌面版；desktop:dev 连开�
 src/
 ├── main.tsx            # React 入口（Provider + App）
 ├── platform/           # 运行环境：网页还是桌面版（Electron），按环境选存储后端（localStorage / 写文件）
+├── shared/             # 不依赖任何引擎、两边都用的：palette（调色板，反复出现的颜色都从这里拿）、input（方向、触屏按键）、gamepad（手柄按键映射、读浏览器原生手柄）
+├── audio/              # 现场合成的音效共用一个出口（synth.ts，接在 Phaser 的总线上）；Boss 的「滴」（bossSound.ts）
 ├── redux/              # 状态：config（可调参数）、editor（地图模型、笔刷、当前房间、撤销栈、文件指纹）、hud（Phaser 推给 React 的数据）、input（最后用的是键盘还是手柄）、settings（语言）
 │   ├── store.ts        # store；persist.ts 决定存什么、怎么读回来（两份：玩家存档 save / 编辑器工作区 editor），存在哪由 src/platform/ 决定
 │   └── slices/
@@ -44,7 +46,6 @@ src/
 │   ├── world/          # 世界模型纯函数：拼图、找出生点、加房间
 │   ├── scenes/         # Boot（加载资产）、Game、Editor；keys.ts 是场景名
 │   ├── rhythm/         # 节奏关卡的游戏这一侧：RhythmFight（整场的主持 + 2D 段落）、PianoBoss（Game Master 和钢琴）、modes/（2D 的玩法）
-│   ├── palette.ts      # 调色板：反复出现的颜色都从这里拿
 │   ├── inputDevice.ts  # 全局盯着玩家用的是键盘还是手柄，记到 store.input
 │   └── PhaserGame.ts   # 创建 / 销毁 Phaser 实例
 └── ui/                 # React 界面：游戏页 + HUD + 通关弹窗（WinModal + Motion 礼花）、编辑器侧边栏（物品栏、房间缩略图布局）

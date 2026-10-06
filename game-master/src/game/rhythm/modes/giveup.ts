@@ -5,7 +5,7 @@
 // 进场、退场是平滑的：柱子从地里升起来 / 沉回去，不是一下子冒出来。
 import Phaser from 'phaser';
 import { NoteTrack, type Note } from '@/rhythm';
-import { Colors } from '@/game/palette';
+import { Colors } from '@/shared/palette';
 import { burst, defineFlatMode, JUDGE_COLOR } from './define';
 
 /**

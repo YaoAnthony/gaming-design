@@ -2,7 +2,7 @@
 // 要砍的方块得在自己这条道上：先换过去，再看准了砍。砍中的方块弹回去，砸在屏幕里的 Game Master 身上。
 import * as THREE from 'three';
 import { noteProgress, NoteTrack, RHYTHM_MODES } from '@/rhythm';
-import { Colors } from '@/game/palette';
+import { Colors } from '@/shared/palette';
 import { defineRhythmMode, Flyers, NoteBoxes } from './define';
 
 const LANES = RHYTHM_MODES.saber.lanes;

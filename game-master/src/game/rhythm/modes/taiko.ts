@@ -1,7 +1,7 @@
 // ===== 太鼓达人（2D）：Game Master 扔过来一面鼓，立在主角面前；红的（咚）蓝的（咔）从他的钢琴那边滚过来，滚到鼓上时红的按 A、蓝的按 D =====
 // 按哪个键鼓面就变哪个颜色（红 / 蓝），不管打没打中：一眼看得出自己按的是哪边
 import { NoteTrack } from '@/rhythm';
-import { Colors } from '@/game/palette';
+import { Colors } from '@/shared/palette';
 import { burst, defineFlatMode, JUDGE_COLOR, makeKit, NoteSprites, tossIn, tossOut } from './define';
 
 /** 鼓：在人前面几格、鼓心离地多高、半径（格）；音符半径（格）；按键时鼓面亮多久（毫秒）；人往鼓那边扑多远（格）、多久收回来（毫秒） */

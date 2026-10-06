@@ -7,7 +7,7 @@ import { CarriedPaper, Enemy, PaperBody, carryLine } from '@/sprite';
 import { playLand } from '@/particle';
 import type { PlayContext } from './PlayContext';
 import { INSET, pushRiderOutOfWalls, rectHitsCells } from './solid';
-import { Colors, hex } from '@/game/palette';
+import { Colors, hex } from '@/shared/palette';
 import { overlaps } from './overlap';
 
 /** 纸落到头上：包围盒底边离头顶在这个范围内就算落上了（像素） */

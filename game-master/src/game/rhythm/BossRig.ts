@@ -3,7 +3,7 @@
 // 会的动作：跟着拍子点头、说话时摇头晃脑、举起双手、敲琴键、甩手扔东西、挨打时缩一下。
 // 坐标：容器的原点在两脚之间的地面上，x 朝右、y 朝下，单位是贴图像素乘上放大倍数。
 import Phaser from 'phaser';
-import { Colors } from '@/game/palette';
+import { Colors } from '@/shared/palette';
 
 /** 贴图怎么切：头占上面几行、身子从第几行开始；头和身子叠几行（脖子） */
 const CUT = { headRows: 14, bodyFrom: 14, neck: 1 };

@@ -2,7 +2,7 @@
 import { App as AntApp, ConfigProvider, theme } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
 import { EditorView } from '../EditorView';
-import { Colors, hex } from '@/game/palette';
+import { Colors, hex } from '@/shared/palette';
 
 export default function EditorRoot() {
   return (

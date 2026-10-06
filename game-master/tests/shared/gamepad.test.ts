@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { anyPressed, GAMEPAD_BUTTONS, GAMEPAD_DPAD, padAction, padDirs, padKind, readNativePads, STICK_DEADZONE } from '@/game/gamepad';
+import { anyPressed, GAMEPAD_BUTTONS, GAMEPAD_DPAD, padAction, padDirs, padKind, readNativePads, STICK_DEADZONE } from '@/shared/gamepad';
 
 const NONE = { left: false, right: false, up: false, down: false };
 

@@ -43,7 +43,7 @@ import { standingSpot, touchingHazard } from '@/game/core/roomSpots';
 import { Backdrop } from '@/game/background/Backdrop';
 import { applySceneFx, type SceneFx } from '@/game/core/sceneFx';
 import { vortex } from '@/game/core/vortex';
-import { Colors, hex } from '@/game/palette';
+import { Colors, hex } from '@/shared/palette';
 
 /** 节奏关卡：破屏那一刻画面闪多久（毫秒） */
 const BREAK_FLASH_MS = 220;

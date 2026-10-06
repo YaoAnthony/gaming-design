@@ -3,7 +3,7 @@
 import Phaser from 'phaser';
 import { NoteTrack } from '@/rhythm';
 import { TILE_FRAMES } from '@/asset';
-import { Colors } from '@/game/palette';
+import { Colors } from '@/shared/palette';
 import { burst, defineFlatMode, JUDGE_COLOR, makeKit, NoteSprites, Receptor, tossIn, tossOut } from './define';
 
 /** 下排、上排的中心离地多高（格）；接的位置在人前面几格（0 = 就在人身上）；方块多大（格）；方块过了接的位置还画多远 */

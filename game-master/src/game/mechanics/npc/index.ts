@@ -3,7 +3,7 @@
 import { defineMechanic } from '../define';
 import { Npcs } from './Npcs';
 import { DIALOGUES } from './dialogues';
-import { Colors } from '@/game/palette';
+import { Colors } from '@/shared/palette';
 
 const npc = defineMechanic({
   id: 'npc', name: '会说话的角色', desc: '走近强制对话，每跳一次说下一句，说完就消失',

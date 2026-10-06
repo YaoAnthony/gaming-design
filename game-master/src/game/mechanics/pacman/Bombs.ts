@@ -3,7 +3,7 @@ import type Phaser from 'phaser';
 import type { CellRef } from '@/type';
 import type { PlayContext } from '@/game/core/PlayContext';
 import type { GhostManager } from './Ghosts';
-import { Colors } from '@/game/palette';
+import { Colors } from '@/shared/palette';
 
 const FUSE_MS = 1500;
 /** 十字每个方向炸几格 */

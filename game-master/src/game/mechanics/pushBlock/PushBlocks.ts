@@ -19,7 +19,7 @@ import type { FuseEnd } from '@/game/fuse/Fuse';
 import type { Enemy } from '@/sprite';
 import type { FuseBurnCell, Mechanic } from '../define';
 import { pressedByWeight } from './plates';
-import { Colors, hex } from '@/game/palette';
+import { Colors, hex } from '@/shared/palette';
 
 interface Block {
   sprite: Phaser.Physics.Arcade.Image;

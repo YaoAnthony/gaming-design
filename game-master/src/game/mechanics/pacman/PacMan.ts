@@ -9,7 +9,7 @@ import { GhostManager } from './Ghosts';
 import { GridWalker } from './GridWalker';
 import { Bombs } from './Bombs';
 import { PacScript } from './PacScript';
-import { Colors, hex } from '@/game/palette';
+import { Colors, hex } from '@/shared/palette';
 
 const PELLET_SCORE = 10;
 const POWER_SCORE = 50;

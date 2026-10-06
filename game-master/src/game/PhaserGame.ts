@@ -11,7 +11,7 @@ import { SCENE } from '@/game/scenes/keys';
 import { store } from '@/redux/store';
 export { resizeGame } from './resize';
 import type { WorldModel } from '@/type';
-import { Colors, hex } from '@/game/palette';
+import { Colors, hex } from '@/shared/palette';
 
 /** 画布尺寸 = 一个房间的像素尺寸（每层可以不一样） */
 export function roomPx(m: WorldModel): { w: number; h: number } {

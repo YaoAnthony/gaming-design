@@ -9,7 +9,7 @@ import type { HeroHandoff } from '@/protocol';
 import type { RhythmConfig } from '@/type';
 import { beatMs, RHYTHM_MODES, sectionAt, travelMsOf, type RhythmSession } from '@/rhythm';
 import type { StageFxContext, StageFxRun } from '@/stage3d/fx/define';
-import { Colors } from '@/game/palette';
+import { Colors } from '@/shared/palette';
 import { Hero3D } from '../Hero3D';
 import { WorldInput } from '../input';
 import { createRhythmMode, guideLines, type ModeContext, type RhythmMode } from './modes/define';

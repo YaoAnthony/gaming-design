@@ -1,6 +1,6 @@
 // ===== 把一关的方块画出来：深色的实心方块 + 纸白的棱线；地面上一层格线 =====
 import * as THREE from 'three';
-import { Colors } from '@/game/palette';
+import { Colors } from '@/shared/palette';
 import type { Level3D } from './level';
 
 /** 格线比地面高一点点，免得和地面抢着画 */

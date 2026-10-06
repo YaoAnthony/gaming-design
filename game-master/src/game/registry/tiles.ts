@@ -4,7 +4,7 @@
 import { TILE_FRAMES } from '@/asset';
 import type { CoreHost, SpawnAt } from '@/type';
 import { defineEntity, defineTile, Traits } from './registry';
-import { Colors } from '@/game/palette';
+import { Colors } from '@/shared/palette';
 
 // ---------- 砖块 ----------
 defineTile({ id: '.', name: '空气 / 橡皮', desc: '什么都没有', color: 0x000000 });

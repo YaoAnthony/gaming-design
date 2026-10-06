@@ -4,7 +4,7 @@
 // 人在 3D 世界里时（summonReaper）攥它的披风骷髅也站在屏幕旁边，手的动作同样由时间线交进来。
 // 开深度测试（纸叠起来时近的挡住远的）；纸翻过去的面、褶缝里墨裂开的地方画成白纸（隐约透出一点画面）。
 import * as THREE from 'three';
-import { Colors } from '@/game/palette';
+import { Colors } from '@/shared/palette';
 import type { StageFxContext, StageFxRun } from '../define';
 import { CrumpleMesh, VERTEX_FLOATS, type CrumpleState, type Vec2 } from './crumpleMesh';
 import { Reaper, type ReaperPose } from './Reaper';

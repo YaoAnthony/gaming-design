@@ -1,7 +1,7 @@
 // ===== 手柄图标（像素画）：手柄剪影、确认键（A / ✕）、重置键（Y / △）=====
 // 每张图是一组字符串，一个字符一个像素：'.' 空，其他字符按调色板上色。画成 SVG，跟着字号缩放，边缘不糊。
 import type { ReactElement } from 'react';
-import type { PadKind } from '@/game/gamepad';
+import type { PadKind } from '@/shared/gamepad';
 
 /** 手柄剪影：肩键、十字键（左边的十字孔）、四个按键（右边的四个孔）、两边握把。只有一种颜色，跟着文字颜色走 */
 const CONTROLLER = [

@@ -3,7 +3,7 @@
 // 豆子吃光之后是一段剧本：鬼提速永久追击 → Game Master 画外音 → 解锁炸弹 → 鬼全灭 → Game Master 登场。
 import { defineMechanic } from '../define';
 import { PacMan } from './PacMan';
-import { Colors } from '@/game/palette';
+import { Colors } from '@/shared/palette';
 
 const pacman = defineMechanic({
   id: 'pacman', name: '吃豆人', desc: '俯视、无重力，沿格子四方向走',

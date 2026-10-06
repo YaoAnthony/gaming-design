@@ -4,7 +4,7 @@
 // 拍子看得见：每一拍有一条横线跟着音符一起落下来（小节线更亮），落到判定线上的那一刻判定线亮一下。
 import Phaser from 'phaser';
 import { MANIA_KEYS, NoteTrack, RHYTHM_MODES } from '@/rhythm';
-import { Colors } from '@/game/palette';
+import { Colors } from '@/shared/palette';
 import { burst, defineFlatMode, JUDGE_COLOR, makeKit, NoteSprites, Receptor, tossIn, tossOut } from './define';
 
 const LANES = RHYTHM_MODES.mania.lanes;

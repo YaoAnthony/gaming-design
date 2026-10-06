@@ -5,7 +5,7 @@ import Phaser from 'phaser';
 import type { SliderSpawn } from '@/type';
 import type { PlayContext } from '@/game/core/PlayContext';
 import { defineMechanic, type Mechanic } from '../define';
-import { Colors } from '@/game/palette';
+import { Colors } from '@/shared/palette';
 
 interface Slider { spawn: SliderSpawn; x0: number; x1: number; y: number; knob: Phaser.GameObjects.Rectangle; waves: Phaser.GameObjects.Graphics; value: number }
 

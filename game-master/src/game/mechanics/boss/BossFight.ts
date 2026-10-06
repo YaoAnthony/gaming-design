@@ -19,7 +19,7 @@ import { SparkBurst } from './SparkBurst';
 import { hueShiftedTexture } from './minionTexture';
 import { SEAL } from './seal';
 import { createBossSound, type BossSound } from '@/audio/bossSound';
-import { Colors, hex } from '@/game/palette';
+import { Colors, hex } from '@/shared/palette';
 import { overlaps } from '@/game/core/overlap';
 
 /** Boss 战的音乐（音频清单里的 key） */

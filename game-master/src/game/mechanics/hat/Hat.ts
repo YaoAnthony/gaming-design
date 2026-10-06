@@ -5,10 +5,10 @@
 // - 换层、死亡都不掉；只在平台层生效（俯视层的身体大小由层机制管）
 import Phaser from 'phaser';
 import type { PlayContext, Suckable } from '@/game/core/PlayContext';
-import { INPUT_DOWN } from '@/game/input';
+import { INPUT_DOWN } from '@/shared/input';
 import type { CarryOver } from '@/type';
 import { floorMechanicOf, type Mechanic } from '../define';
-import { Colors, hex } from '@/game/palette';
+import { Colors, hex } from '@/shared/palette';
 
 interface GroundHat { sprite: Phaser.GameObjects.Image; /** 刚放下 / 刚被撞掉：人走开之前不能再戴 */ blocked: boolean }
 

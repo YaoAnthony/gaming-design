@@ -4,7 +4,7 @@
 // 滑条（A B C 往右、x y z 往左）：也是按住不放，圈带着人沿着一条轨道滑到隔壁那一列，滑到头才松手。
 import * as THREE from 'three';
 import { LANE_KEYS, noteProgress, NoteTrack, RHYTHM_MODES, tailProgress, type Note } from '@/rhythm';
-import { Colors, hex } from '@/game/palette';
+import { Colors, hex } from '@/shared/palette';
 import { Bursts, defineRhythmMode, letterTexture } from './define';
 
 const LANES = RHYTHM_MODES.osu.lanes;

@@ -7,7 +7,7 @@
 import Phaser from 'phaser';
 import type { RhythmConfig } from '@/type';
 import { beatMs, RHYTHM_MODES, travelMsOf, type Note, type RhythmSession } from '@/rhythm';
-import { Colors } from '@/game/palette';
+import { Colors } from '@/shared/palette';
 import { BossRig } from './BossRig';
 
 /** 游戏世界里的一块矩形（像素） */

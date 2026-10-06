@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import playerUrl from '@/asset/player_mid.png';
 import { nextLang, setLang } from '@/i18n';
 import { isDesktop } from '@/platform';
-import { anyPressed, GAMEPAD_BUTTONS, padKind } from '@/game/gamepad';
+import { anyPressed, GAMEPAD_BUTTONS, padKind } from '@/shared/gamepad';
 import { noteDevice } from '@/game/inputDevice';
 import { useAppSelector } from '@/redux/hooks';
 import { store } from '@/redux/store';

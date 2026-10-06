@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { isTouchDevice } from '@/game/input';
+import { isTouchDevice } from '@/shared/input';
 
 /** 是不是触屏：先按设备特征判断，之后只要收到一次真实的触摸事件就确定是 */
 export function useTouch(): boolean {

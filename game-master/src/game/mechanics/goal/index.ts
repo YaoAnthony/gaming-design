@@ -7,7 +7,7 @@ import type { Point } from '@/type';
 import { floorAfter } from '@/game/world/WorldModel';
 import type { PlayContext } from '@/game/core/PlayContext';
 import { defineMechanic, type Mechanic } from '../define';
-import { Colors } from '@/game/palette';
+import { Colors } from '@/shared/palette';
 import { DEPTH } from '@/game/depth';
 
 /** 离门多近（像素）算到达 */

@@ -3,7 +3,7 @@ import type { LockGroup, Locks, CellRef, Floor, Project, RoomCoord, RoomFlags, T
 import { layoutText } from './font';
 import { Entities } from '@/game/registry/registry';
 import { decodeFuse, encodeFuse, fuseBit } from '@/game/fuse/channels';
-import { Colors } from '@/game/palette';
+import { Colors } from '@/shared/palette';
 
 export function cloneModel(m: WorldModel): WorldModel { return JSON.parse(JSON.stringify(m)); }
 

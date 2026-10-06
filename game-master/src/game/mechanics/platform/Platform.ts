@@ -6,7 +6,7 @@ import { playExplosion } from '@/particle';
 import type { JumpEvent } from '@/sprite';
 import type { PlayContext } from '@/game/core/PlayContext';
 import type { FloorMechanic, MoveInput } from '../define';
-import { Colors, hex } from '@/game/palette';
+import { Colors, hex } from '@/shared/palette';
 
 export class Platform implements FloorMechanic {
   readonly collideTerrain = true;

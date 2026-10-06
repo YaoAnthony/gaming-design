@@ -5,7 +5,7 @@
 // - 层次：都在地形、光柱、微尘下面（depth.ts 的 DEPTH.background*）；画进游戏画布，3D 屏幕和攥纸团都会带上它
 import Phaser from 'phaser';
 import { backgroundDef, backgroundKey, backgroundUrl, BACKGROUND_KEY_PREFIX, DEFAULT_BACKGROUND, type BackgroundLayer } from '@/asset/backgrounds';
-import { Colors, hex } from '@/game/palette';
+import { Colors, hex } from '@/shared/palette';
 import { DEPTH } from '@/game/depth';
 import type { Floor } from '@/type';
 import { backgroundOf, backgroundsOfFloor, coverScale, parallaxOffset } from './layout';

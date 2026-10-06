@@ -45,7 +45,8 @@ export interface Mechanic {
   destroy?(): void;
 }
 
-export interface MoveInput { left: boolean; right: boolean; up: boolean; down: boolean }
+export type { MoveInput } from '@/shared/input';
+import type { MoveInput } from '@/shared/input';
 
 /** 层机制额外负责：玩家怎么动、按键做什么 */
 export interface FloorMechanic extends Mechanic {

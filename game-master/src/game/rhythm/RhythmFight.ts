@@ -12,7 +12,7 @@ import { bridge, EVT, STAGE_FX, type RhythmTest } from '@/protocol';
 import { beatMs, beginRhythm, chartById, createHitsound, endRhythm, LANE_ARROWS, LANE_KEYS, notesOf, RHYTHM_MODES, sectionAt, sectionStarts, travelMsOf, type Chart, type Hitsound, type Judgement, type ModeId, type RhythmSession, type Note } from '@/rhythm';
 import type { MoveInput } from '@/game/mechanics/define';
 import type { Player } from '@/sprite';
-import { Colors } from '@/game/palette';
+import { Colors } from '@/shared/palette';
 import { PianoBoss, type Rect } from './PianoBoss';
 import { Lure } from './Lure';
 import { createBossSound, type BossSound } from '@/audio/bossSound';

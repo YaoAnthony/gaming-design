@@ -14,7 +14,7 @@ import type { Debris } from './Debris';
 import type { Dialogue } from './Dialogue';
 import type { Rooms } from './Rooms';
 import { playRespawnHand } from './respawnHand';
-import { Colors, hex } from '@/game/palette';
+import { Colors, hex } from '@/shared/palette';
 
 export interface RespawnDeps {
   scene: Phaser.Scene;

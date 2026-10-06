@@ -3,7 +3,7 @@
 import { defineItem } from '@/game/registry/registry';
 import { defineMechanic } from '../define';
 import { Carry } from './Carry';
-import { Colors } from '@/game/palette';
+import { Colors } from '@/shared/palette';
 
 const carry = defineMechanic({
   id: 'carry', name: '携带', desc: '手上一个位置：碰到就捡，拿了新的旧的留在原地',

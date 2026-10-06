@@ -14,7 +14,7 @@ import { addText, beginStroke, currentModel, paintCell, paintDoor, paintEntity, 
 import { canCarry, moverKind } from '@/game/mechanics/mover/kinds';
 import { TILE_FRAMES } from '@/asset';
 import { FOG_ZONE_COLORS } from '@/game/fog/zones';
-import { Colors, hex } from '@/game/palette';
+import { Colors, hex } from '@/shared/palette';
 import { backgroundDef, backgroundKey } from '@/asset/backgrounds';
 import { backgroundOf, coverScale } from '@/game/background/layout';
 import { loadBackgrounds } from '@/game/background/Backdrop';

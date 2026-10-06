@@ -5,7 +5,7 @@
 import { defineMechanic, floorHasEntities } from '../define';
 import './charge';   // 王之炸药（砖块）
 import { BossFight } from './BossFight';
-import { Colors } from '@/game/palette';
+import { Colors } from '@/shared/palette';
 
 const BOSS = 'K';
 const TRIGGER = 'k';

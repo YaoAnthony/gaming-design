@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 import type { Note } from '@/rhythm';
 import { noteProgress, RHYTHM_MODES, struck } from '@/rhythm';
-import { Colors } from '@/game/palette';
+import { Colors } from '@/shared/palette';
 import { defineRhythmMode, NoteBoxes } from './define';
 
 const LANES = RHYTHM_MODES.dodge.lanes;

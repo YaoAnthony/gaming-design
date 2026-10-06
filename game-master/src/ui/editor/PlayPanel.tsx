@@ -7,7 +7,7 @@ import { bridge, EVT, type PickedCell, type StartGameData } from '@/protocol';
 import { SCENE } from '@/game/scenes/keys';
 import { Items, Tiles } from '@/game/registry/registry';
 import { findStart, LOCK_COLOR_NAMES, LOCK_COLORS } from '@/game/world/WorldModel';
-import { Colors, hex } from '@/game/palette';
+import { Colors, hex } from '@/shared/palette';
 
 const STAGES = [
   { value: 0, label: '第1关', title: '1 格高' },

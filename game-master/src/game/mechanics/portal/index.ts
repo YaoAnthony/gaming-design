@@ -5,7 +5,7 @@ import type { Point } from '@/type';
 import { floorAfter } from '@/game/world/WorldModel';
 import type { PlayContext } from '@/game/core/PlayContext';
 import { defineMechanic, type Mechanic } from '../define';
-import { Colors } from '@/game/palette';
+import { Colors } from '@/shared/palette';
 
 /** 离门多近（像素）算走进去 */
 const ENTER_PX = 24;

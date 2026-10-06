@@ -4,7 +4,7 @@
 // 全体按"散开 / 追击"节拍切换（切换时掉头）；大力丸全部变蓝减速可被吃，被吃后一双眼睛飘回巢。
 import Phaser from 'phaser';
 import type { CellRef, Point } from '@/type';
-import { Colors } from '@/game/palette';
+import { Colors } from '@/shared/palette';
 
 export type GhostName = 'blinky' | 'pinky' | 'inky' | 'clyde';
 export type GhostMode = 'house' | 'leaving' | 'scatter' | 'chase' | 'frightened' | 'eyes' | 'dead';

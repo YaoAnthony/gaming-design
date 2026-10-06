@@ -18,9 +18,10 @@ export default tseslint.config(
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
     },
   },
-  // 引擎边界：Phaser 一侧和 3D 一侧互不引入，只通过 src/protocol 和 Redux 说话；协议本身不依赖任何引擎
+  // 引擎边界：Phaser 一侧（game/）和 3D 一侧互不引入，只通过 src/protocol 和 Redux 说话；
+  // 两边都要用的东西（调色板、输入、合成音、存储……）放在不依赖任何引擎的 shared / audio / platform / protocol / rhythm 里
   {
-    files: ['src/protocol/**/*.ts', 'src/rhythm/**/*.ts', 'src/audio/**/*.ts', 'src/platform/**/*.ts'],
+    files: ['src/protocol/**/*.ts', 'src/rhythm/**/*.ts', 'src/audio/**/*.ts', 'src/platform/**/*.ts', 'src/shared/**/*.ts'],
     rules: { 'no-restricted-imports': ['error', { paths: ['phaser', 'three'], patterns: ['three/*', '@/game/*', '@/sprite/*', '@/stage3d/*', '@/world3d/*', '@/ui/*'] }] },
   },
   {
@@ -29,7 +30,7 @@ export default tseslint.config(
   },
   {
     files: ['src/stage3d/**/*.{ts,tsx}', 'src/world3d/**/*.{ts,tsx}'],
-    rules: { 'no-restricted-imports': ['error', { paths: ['phaser'], patterns: ['@/sprite/*', '@/particle/*', '@/game/scenes/*', '@/game/core/*', '@/game/mechanics/*'] }] },
+    rules: { 'no-restricted-imports': ['error', { paths: ['phaser'], patterns: ['@/sprite/*', '@/particle/*', '@/game/*'] }] },
   },
   {
     files: ['vite.config.ts', 'scripts/**/*.mjs', 'tests/**/*.mjs', 'eslint.config.js'],

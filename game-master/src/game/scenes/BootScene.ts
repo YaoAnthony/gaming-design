@@ -6,7 +6,7 @@ import { SCENE } from '@/game/scenes/keys';
 import i18n from '@/i18n';
 import { FogOfWar } from '@/game/fog/Fog';
 import { buildWallTexture } from '@/game/terrain/walls';
-import { Colors, hex } from '@/game/palette';
+import { Colors, hex } from '@/shared/palette';
 
 export class BootScene extends Phaser.Scene {
   constructor() { super(SCENE.boot); }

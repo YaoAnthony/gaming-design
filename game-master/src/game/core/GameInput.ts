@@ -3,7 +3,7 @@
 import Phaser from 'phaser';
 import type { MoveInput } from '@/game/mechanics/define';
 import { bridge, EVT, type CrumpleDone, type HeroEntryQuery, type RhythmStart, type ScreenSpot } from '@/protocol';
-import { INPUT_DOWN, touch, TOUCH_ACTION, TOUCH_JUMP } from '@/game/input';
+import { INPUT_DOWN, touch, TOUCH_ACTION, TOUCH_JUMP } from '@/shared/input';
 import { padAction, readPads } from '@/game/gamepad';
 
 export type PressKey = 'SPACE' | 'UP' | 'W' | 'touch';

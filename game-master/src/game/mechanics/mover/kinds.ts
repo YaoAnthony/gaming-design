@@ -1,7 +1,7 @@
 // ===== 移动方块：种类、能不能放、怎么分组、撞没撞（纯函数，单测直接调） =====
 import type { CellRef } from '@/type';
 import { Tiles } from '@/game/registry/registry';
-import { Colors } from '@/game/palette';
+import { Colors } from '@/shared/palette';
 
 export interface MoverKind {
   /** 地图 movers 层里的字符 */

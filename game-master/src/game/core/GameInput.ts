@@ -19,6 +19,10 @@ export interface InputHandlers {
   nextLevel(): void;
   /** ESC / 手柄 Back / 编辑器按钮；只在试玩时挂 ESC */
   exitPlaytest(): void;
+  /** ESC / 手柄 Start：开暂停菜单（试玩时 ESC 是退出试玩，不暂停） */
+  pause(): void;
+  /** 暂停菜单关掉了（React 发来的） */
+  resume(): void;
   /** 结局画面（「你赢了！」）上选了一项 */
   endingChoice(c: EndingChoice): void;
   crumpleFreeze(): void;
@@ -43,11 +47,11 @@ export class GameInput {
     kb.on('keydown-UP', () => h.press('UP'));
     kb.on('keydown-W', () => h.press('W'));
     kb.on('keydown-R', h.reset);
-    if (playtest) kb.on('keydown-ESC', h.exitPlaytest);
+    kb.on('keydown-ESC', playtest ? h.exitPlaytest : h.pause);
     const touchPress = () => h.press('touch');
     bridge.on(TOUCH_JUMP, touchPress); bridge.on(TOUCH_ACTION, touchPress);
     bridge.on(EVT.requestReset, h.reset); bridge.on(EVT.continueGame, h.continueGame); bridge.on(EVT.restartGame, h.restartRun); bridge.on(EVT.nextLevel, h.nextLevel);
-    bridge.on(EVT.requestPlaytestExit, h.exitPlaytest); bridge.on(EVT.endingChoice, h.endingChoice);
+    bridge.on(EVT.requestPlaytestExit, h.exitPlaytest); bridge.on(EVT.endingChoice, h.endingChoice); bridge.on(EVT.resumeGame, h.resume);
     bridge.on(EVT.crumpleFreeze, h.crumpleFreeze); bridge.on(EVT.crumpleDone, h.crumpleDone);
     bridge.on(EVT.heroPopOut, h.popOut); bridge.on(EVT.heroEntry, h.heroEntry); bridge.on(EVT.heroReturn, h.heroReturn);
     // 手柄按钮：和对应的键盘键做同样的事（映射表在 game/gamepad.ts）；方向在 read 里读
@@ -56,13 +60,14 @@ export class GameInput {
       if (action === 'jump') h.press('SPACE');
       else if (action === 'reset') h.reset();
       else if (action === 'exit') h.exitPlaytest();
+      else if (action === 'pause' && !playtest) h.pause();
     };
     scene.input.gamepad?.on(Phaser.Input.Gamepad.Events.BUTTON_DOWN, onPad);
     scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       scene.input.gamepad?.off(Phaser.Input.Gamepad.Events.BUTTON_DOWN, onPad);
       bridge.off(TOUCH_JUMP, touchPress); bridge.off(TOUCH_ACTION, touchPress);
       bridge.off(EVT.requestReset, h.reset); bridge.off(EVT.continueGame, h.continueGame); bridge.off(EVT.restartGame, h.restartRun); bridge.off(EVT.nextLevel, h.nextLevel);
-      bridge.off(EVT.requestPlaytestExit, h.exitPlaytest); bridge.off(EVT.endingChoice, h.endingChoice);
+      bridge.off(EVT.requestPlaytestExit, h.exitPlaytest); bridge.off(EVT.endingChoice, h.endingChoice); bridge.off(EVT.resumeGame, h.resume);
       bridge.off(EVT.crumpleFreeze, h.crumpleFreeze); bridge.off(EVT.crumpleDone, h.crumpleDone);
       bridge.off(EVT.heroPopOut, h.popOut); bridge.off(EVT.heroEntry, h.heroEntry); bridge.off(EVT.heroReturn, h.heroReturn);
       touch.left = false; touch.right = false; touch.up = false; touch.down = false;

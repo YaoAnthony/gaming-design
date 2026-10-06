@@ -5,7 +5,7 @@
 // 别的地方不直接碰存储；读进来的东西逐个字段检查，不对的丢掉用默认值，坏档不会让游戏起不来。
 import type { EditorState, PlayLoadout } from './slices/editorSlice';
 import type { SettingsState } from './slices/settingsSlice';
-import { RUN_VERSION, type CarryOver, type GameConfig, type Project, type RoomCoord, type RunState } from '@/type';
+import { RUN_VERSION, type CarryOver, type GameConfig, type Project, type RoomCoord, type RunState, type SolvedFloor, type SolvedRoom } from '@/type';
 import { EMPTY_RUN } from './slices/runSlice';
 import { jsonCarry } from '@/shared/carry';
 import { asProject, roomKeyAt } from '@/game/world/WorldModel';
@@ -92,7 +92,24 @@ export function readRun(v: unknown): RunState | undefined {
     stats: { jumps: count(stats.jumps), destroyed: count(stats.destroyed) },
     flags,
     deep: typeof deep.levelId === 'string' ? { levelId: deep.levelId } : null,
+    solved: readSolved(o.solved),
   };
+}
+
+const strings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []);
+
+/** 解开过的房间：字段不对的房间 / 层丢掉 */
+function readSolved(v: unknown): Record<string, SolvedFloor> {
+  const out: Record<string, SolvedFloor> = {};
+  Object.entries(obj(v)).forEach(([floorId, f]) => {
+    const rooms: Record<string, SolvedRoom> = {};
+    Object.entries(obj(obj(f).rooms)).forEach(([key, r]) => {
+      const o = obj(r), terrain = strings(o.terrain);
+      if (terrain.length) rooms[key] = { terrain, fuse: strings(o.fuse), mechs: obj(o.mechs) };
+    });
+    out[floorId] = { rooms, nodes: strings(obj(f).nodes) };
+  });
+  return out;
 }
 
 /** 玩家的设置：语言只认已有的几种，音量夹在 0..1 */
@@ -111,7 +128,7 @@ export function readSave(v: unknown, mapHash: string): PersistedState {
   if (o.format !== SAVE_FORMAT) return out;
   readSettings(o.settings, out);
   const run = readRun(o.run);
-  if (run) out.run = o.mapHash === mapHash ? run : { ...run, room: null };
+  if (run) out.run = o.mapHash === mapHash ? run : { ...run, room: null, solved: {} };
   return out;
 }
 
@@ -144,7 +161,7 @@ export function readLegacy(v: unknown, mapHash: string, dropStale: boolean): Per
   if (asEditor) out.editor = asEditor;
   readSettings({ ...obj(p.settings), musicVolume: obj(p.config).musicVolume }, out);
   const run = readRun(p.run);
-  if (run) out.run = stale ? { ...run, room: null } : run;
+  if (run) out.run = stale ? { ...run, room: null, solved: {} } : run;
   return out;
 }
 

@@ -72,6 +72,8 @@ export class BossFight implements Mechanic {
   private doorsPending: CellRef[] = [];
   /** 打赢过的 Boss 房（房间 key） */
   private defeated = new Set<string>();
+  /** 打赢之后解开了的 Boss 房（房间 key）：重置也不再出 Boss */
+  private solved = new Set<string>();
   private bursts: SparkBurst[] = [];
   /** Boss 吐出来的小史莱姆（上限只数这些，地图上的巡逻怪不算）；Boss 死的时候一起死 */
   private minions: Enemy[] = [];
@@ -131,13 +133,30 @@ export class BossFight implements Mechanic {
   onReset(scope: 'room' | 'world' | 'level'): void {
     const { ctx } = this;
     // 在打赢过的 Boss 房里按 R（房间复原）：Boss 回来，重新打；重置整张地图、进入下一关（长大）：所有 Boss 都回来
-    if (scope === 'room') { const key = ctx.rooms.key(ctx.rooms.current); if (key) this.defeated.delete(key); }
-    else this.defeated.clear();
+    // 解开了的 Boss 房不算（core/Solves.ts）：打赢就是打赢了
+    if (scope === 'room') { const key = ctx.rooms.key(ctx.rooms.current); if (key && !this.solved.has(key)) this.defeated.delete(key); }
+    else this.defeated = new Set(this.solved);
     if (scope !== 'level' && this.hasBoss(ctx.rooms.current)) {   // 进入下一关：人回出生点后 onRoomChanged 会再判一次
       this.startBoss(ctx.rooms.current);
       if (this.rearm) this.armed = true;   // 打到一半重来：人在场地里复活，直接等他站稳就封门、Boss 重新出场
     }
     this.rearm = false;
+  }
+
+  // ---------- 解开 ----------
+  /** 这个房间的 Boss 打赢了吗 */
+  isDefeated(r: RoomCoord): boolean { const key = this.ctx.rooms.key(r); return !!key && this.defeated.has(key); }
+
+  /** 王之炸药还在排队炸、火花圈还在扩：等完了再记 */
+  settling(): boolean { return this.chargeTimers.length > 0 || this.bursts.length > 0; }
+
+  onSolve(r: RoomCoord): void { const key = this.ctx.rooms.key(r); if (key && this.defeated.has(key)) this.solved.add(key); }
+
+  solvedState(r: RoomCoord): true | undefined { const key = this.ctx.rooms.key(r); return key && this.solved.has(key) ? true : undefined; }
+
+  restoreSolved(r: RoomCoord, data: unknown): void {
+    const key = this.ctx.rooms.key(r);
+    if (key && data === true) { this.solved.add(key); this.defeated.add(key); }
   }
 
   /** 死了不重置的模式下，Boss 战打到一半死了：还是重开这个房间（Boss 重新出场、房间里的落石和引线复原），不然 Boss 压在复活点上、能砸它的东西也用光了 */

@@ -32,6 +32,8 @@ export interface RoomApi {
   of(x: number, y: number): RoomCoord;
   same(a: RoomCoord, b: RoomCoord): boolean;
   key(r: RoomCoord): string | null;
+  /** 房间 key 在布局里的哪个位置；没有这个房间是 null */
+  find(key: string): RoomCoord | null;
   /** 房间开关（roomFlags[房间].xxx） */
   flag(r: RoomCoord, flag: string): boolean;
   /** 在房间里找一个能站的位置 */
@@ -101,6 +103,13 @@ export interface PlayContext {
   enter(): void;
   /** 清空存档、从第一层的出生点开一局新的（试玩：从试玩的起点重来） */
   newGame(): void;
+  /** 标题画面选了「开始游戏」（有存档就清掉、从第一层的出生点开始）/「继续游戏」（回到存档的房间） */
+  startRun(mode: 'new' | 'continue'): void;
+  /** 解开节点（mechanics/solve）：这个房间解开了，等它安静下来记成复原点（node 触发过就不再算）；has = 这个节点触发过吗 */
+  solves: {
+    solve(r: RoomCoord, node: string): void;
+    has(node: string): boolean;
+  };
   /** 主线剧情走到哪了（存档里的事件标记，见 story/flags.ts）。试玩时只记在这一场里、不进存档，也不读存档里的 */
   story: {
     has(f: StoryFlag): boolean;

@@ -400,6 +400,47 @@ export class Terrain {
     this.resolveSupport();
   }
 
+  // ---------- 解开（复原点前移） ----------
+  /** 还有东西在变：一跳一跳的连锁没烧完，或者有碎块正落在这个矩形里 */
+  busyIn(x0: number, y0: number, w: number, h: number): boolean {
+    if (this.pending.length) return true;
+    return this.chunkSys.list.some(ch => ch.cells.some(c => c.x >= x0 && c.x < x0 + w && c.y >= y0 && c.y < y0 + h));
+  }
+
+  /**
+   * 矩形里现在的样子记成它的初始状态：之后 resetRect 回到这里。里面的材料都算这一格自己的；
+   * 从这里掉到别处的材料算落脚那一格的（这个房间重置时不再收回来）
+   */
+  commitRect(x0: number, y0: number, w: number, h: number): void {
+    const inRect = (x: number, y: number) => x >= x0 && x < x0 + w && y >= y0 && y < y0 + h;
+    for (let y = 0; y < this.h; y++)
+      for (let x = 0; x < this.w; x++) {
+        const i = y * this.w + x, o = this.origin[i];
+        if (inRect(x, y)) {
+          this.original[y][x] = this.grid[y][x];
+          this.origin[i] = this.grid[y][x] === AIR ? -1 : i;
+        } else if (o >= 0 && inRect(o % this.w, Math.floor(o / this.w))) this.origin[i] = i;
+      }
+  }
+
+  /** 读档：矩形里换成存下来的样子（rows 是这个矩形的字符画），同时记成它的初始状态 */
+  restoreRect(x0: number, y0: number, rows: string[]): void {
+    rows.forEach((row, dy) => [...row].forEach((c, dx) => {
+      const x = x0 + dx, y = y0 + dy;
+      if (x >= this.w || y >= this.h) return;
+      const id = Tiles.has(c) ? c : AIR;
+      this.original[y][x] = id;
+      if (this.grid[y][x] !== id) this.set(x, y, id);
+      this.origin[y * this.w + x] = id === AIR ? -1 : y * this.w + x;
+    }));
+    this.resolveSupport();
+  }
+
+  /** 矩形里现在的样子（存档用） */
+  rowsIn(x0: number, y0: number, w: number, h: number): string[] {
+    return this.grid.slice(y0, y0 + h).map(r => r.slice(x0, x0 + w).join(''));
+  }
+
   /** 这块材料的来源格在不在这个矩形里（重置时判断东西归不归这个房间） */
   originIn(from: number | undefined, x0: number, y0: number, w: number, h: number): boolean {
     if (from === undefined || from < 0) return false;

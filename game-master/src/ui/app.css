@@ -316,6 +316,11 @@ label.check { display: flex; align-items: center; gap: 6px; margin: 8px 0; color
 .st-bar i.on { background: currentColor; }
 .st-ask { color: #f1efe6; font-family: -apple-system, "PingFang SC", sans-serif; font-size: clamp(13px, 2.8cqh, 24px); text-align: center; padding: 1cqh 0; }
 .st-note { color: #80ed99; font-family: -apple-system, "PingFang SC", sans-serif; text-align: center; font-size: clamp(11px, 2.2cqh, 18px); }
+/* 确认框（覆盖进度？）：盖住菜单的半透明底，框在正中 */
+.modal-back { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, .55); pointer-events: auto; }
+/* 暂停菜单（游戏里按 ESC）：叠在画面上，自己能点 */
+.pause-layer { position: absolute; inset: 0; z-index: 30; display: flex; align-items: center; justify-content: center; background: rgba(0, 0, 0, .55); pointer-events: auto; container-type: size; user-select: none; -webkit-user-select: none; }
+.pause-menu { display: flex; flex-direction: column; align-items: stretch; gap: 1.4cqh; }
 
 /* 第一幕的结局：夸张的庆祝 */
 .celebration { position: absolute; inset: 0; pointer-events: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; container-type: size;

@@ -11,6 +11,7 @@
 // - 压板（1x1、1x2）：一个落在地上的箱子同时盖住压板的每一格才算压下（人踩没用；大箱子也能压 1x1）。
 //   压下的那一刻点燃压板格子里 / 紧挨着压板的引线端点。那些端点被锁住：不画引线头、玩家的爆炸点不着，只能靠压板。
 //   引线烧到压板这一头（压板自己点的、或者从另一头烧过来的）压板就没用了，跟着消失；死亡 / R 恢复
+// - 房间解开了（core/Solves.ts）：这个房间里的箱子以解开时的位置为原位，已经消失的压板不再恢复
 import Phaser from 'phaser';
 import type { CellRef, RoomCoord } from '@/type';
 import type { PlayContext, Suckable } from '@/game/core/PlayContext';
@@ -50,6 +51,8 @@ interface Plate {
   ends: FuseEnd[];
   /** 引线烧过去了：压板已经没用，消失（死亡 / R 恢复） */
   gone: boolean;
+  /** 消失的时候所在的房间解开了：重置也不恢复 */
+  solvedGone: boolean;
 }
 
 /** 引线端点离压板格子多远（格）以内会被点燃：压板那一格和上下左右四格 */
@@ -105,7 +108,7 @@ export class PushBlocks implements Mechanic {
     const T = this.ctx.cfg.tile, up = width === 1 ? 'plate1' : 'plate2';
     const sprite = this.ctx.scene.add.image(cell.x * T, (cell.y + 1) * T, up).setOrigin(0, 1).setDepth(2.5);
     const cells = Array.from({ length: width }, (_, i) => ({ x: cell.x + i, y: cell.y }));
-    this.plates.push({ cells, sprite, up, down: up + '_down', pressed: false, ends: [], gone: false });
+    this.plates.push({ cells, sprite, up, down: up + '_down', pressed: false, ends: [], gone: false, solvedGone: false });
   }
 
   // ---------- 生命周期 ----------
@@ -196,11 +199,52 @@ export class PushBlocks implements Mechanic {
     });
     // 烧掉的压板跟着引线一起恢复：R 只恢复这个房间的（引线也只恢复这个房间），死亡恢复全部
     this.plates.forEach(pl => {
-      if (!pl.gone || (scope === 'room' && !pl.cells.some(c => this.ctx.rooms.same(this.ctx.rooms.of(c.x * this.ctx.cfg.tile, c.y * this.ctx.cfg.tile), this.ctx.rooms.current)))) return;
+      if (!pl.gone || pl.solvedGone || (scope === 'room' && !pl.cells.some(c => this.ctx.rooms.same(this.ctx.rooms.of(c.x * this.ctx.cfg.tile, c.y * this.ctx.cfg.tile), this.ctx.rooms.current)))) return;
       pl.gone = false;
       pl.sprite.setVisible(true);
     });
     this.settlePlates();   // 箱子回到原位后压板跟着复原，不重新点引线（引线也复原了）
+  }
+
+  // ---------- 解开 ----------
+  /** 房间解开：在这个房间里的箱子以现在的位置为原位；已经消失的压板不再恢复 */
+  onSolve(r: RoomCoord): void {
+    const { rooms } = this.ctx;
+    this.list.forEach(bl => {
+      const b = bl.sprite.body as Phaser.Physics.Arcade.Body;
+      if (!b.enable || !rooms.same(rooms.of(b.center.x, b.center.y), r)) return;
+      bl.home = { x: b.center.x, y: b.center.y }; bl.room = r;
+    });
+    this.plates.forEach(pl => { if (pl.gone && this.plateIn(pl, r)) pl.solvedGone = true; });
+  }
+
+  solvedState(r: RoomCoord): { boxes: { i: number; x: number; y: number }[]; plates: number[] } | undefined {
+    const boxes = this.list.flatMap((bl, i) => (this.ctx.rooms.same(bl.room, r) ? [{ i, x: bl.home.x, y: bl.home.y }] : []));
+    const plates = this.plates.flatMap((pl, i) => (pl.solvedGone && this.plateIn(pl, r) ? [i] : []));
+    return boxes.length || plates.length ? { boxes, plates } : undefined;
+  }
+
+  /** 读档：箱子放到解开时的位置，那时已经消失的压板不出现 */
+  restoreSolved(r: RoomCoord, data: unknown): void {
+    const d = data as { boxes?: unknown; plates?: unknown } | null;
+    if (!d || typeof d !== 'object') return;
+    if (Array.isArray(d.boxes)) d.boxes.forEach(o => {
+      const bl = this.list[o?.i];
+      if (!bl || !Number.isFinite(o.x) || !Number.isFinite(o.y)) return;
+      bl.home = { x: o.x, y: o.y }; bl.room = r;
+      (bl.sprite.body as Phaser.Physics.Arcade.Body).reset(o.x, o.y);
+    });
+    if (Array.isArray(d.plates)) d.plates.forEach(i => {
+      const pl = Number.isInteger(i) ? this.plates[i] : undefined;
+      if (!pl) return;
+      pl.gone = true; pl.solvedGone = true; pl.pressed = false;
+      pl.sprite.setVisible(false);
+    });
+  }
+
+  private plateIn(pl: Plate, r: RoomCoord): boolean {
+    const { rooms } = this.ctx, T = this.ctx.cfg.tile;
+    return pl.cells.some(c => rooms.same(rooms.of(c.x * T, c.y * T), r));
   }
 
   /** 引线烧到压板接的那一头（或压板本身那一格）：压板没用了，炸掉消失 */

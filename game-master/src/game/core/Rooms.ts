@@ -40,6 +40,13 @@ export class Rooms implements RoomApi {
   of(x: number, y: number): RoomCoord { return { rx: Math.floor(x / this.pxW), ry: Math.floor(y / this.pxH) }; }
   same(a: RoomCoord, b: RoomCoord): boolean { return a.rx === b.rx && a.ry === b.ry; }
   key(r: RoomCoord): string | null { return roomKeyAt(this.d.model, r.rx, r.ry); }
+  find(key: string): RoomCoord | null {
+    for (let ry = 0; ry < this.d.model.layout.length; ry++) {
+      const rx = this.d.model.layout[ry].indexOf(key);
+      if (rx >= 0) return { rx, ry };
+    }
+    return null;
+  }
   flag(r: RoomCoord, flag: Parameters<RoomApi['flag']>[1]): boolean {
     const k = roomKeyAt(this.d.model, r.rx, r.ry);
     return !!k && !!this.d.model.roomFlags?.[k]?.[flag];

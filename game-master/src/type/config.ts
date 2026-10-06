@@ -64,8 +64,9 @@ export interface GameConfig {
    * 死了之后重置什么：
    * - none：什么都不重置，解过的就算解过了（炸掉的砖、烧过的引线、开过的门、推过的箱子、打死的怪都保持原样），人回到这个房间的入口；
    *   R 重置当前房间（卡关时的出路）。Boss 战打到一半、吃豆人层被抓到例外，重开这个房间（机制的 resetsRoomOnDeath）
-   * - room：重置当前房间；R 也是
+   * - room（默认）：重置当前房间；R 也是
    * - world：重置整张地图（地形、怪物、箱子、钥匙回原位，开过的门关回来）；R 也是
+   * 「重置」回到的是房间的复原点：没解开的房间是一开始的样子，解开过的是解开时的样子（mechanics/solve、core/Solves.ts）
    */
   deathReset: 'none' | 'room' | 'world';
   /** 音乐音量 0-1 */

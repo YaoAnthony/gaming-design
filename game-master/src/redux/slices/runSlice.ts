@@ -1,10 +1,10 @@
 // 玩家的进度（存档）：结构和规则见 type/run.ts。试玩不写这里
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
-import { RUN_VERSION, type Realm, type RunCheckpoint, type RunState } from '@/type';
+import { RUN_VERSION, type Realm, type RunCheckpoint, type RunState, type SolvedRoom } from '@/type';
 
 export const EMPTY_RUN: RunState = {
   version: RUN_VERSION, active: false, realm: 'flat', floorId: null, room: null,
-  stage: 0, carry: {}, stats: { jumps: 0, destroyed: 0 }, flags: {}, deep: null,
+  stage: 0, carry: {}, stats: { jumps: 0, destroyed: 0 }, flags: {}, deep: null, solved: {},
 };
 
 const runSlice = createSlice({
@@ -19,10 +19,17 @@ const runSlice = createSlice({
       if (action.payload.levelId) state.deep = { levelId: action.payload.levelId };
     },
     setFlag(state, action: PayloadAction<string>) { state.flags[action.payload] = true; },
+    /** 一个房间解开了（或者又解开了一个节点）：记下它现在的样子和触发的节点 */
+    solveRoom(state, action: PayloadAction<{ floorId: string; room: string; data: SolvedRoom; node?: string }>) {
+      const { floorId, room, data, node } = action.payload;
+      const f = state.solved[floorId] ??= { rooms: {}, nodes: [] };
+      f.rooms[room] = data;
+      if (node && !f.nodes.includes(node)) f.nodes.push(node);
+    },
     /** 这一局结束 / 重新开始：进度清空 */
     clearRun() { return EMPTY_RUN; },
   },
 });
 
-export const { checkpoint, setRealm, setFlag, clearRun } = runSlice.actions;
+export const { checkpoint, setRealm, setFlag, solveRoom, clearRun } = runSlice.actions;
 export default runSlice.reducer;

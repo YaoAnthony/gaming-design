@@ -69,6 +69,7 @@ export function StageLayer() {
       const world = ensure()?.add(STAGE_FX.world, ctx => new World3D(ctx, handoff, {
         config: () => store.getState().config.world3d, level, heroUrl,
         onExit: at => { if (saves) store.dispatch(setRealm({ realm: 'flat' })); bridge.emit(EVT.heroReturn, at); },
+        paused: () => store.getState().hud.paused,
       }));
       if (!world) { bridge.emit(EVT.heroReturn, null); return; }   // 舞台起不来：人原地放回去
       if (saves) store.dispatch(setRealm({ realm: 'deep', levelId: level.id }));

@@ -210,10 +210,13 @@
       "（已深度思考 16s……）"
     ],
     "menu": {
-      "start": "开始",
-      "continue": "继续",
+      "start": "开始游戏",
+      "continue": "继续游戏",
       "settings": "设置",
-      "quit": "退出"
+      "quit": "退出",
+      "newConfirm": "覆盖进度？",
+      "newYes": "覆盖",
+      "newNo": "取消"
     },
     "quitWeb": "关闭页面即可退出",
     "settings": {
@@ -254,5 +257,11 @@
       "key": "↑↓ 选择 · 回车 确定",
       "pad": "确定"
     }
+  },
+  "pause": {
+    "title": "暂停",
+    "resume": "继续",
+    "settings": "设置",
+    "toTitle": "回到标题"
   }
 }

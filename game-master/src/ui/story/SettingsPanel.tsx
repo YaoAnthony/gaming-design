@@ -1,4 +1,4 @@
-// ===== 设置（标题菜单里点「设置」）：音乐音量、语言、全屏、清除进度、返回 =====
+// ===== 设置（标题菜单里点「设置」、暂停菜单里点「设置」）：音乐音量、语言、全屏、清除进度（暂停菜单里没有）、返回 =====
 // 键盘 / 手柄 / 鼠标都能用（ui/menu/useMenuNav）；← → 调音量、换语言。「清除进度」先问一下。
 // onFocus 把当前选中的那一项交出去：标题菜单的骷髅手指着它。
 import { useEffect, useRef, useState } from 'react';
@@ -23,7 +23,8 @@ function toggleFullscreen(): void {
   else void document.documentElement.requestFullscreen?.().catch(() => {});
 }
 
-export function SettingsPanel({ onClose, onCleared, onFocus }: { onClose: () => void; onCleared: () => void; onFocus: (el: HTMLElement | null) => void }) {
+export function SettingsPanel({ onClose, onCleared, onFocus, noClear }: { onClose: () => void; onCleared?: () => void; onFocus?: (el: HTMLElement | null) => void; noClear?: boolean }) {
+  const items = noClear ? ITEMS.filter(i => i !== 'clear') : ITEMS;
   const { t, i18n } = useTranslation();
   const volume = useAppSelector(s => s.config.musicVolume);
   const [index, setIndex] = useState(0);
@@ -39,7 +40,7 @@ export function SettingsPanel({ onClose, onCleared, onFocus }: { onClose: () => 
     return () => document.removeEventListener('fullscreenchange', on);
   }, []);
   // 手指着选中的那一项
-  useEffect(() => { onFocus(confirm === null ? rows.current[index] : confirmRows.current[confirm]); }, [index, confirm, onFocus, i18n.language]);
+  useEffect(() => { onFocus?.(confirm === null ? rows.current[index] : confirmRows.current[confirm]); }, [index, confirm, onFocus, i18n.language]);
 
   const adjust = (item: Item, dir: -1 | 1) => {
     if (item === 'volume') {
@@ -52,7 +53,7 @@ export function SettingsPanel({ onClose, onCleared, onFocus }: { onClose: () => 
     }
   };
   const pick = (i: number) => {
-    const item = ITEMS[i];
+    const item = items[i];
     sfx('click');
     if (item === 'volume') adjust('volume', volume >= 1 ? -1 : 1);
     else if (item === 'language') setLang(nextLang(i18n.language));
@@ -62,10 +63,10 @@ export function SettingsPanel({ onClose, onCleared, onFocus }: { onClose: () => 
   };
 
   useMenuNav({
-    count: ITEMS.length, index, enabled: confirm === null,
+    count: items.length, index, enabled: confirm === null,
     setIndex: i => { setIndex(i); sfx('click', 0.4); },
     onPick: pick, onBack: () => { sfx('click'); onClose(); },
-    onAdjust: (i, dir) => { if (ITEMS[i] === 'volume' || ITEMS[i] === 'language') adjust(ITEMS[i], dir); else setIndex((i + dir + ITEMS.length) % ITEMS.length); },
+    onAdjust: (i, dir) => { if (items[i] === 'volume' || items[i] === 'language') adjust(items[i], dir); else setIndex((i + dir + items.length) % items.length); },
   });
   const pickConfirm = (i: number) => {
     sfx('click');
@@ -73,7 +74,7 @@ export function SettingsPanel({ onClose, onCleared, onFocus }: { onClose: () => 
     if (i !== 1) return;
     store.dispatch(clearRun());
     setNote(t('story.settings.cleared'));
-    onCleared();
+    onCleared?.();
   };
   useMenuNav({
     count: 2, index: confirm ?? 0, enabled: confirm !== null,
@@ -93,7 +94,7 @@ export function SettingsPanel({ onClose, onCleared, onFocus }: { onClose: () => 
     <div className="op-settings" role="dialog" aria-label={t('story.settings.title')}>
       <div className="st-title">{t('story.settings.title')}</div>
       {confirm === null
-        ? ITEMS.map((item, i) => (
+        ? items.map((item, i) => (
           <button key={item} ref={el => { rows.current[i] = el; }} className={'st-row' + (i === index ? ' sel' : '') + (item === 'clear' ? ' danger' : '')}
             onMouseEnter={() => setIndex(i)} onClick={() => pick(i)}>
             <span>{label(item)}</span>{value(item)}

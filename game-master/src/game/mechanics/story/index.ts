@@ -17,7 +17,7 @@ class StoryMechanic implements Mechanic {
 
   constructor(private readonly ctx: PlayContext) {
     this.gm = new Gm(ctx);
-    if (ctx.start.opening) this.opening = new Opening(ctx, fresh => { if (fresh) ctx.newGame(); else ctx.enter(); });
+    if (ctx.start.opening) this.opening = new Opening(ctx, mode => ctx.startRun(mode));
   }
 
   start(): void {

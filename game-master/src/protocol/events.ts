@@ -54,7 +54,8 @@ export interface StoryCutscene {
 }
 export interface StoryCutsceneDone { id: CutsceneId }
 /** 标题菜单里选了「开始」。fresh = 在标题画面的设置里清除了进度：不接着这个存档，从头开一局 */
-export interface OpeningStart { fresh: boolean }
+/** 标题菜单选了哪个：new = 开始游戏（有存档就清掉、从第一层开始），continue = 继续游戏（回到存档的房间） */
+export interface OpeningStart { mode: 'new' | 'continue' }
 
 /** 第四面墙特效（攥纸团）开始：手攥住的位置（画面上的比例坐标 0..1） */
 export interface CrumpleStart { grab: { x: number; y: number } }
@@ -140,8 +141,10 @@ export const EVT = {
   storyPaint: 'story:paint',
   /** React → Phaser：结局画面（「你赢了！」）上选了一项；参数是 EndingChoice */
   endingChoice: 'story:ending-choice',
-  /** Phaser → React：回到标题画面（结局画面上选了「退出」） */
+  /** Phaser → React：回到标题画面（结局画面上选了「退出」、暂停菜单里选了「回到标题」） */
   toTitle: 'game:to-title',
+  /** React → Phaser：暂停菜单关掉，接着玩 */
+  resumeGame: 'game:resume',
 } as const;
 
 /** 每个事件带什么参数（元组）：没有参数就是 [] */
@@ -177,6 +180,7 @@ export interface BridgeEvents {
   [EVT.storyPaint]: [PaintCell];
   [EVT.endingChoice]: [EndingChoice];
   [EVT.toTitle]: [];
+  [EVT.resumeGame]: [];
   /** 触屏按键（常量在 input.ts，字面量要和那边一致） */
   'input:jump': [];
   'input:action': [];

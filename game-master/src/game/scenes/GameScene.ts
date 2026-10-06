@@ -19,9 +19,10 @@ import { store } from '@/redux/store';
 import { resizeGame } from '@/game/resize';
 import { Music } from '@/game/Music';
 import { DEFAULT_MUSIC } from '@/asset';
-import { flash, setBoss, setBossIntro, setControls, setEditorShell, setHearts, setDialogue, setMode, setPlace, setRhythm, setRhythmMode, setScore, setStats, whiteout } from '@/redux/slices/hudSlice';
+import { flash, setPaused, setBoss, setBossIntro, setControls, setEditorShell, setHearts, setDialogue, setMode, setPlace, setRhythm, setRhythmMode, setScore, setStats, whiteout } from '@/redux/slices/hudSlice';
 import { setConfig } from '@/redux/slices/configSlice';
-import { checkpoint, clearRun, setFlag } from '@/redux/slices/runSlice';
+import { checkpoint, clearRun, setFlag, solveRoom } from '@/redux/slices/runSlice';
+import { resumeData } from '@/game/world/resume';
 import { ENDINGS, endingChoices, type EndingChoice } from '@/story/config';
 import { STORY, type StoryFlag } from '@/story/flags';
 import { mapText, tr } from '@/i18n';
@@ -34,6 +35,7 @@ import { shiftUnder } from '@/game/core/solid';
 import { Solids } from '@/game/core/solids';
 import { Rooms } from '@/game/core/Rooms';
 import { Respawn } from '@/game/core/Respawn';
+import { Solves } from '@/game/core/Solves';
 import { Growth } from '@/game/core/Growth';
 import { Health } from '@/game/core/Health';
 import { PopOut } from '@/game/core/PopOut';
@@ -47,6 +49,9 @@ import { applySceneFx, type SceneFx } from '@/game/core/sceneFx';
 import { vortex } from '@/game/core/vortex';
 import { Colors, hex } from '@/shared/palette';
 
+
+/** 关掉暂停菜单之后这么久（毫秒）里不再响应暂停 */
+const RESUME_GUARD_MS = 250;
 
 export class GameScene extends Phaser.Scene {
   private startData!: StartGameData;
@@ -80,6 +85,7 @@ export class GameScene extends Phaser.Scene {
   private dialogue!: Dialogue;
   private rooms!: Rooms;
   private respawn!: Respawn;
+  private solves!: Solves;
   private health!: Health;
   private growth!: Growth;
   private crumple!: CrumpleFx;
@@ -99,6 +105,8 @@ export class GameScene extends Phaser.Scene {
   private localFlags = new Set<StoryFlag>();
   private flagWatchers: ((f: StoryFlag) => void)[] = [];
   private stats = { jumps: 0, destroyed: 0 };
+  /** 上次关掉暂停菜单的时刻：关菜单的那一下 ESC 可能还排在 Phaser 的按键队列里，别让它马上又把菜单打开 */
+  private resumedAt = 0;
 
   constructor() { super(SCENE.game); }
 
@@ -178,6 +186,7 @@ export class GameScene extends Phaser.Scene {
       setMode: mode => store.dispatch(setMode({ mode, playtest: this.playtest })),
       onRespawn: () => this.health?.reset(),
       away: () => this.popOut.away,
+      beforeReset: () => this.solves.flush(),
     });
     this.growth = new Growth({
       scene: this, cfg: this.cfg, rooms: this.rooms, respawn: this.respawn, terrain: this.terrain, fuses: this.fuses,
@@ -212,6 +221,13 @@ export class GameScene extends Phaser.Scene {
       cls.def.spawn(target, { x: x * T + T / 2, y: y * T + T / 2, cell: { x, y, rx: Math.floor(x / model.roomW), ry: Math.floor(y / model.roomH) } });
     }));
 
+    // ---- 解开过的房间：读档时换成解开时的样子（标题画面、试玩不读） ----
+    this.solves = new Solves({
+      scene: this, rooms: this.rooms, terrain: this.terrain, fuses: this.fuses, mechs: () => [...this.mechById],
+      save: (room, data, node) => { if (!this.playtest) store.dispatch(solveRoom({ floorId: this.floor.id, room, data, node })); },
+    });
+    if (!this.playtest && !this.startData.opening) this.solves.restore(store.getState().run.solved[this.floor.id]);
+
     // ---- 玩家：读档入口 > 指定起始房间（里面的出生点，否则找个能站的地方）> 全图出生点 > 兜底 ----
     const startRoom = this.startData.startRoom ?? null;
     let start: Point | null = this.startData.entry ?? null;
@@ -230,6 +246,7 @@ export class GameScene extends Phaser.Scene {
 
     // ---- HUD（机制 start 里可能会改，比如吃豆人显示分数） ----
     store.dispatch(setMode({ mode: 'playing', playtest: this.playtest }));
+    store.dispatch(setPaused(false));
     store.dispatch(setPlace(mapText(this.floor.place ?? '')));
     store.dispatch(setControls(defs[0].controls)); store.dispatch(setScore(null));
     store.dispatch(setStats(this.stats));
@@ -245,6 +262,8 @@ export class GameScene extends Phaser.Scene {
       restartRun: () => this.restartRun(),
       nextLevel: () => this.fakeNextLevel(),
       exitPlaytest: () => { if (this.playtest) this.exitPlaytest(); },
+      pause: () => this.pause(),
+      resume: () => this.resume(),
       endingChoice: c => this.onEndingChoice(c),
       crumpleFreeze: () => this.crumple.freeze(),
       crumpleDone: d => this.crumple.end(d),
@@ -257,8 +276,7 @@ export class GameScene extends Phaser.Scene {
       this.awaitingEntrance = true;
       this.player.freeze(0xffffff); this.player.clearTint(); this.player.setVisible(false);
       store.dispatch(setMode({ mode: 'opening', playtest: this.playtest }));
-    } else this.enterPlayer();
-    this.saveCheckpoint();
+    } else { this.enterPlayer(); this.saveCheckpoint(); }   // 标题画面不存：选了开始 / 继续才算
 
     if (!this.awaitingEntrance) this.music.playBase();   // 标题画面的音乐由让人晚出场的那个机制放
     let lastVol = this.cfg.musicVolume;
@@ -273,6 +291,7 @@ export class GameScene extends Phaser.Scene {
       this.fog?.destroy(); this.fog = null;
       this.terrain.destroy();
       unsubVol();
+      if (store.getState().hud.paused) store.dispatch(setPaused(false));
       this.music.stop();
       store.dispatch(setMode({ mode: 'idle' })); store.dispatch(setBoss(null)); store.dispatch(setBossIntro(null)); store.dispatch(setHearts(null)); store.dispatch(setDialogue(null));
     });
@@ -299,6 +318,15 @@ export class GameScene extends Phaser.Scene {
     store.dispatch(setMode({ mode: 'playing', playtest: this.playtest }));
     this.music.playBase();
     this.enterPlayer();
+    this.saveCheckpoint();
+  }
+
+  /** 标题画面选了「开始游戏」/「继续游戏」：没有存档（或试玩）就在这里出场；有存档的话继续 = 回到存档的房间，开始 = 清掉存档从头来 */
+  private startRun(mode: 'new' | 'continue'): void {
+    const run = store.getState().run;
+    if (this.playtest || !run.active) { this.enter(); return; }
+    if (mode === 'continue') this.scene.restart(resumeData(this.project, run));
+    else this.newGame();
   }
 
   private hasFlag(f: StoryFlag): boolean { return this.playtest ? this.localFlags.has(f) : !!store.getState().run.flags[f]; }
@@ -342,6 +370,11 @@ export class GameScene extends Phaser.Scene {
       win: final => this.win(final),
       enter: () => this.enter(),
       newGame: () => this.newGame(),
+      startRun: mode => this.startRun(mode),
+      solves: {
+        solve: (r, node) => this.solves.solve(r, node),
+        has: node => this.solves.has(node),
+      },
       story: {
         has: f => this.hasFlag(f),
         flag: f => this.setStoryFlag(f),
@@ -389,6 +422,7 @@ export class GameScene extends Phaser.Scene {
     this.debris.update();
     this.dialogue.update(time);
     this.mechs.forEach(m => m.update?.(time, dt));
+    this.solves.update(time);
     this.updateFog();
     this.growth.update(time);   // 回到出生点、落了地再开始长
     this.popOut.update();
@@ -426,6 +460,22 @@ export class GameScene extends Phaser.Scene {
       this.fog.compute(tx, ty, now, !carried);
     }
     this.fog.draw(now);
+  }
+
+  // ---------- 暂停（ESC / 手柄 Start） ----------
+  /** 开暂停菜单（ui/PauseMenu）：只在正常玩的时候开（标题画面、死了、通关画面、换层、攥纸团、节奏关卡接管时不开）；场景整个停下 */
+  private pause(): void {
+    if (store.getState().hud.mode !== 'playing' || this.leaving || this.crumple.active || this.controlled || performance.now() - this.resumedAt < RESUME_GUARD_MS) return;
+    store.dispatch(setPaused(true));
+    this.scene.pause();
+  }
+
+  /** 暂停菜单关掉了：接着跑 */
+  private resume(): void {
+    if (!this.scene.isPaused()) return;
+    this.resumedAt = performance.now();
+    this.scene.resume();
+    store.dispatch(setPaused(false));
   }
 
   // ---------- 重置（活着按 R） ----------

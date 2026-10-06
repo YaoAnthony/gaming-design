@@ -1,6 +1,7 @@
 // ===== 死亡与重置：复活点、死、复活（默认什么都不重置）、R 重置房间 / 整张图、人重新出现 =====
 // 场景里"人在哪重新出现、什么时候不响应输入"的状态都在这：dead、respawning、entry。
 // 重置的顺序：清掉正在发生的东西 → 地形、引线、怪物、各机制恢复 → 人回到复活点（骷髅手放进来或直接出现）
+// 地形、引线恢复到的是房间的复原点：没解开的房间是一开始的样子，解开过的是解开时的样子（core/Solves.ts）
 import Phaser from 'phaser';
 import type { AppearReason, EntryState, GameConfig, RoomCoord } from '@/type';
 import type { MsgKey, DeathKey } from '@/i18n/keys';
@@ -38,6 +39,8 @@ export interface RespawnDeps {
   onRespawn?: () => void;
   /** 人不在画面里（在 3D 世界）：重置后回到复活点接着藏着，不出场 */
   away: () => boolean;
+  /** 重置之前：刚解开、还在等安静下来的房间先记下来（Solves.flush），不然解开的东西被这次重置冲掉 */
+  beforeReset?: () => void;
 }
 
 export class Respawn {
@@ -96,6 +99,7 @@ export class Respawn {
   /** R：当前房间的地形、引线、怪物恢复，玩家回到入口。revive = 死了之后的复活；appearDelayMs = 人多久之后才由骷髅手放进来（这段时间藏着，等画面淡入） */
   resetRoom(revive = false, appearDelayMs = 0): void {
     const { rooms, terrain, fuses } = this.d;
+    this.d.beforeReset?.();
     this.clearTransient('room');
     const { x0, y0 } = rooms.cellOrigin();
     terrain.resetRect(x0, y0, rooms.w, rooms.h);
@@ -111,6 +115,7 @@ export class Respawn {
    */
   resetWorld(revive = false, appearDelayMs = 0): void {
     const { terrain, fuses } = this.d;
+    this.d.beforeReset?.();
     this.d.rooms.sleepAll();   // 别的房间重新睡着：等玩家再进去才动
     this.clearTransient('world');
     terrain.resetRect(0, 0, terrain.w, terrain.h);

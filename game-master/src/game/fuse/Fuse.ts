@@ -176,6 +176,31 @@ export class FuseNet {
     this.refreshNodes();
   }
 
+  /** 还有引线在烧 */
+  get busy(): boolean { return this.pending.length > 0; }
+
+  /** 矩形里现在的引线记成初始状态：之后 resetRect 回到这里 */
+  commitRect(x0: number, y0: number, w: number, h: number): void {
+    for (let y = Math.max(0, y0); y < Math.min(this.h, y0 + h); y++)
+      for (let x = Math.max(0, x0); x < Math.min(this.w, x0 + w); x++) this.original[y * this.w + x] = this.cells[y * this.w + x];
+  }
+
+  /** 读档：矩形里换成存下来的引线（rows 是这个矩形的，每格一位十六进制，同 toState），同时记成初始状态 */
+  restoreRect(x0: number, y0: number, rows: string[]): void {
+    const saved = FuseNet.parse(rows, rows[0]?.length ?? 0, rows.length), w = rows[0]?.length ?? 0;
+    rows.forEach((_, dy) => { for (let dx = 0; dx < w; dx++) {
+      const x = x0 + dx, y = y0 + dy;
+      if (x >= this.w || y >= this.h) continue;
+      this.cells[y * this.w + x] = this.original[y * this.w + x] = saved[dy * w + dx];
+    } });
+    this.refreshNodes();
+  }
+
+  /** 矩形里现在的引线（存档用，格式同 toState） */
+  rowsIn(x0: number, y0: number, w: number, h: number): string[] {
+    return this.toState().slice(y0, y0 + h).map(r => r.slice(x0, x0 + w));
+  }
+
   /**
    * 游戏里只画端点；一格里只要有一种颜色是没锁住的端点就画（压板上的端点压板自己画）。
    * 默认都是同一个小黄点；这一格的端点里有设了 node 的颜色（紫色）就画成那种特别的样子。

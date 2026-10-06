@@ -13,6 +13,8 @@ export const GAMEPAD_BUTTONS = {
   reset: [3],
   /** 编辑器试玩时退出：和 ESC 一样 */
   exit: [8],
+  /** 游戏里暂停（开暂停菜单）：和 ESC 一样 */
+  pause: [9],
   /** 菜单：选中（A / ✕，或 Start）——标题、设置、结局画面 */
   confirm: [0, 9],
   /** 菜单：返回（B / ○，或 Back / Select）——设置里退回上一层、关掉确认框 */
@@ -23,8 +25,8 @@ export const GAMEPAD_BUTTONS = {
 export const GAMEPAD_DPAD = { up: 12, down: 13, left: 14, right: 15 } as const;
 
 /** 游戏里按钮能做的事 */
-export type PadAction = 'jump' | 'reset' | 'exit';
-const PAD_ACTIONS: readonly PadAction[] = ['jump', 'reset', 'exit'];
+export type PadAction = 'jump' | 'reset' | 'exit' | 'pause';
+const PAD_ACTIONS: readonly PadAction[] = ['jump', 'reset', 'exit', 'pause'];
 
 /** 摇杆推过这么多（0..1）才算往那边 */
 export const STICK_DEADZONE = 0.4;

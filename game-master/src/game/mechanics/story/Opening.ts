@@ -4,7 +4,7 @@
 // 做法：主镜头先藏起来，每一条用一个只看那一条的镜头（视口在那一条，滚动和主镜头对齐），把镜头的视口从画面上方移下来——
 // 不用复制画面，房间里的东西照常画。全部落地后拆掉这些镜头、换回主镜头，画面和平时一模一样。
 // 手在 React 那边画（ui/story/GmHand），这里把手的位置（画面比例坐标）发过去。落完发 EVT.openingBuilt，
-// 然后等菜单里选「开始」（EVT.openingStart）：叫 onStart（放主角出场；fresh = 标题画面里清除了进度，从头开一局）。
+// 然后等菜单里选「开始游戏」/「继续游戏」（EVT.openingStart）：叫 onStart（场景决定是就地出场、回到存档的房间，还是从头开一局）。
 import Phaser from 'phaser';
 import { bridge, EVT, type OpeningStart } from '@/protocol';
 import type { PlayContext } from '@/game/core/PlayContext';
@@ -28,7 +28,7 @@ export class Opening {
   private built = false;
   private bus: SynthBus | null = null;
 
-  constructor(private readonly ctx: PlayContext, private readonly onStart: (fresh: boolean) => void) {
+  constructor(private readonly ctx: PlayContext, private readonly onStart: (mode: OpeningStart['mode']) => void) {
     bridge.on(EVT.openingStart, this.start);
   }
 
@@ -121,6 +121,6 @@ export class Opening {
   /** 菜单里选了「开始」：还没落完（不该发生）就直接落完 */
   private readonly start = (s: OpeningStart): void => {
     if (!this.built) { this.timers.forEach(t => t.remove()); this.finish(); }
-    this.onStart(s.fresh);
+    this.onStart(s.mode);
   };
 }

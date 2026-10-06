@@ -33,6 +33,8 @@ export interface World3DOptions {
   heroUrl: string;
   /** 人走回画面、镜头也回到原位了：把人交还给 2D 游戏。at = 落在画面的哪，null = 原地 */
   onExit(at: ScreenSpot | null): void;
+  /** 游戏暂停着（暂停菜单开着）：人和镜头都停在原地 */
+  paused?(): boolean;
 }
 
 /** out = 刚跳出来还在空中；play = 归玩家管；back = 正走回画面；handing = 已经交还，多留一帧等 2D 把人画出来；done = 收场 */
@@ -93,6 +95,7 @@ export class World3D implements StageFxRun {
   update(dtMs: number): boolean {
     if (this.phase === 'done') return false;
     if (this.phase === 'handing') { this.phase = 'done'; return false; }
+    if (this.o.paused?.()) return true;
     const dt = Math.min(dtMs, MAX_STEP_MS) / 1000;
     if (this.phase === 'back') { this.stepBack(dtMs); return true; }
 

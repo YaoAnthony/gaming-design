@@ -26,6 +26,18 @@ describe('读存档', () => {
     expect(readRun({ ...v1, hat: false, held: null })?.carry).toEqual({});
   });
 
+  it('解开过的房间：字段不对的房间丢掉，层和节点留着', () => {
+    const solved = {
+      f2: { rooms: { A: { terrain: ['RR', '..'], fuse: ['00', '00'], mechs: { locks: [0] } }, B: { terrain: 'bad' }, C: { terrain: [1, 2] } }, nodes: ['f2.A.blue', 3] },
+      x: null,
+    };
+    expect(readRun({ ...saved, solved })?.solved).toEqual({
+      f2: { rooms: { A: { terrain: ['RR', '..'], fuse: ['00', '00'], mechs: { locks: [0] } } }, nodes: ['f2.A.blue'] },
+      x: { rooms: {}, nodes: [] },
+    });
+    expect(readRun({ ...saved, solved: undefined })?.solved).toEqual({});
+  });
+
   it('不认识的版本不要', () => {
     expect(readRun({ ...saved, version: 99 })).toBeUndefined();
   });

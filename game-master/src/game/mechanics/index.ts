@@ -21,6 +21,7 @@ import './locks';
 import './hat';
 import './pushBlock';
 import './mover';
+import './solve';   // 看别的机制的状态（门、Boss、移动方块）：放在它们后面
 import './story';
 import './rhythm';   // 每一层都启用（听「开一场」），放最后：每帧在别的机制之后跑
 

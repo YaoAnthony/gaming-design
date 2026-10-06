@@ -6,10 +6,11 @@
 // - 停在格子上的时候检查下一步：整组任何一格的下一格被挡（地形、箱子、别的移动方块、没站在上面的人或怪物），就停一下掉头。
 //   往上运人时，人头顶撞墙也算挡住
 // - 寄托的方块没了（变成空气），这一格就退出（岩石裂成碎岩还算在）
-// - 重置（R、死亡、进入下一关）：所有移动方块先回到一开始的位置，再让地形复原
+// - 重置（R、死亡、进入下一关）：所有移动方块先回到一开始的位置，再让地形复原。
+//   房间解开了（core/Solves.ts）：这个房间里的组记下解开时在哪、往哪走，之后重置回到那里
 // - 玩家还没进过的房间里不动（Rooms.isAwake）：整组有一格在醒着的房间里才开始走，开始了就一直走
 import type Phaser from 'phaser';
-import type { CellRef } from '@/type';
+import type { CellRef, RoomCoord } from '@/type';
 import { AIR, Tiles } from '@/game/registry/registry';
 import { Terrain } from '@/game/terrain/Terrain';
 import type { PlayContext } from '@/game/core/PlayContext';
@@ -32,6 +33,8 @@ interface Group {
   ids: string[];
   /** 现在相对一开始挪了几格 */
   shift: CellRef;
+  /** 重置回到哪：一开始是原位；所在的房间解开了就是解开时的位置和方向 */
+  base: { shift: CellRef; dir: 1 | -1 };
   dir: 1 | -1;
   /** 这一步沿轴走了多少像素（带正负号）；0 = 正好停在格子上 */
   pos: number;
@@ -58,7 +61,7 @@ export class Movers implements Mechanic {
     ctx.solids.register(this.solid, 'platform');   // 玩家、怪物、箱子、钥匙都和它碰撞
     this.groups = specs.map(s => ({
       kind: s.kind, home: s.cells, alive: s.cells.map(() => true), ids: s.cells.map(c => ctx.terrain.grid[c.y][c.x]),
-      shift: { x: 0, y: 0 }, dir: s.kind.startDir, pos: 0, waitUntil: 0, reserved: new Set(),
+      shift: { x: 0, y: 0 }, base: { shift: { x: 0, y: 0 }, dir: s.kind.startDir }, dir: s.kind.startDir, pos: 0, waitUntil: 0, reserved: new Set(),
       view: ctx.scene.add.container(0, 0).setDepth(0.5), images: [], bodies: [], awake: false,
     }));
     this.syncDrawn();   // 一开始就知道自己占哪些格：别的机制 start 时（比如压板摆初始状态）就能问到
@@ -68,7 +71,7 @@ export class Movers implements Mechanic {
   start(): void {
     this.groups.forEach(g => { this.rebuild(g); this.place(g); });
     this.syncDrawn();
-    this.ctx.terrain.refreshCells(this.groups.flatMap(g => g.home));   // 这些格子从瓦片层拿掉，由这里画
+    this.ctx.terrain.refreshCells(this.groups.flatMap(g => [...g.home, ...this.current(g)]));   // 这些格子从瓦片层拿掉，由这里画
   }
 
   drawsCell(cx: number, cy: number): boolean { return this.drawn.has(cy * this.ctx.terrain.w + cx); }
@@ -78,28 +81,68 @@ export class Movers implements Mechanic {
 
   update(now: number, dt: number): void { this.groups.forEach(g => this.tick(g, now, dt)); }
 
-  /** 重置前：所有组带着方块回到一开始的位置（之后地形按原图复原，两边对得上） */
+  /** 重置前：所有组带着方块回到复原点（一开始的位置，或者解开时的位置；之后地形复原，两边对得上） */
   onClear(): void {
     this.groups.forEach(g => {
-      const cells = this.current(g), back = { x: -g.shift.x, y: -g.shift.y };
-      g.shift = { x: 0, y: 0 }; g.pos = 0; g.dir = g.kind.startDir; g.waitUntil = 0; g.reserved.clear(); g.awake = false;
+      const cells = this.current(g), back = { x: g.base.shift.x - g.shift.x, y: g.base.shift.y - g.shift.y };
+      g.shift = { ...g.base.shift }; g.pos = 0; g.dir = g.base.dir; g.waitUntil = 0; g.reserved.clear(); g.awake = false;
       this.syncDrawn();
       if (back.x || back.y) this.ctx.terrain.moveCells(cells, back.x, back.y);
       this.place(g);
     });
   }
 
-  /** 地形复原之后：一开始的格子上还有能动的砖就算在（整张图重置时炸掉的也回来了） */
+  /** 地形复原之后：复原点的格子上还有能动的砖就算在（整张图重置时炸掉的也回来了） */
   onReset(): void {
+    this.groups.forEach(g => this.resync(g));
+    this.syncDrawn();
+    this.ctx.terrain.refreshCells(this.groups.flatMap(g => [...g.home, ...this.current(g)]));
+  }
+
+  /** 按网格重新认这一组还剩哪几格（现在的位置上还有能动的砖就算在），再摆好 */
+  private resync(g: Group): void {
     const grid = this.ctx.terrain.grid;
-    this.groups.forEach(g => {
-      g.home.forEach((c, i) => { const id = grid[c.y]?.[c.x]; g.alive[i] = canCarry(id); if (g.alive[i]) g.ids[i] = id; });
+    g.home.forEach((c, i) => { const id = grid[c.y + g.shift.y]?.[c.x + g.shift.x]; g.alive[i] = canCarry(id); if (g.alive[i]) g.ids[i] = id; });
+    g.shape = null;
+    this.rebuild(g);
+    this.place(g);
+  }
+
+  // ---------- 解开 ----------
+  /** 这个房间里有方块已经动起来了（离开了一开始的位置，或者正在走第一步） */
+  startedIn(r: RoomCoord): boolean {
+    return this.groups.some(g => (g.shift.x || g.shift.y || g.pos) && this.inRoom(g, r));
+  }
+
+  /** 房间解开：这个房间里的组记下现在的位置和方向，之后重置回到这里 */
+  onSolve(r: RoomCoord): void {
+    this.groups.forEach(g => { if (this.inRoom(g, r)) g.base = { shift: { ...g.shift }, dir: g.dir }; });
+  }
+
+  solvedState(r: RoomCoord): { i: number; x: number; y: number; dir: 1 | -1 }[] | undefined {
+    const out = this.groups.flatMap((g, i) => (this.inRoom(g, r) ? [{ i, x: g.base.shift.x, y: g.base.shift.y, dir: g.base.dir }] : []));
+    return out.length ? out : undefined;
+  }
+
+  /** 读档：地形已经是解开时的样子（方块在那时的位置上），把组挪过去认上 */
+  restoreSolved(_r: RoomCoord, data: unknown): void {
+    if (!Array.isArray(data)) return;
+    data.forEach(d => {
+      const g = this.groups[d?.i];
+      if (!g || !Number.isInteger(d.x) || !Number.isInteger(d.y) || (d.dir !== 1 && d.dir !== -1)) return;
+      g.base = { shift: { x: d.x, y: d.y }, dir: d.dir };
+      g.shift = { x: d.x, y: d.y }; g.dir = d.dir;
+      const grid = this.ctx.terrain.grid;
+      g.home.forEach((c, k) => { const id = grid[c.y + d.y]?.[c.x + d.x]; g.alive[k] = canCarry(id); if (g.alive[k]) g.ids[k] = id; });
       g.shape = null;
-      this.rebuild(g);
-      this.place(g);
     });
     this.syncDrawn();
-    this.ctx.terrain.refreshCells(this.groups.flatMap(g => g.home));
+  }
+
+  /** 这一组有一格在这个房间里 */
+  private inRoom(g: Group, r: RoomCoord): boolean {
+    const { rooms } = this.ctx, T = this.ctx.cfg.tile;
+    return this.current(g).some(c => rooms.same(rooms.of(c.x * T + T / 2, c.y * T + T / 2), r));
   }
 
   // ---------- 每帧 ----------

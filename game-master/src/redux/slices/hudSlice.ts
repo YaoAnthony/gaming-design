@@ -10,6 +10,8 @@ export type GameMode = 'idle' | 'opening' | 'playing' | 'dead' | 'won';
 
 export interface HudState {
   mode: GameMode;
+  /** 游戏里按了 ESC：场景暂停着，暂停菜单开着 */
+  paused: boolean;
   playtest: boolean;
   roomKey: string;
   jumps: number;
@@ -42,12 +44,13 @@ export interface HudState {
   rhythm: { combo: number; judge: 'perfect' | 'good' | 'miss' | null; seq: number; /** 现在是哪种玩法：底下的按键提示跟着换 */ mode: string | null } | null;
 }
 
-const initialState: HudState = { mode: 'idle', playtest: false, roomKey: '', jumps: 0, destroyed: 0, message: null, boss: null, bossIntro: null, hearts: null, dialogue: null, final: false, ending: null, editorShell: { on: false, gm: false }, wonStage: 0, wonHat: false, place: '', controls: 'jump', score: null, rhythm: null, whiteout: 0 };
+const initialState: HudState = { mode: 'idle', paused: false, playtest: false, roomKey: '', jumps: 0, destroyed: 0, message: null, boss: null, bossIntro: null, hearts: null, dialogue: null, final: false, ending: null, editorShell: { on: false, gm: false }, wonStage: 0, wonHat: false, place: '', controls: 'jump', score: null, rhythm: null, whiteout: 0 };
 
 const hudSlice = createSlice({
   name: 'hud',
   initialState,
   reducers: {
+    setPaused(state, action: PayloadAction<boolean>) { state.paused = action.payload; },
     setMode(state, action: PayloadAction<{ mode: GameMode; playtest?: boolean; final?: boolean; stage?: number; hat?: boolean; ending?: EndingView | null }>) {
       state.mode = action.payload.mode; if (action.payload.playtest !== undefined) state.playtest = action.payload.playtest; state.final = action.payload.final ?? false;
       state.ending = action.payload.ending ?? null;
@@ -73,5 +76,5 @@ const hudSlice = createSlice({
   },
 });
 
-export const { setMode, setRoomKey, setStats, flash, clearMessage, setBoss, setBossIntro, setHearts, setDialogue, setPlace, setControls, setScore, setRhythm, setRhythmMode, whiteout, setEditorShell } = hudSlice.actions;
+export const { setMode, setRoomKey, setStats, flash, clearMessage, setBoss, setBossIntro, setHearts, setDialogue, setPlace, setControls, setScore, setRhythm, setRhythmMode, whiteout, setEditorShell, setPaused } = hudSlice.actions;
 export default hudSlice.reducer;

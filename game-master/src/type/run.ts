@@ -29,7 +29,20 @@ export interface RunState {
   flags: Record<string, true>;
   /** 3D：在哪一关（realm 是 deep 时才有意义） */
   deep: { levelId: string } | null;
+  /** 解开过的房间和触发过的解开节点：层 id → 那一层的。读档时这些房间换成解开时的样子 */
+  solved: Record<string, SolvedFloor>;
 }
+
+/** 一层里解开过的东西 */
+export interface SolvedFloor {
+  /** 房间 key → 解开时（最后一次）的样子 */
+  rooms: Record<string, SolvedRoom>;
+  /** 触发过的解开节点 id（mechanics/solve/nodes.ts） */
+  nodes: string[];
+}
+
+/** 一个解开的房间：地形（字符画）、引线（每格一位十六进制）、各机制自己记的东西（Mechanic.solvedState，机制 id → 数据） */
+export interface SolvedRoom { terrain: string[]; fuse: string[]; mechs: Record<string, unknown> }
 
 /** 一个检查点能改的东西 */
 export type RunCheckpoint = Partial<Pick<RunState, 'floorId' | 'room' | 'stage' | 'carry' | 'stats'>>;

@@ -5,8 +5,10 @@
 // 人自己丢下的留在丢下的地方。进入下一关全部回原位。
 // 只重置房间（R、Boss 战打到一半死了）：这个房间里开过的门关回来，开这些门用掉的钥匙回到原位（不管是从哪个房间带来的，
 // 不然门关了钥匙没了就卡死）；别的房间的门不动，用在别的房间的钥匙也不回来（不然能刷出两把）。
+// 房间解开了（core/Solves.ts）：这个房间里开过的门就一直开着，开它们用掉的钥匙不再回来（重置整张地图也不回来）。
 // 门在建地形前烘成 % 砖（bake），这里按组染色。门可以盖在别的砖上（比如尖刺）：开门后那一格露出底下的砖，不是空气。
 import type Phaser from 'phaser';
+import type { RoomCoord } from '@/type';
 import { DOOR_CHAR, lockGroup, type LockCell } from '@/game/mechanics/locks/model';
 import type { PlayContext } from '@/game/core/PlayContext';
 import type { Mechanic } from '../define';
@@ -23,6 +25,8 @@ export class Locks implements Mechanic {
   private opened = new Set<number>();
   /** 用掉的钥匙（地图上的第几把）→ 它开的那扇门：重置那扇门所在的房间时钥匙回到原位 */
   private used = new Map<number, LockCell>();
+  /** 永远用掉了的钥匙（地图上的第几把）→ 它开的门在哪个房间（key）：那个房间解开了，重置也不回来 */
+  private spent = new Map<number, string>();
   /** 连锁还没传到的那几格 */
   private pending: Phaser.Time.TimerEvent[] = [];
 
@@ -34,7 +38,7 @@ export class Locks implements Mechanic {
   private index(c: LockCell): number { return c.y * this.ctx.terrain.w + c.x; }
 
   start(): void {
-    this.spawnKeys();
+    this.spawnKeys(new Set(this.spent.keys()));
     this.tint();
   }
 
@@ -60,7 +64,9 @@ export class Locks implements Mechanic {
   onReset(scope: 'room' | 'world' | 'level'): void {
     if (scope !== 'room') {
       this.opened.clear(); this.used.clear();
-      this.spawnKeys(this.carry?.clearKeys(scope === 'world'));
+      const kept = this.carry?.clearKeys(scope === 'world') ?? new Set<number>();
+      this.spent.forEach((_, i) => kept.add(i));
+      this.spawnKeys(kept);
       this.tint();
       return;
     }
@@ -77,6 +83,38 @@ export class Locks implements Mechanic {
   }
 
   destroy(): void { this.cancelPending(); }
+
+  // ---------- 解开 ----------
+  /** 这个房间里这一组（颜色）的门开过吗 */
+  openedIn(r: RoomCoord, group: number): boolean {
+    return this.data.doors.some(c => c.group === group && this.inRoom(c, r) && this.opened.has(this.index(c)));
+  }
+
+  settling(): boolean { return this.pending.length > 0; }
+
+  /** 房间解开：没传完的门直接开掉（不然记下来的地形里还留着门）；开这个房间里的门用掉的钥匙永远用掉 */
+  onSolve(r: RoomCoord): void {
+    const left = this.data.doors.filter(c => this.inRoom(c, r) && this.opened.has(this.index(c)) && this.isDoor(c));
+    if (left.length) this.reveal(left);
+    const key = this.ctx.rooms.key(r) ?? '';
+    this.used.forEach((door, i) => { if (this.inRoom(door, r)) { this.used.delete(i); this.spent.set(i, key); } });
+  }
+
+  solvedState(r: RoomCoord): number[] | undefined {
+    const key = this.ctx.rooms.key(r), keys = [...this.spent].filter(([, k]) => k === key).map(([i]) => i);
+    return keys.length ? keys : undefined;
+  }
+
+  /** 读档：这些钥匙已经用掉了，不放到地上（门在存下来的地形里已经没了） */
+  restoreSolved(r: RoomCoord, data: unknown): void {
+    const key = this.ctx.rooms.key(r) ?? '';
+    if (Array.isArray(data)) data.forEach(i => { if (Number.isInteger(i) && this.data.keys[i]) this.spent.set(i, key); });
+  }
+
+  private inRoom(c: LockCell, r: RoomCoord): boolean {
+    const { rooms, cfg } = this.ctx, T = cfg.tile;
+    return rooms.same(rooms.of(c.x * T + T / 2, c.y * T + T / 2), r);
+  }
 
   /** 地图上的钥匙放到原位；kept = 还留着的那几把（手上的、人丢下的，第几把），它们不放 */
   private spawnKeys(kept?: Set<number>): void {

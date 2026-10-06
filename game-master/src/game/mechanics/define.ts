@@ -2,7 +2,7 @@
 // 层机制（scope: 'floor'）：决定这一层怎么玩，每层一个，接管玩家移动和按键。平台跳、吃豆人……
 // 通用机制（scope: 'global'）：哪一层都能用，默认地图里出现它的物件就自动启用。Boss、钥匙、滑块……
 // 新机制 = mechanics/ 下一个文件夹 + mechanics/index.ts 里一行 import，GameScene 不用改。
-import type { EntitySpec, Floor, SpawnAt, WorldModel } from '@/type';
+import type { EntitySpec, Floor, RoomCoord, SpawnAt, WorldModel } from '@/type';
 import { defineEntity, Entities, Registry } from '@/game/registry/registry';
 import type { PlayContext, Suckable } from '@/game/core/PlayContext';
 
@@ -34,6 +34,14 @@ export interface Mechanic {
    * level = 进入下一关（整张图重来、这一关之前打过的都不算，不要重演什么）。返回复活点 = 改玩家的复活位置
    */
   onReset?(scope: 'room' | 'world' | 'level'): { x: number; y: number; vx: number; vy: number } | void;
+  /** 这个房间解开了：等它安静下来（settling 都是 false）之后调用。从现在起，重置这个房间回到现在的样子，不回到一开始 */
+  onSolve?(r: RoomCoord): void;
+  /** 还有正在进行的事（连锁开门、王之炸药在排队炸）：房间解开要等它们做完再记 */
+  settling?(): boolean;
+  /** 存档：这个解开的房间里自己要记的东西（要能存成 JSON）；没有就返回 undefined */
+  solvedState?(r: RoomCoord): unknown;
+  /** 读档：这个房间是解开过的，把 solvedState 交出来的东西放回去（start 之前调，地形已经换成存下来的样子；自己检查对不对） */
+  restoreSolved?(r: RoomCoord, data: unknown): void;
   /** 死了不重置的模式下（config.deathReset = 'none'）：这次死了还是要重置当前房间吗（比如 Boss 战打到一半：Boss 重新出场） */
   resetsRoomOnDeath?(): boolean;
   /** 引线烧过这些格子 */

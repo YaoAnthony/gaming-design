@@ -195,10 +195,13 @@
       "(Thought deeply for 16s……)"
     ],
     "menu": {
-      "start": "Start",
+      "start": "New Game",
       "continue": "Continue",
       "settings": "Settings",
-      "quit": "Quit"
+      "quit": "Quit",
+      "newConfirm": "Overwrite progress?",
+      "newYes": "Overwrite",
+      "newNo": "Cancel"
     },
     "quitWeb": "Close the tab to quit",
     "settings": {
@@ -239,5 +242,11 @@
       "key": "↑↓ Select · Enter Confirm",
       "pad": "Confirm"
     }
+  },
+  "pause": {
+    "title": "Paused",
+    "resume": "Resume",
+    "settings": "Settings",
+    "toTitle": "Back to title"
   }
 }

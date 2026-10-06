@@ -52,6 +52,7 @@ src/
 electron/               # 桌面版：主进程（main.cjs）、preload、存档文件读写（saveFiles.cjs）
 tests/                  # 所有测试（vitest），目录结构和 src/ 一一对应；support/ 放测试用的替身（Phaser）
 docs/desktop.md         # 桌面版和 Steam 云存档怎么配
+docs/architecture-review.md  # 2026-10 的架构审查：改了什么、还建议改什么
 ```
 
 ## 多语言

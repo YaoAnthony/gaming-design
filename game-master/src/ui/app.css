@@ -118,7 +118,7 @@ h2 { font-size: 12px; color: var(--muted); margin: 14px 0 6px; text-transform: u
 .item .icon { width: 32px; height: 32px; flex: none; display: flex; align-items: center; justify-content: center; background: #0b0b14; border-radius: 4px; font-size: 16px; overflow: hidden; }
 .item .icon .frame { width: 32px; height: 32px; image-rendering: pixelated; }
 .item .icon img { max-width: 32px; max-height: 32px; image-rendering: pixelated; }
-.item .icon .keyicon { width: 24px; height: 24px; display: block; -webkit-mask: url('../asset/key.png') center / 24px 24px no-repeat; mask: url('../asset/key.png') center / 24px 24px no-repeat; image-rendering: pixelated; }
+.item .icon .keyicon { width: 24px; height: 24px; display: block; -webkit-mask: url('../asset/image/items/key.png') center / 24px 24px no-repeat; mask: url('../asset/image/items/key.png') center / 24px 24px no-repeat; image-rendering: pixelated; }
 .item .icon .fuseicon { width: 22px; height: 6px; display: block; border-radius: 3px; box-shadow: 0 0 0 1px #0006; }
 .item .icon .movericon { font-size: 22px; font-weight: 700; line-height: 1; }
 .item.add { border-style: dashed; }
@@ -231,9 +231,9 @@ label.check { display: flex; align-items: center; gap: 6px; margin: 8px 0; color
 @keyframes death-in { from { opacity: 0; } to { opacity: 1; } }
 
 /* ---- 标题页 ---- */
-/* 字体放在项目里（src/asset/fonts，只含拉丁字符，OFL 协议），离线也能用；中文走系统字体 */
-@font-face { font-family: "Press Start 2P"; src: url("../asset/fonts/PressStart2P.woff2") format("woff2"); font-display: block; }
-@font-face { font-family: "Space Grotesk"; font-weight: 700; src: url("../asset/fonts/SpaceGrotesk-Bold.woff2") format("woff2"); font-display: swap; }
+/* 字体放在项目里（src/asset/font，只含拉丁字符，OFL 协议），离线也能用；中文走系统字体 */
+@font-face { font-family: "Press Start 2P"; src: url("../asset/font/PressStart2P.woff2") format("woff2"); font-display: block; }
+@font-face { font-family: "Space Grotesk"; font-weight: 700; src: url("../asset/font/SpaceGrotesk-Bold.woff2") format("woff2"); font-display: swap; }
 .pad-icon { display: block; flex: none; }
 
 /* ---- 第四面墙：攥纸团。冻住之前是透明的一层（只有手），不挡鼠标 / 触摸；冻住之后铺上背景，连 HUD 和手机按键一起盖住 ---- */

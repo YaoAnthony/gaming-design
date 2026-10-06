@@ -61,5 +61,5 @@ src/ui/story/
 - **改台词**：`src/i18n/zh.json` / `en.json` 的 `story.gm`（数组，下标对应 `scripts/gm.ts` 里的 `say(n)`）。加了句子要在 `gm.ts` 里排进去，并改 `GM_LINES`。测试会查每一句两种语言都有、一句不落。
 - **加一段演出**：`story/cutscenes.ts` 加一个 id；`ui/story/cutscenes/` 写一个组件（拿到 `cue`、`stage`、`done`，用 `useTimeline` 写时间线），在 `index.tsx` 的 `CUTSCENE_VIEWS` 里对上；剧本里写 `{ cutscene: id }`。演出要用的游戏里的位置，在 `Gm.play()` 里放进 `StoryCutscene`。
 - **加一个标记**：`story/flags.ts`。游戏里用 `ctx.story.has / flag / watch`，界面里读 `store.run.flags`。
-- **换音乐、音效**：占位的都是 `scripts/gen-story-audio.mjs` 合成的（`node scripts/gen-story-audio.mjs` 重新生成）。开场音乐是音频清单里的 `openingMusic`（`story/config.ts` 的 `STORY_MUSIC`）；音效清单在 `asset/storyAudio.ts`。正式的文件直接覆盖 `src/asset/story/` 里同名的 mp3。
+- **换音乐、音效**：占位的都是 `scripts/gen-story-audio.mjs` 合成的（`node scripts/gen-story-audio.mjs` 重新生成）。开场音乐是音频清单里的 `openingMusic`（`story/config.ts` 的 `STORY_MUSIC`）；音效清单在 `asset/storyAudio.ts`。正式的文件直接覆盖同名的 mp3：音效在 `src/asset/audio/story/`，开场音乐在 `src/asset/music/`。
 - **地图**：GM 的化身是物件 `g`，在编辑器物品栏的「物件」里，文字关卡也认（`levels/README.md`）。编辑器改造画的格子（`montage.ts`）是 GM 所在房间里的坐标，挪了 GM 要检查那些格子还是空的（测试会查）。

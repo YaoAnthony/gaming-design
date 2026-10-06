@@ -77,7 +77,7 @@
 
 - **背景清单** `asset/backgrounds.ts`：
   - 一个背景可以叠几层图，从远到近，每层有视差。
-  - 图放在 `src/asset/backgrounds/`，不进启动时的加载清单。
+  - 图放在 `src/asset/image/background/`，不进启动时的加载清单。
 - **地图字段**：`Floor.background` 是每层的默认背景，`WorldModel.roomBackgrounds` 让房间单独换。认不出的 id 退回星空，不会让那一层起不来。
 - **游戏里**（`game/background/Backdrop.ts`）：
   - 进到这一层才加载背景图，加载完之前先显示星空；换层时把用不到的放掉。
@@ -85,9 +85,9 @@
   - 背景画进游戏画布，3D 屏幕和攥纸团都会带上它。
 - **编辑器**：层设置和房间面板都有「背景」下拉，画布里直接预览当前房间的背景，可以撤销。
 - **文字关卡**：`background <id>`、`roombg <房间> <id>`。
-- **占位图**：洞穴、黄昏两套，各两层（`npm run gen-art -- backgrounds`）。现在所有层都还是默认的星空，没有替你改任何关卡的样子。
+- **占位图**：洞穴、黄昏两套，各两层（`npm run gen-art -- background`）。现在所有层都还是默认的星空，没有替你改任何关卡的样子。
 
-以后换成真的美术：图放进 `src/asset/backgrounds/`，清单里加一项（或者改现有那项的文件名）。
+以后换成真的美术：图放进 `src/asset/image/background/`，清单里加一项（或者改现有那项的文件名）。
 
 - 每层的 `parallax` 越大，人走动时那层挪得越多，适合近处的层。
 - 像素风的图写 `pixelated: true`，放大时不会糊。

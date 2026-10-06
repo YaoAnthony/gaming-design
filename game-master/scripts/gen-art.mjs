@@ -1,4 +1,4 @@
-// 生成占位美术：纯 JS 写 PNG（不依赖任何绘图库），输出到 src/asset/
+// 生成占位美术：纯 JS 写 PNG（不依赖任何绘图库），输出到 src/asset/image/ 下面各自的文件夹（见 DIR）
 // 运行：npm run gen-art                                 （全部重新生成，会覆盖手绘替换过的同名文件）
 //       npm run gen-art -- hand_hold.png hand_open.png  （只生成列出的文件）
 import { deflateSync } from 'node:zlib';
@@ -8,8 +8,22 @@ import { fileURLToPath } from 'node:url';
 
 const OUT = join(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'asset');
 mkdirSync(OUT, { recursive: true });
-/** 命令行给了文件名就只写这些 */
+/**
+ * 命令行给了名字就只写这些：可以是文件名（key.png），也可以是文件夹名（background、sprite、pacman……），
+ * 写文件夹就生成那个文件夹里的全部
+ */
 const ONLY = new Set(process.argv.slice(2));
+/** 每张图放在 src/asset/ 下哪个文件夹（新画一张图就在这里加上它的文件名） */
+const DIR = Object.fromEntries(Object.entries({
+  'image/background': ['cave_far.png', 'cave_near.png', 'dusk_hills.png', 'dusk_sky.png'],
+  'image/fx': ['spark.png'],
+  'image/items': ['boss_trigger.png', 'candle.png', 'castle.png', 'crate1.png', 'crate2.png', 'hat.png', 'key.png', 'plate1.png', 'plate1_down.png', 'plate2.png', 'plate2_down.png', 'volume.png'],
+  'image/items/pacman': ['bomb.png', 'ghosthouse.png', 'grapes.png', 'pellet.png', 'power.png', 'tunnel.png'],
+  'image/sprite': ['boss.png', 'enemy.png', 'gm_arm.png', 'gm_hand.png', 'grab_hand.png', 'hand_hold.png', 'hand_open.png', 'player.png', 'player_mid.png', 'player_tall.png', 'skeleton.png', 'skeleton_side.png'],
+  'image/sprite/pacman': ['ghost.png', 'ghost2.png', 'ghosteyes.png', 'ghostscared.png'],
+  'image/tiles': ['door.png', 'fusenode.png', 'tiles.png'],
+  'image/ui': ['heart_empty.png', 'heart_full.png'],
+}).flatMap(([dir, files]) => files.map(f => [f, dir])));
 
 // ---- PNG 编码 ----
 const CRC_TABLE = new Uint32Array(256).map((_, n) => {
@@ -78,10 +92,12 @@ class Canvas {
     }
   }
   save(name) {
-    // 背景图在 backgrounds/ 子文件夹里：命令行写「backgrounds」就生成全部背景，也可以写单个文件名
-    if (ONLY.size && !ONLY.has(name) && !(name.startsWith('backgrounds/') && (ONLY.has('backgrounds') || ONLY.has(name.slice(12))))) return;
-    mkdirSync(dirname(join(OUT, name)), { recursive: true });
-    writeFileSync(join(OUT, name), encodePNG(this)); console.log('wrote', name, `${this.w}x${this.h}`);
+    const dir = DIR[name];
+    if (!dir) throw new Error(`${name} 没写放在哪个文件夹：在 DIR 里加上`);
+    if (ONLY.size && !ONLY.has(name) && !dir.split('/').some(d => ONLY.has(d))) return;
+    const path = join(OUT, dir, name);
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, encodePNG(this)); console.log('wrote', `${dir}/${name}`, `${this.w}x${this.h}`);
   }
 }
 
@@ -639,7 +655,7 @@ const boneKnob = (c, x, y, r) => { c.roundRect(x - r - 1, y - r - 1, 2 * r + 2, 
 }
 
 
-// ---- 背景（src/asset/backgrounds/，清单在 asset/backgrounds.ts）：480×288，一个房间（5:3）大小的比例，游戏里按房间放大 ----
+// ---- 背景（src/asset/image/background/，清单在 asset/backgrounds.ts）：480×288，一个房间（5:3）大小的比例，游戏里按房间放大 ----
 // 每套两层：远的一层不透明，近的一层透明（只有剪影），视差时两层挪得不一样
 {
   const BW = 480, BH = 288;
@@ -685,12 +701,12 @@ const boneKnob = (c, x, y, r) => { c.roundRect(x - r - 1, y - r - 1, 2 * r + 2, 
     const x = rnd() * BW, y = BH * 0.3 + rnd() * BH * 0.55, r = 1 + Math.round(rnd() * 2);
     caveFar.roundRect(Math.round(x), Math.round(y), r * 2, r * 2, r, rnd() < 0.5 ? 0x4cc9f0 : 0x80ed99);
   }
-  caveFar.save('backgrounds/cave_far.png');
+  caveFar.save('cave_far.png');
 
   const caveNear = new Canvas(BW, BH);   // 透明底：只有近处的钟乳石和石笋
   for (let i = 0; i < 16; i++) spike(caveNear, rnd() * BW, 14 + rnd() * 26, 30 + rnd() * 70, true, 0x0b1117);
   for (let i = 0; i < 10; i++) spike(caveNear, rnd() * BW, 18 + rnd() * 30, 20 + rnd() * 50, false, 0x0b1117);
-  caveNear.save('backgrounds/cave_near.png');
+  caveNear.save('cave_near.png');
 
   // 黄昏：橙紫渐变的天、太阳、几条云；近处两道山
   const duskSky = new Canvas(BW, BH);
@@ -701,11 +717,11 @@ const boneKnob = (c, x, y, r) => { c.roundRect(x - r - 1, y - r - 1, 2 * r + 2, 
     const y = BH * (0.15 + rnd() * 0.4), x = rnd() * BW, w = 60 + rnd() * 120;
     duskSky.roundRect(Math.round(x), Math.round(y), Math.round(w), 6, 3, mix(0x7a3b6b, 0xf2b766, rnd() * 0.6));
   }
-  duskSky.save('backgrounds/dusk_sky.png');
+  duskSky.save('dusk_sky.png');
 
   const duskHills = new Canvas(BW, BH);   // 透明底：两道山的剪影
   ridge(duskHills, BH * 0.72, 22, [[1, 0.5, 1], [3, 2.1, 0.5]], 0x4a2547);
   ridge(duskHills, BH * 0.86, 14, [[2, 1.4, 1], [6, 0.2, 0.3]], 0x24122b);
-  duskHills.save('backgrounds/dusk_hills.png');
+  duskHills.save('dusk_hills.png');
 }
 

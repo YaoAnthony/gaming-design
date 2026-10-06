@@ -13,7 +13,7 @@ const floor = (over: Partial<Floor> = {}): Floor => ({
 });
 
 describe('背景清单', () => {
-  it('每个背景的每层图都在 src/asset/backgrounds/ 里（打包时有地址）', () => {
+  it('每个背景的每层图都在 src/asset/image/background/ 里（打包时有地址）', () => {
     for (const b of BACKGROUNDS) for (const l of b.layers) expect(backgroundUrl(l.file), `${b.id}/${l.file}`).toBeTruthy();
   });
 

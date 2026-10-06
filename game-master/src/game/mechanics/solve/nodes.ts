@@ -21,5 +21,6 @@ export const SOLVE_NODES: Record<string, SolveNode[]> = {
     { id: 'f2.D.yellow', room: 'D', when: { kind: 'door', group: 3 } },
     { id: 'f2.F.boss', room: 'F', when: { kind: 'boss' } },
     { id: 'f2.I.red', room: 'I', when: { kind: 'door', group: 4 } },
+    { id: 'f2.M.blue', room: 'M', when: { kind: 'door', group: 1 } },
   ],
 };

@@ -14,10 +14,10 @@ npm run dev        # 开发服务器 http://localhost:5174
 npm run build      # 类型检查 + 打包到 dist/
 npm test           # vitest 单元测试
 npm run lint       # ESLint（CI 里和测试一起跑）
-npm run gen-art    # 重新生成占位 PNG 美术到 src/asset/（会覆盖同名文件；后面跟文件名就只生成那几张）
+npm run gen-art    # 重新生成占位 PNG 美术到 src/asset/image/（会覆盖同名文件；后面跟文件名或文件夹名（sprite、pacman……）就只生成那些）
 npm run desktop    # 打包后用 Electron 打开桌面版；desktop:dev 连开发服务器（见 docs/desktop.md）
 npm run desktop:pack:win   # 打包成免安装目录（:mac / :linux 同理），steam:upload 传到 Steam（见 docs/desktop.md）
-node scripts/gen-story-audio.mjs   # 重新生成主线剧情的占位音效和开场音乐（src/asset/story/）
+node scripts/gen-story-audio.mjs   # 重新生成主线剧情的占位音效（src/asset/audio/story/）和开场音乐（src/asset/music/）
 ```
 
 ## 目录
@@ -32,7 +32,7 @@ src/
 │   ├── store.ts        # store；persist.ts 决定存什么、怎么读回来（两份：玩家存档 save / 编辑器工作区 editor），存在哪由 src/platform/ 决定
 │   └── slices/
 ├── type/               # 所有 TypeScript 类型：砖块能力、物件、世界模型、换层带走的状态、配置
-├── asset/              # PNG 资产 + 清单（index.ts）。图集帧序号在这里定义
+├── asset/              # 资产 + 清单（index.ts）。图集帧序号在这里定义。image/（sprite 角色、items 物件、tiles 地形、background 背景、ui 界面、fx 特效；吃豆人的在各自的 pacman/ 下）、audio/（音效，剧情的在 audio/story/）、music/（音乐）、font/
 ├── map/                # world.json：房间字符画 + 布局（唯一地图数据源）
 ├── sprite/             # Player（移动、滑墙、蹬墙跳）、Enemy（巡逻）、碎块平台
 ├── particle/           # 爆炸、落石压扁等特效
@@ -206,7 +206,7 @@ docs/architecture-review.md  # 2026-10 的架构审查：改了什么、还建�
 
 每样都能在 `config.sceneFx` 里单独关掉（`shadow / depth / vignette / dust / lights / shafts`）。
 
-- **背景**（`game/background/`，清单在 `asset/backgrounds.ts`）：每层一个默认背景（层设置里的「背景」，地图里的 `Floor.background`），房间可以单独换（房间面板的「背景」，`WorldModel.roomBackgrounds`）；都没写就是程序画的渐变天空 + 星星。一个背景可以叠几层图（从远到近），每层有视差：人在房间里走，远的层挪得少、近的挪得多（`parallax` = 人走过整个房间时那层挪多少像素）。背景图不在启动清单里，**进到用它的那一层才加载**（加载完之前先显示星空），换层时把用不到的背景图放掉；每个房间各放一套、裁到房间大小，平移时相邻两个房间各显示各的，只有镜头看得到的房间才显示。加背景：图放进 `src/asset/backgrounds/`，清单里加一项（占位图：`npm run gen-art -- backgrounds`，现在有洞穴、黄昏两套）。文字关卡里写 `background <id>`、`roombg <房间> <id>`。编辑器里能直接看到当前房间的背景。
+- **背景**（`game/background/`，清单在 `asset/backgrounds.ts`）：每层一个默认背景（层设置里的「背景」，地图里的 `Floor.background`），房间可以单独换（房间面板的「背景」，`WorldModel.roomBackgrounds`）；都没写就是程序画的渐变天空 + 星星。一个背景可以叠几层图（从远到近），每层有视差：人在房间里走，远的层挪得少、近的挪得多（`parallax` = 人走过整个房间时那层挪多少像素）。背景图不在启动清单里，**进到用它的那一层才加载**（加载完之前先显示星空），换层时把用不到的背景图放掉；每个房间各放一套、裁到房间大小，平移时相邻两个房间各显示各的，只有镜头看得到的房间才显示。加背景：图放进 `src/asset/image/background/`，清单里加一项（占位图：`npm run gen-art -- background`，现在有洞穴、黄昏两套）。文字关卡里写 `background <id>`、`roombg <房间> <id>`。编辑器里能直接看到当前房间的背景。
 - **层次**：前后顺序（Phaser 的 depth）集中在 `game/depth.ts`，背景在最下面（星空 −10、背景图 −9.95 起、星星 −9），光柱、微尘在背景之上、地形之下，迷雾最上面。新加的东西先在那张表里找位置。
 
 - **暖光**（`core/sceneFx.ts` 的 `LIGHTS`）：地上的蜡烛、拿在手里的蜡烛（跟着手走）、引线头周围一小圈淡淡的暖光，叠加混合，贴着它的墙和背景稍微变亮、带点暖色，轻轻摇曳。蜡烛半径 1.8 格，引线头 1.1 格。机制里要放光：`ctx.fx.light(x, y, 'candle' | 'ember')`，返回的图片自己挪、自己销毁。
@@ -229,7 +229,7 @@ docs/architecture-review.md  # 2026-10 的架构审查：改了什么、还建�
   | 第 2 行 | 左下角 | 下边 | 右下角 | 空着 | 空着 |
 
   「折角」是凹进去的内角：比如左上折角 = 上面、左边都是墙，只有左上斜角是空的。表面那一圈最多画半格（16 像素）厚。
-- **启用**：模板放进 `asset/`，在 `asset/index.ts` 里 import、加到 `WALL_TEXTURES` 和 `IMAGES`，砖块定义里写 `wall: WALL_TEXTURES.xxx`。编辑器里照样整块画。
+- **启用**：模板放进 `asset/image/tiles/`，在 `asset/index.ts` 里 import、加到 `WALL_TEXTURES` 和 `IMAGES`，砖块定义里写 `wall: WALL_TEXTURES.xxx`。编辑器里照样整块画。
 - **拼法**（`game/terrain/walls.ts`）：每块砖分成四个角，各看挨着的竖边、横边、斜角邻居是不是墙，从模板对应那一格取同一个角拼起来；一格厚的平台、孤零零一块这些薄墙也能拼出来。拼法固定，同样的地形每次一样。启动时拼成一张 `walls` 图（47 种组合），地图 tilemap、掉落碎块、移动方块都从里面取。只有写了 `wall` 的砖之间算连着，地图外面也算；被移动方块接管的格子不算。
 
 ## 规则与砖块
@@ -287,7 +287,7 @@ defineSkill({
 
 ## 生命值
 
-`game/core/Health.ts`。玩家有 3 颗心（`config.playerHearts`），显示在左上角（像素心 `asset/heart_full.png` / `heart_empty.png`，`npm run gen-art -- heart_full.png heart_empty.png` 生成；地点名挪到心下面）。碰到**尖刺、怪物、Boss** 扣一颗心（机制里用 `ctx.hurt(原因, 伤害从哪来)`）：人整个变红一下（`hurtFlashMs`），往伤害来源的反方向弹开（`knockbackX / knockbackY`，弹开的 `knockbackMs` 里不听方向键；来源在脚下就往朝向的反方向、主要往上弹），左上角那颗心抖一下变空，人一闪一闪 `hurtFlickerMs`，从挨打算起 `hurtInvulnMs` 里无敌。心扣光才走原来的死亡流程。**被压、被埋、被箱子砸**还是直接死（`ctx.die`，人卡在里面出不来）。复活、R、换层心都回满。吃豆人层不用生命值（碰到就死，也不显示心）。手机端心固定 26 像素、让开刘海。
+`game/core/Health.ts`。玩家有 3 颗心（`config.playerHearts`），显示在左上角（像素心 `asset/image/ui/heart_full.png` / `heart_empty.png`，`npm run gen-art -- heart_full.png heart_empty.png` 生成；地点名挪到心下面）。碰到**尖刺、怪物、Boss** 扣一颗心（机制里用 `ctx.hurt(原因, 伤害从哪来)`）：人整个变红一下（`hurtFlashMs`），往伤害来源的反方向弹开（`knockbackX / knockbackY`，弹开的 `knockbackMs` 里不听方向键；来源在脚下就往朝向的反方向、主要往上弹），左上角那颗心抖一下变空，人一闪一闪 `hurtFlickerMs`，从挨打算起 `hurtInvulnMs` 里无敌。心扣光才走原来的死亡流程。**被压、被埋、被箱子砸**还是直接死（`ctx.die`，人卡在里面出不来）。复活、R、换层心都回满。吃豆人层不用生命值（碰到就死，也不显示心）。手机端心固定 26 像素、让开刘海。
 
 ## 复活动画
 
@@ -353,6 +353,6 @@ defineSkill({
 
 **手柄**：用浏览器的 Gamepad API 标准布局（Xbox、PS 按钮位置一样），默认映射在 `shared/gamepad.ts` 的 `GAMEPAD_BUTTONS`（按钮编号），改键就改这张表；摇杆推过 `STICK_DEADZONE` 才算。浏览器要等页面打开后按一下手柄上的键才认得出手柄。"往下按一下"（摘帽子）键盘、手柄、触屏都走同一个场景事件 `INPUT_DOWN`（`game/input.ts`）。
 
-**解开节点**（`mechanics/solve/`，核心在 `core/Solves.ts`）：某个房间里发生了某件事，这个房间就算解开了。节点写在 `mechanics/solve/nodes.ts`（层 id → 节点列表，一行一个：id、房间 key、条件），条件有三种：某一组（颜色）的门被钥匙打开、这个房间的 Boss 被打败、这个房间的移动方块第一次动起来。现在 Floor 1 有五个：C 房移动方块动起来、A 房蓝门、D 房黄门、F 房 Boss、I 房红门。节点触发后，等这一刻引发的事做完（门一格格消失、王之炸药炸完、火花圈扩完、碎块落地、引线烧完；最多等 4 秒），把这个房间现在的样子记成它的复原点：地形、引线，以及各机制自己的状态（`Mechanic.onSolve`：开过的门一直开着、开门用掉的钥匙不再回来（重置整张地图也不回来）、打赢的 Boss 不再出现、移动方块以那时的位置和方向为原位、箱子以那时的位置为原位、消失的压板不再恢复）。之后在这个房间里死了 / 按 R 回到这里；还没等到安静下来就重置的，按重置那一刻的样子记。正式玩时同时写进存档（`run.solved`：层 → 房间的字符画、引线、各机制的 `solvedState`，以及触发过的节点 id），读档时这些房间直接换成解开时的样子（`restoreSolved`，在机制 start 之前）；地图改过（`mapHash` 变了）就不要这些记录。试玩不写存档。
+**解开节点**（`mechanics/solve/`，核心在 `core/Solves.ts`）：某个房间里发生了某件事，这个房间就算解开了。节点写在 `mechanics/solve/nodes.ts`（层 id → 节点列表，一行一个：id、房间 key、条件），条件有三种：某一组（颜色）的门被钥匙打开、这个房间的 Boss 被打败、这个房间的移动方块第一次动起来。现在 Floor 1 有六个：C 房移动方块动起来、A 房蓝门、D 房黄门、F 房 Boss、I 房红门、M 房蓝门。节点触发后，等这一刻引发的事做完（门一格格消失、王之炸药炸完、火花圈扩完、碎块落地、引线烧完；最多等 4 秒），把这个房间现在的样子记成它的复原点：地形、引线，以及各机制自己的状态（`Mechanic.onSolve`：开过的门一直开着、开门用掉的钥匙不再回来（重置整张地图也不回来）、打赢的 Boss 不再出现、移动方块以那时的位置和方向为原位、箱子以那时的位置为原位、消失的压板不再恢复）。之后在这个房间里死了 / 按 R 回到这里；还没等到安静下来就重置的，按重置那一刻的样子记。正式玩时同时写进存档（`run.solved`：层 → 房间的字符画、引线、各机制的 `solvedState`，以及触发过的节点 id），读档时这些房间直接换成解开时的样子（`restoreSolved`，在机制 start 之前）；地图改过（`mapHash` 变了）就不要这些记录。试玩不写存档。
 
-**R 重置房间的规则**：按材料的来源算，不按它现在在哪。地形每格记着"这块材料原本在哪一格"：这个房间的沙土、碎块掉到了别的房间，重置时一起收回来；别的房间的材料落在这个房间里，重置时放回它原来的位置（原位空着才放）。别的房间里正在掉的碎块、被怪物驮着的纸照常进行；正在烧的引线和一跳跳往下烧的连锁则整张图一起停。**死了之后重置什么**看 `config.deathReset`（编辑器左边栏「游戏设置 → 死了之后」可以切）：默认 `room` 重置当前房间。重置回到的是房间的**复原点**：没解开的房间是一开始的样子，解开过的是解开时的样子（见「解开节点」）。`none` 什么都不重置，解过的就算解过了（炸掉的砖、烧过的引线、开过的门、推过的箱子、打死的怪都保持原样，手上的东西也还在），人回到这个房间的入口、心回满（`Respawn.revive`），卡关了就按 R 重置这个房间；例外是机制的 `resetsRoomOnDeath` 说要重开的——Boss 战打到一半死了、吃豆人层被抓到，还是重置当前房间。`room` = 死了重置当前房间；`world` = 死了、按 R 都重置整张图，所有东西都复原。
+**R 重置房间的规则**：按材料的来源算，不按它现在在哪。地形每格记着"这块材料原本在哪一格"：这个房间的沙土、碎块掉到了别的房间，重置时一起收回来；别的房间的材料落在这个房间里，重置时放回它原来的位置（原位空着才放）。别的房间里正在掉的碎块、被怪物驮着的纸照常进行；正在烧的引线和一跳跳往下烧的连锁则整张图一起停。**死了之后重置什么**看 `config.deathReset`（编辑器左边栏「游戏设置 → 死了之后」可以切）：默认 `world`：死了、按 R 都是整张图一起复原（谜题可以跨房间：引线烧过去、箱子推过去、碎块掉过去，只复原一个房间会对不上），人在死的那个房间的入口复活，不回到节点。复原到的是每个房间的**复原点**：没解开的房间是一开始的样子，解开过的是解开时的样子（见「解开节点」）。`room` = 只重置当前房间。`none` 什么都不重置，解过的就算解过了（炸掉的砖、烧过的引线、开过的门、推过的箱子、打死的怪都保持原样，手上的东西也还在），人回到这个房间的入口、心回满（`Respawn.revive`），卡关了就按 R 重置这个房间；例外是机制的 `resetsRoomOnDeath` 说要重开的——Boss 战打到一半死了、吃豆人层被抓到，还是重置当前房间。

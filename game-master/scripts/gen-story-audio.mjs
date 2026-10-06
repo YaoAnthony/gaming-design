@@ -1,14 +1,16 @@
-// ===== 主线剧情的占位音效和开场音乐：在 JS 里合成波形，写成 WAV，再用 ffmpeg 压成 MP3（输出到 src/asset/story/）=====
+// ===== 主线剧情的占位音效和开场音乐：在 JS 里合成波形，写成 WAV，再用 ffmpeg 压成 MP3（音效输出到 src/asset/audio/story/，开场音乐到 src/asset/music/）=====
 //   node scripts/gen-story-audio.mjs            全部
 //   node scripts/gen-story-audio.mjs slam yay   只生成这几个
-// 换成正式的音效 / 曲子：直接覆盖 src/asset/story/ 里同名的 mp3（清单在 src/asset/storyAudio.ts）。
+// 换成正式的音效 / 曲子：直接覆盖那里同名的 mp3（音效清单在 src/asset/storyAudio.ts，音乐在 src/asset/index.ts 的 AUDIO）。
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, writeFileSync, rmSync, mkdtempSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 
-const OUT = join(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'asset', 'story');
+const ASSET = join(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'asset');
+const OUT = join(ASSET, 'audio', 'story');
+const MUSIC = join(ASSET, 'music');
 const SR = 44100;
 const ONLY = new Set(process.argv.slice(2));
 
@@ -48,7 +50,8 @@ function normalize(a, peak = 0.9) {
   return a;
 }
 
-function writeMp3(name, data, bitrate = '96k') {
+/** out = 写到哪个文件夹（音效 OUT，音乐 MUSIC） */
+function writeMp3(name, data, bitrate = '96k', out = OUT) {
   if (ONLY.size && !ONLY.has(name)) return;
   const dir = mkdtempSync(join(tmpdir(), 'gm-audio-'));
   const wav = join(dir, name + '.wav');
@@ -59,8 +62,8 @@ function writeMp3(name, data, bitrate = '96k') {
   h.writeUInt32LE(16, 16); h.writeUInt16LE(1, 20); h.writeUInt16LE(1, 22); h.writeUInt32LE(SR, 24); h.writeUInt32LE(SR * 2, 28);
   h.writeUInt16LE(2, 32); h.writeUInt16LE(16, 34); h.write('data', 36); h.writeUInt32LE(pcm.length, 40);
   writeFileSync(wav, Buffer.concat([h, pcm]));
-  mkdirSync(OUT, { recursive: true });
-  execFileSync('ffmpeg', ['-v', 'error', '-y', '-i', wav, '-ac', '1', '-ar', String(SR), '-b:a', bitrate, join(OUT, name + '.mp3')]);
+  mkdirSync(out, { recursive: true });
+  execFileSync('ffmpeg', ['-v', 'error', '-y', '-i', wav, '-ac', '1', '-ar', String(SR), '-b:a', bitrate, join(out, name + '.mp3')]);
   rmSync(dir, { recursive: true, force: true });
   console.log('wrote', `story/${name}.mp3`, `${(data.length / SR).toFixed(2)}s`);
 }
@@ -201,5 +204,5 @@ function writeMp3(name, data, bitrate = '96k') {
     for (let j = 0; j < SR * 0.04; j++) a[(s0 + j) % a.length] += hp(noise()) * 0.05 * Math.exp(-j / SR * 120);
     if (k % 2 === 0) for (let j = 0; j < SR * 0.18; j++) { const t = j / SR; a[(s0 + j) % a.length] += Math.sin(TAU * (50 + 80 * Math.exp(-t * 40)) * t) * 0.35 * Math.exp(-t * 18); }
   }
-  writeMp3('openingMusic', normalize(a, 0.8), '128k');
+  writeMp3('openingMusic', normalize(a, 0.8), '128k', MUSIC);
 }

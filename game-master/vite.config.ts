@@ -104,7 +104,9 @@ export default defineConfig({
   },
   test: {
     environment: 'node',
-    // 机制文件夹里的运行时类 import 了 Phaser；测试只用注册表，换成替身（见 src/test/phaser-stub.ts）
-    alias: { phaser: fileURLToPath(new URL('./src/test/phaser-stub.ts', import.meta.url)) },
+    // 测试都在 tests/ 里（目录结构和 src/ 一一对应），不和源码混在一起
+    include: ['tests/**/*.test.{ts,mjs}'],
+    // 机制文件夹里的运行时类 import 了 Phaser；测试只用注册表，换成替身（见 tests/support/phaser-stub.ts）
+    alias: { phaser: fileURLToPath(new URL('./tests/support/phaser-stub.ts', import.meta.url)) },
   },
 });

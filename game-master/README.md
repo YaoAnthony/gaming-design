@@ -95,7 +95,7 @@ src/
 
 机制能用的东西都在 `core/PlayContext.ts`（地形、玩家、怪物、对话、房间查询、死亡 / 换层、`mech('carry')` 拿别的机制）。可选的钩子在 `mechanics/define.ts` 的 `Mechanic`：`start`、`update`（每帧）、`updateAlive`（活着才跑）、`blocks`（额外挡路的格子）、`onRoomChanged`、`onClear` / `onReset`（重置；Boss 用返回值改复活点）、`onFuseBurn`、`persist`（存档 / 带到下一层）、`vortexTargets`、`bake`（建地形前改模型，比如把门烘成砖）。机制还能声明 `roomFlags`，编辑器房间面板自动出现对应开关（吃豆人的「左右打通」）。
 
-**加一个新机制**：`mechanics/<名字>/index.ts` 里 `defineMechanic({ id, name, scope, create: ctx => new X(ctx) })` + 需要的 `.entity(...)`，然后在 `mechanics/index.ts` 加一行 import（顺序 = 每帧调用顺序 = 物品栏顺序）。单元测试里 `phaser` 被换成替身（`src/test/phaser-stub.ts`），所以注册表可以直接在 Node 里测。
+**加一个新机制**：`mechanics/<名字>/index.ts` 里 `defineMechanic({ id, name, scope, create: ctx => new X(ctx) })` + 需要的 `.entity(...)`，然后在 `mechanics/index.ts` 加一行 import（顺序 = 每帧调用顺序 = 物品栏顺序）。单元测试里 `phaser` 被换成替身（`tests/support/phaser-stub.ts`），所以注册表可以直接在 Node 里测。
 
 ## 帽子与箱子
 

@@ -9,7 +9,7 @@ export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
-    files: ['src/**/*.{ts,tsx}'],
+    files: ['src/**/*.{ts,tsx}', 'tests/**/*.ts'],
     languageOptions: { globals: globals.browser },
     plugins: { 'react-hooks': reactHooks },
     rules: {
@@ -32,7 +32,7 @@ export default tseslint.config(
     rules: { 'no-restricted-imports': ['error', { paths: ['phaser'], patterns: ['@/sprite/*', '@/particle/*', '@/game/scenes/*', '@/game/core/*', '@/game/mechanics/*'] }] },
   },
   {
-    files: ['vite.config.ts', 'scripts/**/*.mjs', 'eslint.config.js'],
+    files: ['vite.config.ts', 'scripts/**/*.mjs', 'tests/**/*.mjs', 'eslint.config.js'],
     languageOptions: { globals: globals.node },
   },
 );

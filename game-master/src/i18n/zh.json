@@ -82,11 +82,7 @@
     "bossAppears": "史莱姆王！",
     "bossDefeated": "史莱姆王倒下了",
     "hatKnocked": "帽子被撞掉了",
-    "wallCollapsed": "远处有墙塌了",
-    "toBeContinued": "未完待续",
-    "pressStart": "已经开始了",
-    "pressSettings": "还没接上",
-    "pressQuit": "退不出去"
+    "toBeContinued": "未完待续"
   },
   "death": {
     "buriedByRock": "被落石埋住了",
@@ -238,12 +234,6 @@
       "title": "你赢了！",
       "continue": "继续",
       "restart": "重新开始",
-      "quit": "退出"
-    },
-    "sign": "施工中",
-    "button": {
-      "start": "开始",
-      "settings": "设置",
       "quit": "退出"
     },
     "editor": {

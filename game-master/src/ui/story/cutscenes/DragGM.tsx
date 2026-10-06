@@ -1,4 +1,4 @@
-// ===== 演出：GM 把自己的化身（施工区尽头那个骷髅 NPC）也拖进关卡编辑器 =====
+// ===== 演出：GM 把自己的化身（城堡前面那个骷髅 NPC）也拖进关卡编辑器 =====
 // 游戏一侧已经把 GM 藏起来了。骷髅手捏住他的头、拎起来，放进编辑器物品栏里那一格（data-story-slot="gm"），他在那里缩成一个图标。
 import { useState } from 'react';
 import { store } from '@/redux/store';

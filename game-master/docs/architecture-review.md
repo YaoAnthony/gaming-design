@@ -141,6 +141,6 @@
 
 ## 七、后续：主线剧情、Steam、手柄（2026-10-06）
 
-1. **主线剧情**：剧情的数据（`src/story/`，不依赖引擎）、游戏里的部分（`game/mechanics/story/`，一个通用机制）、界面上的部分（`ui/story/`）分开放，只通过总线事件和存档里的标记（`run.flags`）说话。新加的场景钩子只有两个：`Mechanic.delaysEntrance()`（标题画面时主角晚点出场）和 `ctx.story`（读写剧情标记）。结构和改法见 `docs/story.md`。
+1. **主线剧情**（GM 在第一层房间 P）：剧情的数据（`src/story/`，不依赖引擎）、游戏里的部分（`game/mechanics/story/`，一个通用机制）、界面上的部分（`ui/story/`）分开放，只通过总线事件和存档里的标记（`run.flags`）说话。新加的场景钩子只有两个：`Mechanic.delaysEntrance()`（标题画面时主角晚点出场）和 `ctx.story`（读写剧情标记）。结构和改法见 `docs/story.md`。
 2. **Steam**：存档按 Steam 账号分文件夹、退出前等网页把存档写完、electron-builder 打包、SteamPipe 上传脚本，见 `docs/desktop.md`。原第 7 条的「打包」做完了；成就还没接。
 3. **手柄**：菜单（标题、设置、结局画面、通关弹窗）全部能用手柄操作，键位表见 `docs/controls.md`。

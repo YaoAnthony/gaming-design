@@ -82,11 +82,7 @@
     "bossAppears": "Slime King!",
     "bossDefeated": "Slime King defeated",
     "hatKnocked": "Hat knocked off",
-    "wallCollapsed": "A wall collapsed somewhere",
-    "toBeContinued": "To be continued",
-    "pressStart": "Already started",
-    "pressSettings": "Not wired up yet",
-    "pressQuit": "No way out"
+    "toBeContinued": "To be continued"
   },
   "death": {
     "buriedByRock": "Buried by falling rock",
@@ -223,12 +219,6 @@
       "title": "YOU WIN!",
       "continue": "Continue",
       "restart": "Restart",
-      "quit": "Quit"
-    },
-    "sign": "WIP",
-    "button": {
-      "start": "Start",
-      "settings": "Settings",
       "quit": "Quit"
     },
     "editor": {

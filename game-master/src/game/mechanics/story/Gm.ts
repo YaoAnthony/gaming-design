@@ -1,5 +1,5 @@
-// ===== Game Master 的化身（施工区尽头那个骷髅）和它的剧本 =====
-// 走近自动开始说（story/scripts/gm.ts），跳一下翻一句。剧本里的演出交给界面一侧放（EVT.storyCutscene），
+// ===== Game Master 的化身（第一层房间 P，挡在城堡前面的那个骷髅）和它的剧本 =====
+// 第一幕通关之后（看过「你赢了！」）走近自动开始说（story/scripts/gm.ts），跳一下翻一句；没通关之前他只是挡在那。剧本里的演出交给界面一侧放（EVT.storyCutscene），
 // 演出期间人不归玩家管（takesControl）。中途被打断（死了、重置）：下次走近从最后记下的那个标记之后接着说。
 // 说完 GM 被拖进了关卡编辑器（存档里记着 act2.editor）：之后进这一层他就不在了，编辑器改造过的格子直接画好。
 import Phaser from 'phaser';
@@ -55,7 +55,7 @@ export class Gm {
     const { ctx } = this;
     // 说到一半被打断了（死了、重置：对话框被收掉了，说完的回调不会来）
     if (this.phase === 'talk' && !ctx.dialogue.talking) this.phase = 'idle';
-    if (this.phase !== 'idle' || !this.sprite || ctx.dialogue.talking) return;
+    if (this.phase !== 'idle' || !this.sprite || ctx.dialogue.talking || !ctx.story.has(STORY.act1Won)) return;
     const T = ctx.cfg.tile, p = ctx.player.body;
     if (Math.abs(p.center.x - this.sprite.x) > TALK_RANGE_X * T || Math.abs(p.bottom - this.sprite.y) > TALK_RANGE_Y * T) return;
     this.at = this.resumeAt();

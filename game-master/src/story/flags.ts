@@ -4,7 +4,7 @@
 export const STORY = {
   /** 第一幕：碰到终点城堡，看到了「你赢了！」 */
   act1Won: 'act1.won',
-  /** 在庆祝画面上按了「继续」：角落那段墙塌开，通往施工区 */
+  /** 在庆祝画面上按了「继续」：接着玩 */
   act1Continued: 'act1.continued',
   /** GM 检查庆祝画面时把「继续」按钮揉成一团扔了：之后的庆祝画面没有「继续」 */
   continueRemoved: 'act1.continueRemoved',

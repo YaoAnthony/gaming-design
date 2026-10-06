@@ -4,7 +4,7 @@
 /** 主图里的字符：砖块 */
 export const TILES = new Set(['.', 'R', 'r', 'B', 'S', 'X', 'Z', '=', '_', 'E']);
 /** 主图里的字符：物件（底下是空气） */
-export const ENTITIES = new Set(['P', 'M', 'G', 'T', 'C', 'h', 'b', 'D', 'q', 'Q', 'N', 'K', 'k', 'V', 'Y', 'W', 'L', 'U', 'J', 'g']);
+export const ENTITIES = new Set(['P', 'M', 'G', 'T', 'C', 'h', 'b', 'D', 'q', 'Q', 'N', 'K', 'k', 'V', 'g']);
 /** 主图里的字符：门（底下是空气）→ 组号；钥匙直接写组号 1-9 */
 export const DOORS = { '!': 1, '@': 2, '$': 3, '^': 4 };
 /** 移动方块只能画在这些砖上（实心、自己不会掉） */

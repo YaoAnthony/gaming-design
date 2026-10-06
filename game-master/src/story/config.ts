@@ -23,11 +23,9 @@ export function endingChoices(flags: Record<string, true> | undefined): EndingCh
   return flags?.[STORY.continueRemoved] ? ['restart', 'quit'] : ['continue', 'restart', 'quit'];
 }
 
-/** 这些标记都有了，下一步该发生什么（给存档读回来时用：比如已经在编辑器里了，就直接进编辑器） */
-export function storyStage(flags: Record<string, true> | undefined): 'act1' | 'construction' | 'editor' {
-  if (flags?.[STORY.act2Editor]) return 'editor';
-  if (flags?.[STORY.act1Continued]) return 'construction';
-  return 'act1';
+/** 这些标记都有了，现在在哪一幕（给存档读回来时用：已经在编辑器里了，就直接进编辑器） */
+export function storyStage(flags: Record<string, true> | undefined): 'act1' | 'editor' {
+  return flags?.[STORY.act2Editor] ? 'editor' : 'act1';
 }
 
 export type { StoryFlag };

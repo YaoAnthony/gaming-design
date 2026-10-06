@@ -80,7 +80,7 @@ describe('剧情的配置', () => {
 
   it('走到哪一步', () => {
     expect(storyStage({})).toBe('act1');
-    expect(storyStage({ [STORY.act1Continued]: true })).toBe('construction');
+    expect(storyStage({ [STORY.act1Continued]: true })).toBe('act1');
     expect(storyStage({ [STORY.act1Continued]: true, [STORY.act2Editor]: true })).toBe('editor');
   });
 
@@ -96,14 +96,8 @@ describe('第一层地图里的剧情', () => {
   const m = world.floors[0].model as unknown as { layout: (string | null)[][]; rooms: Record<string, string[]>; entities: Record<string, string[]> };
   const where = (ch: string) => Object.entries(m.entities).flatMap(([k, rows]) => rows.flatMap((r, y) => [...r].flatMap((c, x) => (c === ch ? [{ k, x, y }] : []))));
 
-  it('有剧情墙、GM、施工区的道具；GM 只有一个', () => {
-    expect(where('Y').length).toBeGreaterThan(0);
-    expect(where('g').length).toBe(1);
-    for (const ch of ['W', 'L', 'U', 'J']) expect(where(ch).length, ch).toBeGreaterThan(0);
-  });
-
-  it('剧情墙的那几格砖块层是空的（游戏里 bake 成岩石）', () => {
-    for (const { k, x, y } of where('Y')) expect(m.rooms[k][y][x]).toBe('.');
+  it('GM 只有一个，在房间 P（城堡前面）', () => {
+    expect(where('g')).toEqual([expect.objectContaining({ k: 'P' })]);
   });
 
   it('GM 所在的房间就是编辑器改造的房间：改造的格子原来都是空的', () => {

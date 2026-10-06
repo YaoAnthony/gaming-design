@@ -182,7 +182,7 @@ docs/architecture-review.md  # 2026-10 的架构审查：改了什么、还建�
 
 ## 主线剧情
 
-标题画面、第一幕的结局（「你赢了！」）、施工区、Game Master 的剧本和演出、第二幕的关卡编辑器，见 `docs/story.md`。
+标题画面、第一幕的结局（「你赢了！」）、城堡前 Game Master 的剧本和演出、第二幕的关卡编辑器，见 `docs/story.md`。
 
 ## 会说话的角色
 

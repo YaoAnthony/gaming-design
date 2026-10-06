@@ -40,11 +40,6 @@ import handOpenUrl from './hand_open.png';
 import grabHandUrl from './grab_hand.png';
 import gmHandUrl from './gm_hand.png';
 import gmArmUrl from './gm_arm.png';
-import storySignUrl from './story_sign.png';
-import storyButtonUrl from './story_button.png';
-import storyWireUrl from './story_wire.png';
-import storyPileUrl from './story_pile.png';
-import storyGateUrl from './story_gate.png';
 import openingMusicUrl from './story/openingMusic.mp3';
 import boomUrl from './boob.mp3';
 import bgmUrl from './Pixelated_Coffee.mp3';
@@ -96,8 +91,6 @@ export interface ImageAsset { key: string; url: string }
 
 export const SPRITESHEETS: SpriteSheetAsset[] = [
   { key: 'tiles', url: tilesUrl, frameWidth: TILE_SIZE, frameHeight: TILE_SIZE },
-  /** 施工区散落的菜单按钮：上一帧抬起、下一帧按下（字是游戏里现写的） */
-  { key: 'story_button', url: storyButtonUrl, frameWidth: 64, frameHeight: 20 },
 ];
 
 export const IMAGES: ImageAsset[] = [
@@ -137,12 +130,6 @@ export const IMAGES: ImageAsset[] = [
   { key: 'bomb', url: bombUrl },
   { key: 'hand_hold', url: handHoldUrl },
   { key: 'hand_open', url: handOpenUrl },
-  /** 主线剧情：施工牌、线框格（还没画上砖的格子）、一堆素材 */
-  { key: 'story_sign', url: storySignUrl },
-  { key: 'story_wire', url: storyWireUrl },
-  { key: 'story_pile', url: storyPileUrl },
-  /** 剧情墙（只在编辑器里显示：游戏里它就是一格岩石） */
-  { key: 'story_gate', url: storyGateUrl },
 ];
 
 /**

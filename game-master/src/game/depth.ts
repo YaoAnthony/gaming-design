@@ -19,7 +19,7 @@ export const DEPTH = {
   terrainShade: 0.5,
   /** 暖光（蜡烛之类）：地形、体积感之上，碎块、物件、人之下 */
   warmLight: 4.5,
-  /** 施工区的道具（施工牌、线框格、素材堆、菜单按钮）和 GM 的化身 */
+  /** GM 的化身 */
   storyProp: 2,
   /** 玩家 */
   player: 10,

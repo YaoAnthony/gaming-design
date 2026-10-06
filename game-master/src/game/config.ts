@@ -78,7 +78,7 @@ export const DEFAULT_CONFIG: GameConfig = {
     rhythm: {
       heroZ: 0.75, tail: 0.2, heroScale: 2.5,
       travelBeats: 4, dropBeats: 1,
-      windows: { perfect: 60, good: 130 }, passRatio: 0.6, bossHp: 20,
+      windows: { perfect: 60, good: 130 }, passRatio: 0.6, bossTubes: 10, musicGain: 2.4,
       heroHp: 10, hurtGraceMs: 700, fadeOutMs: 2500,
       hitWindowMs: 80, barClear: 0.6,
       jumpVelocity: 21, gravity: 58,   // 跳 3.8 格高、滞空 0.72 秒

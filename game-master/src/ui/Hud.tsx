@@ -23,9 +23,10 @@ const TUBE_COLORS = 6;
 
 /**
  * Boss 的血条。per = 一管多少滴：血多的时候分成好几管，只画最上面那一管，打空的格子露出下一管的颜色，旁边写还剩几管。
- * 管越多血条越大、一管一个颜色；满管数的那一管（最后填上的）是金色的，带流光
+ * 管越多血条越大、一管一个颜色；满管数的那一管（最后填上的）是金色的，带流光。血条下面是他的名字（紫色、发光）
  */
 function BossBar({ hp, max, per }: { hp: number; max: number; per?: number }) {
+  const name = useTranslation().t('npc.skeletonKing');
   if (!per || max <= per) return <div className="boss-bar">{Array.from({ length: max }, (_, i) => <span key={i} className={'seg' + (i < hp ? ' on' : '')} />)}</div>;
   const tubes = Math.ceil(max / per), bars = Math.ceil(hp / per), top = hp - (bars - 1) * per;   // 一共几管；还剩几管；最上面那一管剩几滴
   const color = (n: number) => (n >= tubes ? ' tube-gold' : ' tube-c' + ((n - 1) % TUBE_COLORS));   // 第 n 管（1 起）什么颜色
@@ -33,6 +34,7 @@ function BossBar({ hp, max, per }: { hp: number; max: number; per?: number }) {
     <div className={'boss-bar tubes' + (bars >= tubes && bars > 0 ? ' crowned' : '')} style={{ '--tube': Math.max(0, bars - 1) } as CSSProperties}>
       {Array.from({ length: per }, (_, i) => <span key={i} className={'seg' + (i < top ? ' on' + color(bars) : bars > 1 ? ' under' + color(bars - 1) : '')} />)}
       <span key={bars} className="tube-count">×{bars}</span>
+      <span className="boss-name">{name}</span>
     </div>
   );
 }

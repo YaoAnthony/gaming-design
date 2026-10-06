@@ -99,7 +99,7 @@ export class RhythmFight {
   private pending: RhythmTest | null = null;
   private test: RhythmTest | null = null;
   /** 血条正在填：从哪一刻（真实时间）开始填的、上一次涨到了第几步；null = 没在填 */
-  private fill: { last: number; hp: number; fullAt: number; sound: BossSound; max: number; on: { x: number; left: number; right: number } } | null = null;
+  private fill: { last: number; hp: number; fullAt: number; sound: BossSound; max: number; per: number; on: { x: number; left: number; right: number } } | null = null;
   /** 下一次破屏前的震动已经起过了（记的是那一段的下标）；换段前的那句话已经说过了（同上） */
   private rumbled = -1;
   private said = -1;
@@ -264,7 +264,7 @@ export class RhythmFight {
   private play(on: { x: number; left: number; right: number } | null, test: RhythmTest | null = null): void {
     const chart = this.chart!, { scene, cfg } = this.d, room = this.room;
     this.test = test;
-    const session = beginRhythm(chart, import.meta.env.BASE_URL + chart.audio, cfg.musicVolume, test?.fromMs ?? 0);
+    const session = beginRhythm(chart, import.meta.env.BASE_URL + chart.audio, Math.min(1, cfg.musicVolume * cfg.world3d.rhythm.musicGain), test?.fromMs ?? 0);   // 这首曲子比平时的背景音乐响
     if (!session) { this.phase = 'staged'; this.autoStart = false; this.d.onBoss(null); this.d.onEnd(); this.d.player().unfreeze(); return; }
     this.session = session; this.section = -1; this.stopping = false; this.rumbled = -1; this.said = -1; this.phase = 'play';
     this.hp = cfg.world3d.rhythm.heroHp; this.graceUntil = 0;
@@ -309,17 +309,17 @@ export class RhythmFight {
 
   /** 主角踩上了一块板：锁住他，这一层的音乐停下，骷髅王的血条出现（空的），开始填 */
   private lock(on: { x: number; left: number; right: number }): void {
-    const { scene, cfg } = this.d, p = this.d.player(), rc = cfg.world3d.rhythm;
+    const { scene } = this.d, p = this.d.player();
     p.freeze(0xffffff); p.clearTint();
-    this.fill = { last: scene.time.now, hp: 0, fullAt: 0, sound: createBossSound(scene), max: this.bossMax(this.chart!, notesOf(this.chart!)), on };
+    this.fill = { last: scene.time.now, hp: 0, fullAt: 0, sound: createBossSound(scene), ...this.bossSize(this.chart!, notesOf(this.chart!)), on };
     this.phase = 'fill';
     this.d.onBegin();
-    this.d.onBoss({ hp: 0, max: this.fill.max, per: rc.bossHp });
+    this.d.onBoss({ hp: 0, max: this.fill.max, per: this.fill.per });
   }
 
   /** 把骷髅王的血条填满：一格一格涨、每格「滴」一声，越往后的管填得越快、声音越高；每满一管震一下。全满之后停一下，才开打 */
   private fillBar(): void {
-    const f = this.fill!, { scene, cfg } = this.d, per = cfg.world3d.rhythm.bossHp, real = scene.time.now;
+    const f = this.fill!, { scene } = this.d, per = f.per, real = scene.time.now;
     if (f.hp >= f.max) {
       if (real - f.fullAt < FILL.holdMs) return;
       this.fill = null;
@@ -355,20 +355,21 @@ export class RhythmFight {
     if (this.hp <= 0) this.stopping = true;
   }
 
-  /** 骷髅王的血：一共 = 整张谱音符数的六成（passRatio），接住一个（Perfect / Good）掉一滴；per = 一管多少滴 */
+  /** 骷髅王的血：亲手接住一个（Perfect / Good）掉一滴；per = 一管多少滴 */
   private bossHp(): { hp: number; max: number; per: number } {
-    const s = this.session!, max = this.bossMax(s.chart, s.notes);
-    return { hp: Math.max(0, max - s.score.struck), max, per: this.d.cfg.world3d.rhythm.bossHp };
+    const s = this.session!, size = this.bossSize(s.chart, s.notes);
+    return { hp: Math.max(0, size.max - s.score.struck), ...size };
   }
 
   /**
-   * 骷髅王一共多少血：能打到他的音符（躲弹幕那一段不算；长按算两下，和成绩里一样）的六成（passRatio），
-   * 再凑成整管（一管 bossHp 滴）——血条填满时每一管都是满的
+   * 骷髅王一共多少血、一管多少滴：固定 bossTubes 管；总量是能打到他的音符（躲弹幕那一段不算；长按算两下，和成绩里一样）
+   * 的六成（passRatio），一管的滴数往上取整——所以血条填满时每一管都是满的
    */
-  private bossMax(chart: Chart, notes: readonly Note[]): number {
-    const cfg = this.d.cfg.world3d.rhythm, per = cfg.bossHp;
+  private bossSize(chart: Chart, notes: readonly Note[]): { max: number; per: number } {
+    const cfg = this.d.cfg.world3d.rhythm;
     const total = notes.reduce((n, note) => n + (RHYTHM_MODES[chart.sections[note.section].mode].hurtsBoss ? (note.holdMs ? 2 : 1) : 0), 0);
-    return Math.max(1, Math.round(total * cfg.passRatio / per)) * per;
+    const per = Math.max(1, Math.ceil(total * cfg.passRatio / cfg.bossTubes));
+    return { max: per * cfg.bossTubes, per };
   }
 
   /** 接住的音符弹回去砸骷髅王：划一道弧线飞到他身上，砸到了他缩一下 */

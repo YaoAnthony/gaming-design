@@ -166,8 +166,10 @@ export interface RhythmConfig {
   hurtGraceMs: number;
   /** 打完之后曲子用多久慢慢小下去（毫秒） */
   fadeOutMs: number;
-  /** 骷髅王的血条一管多少滴（总血量 = 整张谱音符数 × passRatio，接住一个掉一滴，掉光 = 够过关了） */
-  bossHp: number;
+  /** 骷髅王的血条分几管（总血量 = 能打到他的音符数 × passRatio，平分到每一管、往上取整；接住一个掉一滴，掉光 = 够过关了） */
+  bossTubes: number;
+  /** 节奏关卡的曲子比平时的背景音乐响几倍（乘在 musicVolume 上，最多到满音量） */
+  musicGain: number;
   /** 躲：弹幕到主角那一排的前后多少毫秒内，站在那条道上就算被打中 */
   hitWindowMs: number;
   /** 脚离地这么高（格）就跳得过横杠 */

@@ -179,7 +179,7 @@ label.check { display: flex; align-items: center; gap: 6px; margin: 8px 0; color
 .boss-bar .seg.on { animation: boss-seg-pop .22s ease-out; }
 /* 好几管血：只画最上面那一管，格子窄一点；打空的格子露出下一管的颜色；旁边写还剩几管。
    管越多血条越大（--tube = 已经叠了几管，从顶边正中往外长）；一管一个颜色，满管数的那一管是金色的、带流光 */
-.boss-bar.tubes { gap: 2px; align-items: center; transform: translateX(-50%) scale(calc(1 + var(--tube, 0) * .07)); transform-origin: 50% 0; transition: transform .18s cubic-bezier(.2, 1.8, .4, 1); }
+.boss-bar.tubes { gap: 2px; align-items: center; transform: translateX(-50%) scale(calc(1 + var(--tube, 0) * .04)); transform-origin: 50% 0; transition: transform .18s cubic-bezier(.2, 1.8, .4, 1); }
 .boss-bar.tubes .seg { width: 14px; }
 .boss-bar.tubes .seg.on { animation: boss-seg-pop .12s ease-out; }
 .boss-bar .seg.tube-c0 { --c: 239, 71, 111; }
@@ -195,10 +195,13 @@ label.check { display: flex; align-items: center; gap: 6px; margin: 8px 0; color
 .boss-bar.crowned { border-color: #ffd700; box-shadow: 0 0 14px rgba(255, 215, 0, .55), inset 0 0 10px rgba(255, 180, 0, .25); animation: tube-crown 1.4s ease-in-out infinite; }
 .boss-bar .tube-count { margin-left: 6px; color: #f1efe6; font: 700 13px monospace; animation: tube-count-pop .25s cubic-bezier(.2, 1.8, .4, 1); }
 .boss-bar.crowned .tube-count { color: #ffd700; text-shadow: 0 0 6px rgba(255, 215, 0, .8); }
+/* 血条下面 Boss 的名字：紫色、发光，光一呼一吸 */
+.boss-bar .boss-name { position: absolute; left: 0; right: 0; top: calc(100% + 5px); text-align: center; font: 700 13px "Press Start 2P", monospace; letter-spacing: .18em; text-transform: uppercase; color: #d9b8ff; text-shadow: 0 0 6px #b388ff, 0 0 14px #8a2be2, 0 0 26px rgba(138, 43, 226, .7); animation: boss-name-glow 1.8s ease-in-out infinite; pointer-events: none; white-space: nowrap; }
+@keyframes boss-name-glow { 0%, 100% { text-shadow: 0 0 5px #b388ff, 0 0 12px #8a2be2, 0 0 20px rgba(138, 43, 226, .55); } 50% { text-shadow: 0 0 9px #d9b8ff, 0 0 20px #a855f7, 0 0 38px rgba(168, 85, 247, .9); } }
 @keyframes tube-shimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
 @keyframes tube-crown { 0%, 100% { box-shadow: 0 0 10px rgba(255, 215, 0, .45), inset 0 0 8px rgba(255, 180, 0, .2); } 50% { box-shadow: 0 0 24px rgba(255, 215, 0, .9), inset 0 0 14px rgba(255, 180, 0, .4); } }
 @keyframes tube-count-pop { from { transform: scale(2.2); } to { transform: scale(1); } }
-@media (prefers-reduced-motion: reduce) { .boss-bar .seg.tube-gold, .boss-bar.crowned, .boss-bar .tube-count { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .boss-bar .seg.tube-gold, .boss-bar.crowned, .boss-bar .tube-count, .boss-bar .boss-name { animation: none; } }
 @keyframes boss-seg-pop { 0% { transform: scaleY(1.9); background: #fff; } 100% { transform: none; } }
 /* Boss 出场：WARNING 警报条（红黑斜纹上下两道，中间字一闪一闪）、名字卡（像素字体，金色，从大缩到正常） */
 .boss-warning { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(120,0,20,.18); animation: boss-warn-flash .4s steps(1) infinite; }

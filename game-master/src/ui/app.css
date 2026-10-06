@@ -60,7 +60,8 @@ h2 { font-size: 12px; color: var(--muted); margin: 14px 0 6px; text-transform: u
 .hud .score { position: absolute; top: 1.2cqh; right: .9cqw; padding: .25em .7em; background: rgba(11, 11, 20, .92); border: 1px solid rgba(255,255,255,.25); border-radius: 6px; color: #ffe8b0; font-size: clamp(16px, 1.7cqw, 36px); font-weight: bold; letter-spacing: 1px; z-index: 3; }
 .app.mobile .hud .score { top: max(6px, env(safe-area-inset-top)); right: max(10px, env(safe-area-inset-right)); font-size: 14px; }
 /* 节奏关卡的判定：画面上方中间弹一下 */
-.rhythm-judge { position: absolute; top: 13cqh; left: 0; right: 0; text-align: center; font-weight: bold; letter-spacing: .08em; animation: rj-pop .45s ease-out both; }
+/* 判定字在 Boss 血条和名字下面：画面再矮也不叠上去（血条 + 名字连发光大约 90 像素高） */
+.rhythm-judge { position: absolute; top: max(13cqh, 96px); left: 0; right: 0; text-align: center; font-weight: bold; letter-spacing: .08em; animation: rj-pop .45s ease-out both; }
 .rhythm-judge .rj-word { font-size: clamp(18px, 2.6cqw, 52px); }
 .rhythm-judge .rj-combo { font-size: clamp(22px, 3.6cqw, 72px); color: #f1efe6; line-height: 1; }
 .rhythm-judge.perfect .rj-word { color: #ffd166; }

@@ -34,10 +34,11 @@ const preloadedState: { editor: EditorState; config: GameConfig; settings: Setti
 export const store = configureStore({
   reducer: { config: configReducer, editor: editorReducer, hud: hudReducer, input: inputReducer, settings: settingsReducer, run: runReducer },
   preloadedState,
-  // 撤销栈里存着上百份项目：开发期的不可变 / 可序列化检查每次派发都会整个遍历，画格子会卡。跳过它们（项目本身照样检查）
+  // 开发期的不可变 / 可序列化检查每次派发都会把整个 state 遍历一遍：撤销栈里存着上百份项目、项目本身也有八万多字，
+  // 游戏里（节奏关卡一个音符派发好几次）会明显卡。跳过它们：编辑器的 reducer 都走 Immer，改不坏
   middleware: getDefault => getDefault({
-    immutableCheck: { ignoredPaths: ['editor.past', 'editor.future'] },
-    serializableCheck: { ignoredPaths: ['editor.past', 'editor.future'] },
+    immutableCheck: { ignoredPaths: ['editor.past', 'editor.future', 'editor.project'] },
+    serializableCheck: { ignoredPaths: ['editor.past', 'editor.future', 'editor.project'] },
   }),
 });
 

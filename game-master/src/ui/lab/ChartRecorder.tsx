@@ -3,7 +3,7 @@
 // 时间以音频的播放位置为准，和游戏里的指挥（rhythm/Conductor）是同一个钟。
 // 这是开发工具，界面保持中文（和地图编辑器一样）。
 import { useEffect, useRef, useState } from 'react';
-import { keyName as shortKey, MODE_KEYS, type Press } from './modeKeys';
+import { keyName as shortKey, MODE_KEYS, type KeyPress } from './modeKeys';
 import { beatMs, CHARTS, endMs, RHYTHM_MODES, sectionAt, sectionStarts, type Chart } from '@/rhythm';
 
 /** 这些键按了不让浏览器滚动页面；最近的按键显示多少个；节拍灯每拍亮多久（占一拍的比例） */
@@ -15,11 +15,11 @@ const keyName = (code: string) => shortKey(code).replace('␣', '空格');
 export function ChartRecorder({ onBack }: { onBack: () => void }) {
   const [chart, setChart] = useState<Chart>(CHARTS[0]);
   const [recording, setRecording] = useState(false);
-  const [presses, setPresses] = useState<Press[]>([]);
+  const [presses, setPresses] = useState<KeyPress[]>([]);
   const [now, setNow] = useState(0);
   const [status, setStatus] = useState('');
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const pressesRef = useRef<Press[]>([]);
+  const pressesRef = useRef<KeyPress[]>([]);
 
   const stop = () => { audioRef.current?.pause(); setRecording(false); };
   const start = () => {

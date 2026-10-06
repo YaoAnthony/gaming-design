@@ -176,3 +176,14 @@ describe('引线穿过脆岩', () => {
     expect(terrain.grid[3].join('')).toBe('RBBBR');
   });
 });
+
+describe('Terrain.revision（起跳预览的缓存靠它判断要不要重算）', () => {
+  it('炸掉格子时变，只是预览时不变', () => {
+    const { terrain } = make(['RRRRR', 'RrrrR', 'RRRRR']);
+    const r0 = terrain.revision;
+    terrain.previewExplosion(2, 1, 1);
+    expect(terrain.revision).toBe(r0);
+    terrain.explode(2, 1, 1);
+    expect(terrain.revision).toBeGreaterThan(r0);
+  });
+});

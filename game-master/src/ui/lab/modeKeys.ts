@@ -1,7 +1,9 @@
 // ===== 每种玩法在游戏里用哪些键（开发工具共用：谱面录制、试玩时的实时记录都只认这些）=====
 
 /** 每种玩法认哪些键（KeyboardEvent.code；别的键按了不记）、照着怎么按 */
-export const MODE_KEYS: Record<string, { codes: string[]; hint: string }> = {
+import type { ModeId } from '@/rhythm/modes';
+
+export const MODE_KEYS: Record<ModeId, { codes: string[]; hint: string }> = {
   giveup: { codes: ['Space'], hint: '空格 = 跳（上高柱 / 跨尖刺）' },
   dash: { codes: ['Space'], hint: '空格 = 重力翻一次（方块上下排轮着来）' },
   taiko: { codes: ['KeyA', 'KeyD'], hint: 'A = 红，D = 蓝' },
@@ -12,6 +14,6 @@ export const MODE_KEYS: Record<string, { codes: string[]; hint: string }> = {
 };
 
 /** 一下按键：曲子的第几毫秒按下、按的哪个键（KeyboardEvent.code）、第几毫秒松开（长按看它；没松开就停了的没有） */
-export interface Press { ms: number; code: string; upMs?: number }
+export interface KeyPress { ms: number; code: string; upMs?: number }
 
 export const keyName = (code: string): string => code.replace(/^Key/, '').replace(/^Arrow/, '').replace('Space', '␣');

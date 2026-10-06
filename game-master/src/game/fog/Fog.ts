@@ -208,7 +208,7 @@ export class FogOfWar {
     // 踏进迷雾区就揭开整个区（假墙在 ZONE_REVEAL_MS 里淡掉）
     const z = stepReveals ? this.zoneAt(px, py) : -1;
     if (z >= 0) this.reveal(z, now);
-    lit.forEach(i => { if (!this.hiddenZone(i)) this.explored[i] = 1; });   // 没揭开的区照到了也不算见过（预览不显示里面）
+    lit.forEach(i => { if (!this.hiddenZone(i) && !this.explored[i]) { this.explored[i] = 1; this.knownRev++; } });   // 没揭开的区照到了也不算见过（预览不显示里面）
     this.lit = lit;
     this.dirty = true;
   }
@@ -217,7 +217,7 @@ export class FogOfWar {
   private reveal(z: number, now: number): void {
     const key = this.zoneKeys[z];
     if (this.revealed.has(key)) return;
-    this.revealed.add(key); this.revealedAt.set(key, now); this.dirty = true;
+    this.revealed.add(key); this.revealedAt.set(key, now); this.dirty = true; this.knownRev++;
   }
 
   private zoneAt(x: number, y: number): number {
@@ -317,5 +317,9 @@ export class FogOfWar {
   }
 
   /** 给预览用：过滤掉没见过的格子 */
+  /** 哪些格子算「看见过」（isKnown）每变一次加一：依赖它的缓存（起跳预览）拿它判断要不要重算 */
+  get knownRevision(): number { return this.knownRev; }
+  private knownRev = 0;
+
   filterKnown<T extends CellRef>(cells: T[]): T[] { return cells.filter(c => this.isKnown(c.x, c.y)); }
 }

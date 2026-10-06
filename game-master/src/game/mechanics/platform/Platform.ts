@@ -12,6 +12,8 @@ export class Platform implements FloorMechanic {
   readonly collideTerrain = true;
   private skill: SkillDef;
   private preview: Phaser.GameObjects.Graphics;
+  /** 上一次画预览时的条件（起跳点、长大阶段、地形和迷雾的版本号）：没变就不重算不重画——预览要算连锁和松脱，每帧算很贵 */
+  private previewKey = '';
 
   constructor(private ctx: PlayContext) {
     this.skill = Skills.get(ctx.cfg.skill) ?? Skills.list()[0];
@@ -77,6 +79,9 @@ export class Platform implements FloorMechanic {
 
   private drawPreview(jump: JumpEvent | null): void {
     const { ctx } = this, T = ctx.cfg.tile, g = this.preview, fog = ctx.fog;
+    const key = jump ? `${jump.kind}|${jump.cell.x},${jump.cell.y}|${jump.side ?? 0}|${jump.dir ?? 0}|${ctx.player.stage}|${ctx.terrain.revision}|${fog?.knownRevision ?? 0}` : '';
+    if (key === this.previewKey) return;
+    this.previewKey = key;
     g.clear();
     if (!jump) return;
     const pv = this.skill.preview(this.skillContext(jump), jump);

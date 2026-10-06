@@ -6,7 +6,7 @@ import { Tiles } from '@/game/registry/registry';
 import { AUTOTILE_VARIANTS } from '@/asset';
 import { WALL_TEXTURE, WALL_VARIANTS, wallTemplates } from './walls';
 import { frameAt, isWallAt, WALL_GID } from './frames';
-import { depthToAir, shadeOf } from './shading';
+import { depthToAirAround, shadeOf } from './shading';
 
 const NEIGHBORS8: ReadonlyArray<readonly [number, number]> = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
 
@@ -17,7 +17,8 @@ export class TerrainView {
   private readonly h: number;
   /** 体积感（见 enableShading）：一格一个点的小图，平滑放大盖在地形上；没开是 null */
   private shade: { tex: Phaser.Textures.CanvasTexture; pixels: ImageData } | null = null;
-  private shadeDirty = false;
+  /** 体积感要重算的那一块（变过的格子围成的矩形）；null = 不用算 */
+  private shadeDirty: { x0: number; y0: number; x1: number; y1: number } | null = null;
   private static shadeCount = 0;
   /** 地形的投影（见 enableShadow）；没开是 null */
   private shadow: Phaser.Tilemaps.TilemapLayer | null = null;
@@ -66,7 +67,7 @@ export class TerrainView {
     const f = this.drawnElsewhere(x, y) ? -1 : frameAt(this.grid, x, y, 'game', this.wallAt);
     if (f < 0) this.layer.removeTileAt(x, y); else this.layer.putTileAt(f, x, y);
     if (this.shadow) { if (f < 0) this.shadow.removeTileAt(x, y); else this.shadow.putTileAt(f, x, y).tint = 0x000000; }
-    this.shadeDirty = true;
+    this.markShade(x, y, x, y);
   }
 
   /** 地形的体积感：实心砖越往里越暗（shading.ts），挨着空气的表面不变。砖块变化后下一帧重算 */
@@ -76,21 +77,31 @@ export class TerrainView {
     const tex = this.scene.textures.createCanvas(key, this.w, this.h)!;
     this.shade = { tex, pixels: tex.context.createImageData(this.w, this.h) };
     this.scene.add.image(0, 0, key).setOrigin(0).setScale(this.T).setDepth(0.5);
-    this.shadeDirty = true;
+    this.markShade(0, 0, this.w - 1, this.h - 1);
     this.update(solid);
   }
 
-  /** 每帧：体积感有变化就重算。solid(x, y) = 这一格算实心（被别处接管着画的算空气，它们会动） */
+  /** 体积感要重算的范围扩到这块（格，含两端） */
+  private markShade(x0: number, y0: number, x1: number, y1: number): void {
+    const d = this.shadeDirty;
+    this.shadeDirty = d ? { x0: Math.min(d.x0, x0), y0: Math.min(d.y0, y0), x1: Math.max(d.x1, x1), y1: Math.max(d.y1, y1) } : { x0, y0, x1, y1 };
+  }
+
+  /** 每帧：体积感有变化就重算变过的那一块（不是整张图）。solid(x, y) = 这一格算实心（被别处接管着画的算空气，它们会动） */
   update(solid: (x: number, y: number) => boolean): void {
-    if (!this.shade || !this.shadeDirty) return;
-    this.shadeDirty = false;
-    const depth = depthToAir(this.w, this.h, (x, y) => solid(x, y) && !this.drawnElsewhere(x, y));
+    const d = this.shadeDirty;
+    if (!this.shade || !d) return;
+    this.shadeDirty = null;
+    const { out, depth } = depthToAirAround(this.w, this.h, (x, y) => solid(x, y) && !this.drawnElsewhere(x, y), { x: d.x0, y: d.y0, w: d.x1 - d.x0 + 1, h: d.y1 - d.y0 + 1 });
     const px = this.shade.pixels.data;
-    for (let i = 0; i < depth.length; i++) { px[i * 4 + 3] = Math.round(shadeOf(depth[i]) * 255); }
-    this.shade.tex.context.putImageData(this.shade.pixels, 0, 0);
+    for (let y = 0; y < out.h; y++) for (let x = 0; x < out.w; x++) px[((out.y + y) * this.w + out.x + x) * 4 + 3] = Math.round(shadeOf(depth[y * out.w + x]) * 255);
+    this.shade.tex.context.putImageData(this.shade.pixels, 0, 0, out.x, out.y, out.w, out.h);
     this.shade.tex.refresh();
     this.shade.tex.setFilter(0);   // Phaser.Textures.FilterMode.LINEAR：平滑放大；重新上传会按像素风设置变回 NEAREST，每次都要再设
   }
+
+  /** 场景关闭时调：体积感的那张小图是全局的贴图，不删每换一层就多一张 */
+  destroy(): void { this.shade?.tex.destroy(); this.shade = null; }
 
   /**
    * 地形的投影：同样的砖再画一层，往右下挪 (dx, dy) 像素、染黑、半透明，垫在地形后面 ——

@@ -43,10 +43,16 @@ export const beatMs = (c: Chart): number => 60000 / c.bpm;
 /** 这种玩法的音符提前多少毫秒出发：travelBeats 拍，飞得快的玩法（speed）按倍数缩短 */
 export const travelMsOf = (c: Chart, mode: ModeId, travelBeats: number): number => travelBeats * beatMs(c) / RHYTHM_MODES[mode].speed;
 
-/** 每一段从曲子的第几毫秒开始；最后多一项 = 整张谱结束的时刻 */
-export function sectionStarts(c: Chart): number[] {
+/** sectionStarts 的结果按谱面缓存：一帧里会被问好几次（现在在第几段、结束没有） */
+const startsCache = new WeakMap<Chart, readonly number[]>();
+
+/** 每一段从曲子的第几毫秒开始；最后多一项 = 整张谱结束的时刻（谱面是定好的数据，算一次就记住） */
+export function sectionStarts(c: Chart): readonly number[] {
+  const hit = startsCache.get(c);
+  if (hit) return hit;
   const step = stepMs(c), out = [c.offsetMs];
   for (const s of c.sections) out.push(out[out.length - 1] + s.rows.length * step);
+  startsCache.set(c, out);
   return out;
 }
 

@@ -61,6 +61,9 @@ const factories = new Map<ModeId, FlatFactory>();
 
 export function defineFlatMode(id: ModeId, factory: FlatFactory): void { factories.set(id, factory); }
 
+/** 这种玩法注册过没有（测试查「每种 2D 玩法都有实现」用） */
+export const hasFlatMode = (id: ModeId): boolean => factories.has(id);
+
 export function createFlatMode(id: ModeId, ctx: FlatContext, notes: Note[]): FlatMode {
   const f = factories.get(id);
   if (!f) throw new Error(`没有注册这种 2D 节奏玩法：${id}`);

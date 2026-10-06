@@ -13,7 +13,7 @@ import { Hud } from '../Hud';
 import { CrumpleOverlay } from '../crumple/CrumpleOverlay';
 import { StageLayer } from '../stage/StageLayer';
 import { ChartTimeline } from './ChartTimeline';
-import { MODE_KEYS, type Press } from './modeKeys';
+import { MODE_KEYS, type KeyPress } from './modeKeys';
 
 /** 每种玩法叫什么（开发工具里直接写中文） */
 const MODE_NAME: Record<string, string> = { giveup: 'Give It Up', dash: '重力翻转', taiko: '太鼓', mania: '节奏大师', osu: 'osu', saber: '光剑', dodge: '躲弹幕' };
@@ -48,7 +48,7 @@ export function RhythmLab({ onRecorder }: { onRecorder: () => void }) {
   }, []);
 
   // 实时记录：试玩时按的每一下（只认那一段在游戏里用的键）记下曲子的时间，画在时间线上；从某一刻重新开始 = 那之后的重新记
-  const presses = useRef<Press[]>([]);
+  const presses = useRef<KeyPress[]>([]);
   const [count, setCount] = useState(0);
   const [idleMs, setIdleMs] = useState(0);
   const [status, setStatus] = useState('');

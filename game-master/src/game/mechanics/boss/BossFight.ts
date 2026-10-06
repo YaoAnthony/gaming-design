@@ -18,7 +18,7 @@ import type { FuseEnd } from '@/game/fuse/Fuse';
 import { SparkBurst } from './SparkBurst';
 import { hueShiftedTexture } from './minionTexture';
 import { SEAL } from './seal';
-import { createBossSound, type BossSound } from './bossSound';
+import { createBossSound, type BossSound } from '@/audio/bossSound';
 import { Colors, hex } from '@/game/palette';
 
 /** Boss 战的音乐（音频清单里的 key） */
@@ -124,6 +124,9 @@ export class BossFight implements Mechanic {
     this.bursts.forEach(b => b.destroy()); this.bursts = [];
   }
 
+  /** 场景关闭（换层、重开）：合成音那一路断开 */
+  destroy(): void { this.sound?.close(); this.sound = null; }
+
   onReset(scope: 'room' | 'world' | 'level'): void {
     const { ctx } = this;
     // 在打赢过的 Boss 房里按 R（房间复原）：Boss 回来，重新打；重置整张地图、进入下一关（长大）：所有 Boss 都回来
@@ -211,7 +214,7 @@ export class BossFight implements Mechanic {
   /** 门封上：WARNING 警报把 warning.mp3 放 WARNING_PLAYS 遍，停了安静 PAUSE_MS，然后 Boss 掉下来 */
   private startIntro(): void {
     const { ctx } = this, scene = ctx.scene;
-    this.sound ??= createBossSound(scene);
+    this.sound ??= createBossSound();
     this.intro = 'warning';
     ctx.hud.bossIntro('warning');
     let warnMs = WARNING_FALLBACK_MS;

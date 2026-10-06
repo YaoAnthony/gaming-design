@@ -1,5 +1,6 @@
 // ===== 加载资产，然后跳到目标场景 =====
 import Phaser from 'phaser';
+import { setAudioOutput } from '@/audio/synth';
 import { AUDIO, IMAGES, SPRITESHEETS, TILE_SIZE } from '@/asset';
 import { SCENE } from '@/game/scenes/keys';
 import i18n from '@/i18n';
@@ -32,6 +33,10 @@ export class BootScene extends Phaser.Scene {
   }
 
   create(): void {
+    // 现场合成的音效（打击音、Boss 的「滴」、捏纸团……）接到 Phaser 的总线上：跟着游戏的静音和总音量走
+    const mgr = this.sound as Partial<{ context: AudioContext; destination: AudioNode; masterMuteNode: AudioNode }>;
+    const out = mgr.destination ?? mgr.masterMuteNode ?? mgr.context?.destination;
+    if (mgr.context && out) setAudioOutput(mgr.context, out);
     FogOfWar.createTextures(this.textures, TILE_SIZE);   // 迷雾的笔刷
     buildWallTexture(this.textures, TILE_SIZE);          // 墙：按手画模板拼好各种邻居组合
     const next = (this.game.registry.get('bootNext') as string | undefined) ?? SCENE.game;

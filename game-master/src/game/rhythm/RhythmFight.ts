@@ -15,7 +15,7 @@ import type { Player } from '@/sprite';
 import { Colors } from '@/game/palette';
 import { PianoBoss, type Rect } from './PianoBoss';
 import { Lure } from './Lure';
-import { createBossSound, type BossSound } from '@/game/mechanics/boss/bossSound';
+import { createBossSound, type BossSound } from '@/audio/bossSound';
 import { PILLAR } from './modes/giveup';
 import { createFlatMode, type FlatMode, type Press } from './modes/define';
 import './modes';
@@ -95,6 +95,9 @@ export class RhythmFight {
   /** 开场白还没说完：这时候人还归玩家管（跳一下翻一句） */
   private talking = false;
   private lure: Lure | null = null;
+  /** 这一场骷髅王一共多少血、一管多少滴（开场算一次）；HUD 上现在显示的是多少血 */
+  private bossFull: { max: number; per: number } | null = null;
+  private shownBossHp = -1;
   /** 等着开的试玩（技术验证编辑器点了「从这开始」）：手头的收干净、人回到画面里就开；正在打的这一场是不是试玩 */
   private pending: RhythmTest | null = null;
   private test: RhythmTest | null = null;
@@ -148,7 +151,7 @@ export class RhythmFight {
     if (this.phase === 'play') this.stopping = true;
     else if (this.phase === 'lure' || this.phase === 'fill') {   // 还在放板 / 填血条：收掉，不打了
       if (this.phase === 'fill') { this.d.onBoss(null); this.d.onEnd(); this.d.player().unfreeze(); }
-      this.lure?.destroy(); this.lure = null; this.fill = null; this.phase = 'staged'; this.autoStart = false;
+      this.lure?.destroy(); this.lure = null; this.fill?.sound.close(); this.fill = null; this.phase = 'staged'; this.autoStart = false;
     }
   }
 
@@ -228,9 +231,10 @@ export class RhythmFight {
     cam.setRotation(Phaser.Math.DegToRad(cfg.rollDeg) * Math.sin(beats / 8 * Math.PI * 2));
   }
 
+  /** 场景关闭（换层、重开、关掉游戏）时调：东西收干净；人不用还原（他也要跟着场景没了，物理体可能已经拆掉） */
   destroy(): void {
     if (this.session) endRhythm();
-    this.clearFight();
+    this.clearFight(false);
     this.lure?.destroy(); this.lure = null;
     this.piano?.destroy(); this.piano = null;
     this.phase = 'off';
@@ -266,6 +270,7 @@ export class RhythmFight {
     this.test = test;
     const session = beginRhythm(chart, import.meta.env.BASE_URL + chart.audio, Math.min(1, cfg.musicVolume * cfg.world3d.rhythm.musicGain), test?.fromMs ?? 0);   // 这首曲子比平时的背景音乐响
     if (!session) { this.phase = 'staged'; this.autoStart = false; this.d.onBoss(null); this.d.onEnd(); this.d.player().unfreeze(); return; }
+    this.bossFull = null;
     this.session = session; this.section = -1; this.stopping = false; this.rumbled = -1; this.said = -1; this.phase = 'play';
     this.hp = cfg.world3d.rhythm.heroHp; this.graceUntil = 0;
     this.backdrop = scene.add.rectangle(room.x + room.w / 2, room.y + room.h / 2, room.w, room.h, Colors.ink, DIM).setDepth(DEPTH - 2);
@@ -292,10 +297,10 @@ export class RhythmFight {
     session.score.listen((j, by) => {
       if (by === 'press' && j === 'miss') hitsound.play(j);   // 按键的声音统一是起跳爆炸（各玩法自己出）；这里只剩漏掉时的那一声
       this.d.onScore({ points: session.score.points, combo: session.score.combo, judge: by === 'press' ? j : null });
-      this.d.onBoss(this.bossHp());
+      this.pushBoss();
     });
     this.d.onScore({ points: 0, combo: 0, judge: null, fresh: true });
-    this.d.onBoss(this.bossHp());
+    this.shownBossHp = -1; this.pushBoss();
     this.d.onHp({ hp: this.hp, max: this.hp });
     // 3D 那一半要用的：骷髅王在画面的哪、主角挨了一下、骷髅王挨了一下
     session.boss = { x: (piano.body.x - room.x) / room.w, y: (piano.body.y - room.y) / room.h };
@@ -311,7 +316,7 @@ export class RhythmFight {
   private lock(on: { x: number; left: number; right: number }): void {
     const { scene } = this.d, p = this.d.player();
     p.freeze(0xffffff); p.clearTint();
-    this.fill = { last: scene.time.now, hp: 0, fullAt: 0, sound: createBossSound(scene), ...this.bossSize(this.chart!, notesOf(this.chart!)), on };
+    this.fill = { last: scene.time.now, hp: 0, fullAt: 0, sound: createBossSound(), ...this.bossSize(this.chart!, notesOf(this.chart!)), on };
     this.phase = 'fill';
     this.d.onBegin();
     this.d.onBoss({ hp: 0, max: this.fill.max, per: this.fill.per });
@@ -323,6 +328,7 @@ export class RhythmFight {
     if (f.hp >= f.max) {
       if (real - f.fullAt < FILL.holdMs) return;
       this.fill = null;
+      f.sound.close();
       this.lure?.destroy(); this.lure = null;
       this.play(f.on);
       return;
@@ -357,8 +363,16 @@ export class RhythmFight {
 
   /** 骷髅王的血：亲手接住一个（Perfect / Good）掉一滴；per = 一管多少滴 */
   private bossHp(): { hp: number; max: number; per: number } {
-    const s = this.session!, size = this.bossSize(s.chart, s.notes);
+    const s = this.session!, size = this.bossFull ??= this.bossSize(s.chart, s.notes);   // 一场里不变：算一次
     return { hp: Math.max(0, size.max - s.score.struck), ...size };
+  }
+
+  /** 血条变了才告诉 HUD（躲过去的弹幕、Miss 不掉血，不用每次判定都派发） */
+  private pushBoss(): void {
+    const b = this.bossHp();
+    if (b.hp === this.shownBossHp) return;
+    this.shownBossHp = b.hp;
+    this.d.onBoss(b);
   }
 
   /**
@@ -420,19 +434,19 @@ export class RhythmFight {
   }
 
   /** 收掉一场里的东西（骷髅王和钢琴留着） */
-  private clearFight(): void {
+  /** restorePlayer：把藏起来、冻住的人还原（场景关闭时不用，也不能：物理体可能已经拆掉了） */
+  private clearFight(restorePlayer = true): void {
     this.d.scene.input.keyboard?.off('keydown', this.onKey);
     this.modes.forEach(m => m.destroy()); this.modes.clear();
-    this.piano?.reset();
     this.backdrop?.destroy(); this.backdrop = null;
     this.d.scene.cameras.main?.setZoom(1).setRotation(0);   // 场景关闭时镜头已经没了
     if (this.hero) this.d.scene.tweens.killTweensOf(this.hero);
     this.piano?.reset();
     this.hero?.destroy(); this.hero = null;
     this.hitsound?.close(); this.hitsound = null;
-    this.talking = false; this.fill = null;
+    this.talking = false; this.fill?.sound.close(); this.fill = null;
     const wasPlaying = this.session !== null;
     this.session = null; this.tapped.clear();
-    if (wasPlaying || this.phase === 'intro' || this.phase === 'fill') { const p = this.d.player(); p.setVisible(true); p.unfreeze(); }
+    if (restorePlayer && (wasPlaying || this.phase === 'intro' || this.phase === 'fill')) { const p = this.d.player(); p.setVisible(true); p.unfreeze(); }
   }
 }

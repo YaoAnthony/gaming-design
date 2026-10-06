@@ -20,7 +20,7 @@ export default tseslint.config(
   },
   // 引擎边界：Phaser 一侧和 3D 一侧互不引入，只通过 src/protocol 和 Redux 说话；协议本身不依赖任何引擎
   {
-    files: ['src/protocol/**/*.ts', 'src/rhythm/**/*.ts'],
+    files: ['src/protocol/**/*.ts', 'src/rhythm/**/*.ts', 'src/audio/**/*.ts', 'src/platform/**/*.ts'],
     rules: { 'no-restricted-imports': ['error', { paths: ['phaser', 'three'], patterns: ['three/*', '@/game/*', '@/sprite/*', '@/stage3d/*', '@/world3d/*', '@/ui/*'] }] },
   },
   {

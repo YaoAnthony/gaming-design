@@ -1,6 +1,8 @@
-// ===== 捏纸团的声音：用 WebAudio 现场合成，不用音频文件 =====
+// ===== 捏纸团的声音：用 WebAudio 现场合成，不用音频文件（共用 audio/synth 的出口：跟着游戏的静音和总音量走）=====
 // 揉纸声 = 一连串几毫秒到几十毫秒的白噪声脉冲，每个过一个随机频率的带通滤波；偶尔夹一声低一点、长一点的「咔」。
 // 呼的一声 = 一段噪声，带通频率从高滑到低，音量先起后落。
+
+import { noiseBuffer, openBus } from '@/audio/synth';
 
 /** 总音量 */
 const VOLUME = 0.5;
@@ -17,18 +19,10 @@ export interface CrumpleSound {
 
 /** 时间都是从调用这个函数的那一刻算起的毫秒；浏览器不让出声（没交互过、不支持）时什么都不做 */
 export function createCrumpleSound(): CrumpleSound {
-  let ctx: AudioContext | null = null;
-  try { ctx = new AudioContext(); } catch { /* 不支持 WebAudio */ }
-  if (!ctx) return { whoosh() {}, crunch() {}, crinkle() {}, close() {} };
-  const ac = ctx;
-  if (ac.state === 'suspended') void ac.resume();
+  const bus = openBus(VOLUME);
+  if (!bus) return { whoosh() {}, crunch() {}, crinkle() {}, close() {} };
+  const ac = bus.ctx, master = bus.input, noise = noiseBuffer(ac);
   const t0 = ac.currentTime + 0.02;
-  const master = ac.createGain();
-  master.gain.value = VOLUME;
-  master.connect(ac.destination);
-  const noise = ac.createBuffer(1, ac.sampleRate, ac.sampleRate);
-  const data = noise.getChannelData(0);
-  for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
 
   /** 一段滤过的噪声，音量包络：极快起、指数衰减 */
   const burst = (at: number, dur: number, freq: number, q: number, gain: number) => {
@@ -70,6 +64,6 @@ export function createCrumpleSound(): CrumpleSound {
         t += -Math.log(1 - Math.random()) / (25 + 70 * k);   // 泊松间隔：平均每秒 25~95 下
       }
     },
-    close() { void ac.close(); },
+    close() { bus.close(); },
   };
 }

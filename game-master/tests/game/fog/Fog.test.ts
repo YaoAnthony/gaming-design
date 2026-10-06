@@ -101,3 +101,17 @@ describe('FogOfWar 迷雾区和全屋暗分开', () => {
     expect(fog.isKnown(5, 0)).toBe(true);
   });
 });
+
+describe('FogOfWar.knownRevision（起跳预览的缓存靠它判断要不要重算）', () => {
+  it('看见新的格子、揭开迷雾区时加一；什么都没变时不动', () => {
+    const fog = make({ dark: ['A', 'B'], zones: ['........', '.....11.', '........'] });
+    const r0 = fog.knownRevision;
+    fog.compute(1, 1, 0);
+    const r1 = fog.knownRevision;
+    expect(r1).toBeGreaterThan(r0);
+    fog.compute(1, 1, 10);
+    expect(fog.knownRevision).toBe(r1);          // 站着不动：看见的还是那些
+    fog.compute(5, 1, 20);
+    expect(fog.knownRevision).toBeGreaterThan(r1);   // 走进迷雾区：整区揭开
+  });
+});

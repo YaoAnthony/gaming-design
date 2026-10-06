@@ -2,6 +2,7 @@
 // 2D 的骷髅王和 3D 的弹幕都按它报的时间走，所以卡顿也不会跑拍（位置是按时间算的，不是一帧帧累加的）。
 // 时间以音频的播放位置为准；曲子读不出来（文件不在、浏览器不让放）就按系统时钟走，每拍合成一声「嗒」。
 import { endMs, type Chart } from './chart';
+import { openBus, tone, type SynthBus } from '@/audio/synth';
 
 /** 开始之后曲子最多等多久（毫秒）还不响就不等了 */
 const START_WAIT_MS = 1500;
@@ -15,7 +16,7 @@ export class Conductor {
   /** 曲子能不能放；null = 还不知道 */
   private usable: boolean | null = null;
   private startedAt: number | null = null;
-  private clicks: AudioContext | null = null;
+  private clicks: SynthBus | null = null;
   private lastBeat = -1;
   private fromMs = 0;
 
@@ -57,10 +58,10 @@ export class Conductor {
 
   /** 停。fadeMs > 0：曲子用这么久慢慢小下去再停，不是戛然而止 */
   stop(fadeMs = 0): void {
-    void this.clicks?.close();
+    this.clicks?.close();
     this.clicks = null;
     const audio = this.audio, from = audio.volume, t0 = performance.now();
-    const halt = () => { audio.pause(); audio.removeAttribute('src'); };
+    const halt = () => { audio.pause(); audio.removeAttribute('src'); audio.load(); };   // load()：不然解码好的曲子要等垃圾回收才放掉
     if (fadeMs <= 0 || audio.paused) { halt(); return; }
     const timer = window.setInterval(() => {
       const k = (performance.now() - t0) / fadeMs;
@@ -73,14 +74,8 @@ export class Conductor {
     const beat = Math.floor((ms - this.chart.offsetMs) / (60000 / this.chart.bpm));
     if (beat <= this.lastBeat || beat < 0) return;
     this.lastBeat = beat;
-    try {
-      this.clicks ??= new AudioContext();
-      const ctx = this.clicks, osc = ctx.createOscillator(), gain = ctx.createGain();
-      osc.frequency.value = CLICK.hz * (beat % 4 === 0 ? 1.5 : 1);   // 小节头高一点
-      gain.gain.setValueAtTime(CLICK.gain * this.audio.volume, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + CLICK.seconds);
-      osc.connect(gain).connect(ctx.destination);
-      osc.start(); osc.stop(ctx.currentTime + CLICK.seconds);
-    } catch { /* 浏览器不让出声：那就没有声音 */ }
+    this.clicks ??= openBus(1);
+    if (!this.clicks) return;   // 浏览器不让出声：那就没有声音
+    tone(this.clicks, { at: this.clicks.now(), dur: CLICK.seconds, type: 'sine', f0: CLICK.hz * (beat % 4 === 0 ? 1.5 : 1), gain: CLICK.gain * this.audio.volume });   // 小节头高一点
   }
 }

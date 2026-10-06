@@ -98,6 +98,8 @@ export class Terrain {
   get layer(): Phaser.Tilemaps.TilemapLayer { return this.view.layer; }
   enableShading(): void { this.view.enableShading((x, y) => this.isSolid(x, y)); }
   enableShadow(dx: number, dy: number, alpha: number): void { this.view.enableShadow(dx, dy, alpha); }
+  /** 场景关闭时调：放掉地形占着的全局贴图 */
+  destroy(): void { this.view.destroy(); }
   /** 这些格子重新按 drawnElsewhere 决定画不画（接管 / 交还某些格子的时候调）；旁边的墙跟着重拼 */
   refreshCells(cells: CellRef[]): void { this.view.refreshCells(cells); }
 
@@ -121,8 +123,13 @@ export class Terrain {
   isFooting(x: number, y: number): boolean { return this.isSolid(x, y) || !!this.host.occupied?.(x, y); }
   rows(): string[] { return this.grid.map(r => r.join('')); }
 
+  /** 网格每改一格加一：依赖网格的缓存（起跳预览）拿它判断要不要重算 */
+  get revision(): number { return this.rev; }
+  private rev = 0;
+
   /** @param from 这块材料的来源格；不写 = 就是这一格本身（空气是 -1） */
   set(x: number, y: number, id: string, from?: number): void {
+    this.rev++;
     this.grid[y][x] = id;
     this.origin[y * this.w + x] = id === AIR ? -1 : from ?? y * this.w + x;
     this.view.cellChanged(x, y);

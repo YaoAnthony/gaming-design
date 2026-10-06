@@ -50,6 +50,9 @@ const factories = new Map<ModeId, ModeFactory>();
 /** 同一个 id 再注册就换成新的（开发期热更新会把玩法文件重新跑一遍） */
 export function defineRhythmMode(id: ModeId, factory: ModeFactory): void { factories.set(id, factory); }
 
+/** 这种玩法注册过没有（测试查「每种 3D 玩法都有实现」用） */
+export const hasRhythmMode = (id: ModeId): boolean => factories.has(id);
+
 export function createRhythmMode(id: ModeId, ctx: ModeContext, notes: Note[]): RhythmMode {
   const f = factories.get(id);
   if (!f) throw new Error(`没有注册这种节奏玩法：${id}`);

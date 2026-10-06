@@ -3,7 +3,7 @@
 // 点时间线上的任何位置 = 从那一刻重新开始。
 import { useEffect, useRef } from 'react';
 import { beatMs, notesOf, RHYTHM_MODES, rhythmSession, sectionStarts, type Chart } from '@/rhythm';
-import { keyName, type Press } from './modeKeys';
+import { keyName, type KeyPress } from './modeKeys';
 
 /** 画多高（像素）；一秒多宽（像素）；「现在」那条线在左起几成的位置；顶上写字的那一条、底下按键的那一行各多高 */
 const VIEW = { height: 132, pxPerSec: 150, playhead: 0.3, top: 18, bottom: 26 };
@@ -14,7 +14,7 @@ const ALT_CHARS = 'bx_';
 interface Props {
   chart: Chart;
   /** 这次试玩里按过的键（引用：每帧直接读，不触发重画） */
-  presses: { current: Press[] };
+  presses: { current: KeyPress[] };
   /** 没在打的时候时间线停在哪（毫秒） */
   idleMs: number;
   /** 每种玩法显示成什么名字 */

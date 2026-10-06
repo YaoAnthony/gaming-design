@@ -17,12 +17,17 @@ import { INSET, makeSolidBody, pushRiderOutOfWalls, rectHitsCells, settleBody, s
 import type { Mechanic } from '../define';
 import { canCarry, stepBlocked, type MoverGroupSpec, type MoverKind } from './kinds';
 
+/** 格子坐标 → 一个数（查「这一格是不是这一组的」用；比拼字符串快，也不制造垃圾） */
+const cellKey = (x: number, y: number): number => y * 65536 + x;
+
 interface Group {
   kind: MoverKind;
   /** 一开始的格子（重置回这里） */
   home: CellRef[];
   /** 这一格的方块还在吗 */
   alive: boolean[];
+  /** current() 的缓存：这一组现在占着的格子 + 查表用的集合；shift 换了新对象、有格子没了（alive 变）就作废 */
+  shape?: { for: CellRef; cells: CellRef[]; own: Set<number> } | null;
   /** 这一格现在是什么砖（岩石裂了要换图） */
   ids: string[];
   /** 现在相对一开始挪了几格 */
@@ -89,6 +94,7 @@ export class Movers implements Mechanic {
     const grid = this.ctx.terrain.grid;
     this.groups.forEach(g => {
       g.home.forEach((c, i) => { const id = grid[c.y]?.[c.x]; g.alive[i] = canCarry(id); if (g.alive[i]) g.ids[i] = id; });
+      g.shape = null;
       this.rebuild(g);
       this.place(g);
     });
@@ -146,7 +152,7 @@ export class Movers implements Mechanic {
     g.home.forEach((h, i) => {
       if (!g.alive[i]) return;
       const x = h.x + g.shift.x, y = h.y + g.shift.y, id = grid[y]?.[x];
-      if (id === undefined || id === AIR || !canCarry(id)) { g.alive[i] = false; changed = true; lost.push({ x, y }); return; }
+      if (id === undefined || id === AIR || !canCarry(id)) { g.alive[i] = false; g.shape = null; changed = true; lost.push({ x, y }); return; }
       if (id !== g.ids[i]) { g.ids[i] = id; g.images[i]?.setTexture(...this.pieceTexture(g, i)); }
     });
     if (!changed) return;
@@ -159,10 +165,16 @@ export class Movers implements Mechanic {
   /** 沿轴走一格的 (dx, dy) */
   private delta(g: Group): [number, number] { return g.kind.axis === 'x' ? [g.dir, 0] : [0, g.dir]; }
 
-  /** 现在（网格里）的格子 */
-  private current(g: Group): CellRef[] {
-    return g.home.flatMap((h, i) => (g.alive[i] ? [{ x: h.x + g.shift.x, y: h.y + g.shift.y }] : []));
+  /** 现在（网格里）的格子，和查「这一格是不是这一组的」用的集合。每帧要问好几遍：按 shift 缓存，挪了一格 / 少了一格才重算 */
+  private shape(g: Group): { cells: CellRef[]; own: Set<number> } {
+    if (g.shape?.for === g.shift) return g.shape;
+    const cells = g.home.flatMap((h, i) => (g.alive[i] ? [{ x: h.x + g.shift.x, y: h.y + g.shift.y }] : []));
+    g.shape = { for: g.shift, cells, own: new Set(cells.map(c => cellKey(c.x, c.y))) };
+    return g.shape;
   }
+
+  /** 现在（网格里）的格子 */
+  private current(g: Group): CellRef[] { return this.shape(g).cells; }
 
   /** 往 dir 走一格会不会撞 */
   private blocked(g: Group): boolean {
@@ -172,8 +184,8 @@ export class Movers implements Mechanic {
     const hit = (x: number, y: number) => x < 0 || y < 0 || x >= t.w || y >= t.h || t.isSolid(x, y) || ctx.occupied(x, y) || ctx.blockedByMechanics(x, y) || others.has(y * t.w + x);
     if (stepBlocked(cells, dx, dy, hit)) return true;
     // 人和怪物：站在上面的被带着走；不在上面、挡在路上的算撞到
-    const own = new Set(cells.map(c => `${c.x},${c.y}`));
-    const targets = cells.map(c => ({ x: c.x + dx, y: c.y + dy })).filter(c => !own.has(`${c.x},${c.y}`));
+    const { own } = this.shape(g);
+    const targets = cells.map(c => ({ x: c.x + dx, y: c.y + dy })).filter(c => !own.has(cellKey(c.x, c.y)));
     for (const b of this.bodiesAround()) {
       if (this.rides(g, b)) {
         // 往上运：被运的人（怪）头顶撞墙就不走，不把它夹进天花板
@@ -197,9 +209,9 @@ export class Movers implements Mechanic {
    */
   private squeezes(g: Group, step: number): boolean {
     const T = this.ctx.cfg.tile, [dx, dy] = this.delta(g), cells = this.current(g);
-    const own = new Set(cells.map(c => `${c.x},${c.y}`));
+    const { own } = this.shape(g);
     const px = g.kind.axis === 'x' ? g.pos : 0, py = g.kind.axis === 'y' ? g.pos : 0;
-    const lead = cells.filter(c => !own.has(`${c.x + dx},${c.y + dy}`));   // 前进方向上的那一面
+    const lead = cells.filter(c => !own.has(cellKey(c.x + dx, c.y + dy)));   // 前进方向上的那一面
     for (const b of this.bodiesAround()) {
       if (this.rides(g, b)) {
         if (dy < 0 && this.rectHitsTerrain(b.left + INSET, b.right - INSET, b.top - step - 1, b.top, own)) return true;
@@ -223,18 +235,18 @@ export class Movers implements Mechanic {
   /** 这具身体站在这一组的某个顶面上 */
   private rides(g: Group, b: Phaser.Physics.Arcade.Body): boolean {
     const T = this.ctx.cfg.tile, px = g.kind.axis === 'x' ? g.pos : 0, py = g.kind.axis === 'y' ? g.pos : 0;
-    const cells = this.current(g), own = new Set(cells.map(c => `${c.x},${c.y}`));
+    const { cells, own } = this.shape(g);
     return cells.some(c => {
-      if (own.has(`${c.x},${c.y - 1}`)) return false;   // 不是顶面
+      if (own.has(cellKey(c.x, c.y - 1))) return false;   // 不是顶面
       const top = c.y * T + py, left = c.x * T + px;
       return standsOn(b, left, left + T, top, 1);
     });
   }
 
   /** 像素矩形盖到的格子里有没有实心砖（这一组自己的不算） */
-  private rectHitsTerrain(x0: number, x1: number, y0: number, y1: number, own: Set<string>): boolean {
+  private rectHitsTerrain(x0: number, x1: number, y0: number, y1: number, own: Set<number>): boolean {
     const t = this.ctx.terrain;
-    return rectHitsCells(x0, x1, y0, y1, this.ctx.cfg.tile, (cx, cy) => !own.has(`${cx},${cy}`) && (cx < 0 || cy < 0 || cx >= t.w || cy >= t.h || t.isSolid(cx, cy)));
+    return rectHitsCells(x0, x1, y0, y1, this.ctx.cfg.tile, (cx, cy) => !own.has(cellKey(cx, cy)) && (cx < 0 || cy < 0 || cx >= t.w || cy >= t.h || t.isSolid(cx, cy)));
   }
 
   private targetsFree(g: Group): boolean {

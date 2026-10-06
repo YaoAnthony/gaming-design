@@ -20,6 +20,7 @@ import { hueShiftedTexture } from './minionTexture';
 import { SEAL } from './seal';
 import { createBossSound, type BossSound } from '@/audio/bossSound';
 import { Colors, hex } from '@/game/palette';
+import { overlaps } from '@/game/core/overlap';
 
 /** Boss 战的音乐（音频清单里的 key） */
 const BOSS_MUSIC = 'bossMusic';
@@ -334,7 +335,7 @@ export class BossFight implements Mechanic {
       ctx.terrain.chunks.slice().forEach(ch => {
         if (ch.vy < ctx.cfg.crushMinSpeed || boss.hitBy.has(ch.id)) return;
         let hits = 0;
-        ctx.terrain.forEachChunkCell((c, cx, cy, w, h) => { if (c === ch && Phaser.Geom.Intersects.RectangleToRectangle(new Phaser.Geom.Rectangle(cx, cy, w, h), rect)) hits++; });
+        ctx.terrain.forEachChunkCell((c, cx, cy, w, h) => { if (c === ch && overlaps(cx, cy, w, h, rect)) hits++; });
         if (!hits) return;
         boss.hitBy.add(ch.id);
         ctx.debris.removeChunk(ch);

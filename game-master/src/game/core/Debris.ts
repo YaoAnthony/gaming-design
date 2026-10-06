@@ -8,6 +8,7 @@ import { playLand } from '@/particle';
 import type { PlayContext } from './PlayContext';
 import { INSET, pushRiderOutOfWalls, rectHitsCells } from './solid';
 import { Colors, hex } from '@/game/palette';
+import { overlaps } from './overlap';
 
 /** 纸落到头上：包围盒底边离头顶在这个范围内就算落上了（像素） */
 const CATCH_ABOVE = 2, CATCH_BELOW = 10;
@@ -271,7 +272,7 @@ export class Debris {
     ctx.terrain.forEachChunkCell((ch, cx, cy, w, h) => {
       if (crushed || ch.floatSpeed > 0) return;
       if (cy >= b.bottom - FEET_TOLERANCE) return;   // 这一格在脚下：人是站在 / 落在它上面
-      if (!Phaser.Geom.Intersects.RectangleToRectangle(new Phaser.Geom.Rectangle(cx, cy, w, h), rect)) return;
+      if (!overlaps(cx, cy, w, h, rect)) return;
       if (ch.vy >= ctx.cfg.crushMinSpeed) { crushed = true; return; }
       const overlapY = cy + h - b.y;
       if (overlapY > 0 && overlapY < h) { ctx.player.y += overlapY; if (b.velocity.y < 0) ctx.player.setVelocityY(0); }

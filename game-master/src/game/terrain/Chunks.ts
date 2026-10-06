@@ -5,6 +5,9 @@ import type { CellRef } from '@/type';
 import { AIR, Tiles } from '@/game/registry/registry';
 import { pieceConnected, pieceTexture } from './frames';
 
+/** 格子坐标 → 一个数（地图宽不会超过 65536 格） */
+const cellKey = (x: number, y: number): number => y * 65536 + x;
+
 /** from = 这块材料原本在地图上哪一格（格子序号 y * w + x）；-1 / 不写 = 不是地图原有的。房间重置按它判断材料归哪个房间 */
 export interface ChunkCell extends CellRef { id: string; from?: number }
 export interface Chunk { id: number; cells: ChunkCell[]; container: Phaser.GameObjects.Container; vy: number; py: number; /** >0 = 匀速飘落 */ floatSpeed: number; t: number }
@@ -64,18 +67,23 @@ export class Chunks {
   /** 每帧：整体下落，任一格子下方被挡住就落地并并回格子 */
   update(dt: number): void {
     const { world } = this, T = world.T, g = world.gravity();
+    // 每一格现在被哪块碎块占着：找「紧贴在下面的那一块」查这张表，不用每块碎块对每块碎块逐格比（碎块一多每帧是平方级）
+    const at = this.cellIndex;
+    at.clear();
+    for (const o of this.list) for (const c of o.cells) at.set(cellKey(c.x, c.y), o);
+    const forget = (o: Chunk) => { for (const c of o.cells) if (at.get(cellKey(c.x, c.y)) === o) at.delete(cellKey(c.x, c.y)); };
     for (let i = this.list.length - 1; i >= 0; i--) {
       const ch = this.list[i];
       ch.t += dt;
       ch.vy = ch.floatSpeed > 0 ? ch.floatSpeed : Math.min(ch.vy + g.chunkGravity * dt, g.chunkMaxFall);
       ch.py += ch.vy * dt;
-      if (ch.floatSpeed > 0 && world.catchChunk?.(ch)) { this.list.splice(i, 1); continue; }
+      if (ch.floatSpeed > 0 && world.catchChunk?.(ch)) { forget(ch); this.list.splice(i, 1); continue; }
       // 落地判定：下面是砖块就立刻落地（以前要等 py 走满一格才检查，碎块会先陷进地里一整格再弹回来；
       // 慢慢飘的纸尤其明显，站在上面的人会被一起带进地里）。下面是另一块还在掉的碎块，就贴着它一起掉。
       let landed = false;
       for (;;) {
         if (ch.cells.some(c => world.isSolid(c.x, c.y + 1) || world.occupied(c.x, c.y + 1))) { landed = true; break; }
-        const below = this.below(ch);
+        const below = this.below(ch, at);
         if (below) {
           // 下面是另一块还在掉的碎块：贴着它一起掉（不超过它、不比它快），等它落地了自己再落地。不能在半空并进地形
           if (ch.py > below.py) ch.py = below.py;
@@ -83,13 +91,15 @@ export class Chunks {
           break;
         }
         if (ch.py < T) break;
-        ch.cells.forEach(c => { c.y += 1; });
+        forget(ch);
+        ch.cells.forEach(c => { c.y += 1; at.set(cellKey(c.x, c.y), ch); });
         ch.py -= T;
       }
       if (landed) {
         ch.py = 0;
         ch.container.destroy();
         ch.cells.forEach(c => world.set(c.x, c.y, c.id, c.from ?? -1));
+        forget(ch);
         this.list.splice(i, 1);
         world.onChunkLand?.(ch);
         world.onLanded();
@@ -101,10 +111,14 @@ export class Chunks {
     }
   }
 
-  /** 紧贴在这块碎块下面的另一块碎块（它的某一格正下方是那一块的格子） */
-  private below(ch: Chunk): Chunk | undefined {
-    return this.list.find(o => o !== ch && ch.cells.some(c => o.cells.some(d => d.x === c.x && d.y === c.y + 1)));
+  /** 紧贴在这块碎块下面的另一块碎块（它的某一格正下方是那一块的格子）；at = 每一格被哪块碎块占着 */
+  private below(ch: Chunk, at: Map<number, Chunk>): Chunk | undefined {
+    for (const c of ch.cells) { const o = at.get(cellKey(c.x, c.y + 1)); if (o && o !== ch) return o; }
+    return undefined;
   }
+
+  /** update 里用的「格子 → 碎块」表（每帧重建，复用同一个 Map 不重新分配） */
+  private readonly cellIndex = new Map<number, Chunk>();
 
   /** 拿掉第 i 块（不并回地形），通知场景 */
   dropAt(i: number): void {

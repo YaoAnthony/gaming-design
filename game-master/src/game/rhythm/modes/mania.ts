@@ -62,6 +62,7 @@ defineFlatMode('mania', (ctx, notes) => {
     },
     draw(now) {
       sprites.draw(now);
+      if (!beats.visible) return;   // 不在这一段：拍线藏着，不用每帧重画
       beats.clear();
       const { ms, offsetMs } = ctx.beat, phase = (now - offsetMs) / ms;
       // 还在路上的每一拍一条横线：和音符一样的速度落下来，正好在拍点上落到判定线

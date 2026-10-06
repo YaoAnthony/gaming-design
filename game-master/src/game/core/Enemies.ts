@@ -5,6 +5,7 @@ import { Enemy } from '@/sprite';
 import { playCrush } from '@/particle';
 import type { PlayContext } from './PlayContext';
 import { Colors, hex } from '@/game/palette';
+import { overlaps } from './overlap';
 
 export class Enemies {
   readonly group: Phaser.Physics.Arcade.Group;
@@ -52,7 +53,7 @@ export class Enemies {
       const r = e.rect();
       let crushed = false;
       ctx.terrain.forEachChunkCell((ch, cx, cy, w, h) => {
-        if (ch.vy >= cfg.crushMinSpeed && Phaser.Geom.Intersects.RectangleToRectangle(new Phaser.Geom.Rectangle(cx, cy, w, h), r)) crushed = true;
+        if (ch.vy >= cfg.crushMinSpeed && overlaps(cx, cy, w, h, r)) crushed = true;
       });
       if (crushed) this.kill(e);
       else if (!ctx.dead && !ctx.won && Phaser.Geom.Intersects.RectangleToRectangle(r, playerRect)) ctx.hurt('death.caughtByMonster', { x: e.x, y: e.y });   // 扣一颗心、被弹开

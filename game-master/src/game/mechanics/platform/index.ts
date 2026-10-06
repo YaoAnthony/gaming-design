@@ -4,6 +4,6 @@ import { Platform } from './Platform';
 
 defineMechanic({
   id: 'platform', name: '平台跳', desc: '有重力，左右走，起跳即爆炸（默认）',
-  scope: 'floor', controls: 'jump', aliases: ['platform'],
+  scope: 'floor', controls: 'jump', aliases: ['platform'], hearts: true,
   create: ctx => new Platform(ctx),
 });

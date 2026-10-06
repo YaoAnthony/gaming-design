@@ -2,7 +2,7 @@
 // 方向每帧读（read）；一次性的按钮（跳、重置、退出试玩）和 React 发来的请求（重置、继续、再来一次、下一关、攥纸团）走 handlers
 import Phaser from 'phaser';
 import type { MoveInput } from '@/game/mechanics/define';
-import { bridge, EVT, type CrumpleDone, type HeroEntryQuery, type RhythmStart, type ScreenSpot } from '@/protocol';
+import { bridge, EVT, type CrumpleDone, type HeroEntryQuery, type ScreenSpot } from '@/protocol';
 import { INPUT_DOWN, touch, TOUCH_ACTION, TOUCH_JUMP } from '@/shared/input';
 import { padAction, readPads } from '@/game/gamepad';
 
@@ -24,9 +24,6 @@ export interface InputHandlers {
   popOut(): void;
   heroEntry(q: HeroEntryQuery): void;
   heroReturn(at: ScreenSpot | null): void;
-  /** 开一场节奏关卡 / 中途退出 */
-  rhythmStart(r: RhythmStart): void;
-  rhythmStop(): void;
 }
 
 export class GameInput {
@@ -50,7 +47,6 @@ export class GameInput {
     bridge.on(EVT.requestPlaytestExit, h.exitPlaytest);
     bridge.on(EVT.crumpleFreeze, h.crumpleFreeze); bridge.on(EVT.crumpleDone, h.crumpleDone);
     bridge.on(EVT.heroPopOut, h.popOut); bridge.on(EVT.heroEntry, h.heroEntry); bridge.on(EVT.heroReturn, h.heroReturn);
-    bridge.on(EVT.rhythmStart, h.rhythmStart); bridge.on(EVT.rhythmStop, h.rhythmStop);
     // 手柄按钮：和对应的键盘键做同样的事（映射表在 game/gamepad.ts）；方向在 read 里读
     const onPad = (_pad: Phaser.Input.Gamepad.Gamepad, button: Phaser.Input.Gamepad.Button) => {
       const action = padAction(button.index);
@@ -66,7 +62,6 @@ export class GameInput {
       bridge.off(EVT.requestPlaytestExit, h.exitPlaytest);
       bridge.off(EVT.crumpleFreeze, h.crumpleFreeze); bridge.off(EVT.crumpleDone, h.crumpleDone);
       bridge.off(EVT.heroPopOut, h.popOut); bridge.off(EVT.heroEntry, h.heroEntry); bridge.off(EVT.heroReturn, h.heroReturn);
-      bridge.off(EVT.rhythmStart, h.rhythmStart); bridge.off(EVT.rhythmStop, h.rhythmStop);
       touch.left = false; touch.right = false; touch.up = false; touch.down = false;
     });
   }

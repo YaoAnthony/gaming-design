@@ -1,6 +1,6 @@
 // ===== 把 3D 舞台挂到游戏舞台上：一块盖在游戏画布上面、HUD 下面的画布 =====
 // 第一次有特效要放时才建舞台（建 WebGL 上下文）；没有 WebGL 就不放，直接回「放完了」。
-// 有节奏关卡在进行（rhythm/session）时主角跳出来，带起来的是 RhythmWorld（那一场由 game/rhythm/RhythmFight 主持）。
+// 有节奏关卡在进行（rhythm/session）时主角跳出来，带起来的是 RhythmWorld（那一场由 game/mechanics/rhythm/RhythmFight 主持）。
 // 主角跳出画面（EVT.heroLeft）时在舞台上把 3D 世界带起来，人走回画面再交还（EVT.heroReturn）；人在哪个世界记进存档（试玩不记）
 import { useEffect, useRef } from 'react';
 import { bridge, EVT, STAGE_FX, type HeroHandoff, type StageFxRef } from '@/protocol';

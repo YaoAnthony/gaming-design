@@ -21,5 +21,6 @@ import './locks';
 import './hat';
 import './pushBlock';
 import './mover';
+import './rhythm';   // 每一层都启用（听「开一场」），放最后：每帧在别的机制之后跑
 
 export { Mechanics, floorMechanicOf, floorMechanics, globalMechanicsOf } from './define';

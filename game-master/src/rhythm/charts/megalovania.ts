@@ -86,6 +86,14 @@ const DODGE_D = g({ 0: 'o.o.', 4: '.o.o', 8: '____', 12: 'oo..' });
 export const MEGALOVANIA: Chart = {
   id: 'megalovania',
   arena: 'festival',
+  intro: {
+    speaker: 'npc.gameMaster', avatar: 'default',
+    talk: ['dialogue.festival.0', 'dialogue.festival.1', 'dialogue.festival.2'],
+    locked: [
+      { text: 'dialogue.festival.3', ms: 2600, grow: true },                                // 「来吧 来吧 来吧」一声比一声大
+      { text: 'dialogue.festival.4', ms: 3200, shout: 'dialogue.festivalShout' },           // 「让我……」+ 一秒后砸下「更加尽兴吧！」
+    ],
+  },
   audio: 'local/Undertale_Megalovania.mp3',
   bpm: 120,
   offsetMs: 150,

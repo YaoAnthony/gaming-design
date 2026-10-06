@@ -9,7 +9,7 @@ import type { Music } from '@/game/Music';
 import type { Player } from '@/sprite';
 import type { SparkEmitter } from '@/particle';
 import type { StartGameData } from '@/protocol';
-import type { Mechanic } from '@/game/mechanics/define';
+import type { Mechanic, MoveInput } from '@/game/mechanics/define';
 import type { Solids } from './solids';
 import type { DeathKey, MsgKey } from '@/i18n/keys';
 import type { Dialogue } from './Dialogue';
@@ -72,6 +72,14 @@ export interface PlayContext {
   /** 正在出场（骷髅手把人放进来）：人还不在自己手里，别按玩家位置触发东西 */
   readonly appearing: boolean;
   readonly playtest: boolean;
+  /** 人被别的事占着（死了、通关画面、换层、长大、出场、在 3D 世界、攥纸团）：这时候别开新的演出 */
+  readonly busy: boolean;
+  /** 人跳出画面去了 3D 世界 */
+  readonly away: boolean;
+  /** 让人从画面的这个位置跳出去（去 3D 世界） */
+  popOut(from: Point): void;
+  /** 现在按着哪些方向（键盘、手柄、触屏合起来）：接管按键的机制（节奏关卡）自己读 */
+  held(): MoveInput;
   /** 复活点：重置时回到这里（Boss 封门时会改它） */
   entry: EntryState;
   /** 统计 */
@@ -94,8 +102,8 @@ export interface PlayContext {
   igniteFuses(ends: FuseEnd[]): number;
 
   fx: {
-    /** text 是 i18n key（msg.* / death.*），params 填进 {{…}} */
-    flash(text: MsgKey, color: string, params?: Record<string, unknown>): void;
+    /** text 是 i18n key（msg.* / rhythm.* …），params 填进 {{…}} */
+    flash(text: MsgKey | `rhythm.${string}`, color: string, params?: Record<string, unknown>): void;
     popScore(x: number, y: number, n: number): void;
     /** 迷雾要重算（地形 / 光源变了） */
     fogDirty(): void;
@@ -105,9 +113,17 @@ export interface PlayContext {
   hud: {
     /** null = 不显示分数 */
     score(n: number | null): void;
-    boss(v: { hp: number; max: number } | null): void;
+    /** per = 一管多少滴（血多时分成好几管） */
+    boss(v: { hp: number; max: number; per?: number } | null): void;
     /** Boss 出场过场叠在画面上的那一段（WARNING / 名字），null = 收起 */
     bossIntro(v: 'warning' | 'title' | null): void;
+    /** 换一套心（节奏关卡：两滴一格的金心）；null = 换回这一层平时的心 */
+    hearts(v: { hp: number; max: number; tiered?: boolean } | null): void;
+    /** 节奏关卡：这一下的判定和连击（null = 收起）；现在是哪种玩法（底下的按键提示跟着换） */
+    rhythm(v: { combo: number; judge: 'perfect' | 'good' | 'miss' | null } | null): void;
+    rhythmMode(mode: string): void;
+    /** 整个画面闪一下白光（破屏） */
+    whiteout(): void;
   };
 
   /** 本层启用的另一个机制的实例（没启用就是 undefined） */

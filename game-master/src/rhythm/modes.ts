@@ -1,6 +1,6 @@
 // ===== 节奏关卡里的玩法：一张谱分成几段，每段换一种玩法 =====
 // 这里只有各玩法的「谱面怎么写、在哪个世界玩」（引擎无关，2D、3D 两边都要看）。怎么玩、怎么画：
-// 2D 的（realm = flat，画在游戏画面里）在 game/rhythm/modes/，3D 的（realm = deep，主角跳出画面）在 world3d/rhythm/modes/。
+// 2D 的（realm = flat，画在游戏画面里）在 game/mechanics/rhythm/modes/，3D 的（realm = deep，主角跳出画面）在 world3d/rhythm/modes/。
 // 加一种玩法：这里加一条，对应那一边的 modes/ 里加一个文件并注册。
 
 export interface ModeSpec {

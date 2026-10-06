@@ -2,8 +2,9 @@
 // 加新玩法漏了哪一样，这里会报出来（不然要到游戏里换到那一段才发现）
 import { describe, expect, it } from 'vitest';
 import { RHYTHM_MODES, type ModeId } from '@/rhythm/modes';
-import { hasFlatMode } from '@/game/rhythm/modes/define';
-import '@/game/rhythm/modes';
+import { CHARTS } from '@/rhythm/charts';
+import { hasFlatMode } from '@/game/mechanics/rhythm/modes/define';
+import '@/game/mechanics/rhythm/modes';
 import { hasRhythmMode } from '@/world3d/rhythm/modes/define';
 import '@/world3d/rhythm/modes';
 import { MODE_KEYS } from '@/ui/lab/modeKeys';
@@ -32,5 +33,19 @@ describe('每种节奏玩法都齐了', () => {
 
   it.each(MODES)('%s：谱面录制知道这一段认哪些键', id => {
     expect(MODE_KEYS[id].codes.length).toBeGreaterThan(0);
+  });
+});
+
+describe('谱面的开场白', () => {
+  it('写了开场白的谱面：说话的人、每一句都有两种语言的文案；跳不过去的那几句有显示时间', () => {
+    for (const chart of CHARTS) {
+      if (!chart.intro) continue;
+      const { intro } = chart;
+      const keys = [intro.speaker, ...intro.talk, ...intro.locked.map(l => l.text), ...intro.locked.flatMap(l => (l.shout ? [l.shout] : []))];
+      for (const [lang, text] of Object.entries(LANGS)) {
+        for (const k of keys) expect(k.split('.').reduce<unknown>((o, p) => (o as Record<string, unknown>)?.[p], text), `${chart.id} ${lang} ${k}`).toBeTruthy();
+      }
+      for (const l of intro.locked) expect(l.ms).toBeGreaterThan(0);
+    }
   });
 });

@@ -11,8 +11,24 @@ export interface Section {
   say?: string;
 }
 
+/** 开打前的开场白（台词都是 i18n key） */
+export interface ChartIntro {
+  /** 谁在说（i18n key）、用哪个头像（asset 的 AVATARS）；换段前的那句话（Section.say）也是他说 */
+  speaker: string;
+  avatar?: string;
+  /** 前面这几句：玩家跳一下翻一句（这时候人照常能跳） */
+  talk: string[];
+  /**
+   * 后面这几句跳不过去、自己往下走（人不再归玩家管）：每句至少显示 ms 毫秒（字没打完会再等等）；
+   * grow = 台词用 | 分截、一截比一截大；shout = 同时砸在画面正中的一行大字（i18n key）
+   */
+  locked: { text: string; ms: number; grow?: boolean; shout?: string }[];
+}
+
 export interface Chart {
   id: string;
+  /** 开打前说什么；不写 = 不说话，钢琴变出来就开始放板 */
+  intro?: ChartIntro;
   /** 在哪一层打（层 id）：从别处开这一场会先传到那一层；不写 = 就地打 */
   arena?: string;
   /** 曲子的地址（相对站点根目录）；读不出来（文件不在）就只打拍子 */

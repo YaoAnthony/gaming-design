@@ -34,12 +34,17 @@ describe('机制注册表', () => {
     expect(floorMechanicOf(floorWith('.o.', { mode: 'platform' })).id).toBe('platform');
   });
 
-  it('通用机制：放了物件才启用；携带、帽子每层都启用', () => {
-    expect(ids(floorWith('...'))).toEqual(['carry', 'hat']);
-    expect(ids(floorWith('.K.'))).toEqual(['boss', 'carry', 'hat']);
-    expect(ids(floorWith('NVG'))).toEqual(['goal', 'npc', 'carry', 'slider', 'hat']);
-    expect(ids(floorWith('.bD'))).toEqual(['carry', 'hat', 'pushBlock']);
-    expect(ids(floorWith('.qQ'))).toEqual(['carry', 'hat', 'pushBlock']);
+  it('通用机制：放了物件才启用；携带、帽子、节奏关卡每层都启用', () => {
+    expect(ids(floorWith('...'))).toEqual(['carry', 'hat', 'rhythm']);
+    expect(ids(floorWith('.K.'))).toEqual(['boss', 'carry', 'hat', 'rhythm']);
+    expect(ids(floorWith('NVG'))).toEqual(['goal', 'npc', 'carry', 'slider', 'hat', 'rhythm']);
+    expect(ids(floorWith('.bD'))).toEqual(['carry', 'hat', 'pushBlock', 'rhythm']);
+    expect(ids(floorWith('.qQ'))).toEqual(['carry', 'hat', 'pushBlock', 'rhythm']);
+  });
+
+  it('层机制自己声明有没有生命值：平台跳有，吃豆人没有', () => {
+    expect(Mechanics.get('platform')!.hearts).toBe(true);
+    expect(Mechanics.get('pacman')!.hearts).toBe(false);
   });
 
   it('通用机制：旧的 roomFlags.boss 也启用 Boss；有锁组启用钥匙与门', () => {

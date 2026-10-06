@@ -10,14 +10,14 @@ import { Terrain } from '@/game/terrain/Terrain';
 import { entityRows, floorAfter, fogRows, fuseRows, roomKeyAt, worldRows } from '@/game/world/WorldModel';
 import { FuseNet } from '@/game/fuse/Fuse';
 import { FogOfWar } from '@/game/fog/Fog';
-import { bridge, EVT, type StartGameData, type RhythmTest } from '@/protocol';
+import { bridge, EVT, type StartGameData } from '@/protocol';
 import { SCENE } from '@/game/scenes/keys';
 import { Player } from '@/sprite';
 import { createSparkEmitter, type SparkEmitter } from '@/particle';
 import { store } from '@/redux/store';
 import { resizeGame } from '@/game/resize';
 import { Music } from '@/game/Music';
-import { DEFAULT_MUSIC, NO_MUSIC } from '@/asset';
+import { DEFAULT_MUSIC } from '@/asset';
 import { flash, setBoss, setBossIntro, setControls, setHearts, setDialogue, setMode, setPlace, setRhythm, setRhythmMode, setScore, setStats, whiteout } from '@/redux/slices/hudSlice';
 import { setConfig } from '@/redux/slices/configSlice';
 import { checkpoint, clearRun } from '@/redux/slices/runSlice';
@@ -34,8 +34,6 @@ import { Respawn } from '@/game/core/Respawn';
 import { Growth } from '@/game/core/Growth';
 import { Health } from '@/game/core/Health';
 import { PopOut } from '@/game/core/PopOut';
-import { RhythmFight } from '@/game/rhythm/RhythmFight';
-import { chartById, chartOfArena } from '@/rhythm';
 import { DEFAULT_PROJECT } from '@/game/world/defaultWorld';
 import type { DeathKey } from '@/i18n/keys';
 import { CrumpleFx } from '@/game/core/CrumpleFx';
@@ -46,10 +44,6 @@ import { applySceneFx, type SceneFx } from '@/game/core/sceneFx';
 import { vortex } from '@/game/core/vortex';
 import { Colors, hex } from '@/shared/palette';
 
-/** 节奏关卡：破屏那一刻画面闪多久（毫秒） */
-const BREAK_FLASH_MS = 220;
-/** Game Master （i18n key）；节奏关卡开场白里跳不过去的那两句各显示多久（毫秒）：越说越大的「来吧」、带大字的最后一句（大字晚一秒才砸下来） */
-const GM = 'npc.gameMaster', INTRO_AUTO = { grow: 2600, shout: 3200 };
 
 export class GameScene extends Phaser.Scene {
   private startData!: StartGameData;
@@ -87,7 +81,6 @@ export class GameScene extends Phaser.Scene {
   private growth!: Growth;
   private crumple!: CrumpleFx;
   private popOut!: PopOut;
-  private rhythm!: RhythmFight;
   private backdrop!: Backdrop;
   private controls!: GameInput;
 
@@ -184,42 +177,6 @@ export class GameScene extends Phaser.Scene {
     });
     this.crumple = new CrumpleFx(this, () => this.dialogue.end());
     this.popOut = new PopOut({ scene: this, player: () => this.player, tile: T, canLeave: () => !this.busy && !this.crumple.active, blocked: (cx, cy) => this.ctx.blocked(cx, cy), hazard: (cx, cy) => !!this.terrain.def(cx, cy).hazard });
-    // 节奏关卡：Game Master 弹琴时这一层的音乐让位给那首曲子，打完音乐回来
-    this.rhythm = new RhythmFight({
-      scene: this, cfg: this.cfg, player: () => this.player, held: () => this.controls.read(),
-      standAt: () => this.respawn.entry,
-      groundBelow: (x, y) => {   // 从这一格往下找到第一格实心的，地面就是它的顶
-        const cx = Math.floor(x / T);
-        let cy = Math.floor(y / T);
-        while (cy < this.terrain.h && !this.terrain.isSolid(cx, cy)) cy++;
-        return cy * T;
-      },
-      canStart: () => !this.busy && !this.crumple.active && this.player.body.blocked.down,
-      away: () => this.popOut.away, popOut: from => this.popOut.request(from),
-      // 开场白：前三句跳一下翻一句；从「来吧」开始跳不过去了，自己往下走（一声比一声大，最后砸下一行大字）
-      talk: (locked, done) => this.dialogue.talk({ name: GM, avatar: 'default', lines: [0, 1, 2].map(i => ({ text: `dialogue.festival.${i}`, pos: 'top' as const })) }, () => {
-        locked();
-        this.dialogue.cutscene(GM, [
-          { text: 'dialogue.festival.3', grow: true, autoMs: INTRO_AUTO.grow, pos: 'top' },
-          { text: 'dialogue.festival.4', shout: 'dialogue.festivalShout', autoMs: INTRO_AUTO.shout, pos: 'top' },
-        ], this.time.now, done);
-      }),
-      say: (line, ms, done) => this.dialogue.cutscene(GM, [{ text: line, autoMs: ms, pos: 'top' }], this.time.now, done),
-      onBegin: () => this.music.play(NO_MUSIC), onEnd: () => this.music.playBase(),
-      onMode: mode => { store.dispatch(setRhythmMode(mode)); },
-      taunt: mode => tr(`rhythm.taunt.${mode}`),
-      onScore: v => {
-        store.dispatch(setScore(v ? v.points : null));
-        if (!v || v.judge || v.fresh) store.dispatch(setRhythm(v && { combo: v.combo, judge: v.judge }));   // 自动判的只动分数，不把上一次的判定字冲掉
-      },
-      onBoss: v => store.dispatch(setBoss(v)),
-      onHp: v => { if (v) store.dispatch(setHearts({ ...v, tiered: true })); else this.health.reset(); },   // 打完换回平时的心
-      onBreak: () => { store.dispatch(whiteout()); this.cameras.main.flash(BREAK_FLASH_MS); },
-      onResult: (won, percent, test) => {
-        this.flash(won ? 'rhythm.won' : 'rhythm.lost', hex(won ? Colors.mint : Colors.rose), { percent });
-        if (won && !test && chartOfArena(this.floor.id)) this.win(true);   // 在庆典大厅打赢了：通关（试玩不算）
-      },
-    });
     this.solids = new Solids(this, () => ({ player: this.player, enemies: this.enemies.group }));
     this.ctx = this.buildContext();
     this.enemies = new Enemies(this.ctx);
@@ -229,7 +186,7 @@ export class GameScene extends Phaser.Scene {
     defs.forEach(d => { const m = d.create(this.ctx, baked.get(d.id)); this.mechs.push(m); this.mechById.set(d.id, m); });
     this.floorMech = this.mechs[0] as FloorMechanic;
     this.health = new Health({
-      scene: this, cfg: this.cfg, player: () => this.player, enabled: defs[0].id === 'platform',
+      scene: this, cfg: this.cfg, player: () => this.player, enabled: defs[0].hearts,
       canHurt: () => !this.frozen,
       die: reason => this.die(reason),
       show: v => store.dispatch(setHearts(v)),
@@ -271,9 +228,9 @@ export class GameScene extends Phaser.Scene {
     this.mechs.forEach(m => m.onRoomChanged?.(this.rooms.current));
 
     this.controls = new GameInput(this, {
-      press: key => { if (this.respawn.respawning || this.popOut.away || this.rhythm.active) return; if (this.won) this.continueAfterWin(); else this.floorMech.onPress(key, this.time.now); },
+      press: key => { if (this.respawn.respawning || this.popOut.away || this.controlled) return; if (this.won) this.continueAfterWin(); else this.floorMech.onPress(key, this.time.now); },
       // 换层（旋涡、淡出）和长大的过程中不响应 R：重置会清掉它们正在等的计时器和镜头，画面就卡在半路
-      reset: () => { if (this.won || this.leaving || this.growth.growing || this.respawn.respawning || this.crumple.active || this.rhythm.active) return; if (this.respawn.dead) this.respawn.resetAfterDeath(); else this.requestRoomReset(); },
+      reset: () => { if (this.won || this.leaving || this.growth.growing || this.respawn.respawning || this.crumple.active || this.controlled) return; if (this.respawn.dead) this.respawn.resetAfterDeath(); else this.requestRoomReset(); },
       continueGame: () => { if (this.won) this.continueAfterWin(); },
       restartRun: () => this.restartRun(),
       nextLevel: () => this.fakeNextLevel(),
@@ -283,15 +240,10 @@ export class GameScene extends Phaser.Scene {
       popOut: () => this.popOut.request(),
       heroEntry: q => this.popOut.answerEntry(q),
       heroReturn: at => this.popOut.comeBack(at),
-      rhythmStart: r => this.startRhythm(r.chartId, r.test),
-      rhythmStop: () => this.rhythm.stop(),
     }, this.playtest);
     // 玩家出场：换层带着 origin（这一局早就开始了），没有就是这一局的第一次出现
     this.respawn.appear(this.startData.origin ? 'floor' : 'start');
     this.saveCheckpoint();
-    // 这一层是哪张谱的场地（庆典大厅）：Game Master 已经在等了，人一落地就开打
-    const festival = chartOfArena(this.floor.id);
-    if (festival) this.rhythm.stage(festival.id, !this.startData.rhythmLab);   // 技术验证编辑器里的试玩：摆好场子等着，不自动开打
     // 存档里人在 3D 世界：出场之后接着跳出去
     if (!this.playtest && store.getState().run.realm === 'deep') this.popOut.request();
 
@@ -304,7 +256,6 @@ export class GameScene extends Phaser.Scene {
     }
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.mechs.forEach(m => m.destroy?.());
-      this.rhythm.destroy();
       // 迷雾和地形体积感的画布是全局贴图（场景关了还在）：换层 / 重开时不放掉，内存只增不减
       this.fog?.destroy(); this.fog = null;
       this.terrain.destroy();
@@ -317,8 +268,10 @@ export class GameScene extends Phaser.Scene {
   private get playtest(): boolean { return !!this.startData.playtest; }
   /** 人被别的事占着：死了、通关画面、换层、长大仪式、出场动画、跳出画面去了 3D 世界 */
   private get busy(): boolean { return this.respawn.dead || this.won || this.leaving || this.growth.growing || this.respawn.respawning || this.popOut.away; }
-  /** 人不归玩家管的时候：被别的事占着，或者在打节奏关卡（按键归节奏玩法） */
-  private get frozen(): boolean { return this.busy || this.rhythm.active; }
+  /** 有机制接管了按键和人（比如节奏关卡开打了，见 Mechanic.takesControl） */
+  private get controlled(): boolean { return this.mechs.some(m => m.takesControl?.()); }
+  /** 人不归玩家管的时候：被别的事占着，或者被机制接管了 */
+  private get frozen(): boolean { return this.busy || this.controlled; }
   /** 人不在画面里的时候死不了（落石砸不到 3D 世界里的人） */
   private die(reason: DeathKey): void { if (!this.popOut.away) this.respawn.die(reason); }
 
@@ -337,6 +290,10 @@ export class GameScene extends Phaser.Scene {
       get leaving() { return s.leaving; },
       get appearing() { return s.respawn.respawning; },
       get playtest() { return s.playtest; },
+      get busy() { return s.busy || s.crumple.active; },
+      get away() { return s.popOut.away; },
+      popOut: from => this.popOut.request(from),
+      held: () => this.controls.read(),
       get entry() { return s.respawn.entry; },
       set entry(e) { s.respawn.entry = e; },
       stats: this.stats,
@@ -356,6 +313,10 @@ export class GameScene extends Phaser.Scene {
         score: n => store.dispatch(setScore(n)),
         boss: v => store.dispatch(setBoss(v)),
         bossIntro: v => store.dispatch(setBossIntro(v)),
+        hearts: v => { if (v) store.dispatch(setHearts(v)); else this.health.reset(); },
+        rhythm: v => store.dispatch(setRhythm(v)),
+        rhythmMode: mode => store.dispatch(setRhythmMode(mode)),
+        whiteout: () => store.dispatch(whiteout()),
       },
       settings: {
         config: () => store.getState().config,
@@ -385,7 +346,6 @@ export class GameScene extends Phaser.Scene {
     this.growth.update(time);   // 回到出生点、落了地再开始长
     this.popOut.update();
     this.backdrop.update(this.player.x, this.player.y);
-    this.rhythm.update();
     if (this.frozen) return;
 
     const r = this.rooms.of(this.player.x, this.player.y);
@@ -479,7 +439,12 @@ export class GameScene extends Phaser.Scene {
   /** 换层。给了 via（门的位置）就先来一段旋涡：画面转着拉近门，人和东西都被吸进去 */
   private goToFloor(id: string, via?: Point): void {
     if (this.leaving) return;
-    if (!this.project.floors.some(f => f.id === id)) { this.flash('msg.noFloor', hex(Colors.rose)); return; }
+    if (!this.project.floors.some(f => f.id === id)) {
+      // 这份地图里没有那一层（编辑器里的地图比打包的旧）：从打包的默认地图里借过来
+      const borrowed = DEFAULT_PROJECT.floors.find(f => f.id === id);
+      if (!borrowed) { this.flash('msg.noFloor', hex(Colors.rose)); return; }
+      this.project = { ...this.project, floors: [...this.project.floors, borrowed] };
+    }
     this.leaving = true;
     this.dialogue.end();
     this.player.freeze(0xffffff);
@@ -505,18 +470,6 @@ export class GameScene extends Phaser.Scene {
   private exitPlaytest(): void {
     bridge.emit(EVT.playtestExit);
     this.scene.start(SCENE.editor);
-  }
-
-  /** 开一场节奏关卡：这张谱有自己的场地、人又不在那一层，就先传过去（到了那边自己开打）；否则就地开 */
-  private startRhythm(chartId: string, test?: RhythmTest): void {
-    const arena = chartById(chartId)?.arena;
-    if (!arena || arena === this.floor.id) { this.rhythm.start(chartId, test); return; }
-    if (this.frozen || this.crumple.active) return;
-    // 这份地图里没有那一层（编辑器里的地图是旧的）：从打包的默认地图里借过来
-    const floor = this.project.floors.find(f => f.id === arena) ?? DEFAULT_PROJECT.floors.find(f => f.id === arena);
-    if (!floor) return;
-    if (!this.project.floors.includes(floor)) this.project = { ...this.project, floors: [...this.project.floors, floor] };
-    this.goToFloor(arena);
   }
 
   // ---------- 引线 / 效果 ----------

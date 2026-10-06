@@ -43,6 +43,10 @@ export interface Mechanic {
    * 存在 CarryOver[这个机制的 id] 下；进层时用 ctx.carried(id) 拿回来，自己检查对不对
    */
   persist?(): unknown;
+  /**
+   * 这一刻按键和人归这个机制管（比如节奏关卡开打了）：场景不让人走、不响应跳和 R，机制自己用 ctx.held() 读方向、自己听按键
+   */
+  takesControl?(): boolean;
   /** 旋涡（进城堡门）时要一起吸进去的东西 */
   vortexTargets?(): Suckable[];
   destroy?(): void;
@@ -80,6 +84,8 @@ export interface FloorMechanicSpec<I extends FloorMechanic> extends BaseSpec {
   controls: ControlsLayout;
   /** 旧存档 / 旧地图里的 floor.mode 值，读到就当作这个机制 */
   aliases?: string[];
+  /** 这一层有生命值（左上角的心，挨打扣心）；不写 = 没有，碰到就死 */
+  hearts?: boolean;
   create(ctx: PlayContext, data: unknown): I;
 }
 export interface GlobalMechanicSpec<I extends Mechanic> extends BaseSpec {
@@ -104,6 +110,8 @@ export interface MechanicDef<I extends Mechanic = Mechanic> {
   scope: 'floor' | 'global';
   controls: ControlsLayout;
   aliases: string[];
+  /** 层机制：这一层有没有生命值 */
+  hearts: boolean;
   roomFlags: { key: string; label: string }[];
   /** 注册在这个机制名下的物件字符 */
   entityIds: string[];
@@ -134,6 +142,7 @@ export function defineMechanic<I extends Mechanic>(spec: FloorMechanicSpec<I & F
     scope: spec.scope,
     controls: spec.scope === 'floor' ? spec.controls : 'jump',
     aliases: spec.scope === 'floor' ? spec.aliases ?? [] : [],
+    hearts: spec.scope === 'floor' && !!spec.hearts,
     roomFlags: spec.roomFlags ?? [],
     entityIds: [],
     activeOn: spec.scope === 'global' && spec.activeOn ? spec.activeOn : floor => floorHasEntities(floor, def.entityIds),

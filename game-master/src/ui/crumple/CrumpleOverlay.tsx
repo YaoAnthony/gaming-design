@@ -140,7 +140,7 @@ const REAPER_MS = { rise: 350, fade: 300 };
 /** 开发期调试：window.__crumpleDebug = { speed: 0.2 } 慢放，{ at: 2000 } 停在第 2000 毫秒 */
 function debugClock(): { speed: number; at?: number } {
   if (!import.meta.env.DEV) return { speed: 1 };
-  const d = (window as unknown as { __crumpleDebug?: { speed?: number; at?: number } }).__crumpleDebug;
+  const d = window.__crumpleDebug;
   return { speed: d?.speed ?? 1, at: d?.at };
 }
 

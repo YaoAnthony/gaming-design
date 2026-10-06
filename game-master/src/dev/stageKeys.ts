@@ -1,7 +1,7 @@
 // ===== 试 3D 舞台和节奏关卡的按键（开发版一直开着；线上版本地址后面加 ?lab 才开）=====
 // T：画面往后倒 / 扶起来
 // P：主角跳出画面进 3D 世界 / 回到画面
-// B：开一场节奏关卡（骷髅王弹琴）/ 中途退出
+// B：开一场节奏关卡（Game Master 弹琴）/ 中途退出
 import { bridge, EVT, STAGE_FX, type StageFxId } from '@/protocol';
 import { rhythmSession } from '@/rhythm';
 

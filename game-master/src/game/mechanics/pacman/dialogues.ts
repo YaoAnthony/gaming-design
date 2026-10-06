@@ -1,4 +1,4 @@
-// ===== 吃豆人层的剧情台词（骷髅王的画外音，自动翻页）；text 是 i18n key =====
+// ===== 吃豆人层的剧情台词（Game Master 的画外音，自动翻页）；text 是 i18n key =====
 import type { DialogueLine } from '@/type';
 
 export const PAC_DIALOGUES = {

@@ -101,7 +101,7 @@ export const IMAGES: ImageAsset[] = [
   { key: 'fusenode', url: fuseNodeUrl },
   { key: 'boss', url: bossUrl },
   { key: 'skeleton', url: skeletonUrl },
-  /** 骷髅的侧面（脸朝左）：节奏关卡里弹钢琴的骷髅王 */
+  /** 骷髅的侧面（脸朝左）：节奏关卡里弹钢琴的 Game Master */
   { key: 'skeleton_side', url: skeletonSideUrl },
   { key: 'castle', url: castleUrl },
   { key: 'candle', url: candleUrl },

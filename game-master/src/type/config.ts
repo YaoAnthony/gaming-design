@@ -159,14 +159,14 @@ export interface RhythmConfig {
   dropBeats: number;
   /** 要按键打的玩法：按下的时刻离拍点多少毫秒以内算 Perfect / Good，再远不算打中，过了 Good 的范围还没打算漏 */
   windows: { perfect: number; good: number };
-  /** 接住整张谱的几成（0..1）才算过关：骷髅王的总血量就是音符数的这么多成 */
+  /** 接住整张谱的几成（0..1）才算过关：Game Master 的总血量就是音符数的这么多成 */
   passRatio: number;
   /** 主角在节奏关卡里有几滴血（HUD 上两滴一格：满格金色，剩一滴红色）；挨一下之后多久不再扣（毫秒） */
   heroHp: number;
   hurtGraceMs: number;
   /** 打完之后曲子用多久慢慢小下去（毫秒） */
   fadeOutMs: number;
-  /** 骷髅王的血条分几管（总血量 = 能打到他的音符数 × passRatio，平分到每一管、往上取整；接住一个掉一滴，掉光 = 够过关了） */
+  /** Game Master 的血条分几管（总血量 = 能打到他的音符数 × passRatio，平分到每一管、往上取整；接住一个掉一滴，掉光 = 够过关了） */
   bossTubes: number;
   /** 节奏关卡的曲子比平时的背景音乐响几倍（乘在 musicVolume 上，最多到满音量） */
   musicGain: number;
@@ -183,7 +183,7 @@ export interface RhythmConfig {
   /** 破屏到 3D 时屏幕往后倒多少度：画面里的四条道顺势接上画面外的大道 */
   screenTilt: number;
   /**
-   * 骷髅王在操控画面：整个画面跟着拍子动。每拍放大一下（比例）、左右晃多少度（两小节晃一个来回）；
+   * Game Master 在操控画面：整个画面跟着拍子动。每拍放大一下（比例）、左右晃多少度（两小节晃一个来回）；
    * 到了 3D，屏幕每拍往后点一下头（度）、左右歪多少度
    */
   sway: { zoom: number; rollDeg: number; nodDeg: number; screenRollDeg: number };

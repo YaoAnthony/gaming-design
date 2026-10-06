@@ -10,7 +10,7 @@ import '@/i18n';
 // 开发期调试入口：控制台可以直接看 store / Phaser 实例；bot = 程序控制的玩家（自动试玩，见 dev/bot.ts）
 if (import.meta.env.DEV) {
   const hook: Record<string, unknown> = { store, getGame };
-  (window as unknown as { __climb: unknown }).__climb = hook;
+  window.__climb = hook;
   void import('@/dev/bot').then(m => { hook.bot = m.bot; });
 }
 // 试 3D 舞台和节奏关卡的按键（T / P / B，见 dev/stageKeys.ts）：开发版一直开着；线上版本地址后面加 ?lab 才开，方便在部署的版本上做技术验证

@@ -18,7 +18,7 @@ export interface StartGameData {
   held?: string;
   /** 头上戴着帽子（换层时带过去） */
   hat?: boolean;
-  /** 长大阶段（0 = 1 格高，1 = 1.5 格，2 = 2 格；假通关「进入下一关」每次长一阶；换层时带过去） */
+  /** 长大阶段（0 = 1 格高，1 = 1.5 格，2 = 2 格；换层时带过去） */
   stage?: number;
   playtest?: boolean;
   /** 技术验证编辑器里的试玩：到了节奏关卡的场地不自动开打，等 EVT.rhythmStart 带着 test 来 */
@@ -67,7 +67,7 @@ export const EVT = {
   continueGame: 'game:continue',
   /** 通关弹窗「再来一次」：从这一局的起点重开 */
   restartGame: 'game:restart',
-  /** 假通关弹窗「进入下一关」：地图复原、回出生点、长成 2 格高再玩一次 */
+  /** 假通关弹窗「进入下一关」：去这个项目里的下一层（GameScene.fakeNextLevel） */
   nextLevel: 'game:next',
   /** Phaser → React：放攥纸团特效（游戏照常跑，手先伸进来）；参数是 CrumpleStart */
   crumple: 'fx:crumple',
@@ -83,7 +83,7 @@ export const EVT = {
   stageFxEnd: 'stage:fx-end',
   /** 舞台 →：这个特效放完、撤掉了；参数是 StageFxRef */
   stageFxDone: 'stage:fx-done',
-  /** → Phaser：开一场节奏关卡（骷髅王在画面里弹琴，主角跟着曲子玩，每段换一种玩法）；参数是 RhythmStart */
+  /** → Phaser：开一场节奏关卡（Game Master 在画面里弹琴，主角跟着曲子玩，每段换一种玩法）；参数是 RhythmStart */
   rhythmStart: 'rhythm:start',
   /** → Phaser：正在进行的节奏关卡中途退出 */
   rhythmStop: 'rhythm:stop',

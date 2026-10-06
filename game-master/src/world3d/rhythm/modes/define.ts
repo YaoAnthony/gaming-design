@@ -24,7 +24,7 @@ export interface ModeContext {
   hurt(): void;
   /** 出一声起跳爆炸 */
   boom(): void;
-  /** 骷髅王现在在哪（屏幕倒着，他跟着在斜面上）；砸到他了：他缩一下 */
+  /** Game Master 现在在哪（屏幕倒着，他跟着在斜面上）；砸到他了：他缩一下 */
   bossAt(): THREE.Vector3;
   bossHit(): void;
 }

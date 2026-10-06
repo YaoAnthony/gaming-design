@@ -1,6 +1,6 @@
-# ===== 庆典大厅：骷髅王的节奏 Boss 战（技术验证）=====
-# 一个空房间：主角在左边的地上，骷髅王和他的钢琴在右边（钢琴和骷髅王不是地图上的物件，由 game/rhythm 摆出来）。
-# 进了这一层，骷髅王问一句「准备好庆典了吗？！」就开打；谱面是 rhythm/charts 里 arena 指向这一层的那张。
+# ===== 庆典大厅：Game Master 的节奏 Boss 战（技术验证）=====
+# 一个空房间：主角在左边的地上，Game Master 和他的钢琴在右边（钢琴和 Game Master 不是地图上的物件，由 game/rhythm 摆出来）。
+# 进了这一层，Game Master 问一句「准备好庆典了吗？！」就开打；谱面是 rhythm/charts 里 arena 指向这一层的那张。
 floor festival
 name Festival
 place Festival Hall

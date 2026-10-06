@@ -1,6 +1,6 @@
 // ===== Give It Up（2D）：小人跟着拍子在一排柱子上一格一格地跳，自己会跳；要在起跳的那一拍按空格的只有两种时候 =====
 // 'u' 下一根柱子高一截：按了才跳得上去；'x' 下一根是尖刺：按一下跨过去，落在再下一根上。
-// 柱子一拍一根，骷髅王弹一下琴键飞过来一根，落在右边排过来；高的柱子之后一拍降一截（往下跳不用按）。
+// 柱子一拍一根，Game Master 弹一下琴键飞过来一根，落在右边排过来；高的柱子之后一拍降一截（往下跳不用按）。
 // 该按没按：上不去高柱就撞在柱子上、跨不过尖刺就踩上去，扣一滴血，人闪一拍。
 // 进场、退场是平滑的：柱子从地里升起来 / 沉回去，不是一下子冒出来。
 import Phaser from 'phaser';
@@ -14,7 +14,7 @@ import { burst, defineFlatMode, JUDGE_COLOR } from './define';
  */
 export const PILLAR = { gap: 2.6, width: 1.9, base: 0.8, step: 0.9, maxLevel: 3, spike: 0.35, spikeTip: 0.7, hop: 0.9, leap: 2.4 };
 /** 柱子升起来 / 沉回去用多久（毫秒）；撞了之后人往回弹多远（格）、一亮一暗各多久（毫秒）、暗的时候多透 */
-/** 柱子从骷髅王手边飞过来：飞多远落到位（格）、弧线多高（格）、刚出手时多小 */
+/** 柱子从 Game Master 手边飞过来：飞多远落到位（格）、弧线多高（格）、刚出手时多小 */
 export const FLY = { span: 3.2, arc: 1.6, scale: 0.35 };
 /** 接着引子开场时，引子没放的那些柱子补飞过来：隔多久一根、一根飞多久（毫秒） */
 const FILL = { everyMs: 140, flyMs: 420 };
@@ -22,7 +22,7 @@ const RISE_MS = 700, BUMP = { back: 0.7, flickerMs: 70, alpha: 0.3 };
 
 /**
  * 画一根柱子。slot = 落好之后的位置（x，正中），height = 落好之后多高；u = 飞到了几成（1 = 落好了）：
- * 从 from（骷髅王手边）划一道弧线落到位，边飞边长大。kind：plain 白边、note 金边（要按键的那根）、passed 绿边（踩过的）、spike 尖刺
+ * 从 from（Game Master 手边）划一道弧线落到位，边飞边长大。kind：plain 白边、note 金边（要按键的那根）、passed 绿边（踩过的）、spike 尖刺
  */
 export function drawPillar(g: Phaser.GameObjects.Graphics, T: number, ground: number, slot: number, height: number, from: { x: number; y: number }, u: number, kind: 'plain' | 'note' | 'passed' | 'spike', tip = 1): void {
   const e = u * u * (3 - 2 * u), w = PILLAR.width * T;
@@ -94,7 +94,7 @@ defineFlatMode('giveup', (ctx, notes) => {
       const beats = Math.max(0, (now - ctx.beat.offsetMs) / ctx.beat.ms), gap = PILLAR.gap * T;
       for (let k = Math.max(first, Math.floor(beats) - 3); k <= last; k++) {
         const slot = ctx.heroX + (k - beats) * gap;
-        if (slot > ctx.source.x) break;   // 还没轮到：骷髅王还没把它弹出来
+        if (slot > ctx.source.x) break;   // 还没轮到：Game Master 还没把它弹出来
         const height = ctx.ground - top(k);
         if (height < 1) continue;
         // 刚弹出来的那一段路是飞过来的；接着引子开场时，引子没放的那些一根接一根补飞过来

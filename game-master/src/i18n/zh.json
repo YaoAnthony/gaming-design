@@ -109,7 +109,7 @@
   },
   "npc": {
     "skeleton": "骷髅",
-    "skeletonKing": "Game Master"
+    "gameMaster": "Game Master"
   },
   "dialogue": {
     "skeleton": [

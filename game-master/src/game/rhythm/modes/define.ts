@@ -16,7 +16,7 @@ export interface Press { left: boolean; right: boolean; up: boolean; down: boole
 
 export interface FlatContext {
   scene: Phaser.Scene;
-  /** 现在这个房间在游戏世界里占的矩形（像素）；地面的 y；主角站在哪（x）；音符从哪出来（钢琴琴键的左端）；骷髅王在哪（道具从他手里扔出来） */
+  /** 现在这个房间在游戏世界里占的矩形（像素）；地面的 y；主角站在哪（x）；音符从哪出来（钢琴琴键的左端）；Game Master 在哪（道具从他手里扔出来） */
   room: Rect;
   ground: number;
   heroX: number;
@@ -41,7 +41,7 @@ export interface FlatContext {
   hurt(): void;
   /** 出一声起跳爆炸 */
   boom(): void;
-  /** 接住的音符弹回去砸骷髅王：从哪飞出去、多大、什么颜色 */
+  /** 接住的音符弹回去砸 Game Master：从哪飞出去、多大、什么颜色 */
   strikeBoss(x: number, y: number, size: number, color: number): void;
 }
 
@@ -102,9 +102,9 @@ export class NoteSprites<T extends Phaser.GameObjects.GameObject> {
   destroy(): void { this.live.forEach(o => o.destroy()); this.live.clear(); }
 }
 
-// ---------- 道具：骷髅王扔过来 ----------
+// ---------- 道具：Game Master 扔过来 ----------
 // 每种玩法的道具（轨道、鼓、打击框……）放进一个容器，容器的原点就是它该在的位置（anchor）。
-// 轮到这种玩法时骷髅王把它扔过来：从他手里划一道弧线、转着、由小变大地落到位；轮完原地缩小淡出。
+// 轮到这种玩法时 Game Master 把它扔过来：从他手里划一道弧线、转着、由小变大地落到位；轮完原地缩小淡出。
 
 /** 扔过来用多久（毫秒）、弧线多高（像素）、出手时多小、转几度；收走用多久（毫秒） */
 const TOSS = { ms: 650, arc: 120, from: 0.15, spin: -300, outMs: 200 };

@@ -1,5 +1,5 @@
-// ===== 骷髅王和他的钢琴：站在房间右边的地上（节奏关卡里 2D 画面上一直在的那部分）=====
-// 骷髅王是一副会动的骨架（BossRig）。一开始只有他站着；说完开场白，他双手一举、往下一按，把钢琴变出来，然后开弹。
+// ===== Game Master 和他的钢琴：站在房间右边的地上（节奏关卡里 2D 画面上一直在的那部分）=====
+// Game Master 是一副会动的骨架（BossRig）。一开始只有他站着；说完开场白，他双手一举、往下一按，把钢琴变出来，然后开弹。
 // 画面上的东西都是他当场弄出来的：每个音符出发的那一刻，他有一只手敲在对应的琴键上（琴键亮一下），音符从那里出来；
 // 没有音符的拍子他也照着拍子弹；换玩法时他甩手把道具扔过来。
 // 3D 段落里从画面飞出去的音符（rhythm/modes.ts 的 fromScreen），先在画面里从钢琴落到画面底边对应的那条道上，
@@ -13,7 +13,7 @@ import { BossRig } from './BossRig';
 /** 游戏世界里的一块矩形（像素） */
 export interface Rect { x: number; y: number; w: number; h: number }
 
-/** 骷髅王站在房间的多靠右（宽度的比例）、放大几倍 */
+/** Game Master 站在房间的多靠右（宽度的比例）、放大几倍 */
 const BOSS = { x: 0.86, scale: 3 };
 /** 钢琴（在他左手边）：离他多远、多宽、多高、琴键那一条多厚（格），几个白键；落下来的音符多大（像素） */
 const PIANO = { gap: 1.6, width: 3.4, height: 1.5, keys: 0.4, count: 10, drop: 20 };
@@ -56,7 +56,7 @@ export class PianoBoss {
     this.piano = scene.add.container(px + pw / 2, ground, [body, ...this.keys]).setDepth(depth).setScale(0).setVisible(false);
   }
 
-  /** 骷髅王的手在哪（道具从这扔出来）、身体中间在哪（砍回去的方块往这砸） */
+  /** Game Master 的手在哪（道具从这扔出来）、身体中间在哪（砍回去的方块往这砸） */
   get hand(): { x: number; y: number } { return { x: this.rig.root.x - this.tile, y: this.ground - this.rig.height * 0.75 }; }
   get body(): { x: number; y: number } { return { x: this.rig.root.x, y: this.ground - this.rig.height / 2 }; }
 
@@ -81,7 +81,7 @@ export class PianoBoss {
   /** 甩手扔东西（换玩法时把道具扔过去）：右手举起来往前一甩 */
   throwProp(): void { this.throwUntil = this.scene.time.now + ACT.throwMs; }
 
-  /** 骷髅王喊一句：字从他头顶弹出来，往上飘着淡掉 */
+  /** Game Master 喊一句：字从他头顶弹出来，往上飘着淡掉 */
   shout(text: string): void {
     const y = this.ground - this.rig.height - SHOUT.lift * this.tile;
     const label = this.scene.add.text(this.rig.root.x, y, text, { fontFamily: 'monospace', fontSize: `${Math.round(SHOUT.size * this.tile)}px`, fontStyle: 'bold', color: '#ffd166', stroke: '#0b0b14', strokeThickness: 6 })

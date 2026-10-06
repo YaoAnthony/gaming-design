@@ -55,7 +55,7 @@ export class RhythmWorld implements StageFxRun {
   private readonly disposables: { dispose(): void }[] = [];
   /** 大道（地面和线）：进场时从屏幕底边往镜头这边铺开 */
   private readonly road = new THREE.Group();
-  /** 骷髅王伸到画面外面来的两只手：3D 里的音符是它们放出来的 */
+  /** Game Master 伸到画面外面来的两只手：3D 里的音符是它们放出来的 */
   private readonly hands: BossHands;
   /** 下一个还没出发的音符；每个 3D 段落的音符提前多久出发（毫秒，下标 = 第几段） */
   private nextNote = 0;
@@ -104,7 +104,7 @@ export class RhythmWorld implements StageFxRun {
     const mctx: Omit<ModeContext, 'travelMs'> = {
       root: this.root, hero: this.hero, w, h, heroZ, config: o.config, score: o.session.score,
       hurt: () => o.session.hurt(), bossHit: () => o.session.bossHit(), boom: () => o.session.boom(),
-      // 骷髅王在画面上的位置换成这里的坐标：屏幕绕底边往后倒了 tilt 度，他离底边多高就沿着斜面上去多远
+      // Game Master 在画面上的位置换成这里的坐标：屏幕绕底边往后倒了 tilt 度，他离底边多高就沿着斜面上去多远
       bossAt: () => {
         const up = (1 - o.session.boss.y) * h, a = THREE.MathUtils.degToRad(this.tilt);
         return new THREE.Vector3((o.session.boss.x - 0.5) * w, up * Math.cos(a), -up * Math.sin(a));
@@ -150,7 +150,7 @@ export class RhythmWorld implements StageFxRun {
       this.aimAt(mode);
       const k = cfg.cameraMs > 0 ? 1 - Math.exp(-dtMs / cfg.cameraMs) : 1, cam = this.ctx.camera;
       cam.position.lerp(this.eye, k); cam.quaternion.slerp(this.quat, k);
-      // 骷髅王在操控屏幕：每拍往后点一下头，左右慢慢歪（两小节一个来回）
+      // Game Master 在操控屏幕：每拍往后点一下头，左右慢慢歪（两小节一个来回）
       const beats = (now - chart.offsetMs) / beatMs(chart), phase = ((beats % 1) + 1) % 1;
       this.ctx.screen.setTilt(this.tilt + cfg.sway.nodDeg * Math.exp(-phase * 5));
       this.ctx.screen.setRoll(cfg.sway.screenRollDeg * Math.sin(beats / 8 * Math.PI * 2));
@@ -158,7 +158,7 @@ export class RhythmWorld implements StageFxRun {
     this.spread(dtMs);
     const now = this.o.session.conductor.timeMs();
     this.modes.forEach(m => m.draw(now));
-    // 音符出发的那一刻，骷髅王的手在那条道上方往下一松
+    // 音符出发的那一刻，Game Master 的手在那条道上方往下一松
     for (const all = this.o.session.notes; this.nextNote < all.length; this.nextNote++) {
       const n = all[this.nextNote], travel = this.travel.get(n.section);
       if (travel !== undefined && n.timeMs - travel > now) break;

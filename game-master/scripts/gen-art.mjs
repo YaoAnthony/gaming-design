@@ -373,7 +373,7 @@ sk.rect(13, 17, 2, 12, bone); sk.rect(10, 20, 8, 1, bone); sk.rect(10, 23, 8, 1,
 sk.rect(10, 31, 3, 5, bone); sk.rect(15, 31, 3, 5, bone);
 sk.save('skeleton.png');
 
-// ---- 骷髅的侧面 28x36（脸朝左）：节奏关卡里坐在钢琴前的骷髅王用（game/rhythm/BossRig.ts 把它切成头和身子两块，
+// ---- 骷髅的侧面 28x36（脸朝左）：节奏关卡里坐在钢琴前的 Game Master 用（game/rhythm/BossRig.ts 把它切成头和身子两块，
 //      上面 14 行是头，下面是身子；胳膊不画在贴图上，是骨架现画的）----
 {
   const c = new Canvas(28, 36);

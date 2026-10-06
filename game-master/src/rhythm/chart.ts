@@ -7,7 +7,7 @@ import { HOLD_BODY, RHYTHM_MODES, type ModeId } from './modes';
 export interface Section {
   mode: ModeId;
   rows: string[];
-  /** 换到这一段之前骷髅王在对话框里说的一句（台词的 i18n key）：上一段快结束时开始说，说到这一段开头空着的那一小节 */
+  /** 换到这一段之前 Game Master 在对话框里说的一句（台词的 i18n key）：上一段快结束时开始说，说到这一段开头空着的那一小节 */
   say?: string;
 }
 

@@ -1,4 +1,4 @@
-// ===== 节奏大师（2D）：三条道竖着铺在钢琴左边（不挡骷髅王），音符从上面落下来，落到地面那条线上时按那条道的键 =====
+// ===== 节奏大师（2D）：三条道竖着铺在钢琴左边（不挡 Game Master），音符从上面落下来，落到地面那条线上时按那条道的键 =====
 // 从左到右三条道的键：A、S、D（方向键是 ← ↓ →）。按哪条道的键，小人就跑到哪条道上去接那个音符。
 // 长的音符是长按：头落到线上时按下，一直按住到尾巴过线才松手。
 // 拍子看得见：每一拍有一条横线跟着音符一起落下来（小节线更亮），落到判定线上的那一刻判定线亮一下。
@@ -16,7 +16,7 @@ const BEAT = { alpha: 0.28, barAlpha: 0.7, line: 4, pulse: 9, decay: 0.35 };
 defineFlatMode('mania', (ctx, notes) => {
   const { scene, room, tile: T } = ctx;
   const track = new NoteTrack(notes, ctx.score);
-  // 三条道只占钢琴左边那一片：不挡住骷髅王和他的钢琴
+  // 三条道只占钢琴左边那一片：不挡住 Game Master 和他的钢琴
   const left = room.x, width = ctx.source.x - TRACK.gap * T - left;
   const topY = room.y, lineY = ctx.ground - TRACK.line * T, laneW = width / LANES, midX = (lane: number) => left + (lane + 0.5) * laneW;
   const y = (p: number) => Phaser.Math.Linear(topY, lineY, p);

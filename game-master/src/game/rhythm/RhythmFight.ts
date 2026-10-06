@@ -1,10 +1,10 @@
-// ===== 节奏关卡（游戏这一侧，也是整场的主持）：骷髅王在房间右边弹钢琴，主角在左边跟着曲子玩，每一段换一种玩法 =====
-// 流程：摆好场子（骷髅王一个人站在右边）→ 他说开场白（跳一下翻一句，这时候人照常能跳）→ 安静一会 → 他把钢琴变出来 →
+// ===== 节奏关卡（游戏这一侧，也是整场的主持）：Game Master 在房间右边弹钢琴，主角在左边跟着曲子玩，每一段换一种玩法 =====
+// 流程：摆好场子（Game Master 一个人站在右边）→ 他说开场白（跳一下翻一句，这时候人照常能跳）→ 安静一会 → 他把钢琴变出来 →
 // 引子（Lure）：他弹一下放一块板，主角这时候是自由的；跳上哪一块，那一瞬间就被锁进来 →
-// 骷髅王的血条出现，一管管「滴滴滴」地填满（和史莱姆王出场用的是同一声）→ 曲子开始 → 一段段玩过去 → 结算。
+// Game Master 的血条出现，一管管「滴滴滴」地填满（和史莱姆王出场用的是同一声）→ 曲子开始 → 一段段玩过去 → 结算。
 // 谱面（rhythm/charts）分成几段：2D 的段落（realm = flat）在这里、在游戏画面里玩；轮到 3D 的段落（realm = deep）就让主角破屏跳出去，
 // 由舞台那边的 RhythmWorld 接着玩，轮完再回来。两边听同一个指挥（曲子现在第几毫秒）、记同一份成绩（rhythm/session）。
-// 每个音符判 Perfect / Good / Miss。骷髅王的血 = 整张谱音符数的六成（passRatio），接住一个掉一滴（HUD 上分成好几管）；谱面走完时血空了算赢。
+// 每个音符判 Perfect / Good / Miss。Game Master 的血 = 整张谱音符数的六成（passRatio），接住一个掉一滴（HUD 上分成好几管）；谱面走完时血空了算赢。
 // 2D 里接住的音符弹回去砸他。
 import Phaser from 'phaser';
 import type { GameConfig } from '@/type';
@@ -19,6 +19,7 @@ import { createBossSound, type BossSound } from '@/audio/bossSound';
 import { PILLAR } from './modes/giveup';
 import { createFlatMode, type FlatMode, type Press } from './modes/define';
 import './modes';
+import { DEPTH } from '@/game/depth';
 
 export interface RhythmFightDeps {
   scene: Phaser.Scene;
@@ -34,20 +35,20 @@ export interface RhythmFightDeps {
   /** 人在不在画面外（3D 世界）；让他从画面的这个位置跳出去 */
   away: () => boolean;
   popOut: (from: { x: number; y: number }) => void;
-  /** 骷髅王的开场白：前几句玩家跳一下翻一句；到了跳不过去的那几句调 locked（人不再归玩家管），全说完调 done */
+  /** Game Master 的开场白：前几句玩家跳一下翻一句；到了跳不过去的那几句调 locked（人不再归玩家管），全说完调 done */
   talk: (locked: () => void, done: () => void) => void;
-  /** 骷髅王在对话框里说一句（台词的 i18n key），显示 ms 毫秒，说完调 done */
+  /** Game Master 在对话框里说一句（台词的 i18n key），显示 ms 毫秒，说完调 done */
   say: (line: string, ms: number, done: () => void) => void;
   /** 开始 / 结束：这一层的音乐让位、回来 */
   onBegin(): void;
   onEnd(): void;
   /** 换了一种玩法 */
   onMode(mode: ModeId): void;
-  /** 换到这种玩法时骷髅王喊的那句话 */
+  /** 换到这种玩法时 Game Master 喊的那句话 */
   taunt: (mode: ModeId) => string;
   /** 成绩变了（给 HUD）：judge = 这一下的判定，null = 只是分数变了（自动判的，不弹字）；整个是 null = 收起来 */
   onScore(s: { points: number; combo: number; judge: Judgement | null; fresh?: boolean } | null): void;
-  /** 骷髅王的血条；null = 收起来 */
+  /** Game Master 的血条；null = 收起来 */
   onBoss(v: { hp: number; max: number; per: number } | null): void;
   /** 主角的血（节奏关卡里是另一套：两滴一格）；null = 收起来，换回平时的心 */
   onHp(v: { hp: number; max: number } | null): void;
@@ -62,20 +63,21 @@ const DIRS = { left: ['KeyA', 'ArrowLeft'], up: ['KeyW', 'ArrowUp'], down: ['Key
 const DIR_ORDER = ['left', 'up', 'down', 'right'] as const;
 /** 打中时替身鼓到几倍、多久鼓到头（毫秒，再用同样久缩回去） */
 const PUNCH = { scale: 1.25, ms: 55 };
-/** 画在哪一层（盖住房间里的东西）；开打后房间压暗多少；破屏前多久开始震、震多大 */
-const BOOM = { key: 'boom', volume: 0.8 };   // 起跳爆炸的那一声（asset 里的 key）、多响：和平时起跳一样
-/** 接住的音符弹回去砸骷髅王：飞多久（毫秒）、弧线多高（格）、一路转多少度 */
+/** 起跳爆炸的那一声（asset 里的 key）、多响：和平时起跳一样 */
+const BOOM = { key: 'boom', volume: 0.8 };
+/** 接住的音符弹回去砸 Game Master：飞多久（毫秒）、弧线多高（格）、一路转多少度 */
 const RETURN = { ms: 260, arc: 1.2, spin: 360 };
 /**
  * 开打前血条一格一格填满，每格「滴」一声：第一管一格隔多久（毫秒）、每多一管快到上一管的几成、最快一格隔多久；
  * 每填满一管画面震多久、多大；全满之后停多久再起曲子
  */
 const FILL = { cellMs: 70, faster: 0.82, minMs: 22, shake: { ms: 140, strength: 0.005 }, holdMs: 700 };
-const DEPTH = 40, DIM = 0.35, RUMBLE = { ms: 600, strength: 0.007 };
+/** 画在哪一层（盖住房间里的东西，见 game/depth.ts）；开打后房间压暗多少；破屏前多久开始震、震多大 */
+const FIGHT_DEPTH = DEPTH.rhythm, DIM = 0.35, RUMBLE = { ms: 600, strength: 0.007 };
 /** 开场白说完之后安静多久（毫秒）；换段之前的那句话：提前几拍开始说、说到下一段开头再过几拍 */
 const QUIET_MS = 1000, SAY = { leadBeats: 2, tailBeats: 3 };
 
-/** off = 没有；staged = 场子摆好了，骷髅王站着等；intro = 他在说话、变钢琴；lure = 他在放板，等主角跳上去；fill = 踩上去了，血条在填（别的都不动）；play = 在打 */
+/** off = 没有；staged = 场子摆好了，Game Master 站着等；intro = 他在说话、变钢琴；lure = 他在放板，等主角跳上去；fill = 踩上去了，血条在填（别的都不动）；play = 在打 */
 type Phase = 'off' | 'staged' | 'intro' | 'lure' | 'fill' | 'play';
 
 export class RhythmFight {
@@ -95,7 +97,7 @@ export class RhythmFight {
   /** 开场白还没说完：这时候人还归玩家管（跳一下翻一句） */
   private talking = false;
   private lure: Lure | null = null;
-  /** 这一场骷髅王一共多少血、一管多少滴（开场算一次）；HUD 上现在显示的是多少血 */
+  /** 这一场 Game Master 一共多少血、一管多少滴（开场算一次）；HUD 上现在显示的是多少血 */
   private bossFull: { max: number; per: number } | null = null;
   private shownBossHp = -1;
   /** 等着开的试玩（技术验证编辑器点了「从这开始」）：手头的收干净、人回到画面里就开；正在打的这一场是不是试玩 */
@@ -122,7 +124,7 @@ export class RhythmFight {
   /** 开场白说完了（他在变钢琴）或者正在打：按键归节奏关卡，人不归玩家管 */
   get active(): boolean { return (this.phase === 'intro' && !this.talking) || this.phase === 'fill' || this.phase === 'play'; }
 
-  /** 摆好场子：骷髅王和钢琴站到房间右边。auto = 人一能动就开打 */
+  /** 摆好场子：Game Master 和钢琴站到房间右边。auto = 人一能动就开打 */
   stage(chartId: string, auto: boolean): void {
     const chart = chartById(chartId), { scene, cfg } = this.d;
     if (!chart || this.phase !== 'off') return;
@@ -130,7 +132,7 @@ export class RhythmFight {
     this.chart = chart; this.autoStart = auto; this.phase = 'staged';
     this.room = { x: cam.scrollX, y: cam.scrollY, w: cam.width, h: cam.height };
     this.ground = this.d.groundBelow(at.x, at.y);
-    this.piano = new PianoBoss(scene, this.room, this.ground, cfg.tile, DEPTH);
+    this.piano = new PianoBoss(scene, this.room, this.ground, cfg.tile, FIGHT_DEPTH);
   }
 
   /** 开一场：场子还没摆就先摆；已经在说话 / 在打就不管。test = 试玩：正在打就先收掉，然后跳过开场直接从那一刻开打 */
@@ -198,7 +200,7 @@ export class RhythmFight {
       if (realm(section) === 'deep' && !away) this.d.onBreak();   // 破屏的那一刻
     }
     const next = section + 1;
-    // 下一段开始之前骷髅王有话说：这一段快结束时开始说，说到下一段开头空着的那一小节
+    // 下一段开始之前 Game Master 有话说：这一段快结束时开始说，说到下一段开头空着的那一小节
     const line = s.chart.sections[next]?.say, beat = beatMs(s.chart);
     if (line && this.said !== next && sectionStarts(s.chart)[next] - now < SAY.leadBeats * beat) {
       this.said = next;
@@ -223,7 +225,7 @@ export class RhythmFight {
     this.sway(now);
   }
 
-  /** 骷髅王在操控画面：每拍放大一下再收回去，左右慢慢晃（两小节一个来回） */
+  /** Game Master 在操控画面：每拍放大一下再收回去，左右慢慢晃（两小节一个来回） */
   private sway(now: number): void {
     const s = this.session!, cfg = this.d.cfg.world3d.rhythm.sway, cam = this.d.scene.cameras.main;
     const beats = (now - s.chart.offsetMs) / beatMs(s.chart), phase = ((beats % 1) + 1) % 1;
@@ -240,7 +242,7 @@ export class RhythmFight {
     this.phase = 'off';
   }
 
-  /** 骷髅王说开场白（玩家跳一下翻一句，人照常能跳），说完安静一会，他把钢琴变出来，开打 */
+  /** Game Master 说开场白（玩家跳一下翻一句，人照常能跳），说完安静一会，他把钢琴变出来，开打 */
   private intro(): void {
     this.phase = 'intro'; this.talking = true;
     const p = this.d.player();
@@ -254,12 +256,12 @@ export class RhythmFight {
     });
   }
 
-  /** 引子：把人还给玩家，骷髅王弹一下放一块板，排在主角前面 */
+  /** 引子：把人还给玩家，Game Master 弹一下放一块板，排在主角前面 */
   private bait(): void {
     const { scene, cfg } = this.d, p = this.d.player(), piano = this.piano!;
     this.phase = 'lure';
     this.lure = new Lure({
-      scene, player: p, tile: cfg.tile, ground: this.ground, depth: DEPTH, startX: p.x + PILLAR.gap * cfg.tile, from: () => piano.hand,
+      scene, player: p, tile: cfg.tile, ground: this.ground, depth: FIGHT_DEPTH, startX: p.x + PILLAR.gap * cfg.tile, from: () => piano.hand,
       onThrow: i => piano.tap(0.2 + 0.2 * i),
     });
   }
@@ -273,11 +275,11 @@ export class RhythmFight {
     this.bossFull = null;
     this.session = session; this.section = -1; this.stopping = false; this.rumbled = -1; this.said = -1; this.phase = 'play';
     this.hp = cfg.world3d.rhythm.heroHp; this.graceUntil = 0;
-    this.backdrop = scene.add.rectangle(room.x + room.w / 2, room.y + room.h / 2, room.w, room.h, Colors.ink, DIM).setDepth(DEPTH - 2);
+    this.backdrop = scene.add.rectangle(room.x + room.w / 2, room.y + room.h / 2, room.w, room.h, Colors.ink, DIM).setDepth(FIGHT_DEPTH - 2);
 
     const p = this.d.player(), piano = this.piano!;
     p.freeze(0xffffff); p.clearTint(); p.setVisible(false);
-    const hero = this.hero = scene.add.image(p.x, p.y, p.texture.key).setDisplaySize(p.displayWidth, p.displayHeight).setFlipX(false).setDepth(DEPTH + 2);
+    const hero = this.hero = scene.add.image(p.x, p.y, p.texture.key).setDisplaySize(p.displayWidth, p.displayHeight).setFlipX(false).setDepth(FIGHT_DEPTH + 2);
     const rc = () => this.d.cfg.world3d.rhythm;
     const baseX = hero.scaleX, baseY = hero.scaleY;
     const punch = () => {
@@ -288,7 +290,7 @@ export class RhythmFight {
     chart.sections.forEach((s, i) => {
       if (RHYTHM_MODES[s.mode].realm !== 'flat') return;
       this.modes.set(i, createFlatMode(s.mode, {
-        scene, room, ground: this.ground, heroX: on?.x ?? p.x, built: on && { left: on.left, right: on.right }, source: { x: piano.rect.x, y: piano.rect.y }, boss: piano.hand, tile: cfg.tile, depth: DEPTH, hero, score: session.score,
+        scene, room, ground: this.ground, heroX: on?.x ?? p.x, built: on && { left: on.left, right: on.right }, source: { x: piano.rect.x, y: piano.rect.y }, boss: piano.hand, tile: cfg.tile, depth: FIGHT_DEPTH, hero, score: session.score,
         travelMs: travelMsOf(chart, s.mode, rc().travelBeats), beat: { ms: beatMs(chart), offsetMs: chart.offsetMs }, config: rc, punch, hurt: () => this.hurt(), boom: () => session.boom(), strikeBoss: (x, y, size, color) => this.strikeBoss(x, y, size, color),
       }, session.notes.filter(n => n.section === i)));
     });
@@ -302,7 +304,7 @@ export class RhythmFight {
     this.d.onScore({ points: 0, combo: 0, judge: null, fresh: true });
     this.shownBossHp = -1; this.pushBoss();
     this.d.onHp({ hp: this.hp, max: this.hp });
-    // 3D 那一半要用的：骷髅王在画面的哪、主角挨了一下、骷髅王挨了一下
+    // 3D 那一半要用的：Game Master 在画面的哪、主角挨了一下、Game Master 挨了一下
     session.boss = { x: (piano.body.x - room.x) / room.w, y: (piano.body.y - room.y) / room.h };
     session.hurt = () => this.hurt();
     session.bossHit = () => piano.flinch();
@@ -312,7 +314,7 @@ export class RhythmFight {
     session.conductor.start(test?.fromMs ?? 0);
   }
 
-  /** 主角踩上了一块板：锁住他，这一层的音乐停下，骷髅王的血条出现（空的），开始填 */
+  /** 主角踩上了一块板：锁住他，这一层的音乐停下，Game Master 的血条出现（空的），开始填 */
   private lock(on: { x: number; left: number; right: number }): void {
     const { scene } = this.d, p = this.d.player();
     p.freeze(0xffffff); p.clearTint();
@@ -322,7 +324,7 @@ export class RhythmFight {
     this.d.onBoss({ hp: 0, max: this.fill.max, per: this.fill.per });
   }
 
-  /** 把骷髅王的血条填满：一格一格涨、每格「滴」一声，越往后的管填得越快、声音越高；每满一管震一下。全满之后停一下，才开打 */
+  /** 把 Game Master 的血条填满：一格一格涨、每格「滴」一声，越往后的管填得越快、声音越高；每满一管震一下。全满之后停一下，才开打 */
   private fillBar(): void {
     const f = this.fill!, { scene } = this.d, per = f.per, real = scene.time.now;
     if (f.hp >= f.max) {
@@ -361,7 +363,7 @@ export class RhythmFight {
     if (this.hp <= 0) this.stopping = true;
   }
 
-  /** 骷髅王的血：亲手接住一个（Perfect / Good）掉一滴；per = 一管多少滴 */
+  /** Game Master 的血：亲手接住一个（Perfect / Good）掉一滴；per = 一管多少滴 */
   private bossHp(): { hp: number; max: number; per: number } {
     const s = this.session!, size = this.bossFull ??= this.bossSize(s.chart, s.notes);   // 一场里不变：算一次
     return { hp: Math.max(0, size.max - s.score.struck), ...size };
@@ -376,7 +378,7 @@ export class RhythmFight {
   }
 
   /**
-   * 骷髅王一共多少血、一管多少滴：固定 bossTubes 管；总量是能打到他的音符（躲弹幕那一段不算；长按算两下，和成绩里一样）
+   * Game Master 一共多少血、一管多少滴：固定 bossTubes 管；总量是能打到他的音符（躲弹幕那一段不算；长按算两下，和成绩里一样）
    * 的六成（passRatio），一管的滴数往上取整——所以血条填满时每一管都是满的
    */
   private bossSize(chart: Chart, notes: readonly Note[]): { max: number; per: number } {
@@ -386,11 +388,11 @@ export class RhythmFight {
     return { max: per * cfg.bossTubes, per };
   }
 
-  /** 接住的音符弹回去砸骷髅王：划一道弧线飞到他身上，砸到了他缩一下 */
+  /** 接住的音符弹回去砸 Game Master：划一道弧线飞到他身上，砸到了他缩一下 */
   private strikeBoss(x: number, y: number, size: number, color: number): void {
     const { scene } = this.d, piano = this.piano;
     if (!piano) return;
-    const to = piano.body, shot = scene.add.rectangle(x, y, size, size, color).setStrokeStyle(2, Colors.ink).setDepth(DEPTH + 3);
+    const to = piano.body, shot = scene.add.rectangle(x, y, size, size, color).setStrokeStyle(2, Colors.ink).setDepth(FIGHT_DEPTH + 3);
     scene.tweens.addCounter({
       from: 0, to: 1, duration: RETURN.ms, ease: 'Sine.easeIn',
       onUpdate: tw => {
@@ -423,7 +425,7 @@ export class RhythmFight {
     const won = !this.stopping && this.hp > 0 && this.bossHp().hp <= 0, percent = Math.round(s.score.ratio * 100);
     endRhythm(cfg.fadeOutMs);   // 曲子慢慢小下去，不是戛然而止
     this.clearFight();
-    this.phase = 'staged'; this.autoStart = false;   // 骷髅王还站在那：再开一场就再打一遍
+    this.phase = 'staged'; this.autoStart = false;   // Game Master 还站在那：再开一场就再打一遍
     this.d.onScore(null);
     this.d.onBoss(null);
     this.d.onHp(null);
@@ -433,7 +435,7 @@ export class RhythmFight {
     bridge.emit(EVT.rhythmEnd, { won });
   }
 
-  /** 收掉一场里的东西（骷髅王和钢琴留着） */
+  /** 收掉一场里的东西（Game Master 和钢琴留着） */
   /** restorePlayer：把藏起来、冻住的人还原（场景关闭时不用，也不能：物理体可能已经拆掉了） */
   private clearFight(restorePlayer = true): void {
     this.d.scene.input.keyboard?.off('keydown', this.onKey);

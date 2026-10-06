@@ -13,7 +13,7 @@ const LANES = RHYTHM_MODES.osu.lanes;
  * 圈刚出现时从几成大弹出来、在进度的前多少里弹完；过了拍点还留多久（进度）；同时最多画多少个
  */
 const CIRCLE = { size: 3.2, heights: [2.4, 5.6, 8.8], approach: 3.2, popFrom: 0.5, popOver: 0.15, past: 1.12, max: 32 };
-/** 镜头：正对着人那一排，从前面平着看（屏幕宽的倍数）；屏幕（骷髅王）在后面当背景 */
+/** 镜头：正对着人那一排，从前面平着看（屏幕宽的倍数）；屏幕（Game Master）在后面当背景 */
 const CAMERA = { back: 0.85, height: 0.2, lookY: 0.19 };
 /** 每一列圈的颜色；圈上的字的贴图 */
 const TINT = [Colors.rose, Colors.gold, Colors.mint, Colors.sky], LABEL = { px: 128, font: 0.56 };

@@ -18,7 +18,7 @@ const TUBE_COLORS = 6;
  */
 const BossBar = memo(function BossBar() {
   const boss = useAppSelector(s => s.hud.boss, shallowEqual);
-  const name = useTranslation().t('npc.skeletonKing');
+  const name = useTranslation().t('npc.gameMaster');
   if (!boss) return null;
   const { hp, max, per } = boss;
   if (!per || max <= per) return <div className="boss-bar">{Array.from({ length: max }, (_, i) => <span key={i} className={'seg' + (i < hp ? ' on' : '')} />)}</div>;

@@ -1,4 +1,4 @@
-// ===== 开打前的引子：骷髅王弹一下琴键放一块板，一块块落在主角前面；这时候主角还是自由的 =====
+// ===== 开打前的引子：Game Master 弹一下琴键放一块板，一块块落在主角前面；这时候主角还是自由的 =====
 // 板是真的能踩的（静态刚体）。主角跳上哪一块，哪一块就是 Give It Up 的起点：那一瞬间他被锁进节奏关卡，曲子开始。
 import Phaser from 'phaser';
 import type { Player } from '@/sprite';
@@ -15,9 +15,9 @@ export interface LureDeps {
   depth: number;
   /** 第一块落在哪（x，板的正中）；往右一块块排过去 */
   startX: number;
-  /** 板从哪飞出来（骷髅王的手边） */
+  /** 板从哪飞出来（Game Master 的手边） */
   from: () => { x: number; y: number };
-  /** 开始放第 i 块的那一刻（骷髅王敲一下琴键） */
+  /** 开始放第 i 块的那一刻（Game Master 敲一下琴键） */
   onThrow(i: number): void;
 }
 

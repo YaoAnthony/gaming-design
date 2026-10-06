@@ -16,7 +16,7 @@ export interface ModeSpec {
   maxPerRow: number;
   /** 这些字符占满一整行就过不去了（只能换道躲的弹幕不能整排都是） */
   blocking: string;
-  /** 音符是从 2D 画面里飞出来的（骷髅王弹出来、沿道冲向画面外） */
+  /** 音符是从 2D 画面里飞出来的（Game Master 弹出来、沿道冲向画面外） */
   fromScreen: boolean;
   /** 音符飞得多快（倍数）：2 = 路上只花一半的时间，出来得晚、冲得快 */
   speed: number;

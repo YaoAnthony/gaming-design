@@ -1,6 +1,6 @@
 // ===== 层机制：吃豆人（俯视） =====
 // 这一层没有重力，沿格子中线四方向走；豆子、大力丸、四只鬼、葡萄、穿屏隧道。
-// 豆子吃光之后是一段剧本：鬼提速永久追击 → 骷髅王画外音 → 解锁炸弹 → 鬼全灭 → 骷髅王登场。
+// 豆子吃光之后是一段剧本：鬼提速永久追击 → Game Master 画外音 → 解锁炸弹 → 鬼全灭 → Game Master 登场。
 import { defineMechanic } from '../define';
 import { PacMan } from './PacMan';
 import { Colors } from '@/game/palette';

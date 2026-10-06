@@ -1,4 +1,4 @@
-// ===== 正在进行的节奏关卡：2D 的骷髅王和 3D 的大道共用这一份（谱面 + 指挥 + 成绩，还有几个两边互相叫的口子）=====
+// ===== 正在进行的节奏关卡：2D 的 Game Master 和 3D 的大道共用这一份（谱面 + 指挥 + 成绩，还有几个两边互相叫的口子）=====
 import type { Chart, Note } from './chart';
 import { notesOf } from './chart';
 import { Conductor } from './Conductor';
@@ -9,11 +9,11 @@ export interface RhythmSession {
   notes: Note[];
   conductor: Conductor;
   score: Scoreboard;
-  /** 骷髅王在画面上的哪（比例坐标 0..1，左上角是原点）：3D 里砍回去的方块往那飞。主持的一侧开场时填 */
+  /** Game Master 在画面上的哪（比例坐标 0..1，左上角是原点）：3D 里砍回去的方块往那飞。主持的一侧开场时填 */
   boss: { x: number; y: number };
   /** 主角挨了一下（撞墙、被弹幕打中）：扣血。主持的一侧开场时接上 */
   hurt: () => void;
-  /** 骷髅王挨了一下（砍回去的方块砸到他）：缩一下。主持的一侧开场时接上 */
+  /** Game Master 挨了一下（砍回去的方块砸到他）：缩一下。主持的一侧开场时接上 */
   bossHit: () => void;
   /** 出一声「起跳爆炸」（Give It Up 的跳、光剑的砍用的就是平时起跳的那一声）。主持的一侧开场时接上 */
   boom: () => void;

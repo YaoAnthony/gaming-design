@@ -1,5 +1,5 @@
 // ===== 节奏光剑：贴着道面往前冲的视角，方块沿四条道迎面过来；A / D 左右换道（镜头跟着往那边歪），方块到跟前时按空格一剑砍掉 =====
-// 要砍的方块得在自己这条道上：先换过去，再看准了砍。砍中的方块弹回去，砸在屏幕里的骷髅王身上。
+// 要砍的方块得在自己这条道上：先换过去，再看准了砍。砍中的方块弹回去，砸在屏幕里的 Game Master 身上。
 import * as THREE from 'three';
 import { noteProgress, NoteTrack, RHYTHM_MODES } from '@/rhythm';
 import { Colors } from '@/game/palette';
@@ -15,9 +15,9 @@ const BLOCK = { size: 2.6, lift: 0.6, past: 1.15, max: 64 };
 const CAMERA = { back: 0.55, height: 0.3, lookY: 0.1, lookZ: 0.1, follow: 0.7, lean: 5, bank: 14, bankMs: 260 };
 /** 这种玩法里人画多大（倍数）：比别的玩法小，不挡着迎面来的方块 */
 const HERO_SCALE = 1.3;
-/** 击中反馈（砍中的方块自己弹回去砸骷髅王，不再原地炸开：炸开的方块离镜头太近，会糊住整条道）：人鼓到几倍、多久；漏了人闪多久、多透 */
+/** 击中反馈（砍中的方块自己弹回去砸 Game Master，不再原地炸开：炸开的方块离镜头太近，会糊住整条道）：人鼓到几倍、多久；漏了人闪多久、多透 */
 const FEEL = { pop: 1.18, popMs: 90, missMs: 220, missAlpha: 0.35 };
-/** 砍中的方块弹回去：飞多久（毫秒）、砸到骷髅王时缩到几成 */
+/** 砍中的方块弹回去：飞多久（毫秒）、砸到 Game Master 时缩到几成 */
 const RETURN = { ms: 380, shrink: 0.35 };
 /** 剑光：砍的那一下人面前横着亮一道。多宽、多高（格）、亮多久（毫秒） */
 const SLASH = { width: 4.2, height: 0.5, ms: 110 };

@@ -1,4 +1,4 @@
-// ===== 清豆之后的剧本：追 → 画外音 → 解锁炸弹 → 鬼全灭 → 骷髅王登场 =====
+// ===== 清豆之后的剧本：追 → 画外音 → 解锁炸弹 → 鬼全灭 → Game Master 登场 =====
 // 用时间戳推进，不用定时器（重置会清定时器）；死亡重置不打断。
 import type { PlayContext } from '@/game/core/PlayContext';
 import type { GhostManager } from './Ghosts';
@@ -9,12 +9,12 @@ import { Colors, hex } from '@/game/palette';
 
 export type PacPhase = 'play' | 'chase' | 'taunt' | 'bombs' | 'kingWait' | 'king' | 'done';
 
-const KING = 'npc.skeletonKing';
+const GM = 'npc.gameMaster';
 /** 清空后多久开始画外音 */
 const TAUNT_AFTER_MS = 6000;
 /** 画外音结束后多久解锁炸弹 */
 const BOMBS_AFTER_MS = 1000;
-/** 鬼全灭后多久骷髅王说话 */
+/** 鬼全灭后多久 Game Master 说话 */
 const KING_AFTER_MS = 2000;
 const CHASE_SPEED_MUL = 1.5;
 
@@ -40,7 +40,7 @@ export class PacScript {
     const { ctx } = this;
     switch (this.phase) {
       case 'chase':
-        if (now - this.at >= TAUNT_AFTER_MS) { this.phase = 'taunt'; ctx.dialogue.cutscene(KING, PAC_DIALOGUES.taunt, now, () => { this.phase = 'bombs'; this.at = ctx.scene.time.now; }); }
+        if (now - this.at >= TAUNT_AFTER_MS) { this.phase = 'taunt'; ctx.dialogue.cutscene(GM, PAC_DIALOGUES.taunt, now, () => { this.phase = 'bombs'; this.at = ctx.scene.time.now; }); }
         break;
       case 'bombs': {
         if (!this.bombs.unlocked && now - this.at >= BOMBS_AFTER_MS) { this.bombs.unlocked = true; ctx.fx.flash('msg.bombsReady', hex(Colors.gold)); }
@@ -49,12 +49,12 @@ export class PacScript {
         break;
       }
       case 'kingWait':
-        if (now - this.at >= KING_AFTER_MS) { this.phase = 'king'; ctx.dialogue.cutscene(KING, PAC_DIALOGUES.king, now, () => this.spawnKing()); }
+        if (now - this.at >= KING_AFTER_MS) { this.phase = 'king'; ctx.dialogue.cutscene(GM, PAC_DIALOGUES.king, now, () => this.spawnKing()); }
         break;
     }
   }
 
-  /** 骷髅王出现在你面前两格：淡入。后面的剧情再接 */
+  /** Game Master 出现在你面前两格：淡入。后面的剧情再接 */
   private spawnKing(): void {
     const { ctx } = this;
     this.phase = 'done'; this.at = ctx.scene.time.now;

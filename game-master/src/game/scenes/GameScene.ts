@@ -47,8 +47,8 @@ import { Colors, hex } from '@/game/palette';
 
 /** 节奏关卡：破屏那一刻画面闪多久（毫秒） */
 const BREAK_FLASH_MS = 220;
-/** 骷髅王（i18n key）；节奏关卡开场白里跳不过去的那两句各显示多久（毫秒）：越说越大的「来吧」、带大字的最后一句（大字晚一秒才砸下来） */
-const KING = 'npc.skeletonKing', INTRO_AUTO = { grow: 2600, shout: 3200 };
+/** Game Master （i18n key）；节奏关卡开场白里跳不过去的那两句各显示多久（毫秒）：越说越大的「来吧」、带大字的最后一句（大字晚一秒才砸下来） */
+const GM = 'npc.gameMaster', INTRO_AUTO = { grow: 2600, shout: 3200 };
 
 export class GameScene extends Phaser.Scene {
   private startData!: StartGameData;
@@ -183,7 +183,7 @@ export class GameScene extends Phaser.Scene {
     });
     this.crumple = new CrumpleFx(this, () => this.dialogue.end());
     this.popOut = new PopOut({ scene: this, player: () => this.player, tile: T, canLeave: () => !this.busy && !this.crumple.active, blocked: (cx, cy) => this.ctx.blocked(cx, cy), hazard: (cx, cy) => !!this.terrain.def(cx, cy).hazard });
-    // 节奏关卡：骷髅王弹琴时这一层的音乐让位给那首曲子，打完音乐回来
+    // 节奏关卡：Game Master 弹琴时这一层的音乐让位给那首曲子，打完音乐回来
     this.rhythm = new RhythmFight({
       scene: this, cfg: this.cfg, player: () => this.player, held: () => this.controls.read(),
       standAt: () => this.respawn.entry,
@@ -196,14 +196,14 @@ export class GameScene extends Phaser.Scene {
       canStart: () => !this.busy && !this.crumple.active && this.player.body.blocked.down,
       away: () => this.popOut.away, popOut: from => this.popOut.request(from),
       // 开场白：前三句跳一下翻一句；从「来吧」开始跳不过去了，自己往下走（一声比一声大，最后砸下一行大字）
-      talk: (locked, done) => this.dialogue.talk({ name: KING, avatar: 'default', lines: [0, 1, 2].map(i => ({ text: `dialogue.festival.${i}`, pos: 'top' as const })) }, () => {
+      talk: (locked, done) => this.dialogue.talk({ name: GM, avatar: 'default', lines: [0, 1, 2].map(i => ({ text: `dialogue.festival.${i}`, pos: 'top' as const })) }, () => {
         locked();
-        this.dialogue.cutscene(KING, [
+        this.dialogue.cutscene(GM, [
           { text: 'dialogue.festival.3', grow: true, autoMs: INTRO_AUTO.grow, pos: 'top' },
           { text: 'dialogue.festival.4', shout: 'dialogue.festivalShout', autoMs: INTRO_AUTO.shout, pos: 'top' },
         ], this.time.now, done);
       }),
-      say: (line, ms, done) => this.dialogue.cutscene(KING, [{ text: line, autoMs: ms, pos: 'top' }], this.time.now, done),
+      say: (line, ms, done) => this.dialogue.cutscene(GM, [{ text: line, autoMs: ms, pos: 'top' }], this.time.now, done),
       onBegin: () => this.music.play(NO_MUSIC), onEnd: () => this.music.playBase(),
       onMode: mode => { store.dispatch(setRhythmMode(mode)); },
       taunt: mode => tr(`rhythm.taunt.${mode}`),
@@ -288,7 +288,7 @@ export class GameScene extends Phaser.Scene {
     // 玩家出场：换层带着 origin（这一局早就开始了），没有就是这一局的第一次出现
     this.respawn.appear(this.startData.origin ? 'floor' : 'start');
     this.saveCheckpoint();
-    // 这一层是哪张谱的场地（庆典大厅）：骷髅王已经在等了，人一落地就开打
+    // 这一层是哪张谱的场地（庆典大厅）：Game Master 已经在等了，人一落地就开打
     const festival = chartOfArena(this.floor.id);
     if (festival) this.rhythm.stage(festival.id, !this.startData.rhythmLab);   // 技术验证编辑器里的试玩：摆好场子等着，不自动开打
     // 存档里人在 3D 世界：出场之后接着跳出去

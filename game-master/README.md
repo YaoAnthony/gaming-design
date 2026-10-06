@@ -15,6 +15,7 @@ npm run build      # 类型检查 + 打包到 dist/
 npm test           # vitest 单元测试
 npm run lint       # ESLint（CI 里和测试一起跑）
 npm run gen-art    # 重新生成占位 PNG 美术到 src/asset/（会覆盖同名文件；后面跟文件名就只生成那几张）
+npm run desktop    # 打包后用 Electron 打开桌面版；desktop:dev 连开发服务器（见 docs/desktop.md）
 ```
 
 ## 目录
@@ -22,8 +23,9 @@ npm run gen-art    # 重新生成占位 PNG 美术到 src/asset/（会覆盖同�
 ```
 src/
 ├── main.tsx            # React 入口（Provider + App）
+├── platform/           # 运行环境：网页还是桌面版（Electron），按环境选存储后端（localStorage / 写文件）
 ├── redux/              # 状态：config（可调参数）、editor（地图模型、笔刷、当前房间、撤销栈、文件指纹）、hud（Phaser 推给 React 的数据）、input（最后用的是键盘还是手柄）、settings（语言）
-│   ├── store.ts        # store；persist.ts 是唯一碰 localStorage 的地方（编辑中的地图、试玩起始状态、文件指纹、音量、语言）
+│   ├── store.ts        # store；persist.ts 决定存什么、怎么读回来（两份：玩家存档 save / 编辑器工作区 editor），存在哪由 src/platform/ 决定
 │   └── slices/
 ├── type/               # 所有 TypeScript 类型：砖块能力、物件、世界模型、换层带走的状态、配置
 ├── asset/              # PNG 资产 + 清单（index.ts）。图集帧序号在这里定义
@@ -46,17 +48,20 @@ src/
 │   ├── inputDevice.ts  # 全局盯着玩家用的是键盘还是手柄，记到 store.input
 │   └── PhaserGame.ts   # 创建 / 销毁 Phaser 实例
 └── ui/                 # React 界面：游戏页 + HUD + 通关弹窗（WinModal + Motion 礼花）、编辑器侧边栏（物品栏、房间缩略图布局）
+electron/               # 桌面版：主进程（main.cjs）、preload、存档文件读写（saveFiles.cjs）
+tests/                  # 所有测试（vitest），目录结构和 src/ 一一对应；support/ 放测试用的替身（Phaser）
+docs/desktop.md         # 桌面版和 Steam 云存档怎么配
 ```
 
 ## 多语言
 
-`i18next` + `react-i18next`，入口 `src/i18n/index.ts`，文案在 `src/i18n/en.json` / `zh.json`。默认英文，标题页右上角切换，选过的存在 `localStorage['climb:lang']`；`setLang('zh')` 切换。玩家看得到的文字都走翻译：界面用 `t()`；游戏代码里的飘字、死亡原因、NPC 名字和台词写成 key（`msg.*` / `death.*` / `npc.*` / `dialogue.*`），由 `GameScene.flash` 和 `Dialogue` 用 `tr()` 翻译；地图里填的层名、位置写英文原文，中文放在 `map.<原文>` 下，由 `mapText()` 查。编辑器是开发工具，保持中文。
+`i18next` + `react-i18next`，入口 `src/i18n/index.ts`，文案在 `src/i18n/en.json` / `zh.json`。默认英文，标题页右上角切换，选过的跟着玩家存档（`save`）一起存；`setLang('zh')` 切换。玩家看得到的文字都走翻译：界面用 `t()`；游戏代码里的飘字、死亡原因、NPC 名字和台词写成 key（`msg.*` / `death.*` / `npc.*` / `dialogue.*`），由 `GameScene.flash` 和 `Dialogue` 用 `tr()` 翻译；地图里填的层名、位置写英文原文，中文放在 `map.<原文>` 下，由 `mapText()` 查。编辑器是开发工具，保持中文。
 
 ## 数据流
 
 - **房间布局**：`layout` 是稀疏网格，`null` 是空位（游戏里是实心岩石）。编辑器里房间以缩略图显示，可拖拽交换 / 移动，任意空位点「+」新建，选中的房间可删除。
-- **地图**：`map/world.json` 是默认地图（多层项目 `{ floors: [{ id, name, model }] }`，旧的单层格式也能读）；运行时在 Redux `editor.project` 里，编辑器改的就是它，游戏也用它。自动存进 localStorage。开发服务器下编辑器有「写入 src/map/world.json」按钮（Vite 插件 `climb-save-map` 提供的 `POST /__climb/save-map`），一键写回源码；打包版本用「导出 world.json」手动覆盖。
-- **存档**：玩家的进度在 Redux 的 `run` 切片（结构见 `type/run.ts`），2D 和 3D 共用一份，`redux/persist.ts` 落盘，带版本号。只在检查点写：进层、换房间（`GameScene.saveCheckpoint`）、跳出 / 回到画面；记的是哪一层哪个房间、长大阶段、帽子、手上的道具、统计数字、人在哪个世界。读档 = 回到检查点：那一层按初始状态重建，人出现在那个房间（炸掉的地形不记）。标题页有存档时提示变成「继续」，左上角多一个「新游戏」；真通关后存档清空。编辑器试玩不读不写存档。层与层之间在 Phaser 里还是用 `StartGameData` 带东西（试玩也走这条路）。迷雾和引线的 `toState` 留着，将来要存它们时用。
+- **地图**：`map/world.json` 是默认地图（多层项目 `{ floors: [{ id, name, model }] }`，旧的单层格式也能读）；运行时在 Redux `editor.project` 里，编辑器改的就是它，游戏也用它。开发版自动存进编辑器的工作区（`editor` 那一份，见 [docs/desktop.md](docs/desktop.md)）。开发服务器下编辑器有「写入 src/map/world.json」按钮（Vite 插件 `climb-save-map` 提供的 `POST /__climb/save-map`），一键写回源码；打包版本用「导出 world.json」手动覆盖。
+- **存档**：玩家的进度在 Redux 的 `run` 切片（结构见 `type/run.ts`），2D 和 3D 共用一份，`redux/persist.ts` 落盘（和语言、音量一起存成很小的一份 `save`：网页是 localStorage，桌面版是用户数据目录下的 `save/save.json`，Steam 自动云同步它；地图更新后进度保留、只是从那一层的出生点开始。详见 [docs/desktop.md](docs/desktop.md)），带版本号。只在检查点写：进层、换房间（`GameScene.saveCheckpoint`）、跳出 / 回到画面；记的是哪一层哪个房间、长大阶段、帽子、手上的道具、统计数字、人在哪个世界。读档 = 回到检查点：那一层按初始状态重建，人出现在那个房间（炸掉的地形不记）。标题页有存档时提示变成「继续」，左上角多一个「新游戏」；真通关后存档清空。编辑器试玩不读不写存档。层与层之间在 Phaser 里还是用 `StartGameData` 带东西（试玩也走这条路）。迷雾和引线的 `toState` 留着，将来要存它们时用。
 - **参数**：`game/config.ts` 是默认值，运行时在 Redux `config` 里，将来可以做调参面板。
 - **Phaser → React**：场景和 core 把展示数据 dispatch 到 `hud`；机制不直接碰 store，设置走 `PlayContext.settings`。**React → Phaser**：`protocol/` 的事件总线（事件和参数都有类型），或场景启动时传数据。
 - **引擎边界**：`game/`（Phaser）和 `stage3d/`、`world3d/`（three.js）互不引入，只通过 `protocol/` 和 Redux 说话；`protocol/` 自己不依赖任何引擎。规则写在 `eslint.config.js`（`no-restricted-imports`），违反了 lint 不过。

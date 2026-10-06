@@ -7,6 +7,8 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
+    "desktop": "npm run build && electron .",
+    "desktop:dev": "electron . --dev",
     "test": "vitest run",
     "gen-art": "node scripts/gen-art.mjs",
     "level": "node scripts/level.mjs",
@@ -31,6 +33,7 @@
     "@types/react-dom": "^18.3.1",
     "@types/three": "^0.186.0",
     "@vitejs/plugin-react": "^4.7.0",
+    "electron": "^44.5.1",
     "eslint": "^10.11.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "globals": "^17.12.0",
@@ -41,5 +44,6 @@
   },
   "engines": {
     "node": ">=22"
-  }
+  },
+  "main": "electron/main.cjs"
 }

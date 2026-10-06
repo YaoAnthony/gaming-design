@@ -35,4 +35,10 @@ export default tseslint.config(
     files: ['vite.config.ts', 'scripts/**/*.mjs', 'tests/**/*.mjs', 'eslint.config.js'],
     languageOptions: { globals: globals.node },
   },
+  // 桌面版（Electron）的主进程和 preload：CommonJS，跑在 Node 里
+  {
+    files: ['electron/**/*.cjs'],
+    languageOptions: { globals: globals.node, sourceType: 'commonjs' },
+    rules: { '@typescript-eslint/no-require-imports': 'off' },
+  },
 );

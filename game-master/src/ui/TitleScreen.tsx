@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import playerUrl from '@/asset/player_mid.png';
-import { setLang } from '@/i18n';
+import { nextLang, setLang } from '@/i18n';
+import { isDesktop } from '@/platform';
 import { anyPressed, GAMEPAD_BUTTONS, padKind } from '@/game/gamepad';
 import { noteDevice } from '@/game/inputDevice';
 import { useAppSelector } from '@/redux/hooks';
@@ -10,7 +11,7 @@ import { ConfirmButtonIcon, ControllerIcon } from './PadIcons';
 
 /**
  * 标题页：GAME MASTER + 一直在跳的小人；空格 / 回车 / 手柄 A、Start / 点击开始；右上角切换语言。认出手柄后提示换成手柄图标。
- * 有存档时给 onNew：提示换成「继续」，左上角多一个「新游戏」
+ * 有存档时给 onNew：提示换成「继续」，左上角多一个「新游戏」。桌面版右下角多一个「退出」
  */
 export function TitleScreen({ onStart, onNew, touch }: { onStart: () => void; onNew?: () => void; touch: boolean }) {
   const { t, i18n } = useTranslation();
@@ -61,8 +62,9 @@ export function TitleScreen({ onStart, onNew, touch }: { onStart: () => void; on
         <span>GAME</span>
         <span className="title-line2">MASTER<img className="title-hero" src={playerUrl} alt="" /></span>
       </h1>
+      {isDesktop && <button className="title-quit" onClick={e => { e.stopPropagation(); window.gameDesktop?.quit(); }}>{t('quit')}</button>}
       {onNew && <button className="title-new" onClick={e => { e.stopPropagation(); onNew(); }}>{t('newGame')}</button>}
-      <button className="title-lang" onClick={e => { e.stopPropagation(); setLang(i18n.language === 'zh' ? 'en' : 'zh'); }}>{t('lang')}</button>
+      <button className="title-lang" onClick={e => { e.stopPropagation(); setLang(nextLang(i18n.language)); }}>{t('lang')}</button>
       {device !== 'keyboard'
         ? <div className="title-prompt title-prompt-pad"><ControllerIcon /><span>{t(onNew ? 'continuePad.before' : 'startPad.before')}</span><ConfirmButtonIcon kind={device} /><span>{t(onNew ? 'continuePad.after' : 'startPad.after')}</span></div>
         : <div className="title-prompt">{t(onNew ? (touch ? 'continueTouch' : 'continueKey') : (touch ? 'startTouch' : 'startKey'))}</div>}

@@ -11,8 +11,8 @@ import { setLangSetting } from '@/redux/slices/settingsSlice';
 
 export type { TKey, MsgKey, DeathKey } from './keys';
 
-export const LANGS = { zh: '中文', en: 'English' } as const;
-export type Lang = keyof typeof LANGS;
+export { LANGS, isLang, nextLang, type Lang } from './langs';
+import type { Lang } from './langs';
 
 
 void i18n.use(initReactI18next).init({

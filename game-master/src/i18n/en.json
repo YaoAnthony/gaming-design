@@ -12,6 +12,7 @@
     "after": "to continue"
   },
   "newGame": "New game",
+  "quit": "Quit",
   "rotate": "Rotate to landscape",
   "loading": "Loading {{pct}}%",
   "place": "Location: {{place}}",

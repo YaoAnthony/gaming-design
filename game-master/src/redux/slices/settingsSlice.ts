@@ -1,6 +1,6 @@
 // 玩家自己的设置里不属于游戏参数的部分：语言。持久化在 persist.ts
 import { createSlice, type PayloadAction } from '@reduxjs/toolkit';
-import type { Lang } from '@/i18n';
+import type { Lang } from '@/i18n/langs';
 
 export interface SettingsState { lang: Lang }
 

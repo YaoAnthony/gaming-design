@@ -12,6 +12,7 @@
     "after": "继续"
   },
   "newGame": "新游戏",
+  "quit": "退出",
   "rotate": "横屏玩",
   "loading": "加载中 {{pct}}%",
   "place": "当前位置: {{place}}",

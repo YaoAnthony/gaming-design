@@ -5,11 +5,16 @@ import hudReducer from './slices/hudSlice';
 import inputReducer from './slices/inputSlice';
 import settingsReducer, { type SettingsState } from './slices/settingsSlice';
 import runReducer from './slices/runSlice';
-import { loadPersisted, schedulePersist } from './persist';
+import { createWriter, EDITOR_FORMAT, LEGACY_KEY, loadPersisted, SAVE_FORMAT, type EditorFile, type SaveFile } from './persist';
 import { DEFAULT_WORLD_HASH } from '@/game/world/defaultWorld';
+import { storage } from '@/platform';
 import type { GameConfig, RunState } from '@/type';
 
-const persisted = typeof window !== 'undefined' ? loadPersisted() : {};
+/** 只有开发版有地图编辑器：线上版本（网页、桌面）不读也不写编辑器的工作区 */
+const WITH_EDITOR = import.meta.env.DEV;
+/** 旧版那一整块（只在网页上有） */
+const legacyText = (): string | null => { try { return typeof localStorage === 'undefined' ? null : localStorage.getItem(LEGACY_KEY); } catch { return null; } };
+const persisted = loadPersisted(storage, { mapHash: DEFAULT_WORLD_HASH, withEditor: WITH_EDITOR, dropStale: import.meta.env.PROD, legacy: storage?.kind === 'browser' ? legacyText() : null });
 
 function preloadEditor(): EditorState {
   const base = editorReducer(undefined, { type: '@@init' }), saved = persisted.editor ?? {};
@@ -36,19 +41,44 @@ export const store = configureStore({
   }),
 });
 
-if (typeof window !== 'undefined') {
-  // 只在要存的那几样变了时才写：游戏里每一跳都会派发 HUD 的更新，不能每次都把整个项目序列化一遍
-  let last: unknown[] = [];
-  store.subscribe(() => {
+if (storage) {
+  // 两份各写各的，只在自己那几样变了时才写：游戏里每一跳都会派发 HUD 的更新，不能每次都序列化；
+  // 编辑器的工作区（整个项目）很大，玩家的存档很小——存档变了不用把项目再写一遍
+  const save = createWriter(storage, 'save', 300), editor = createWriter(storage, 'editor', 300);
+  let lastSave: unknown[] = [], lastEditor: unknown[] = [];
+  const changed = (now: unknown[], last: unknown[]) => now.some((v, i) => v !== last[i]);
+  const persist = () => {
     const s = store.getState();
-    const now = [s.editor.project, s.editor.floor, s.editor.room, s.editor.play, s.editor.fileHash, s.config.musicVolume, s.settings.lang, s.run];
-    if (now.every((v, i) => v === last[i])) return;
-    last = now;
-    schedulePersist(() => {
-      const t = store.getState();
-      return { editor: { project: t.editor.project, floor: t.editor.floor, room: t.editor.room, play: t.editor.play, fileHash: t.editor.fileHash }, config: { musicVolume: t.config.musicVolume }, settings: { lang: t.settings.lang }, run: t.run, defaultHash: DEFAULT_WORLD_HASH };
-    });
-  });
+    const saveNow = [s.run, s.settings.lang, s.config.musicVolume];
+    if (changed(saveNow, lastSave)) {
+      lastSave = saveNow;
+      save.schedule((): SaveFile => {
+        const t = store.getState();
+        return { format: SAVE_FORMAT, savedAt: new Date().toISOString(), mapHash: DEFAULT_WORLD_HASH, run: t.run, settings: { lang: t.settings.lang, musicVolume: t.config.musicVolume } };
+      });
+    }
+    const editorNow = [s.editor.project, s.editor.floor, s.editor.room, s.editor.play, s.editor.fileHash];
+    if (WITH_EDITOR && changed(editorNow, lastEditor)) {
+      lastEditor = editorNow;
+      editor.schedule((): EditorFile => {
+        const t = store.getState().editor;
+        return { format: EDITOR_FORMAT, mapHash: DEFAULT_WORLD_HASH, project: t.project, floor: t.floor, room: t.room, play: t.play, fileHash: t.fileHash };
+      });
+    }
+  };
+  // 开局先记下读进来的样子：没变就不写（不然每次打开都白写一遍）
+  lastSave = [store.getState().run, store.getState().settings.lang, store.getState().config.musicVolume];
+  lastEditor = [store.getState().editor.project, store.getState().editor.floor, store.getState().editor.room, store.getState().editor.play, store.getState().editor.fileHash];
+  store.subscribe(persist);
+  // 从旧版那一整块读出来的：马上按新格式写下来，再把旧的删掉
+  const legacy = storage.kind === 'browser' ? legacyText() : null;
+  if (legacy && !storage.read('save') && !storage.read('editor')) {
+    lastSave = []; lastEditor = [];
+    persist(); save.flush(); editor.flush();
+    try { localStorage.removeItem(LEGACY_KEY); } catch { /* 删不掉也没关系：有了新的两份就不会再读它 */ }
+  }
+  // 关页面 / 关窗口之前：还没写的马上写掉
+  if (typeof window !== 'undefined') window.addEventListener('pagehide', () => { save.flush(); editor.flush(); });
 }
 
 export type RootState = ReturnType<typeof store.getState>;

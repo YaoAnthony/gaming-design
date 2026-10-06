@@ -261,6 +261,8 @@ label.check { display: flex; align-items: center; gap: 6px; margin: 8px 0; color
 .title-lang:hover { border-color: #4cc9f0; color: #4cc9f0; }
 .title-new { position: absolute; top: max(14px, env(safe-area-inset-top)); left: max(16px, env(safe-area-inset-left)); background: transparent; border: 1px solid rgba(241, 239, 230, .35); border-radius: 6px; color: #f1efe6; padding: 6px 12px; font-size: 13px; cursor: pointer; }
 .title-new:hover { border-color: #4cc9f0; color: #4cc9f0; }
+.title-quit { position: absolute; bottom: max(14px, env(safe-area-inset-bottom)); right: max(16px, env(safe-area-inset-right)); background: transparent; border: 1px solid rgba(241, 239, 230, .35); border-radius: 6px; color: #f1efe6; padding: 6px 12px; font-size: 13px; cursor: pointer; }
+.title-quit:hover { border-color: #ef476f; color: #ef476f; }
 @media (prefers-reduced-motion: reduce) { .title-hero, .title-prompt { animation: none; } }
 
 /* ---- 第四面墙：攥纸团。冻住之前是透明的一层（只有手），不挡鼠标 / 触摸；冻住之后铺上背景，连 HUD 和手机按键一起盖住 ---- */

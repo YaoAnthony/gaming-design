@@ -1,5 +1,5 @@
 // ===== 主线剧情在界面一侧的那一层：叠在游戏画布上（HUD 下面）=====
-// - 标题画面：骷髅手搭房间（游戏一侧发 EVT.storyHand 告诉手在哪）→ 拍标题和菜单、选「开始」（OpeningMenu）
+// - 标题画面：骷髅手一挥、房间从天上砸下来（游戏一侧发 EVT.storyHand 告诉手在哪）→ 拍标题和菜单、选「开始」（OpeningMenu）
 // - 剧情演出（CutscenePlayer）
 // - 第二幕套在外面的关卡编辑器（EditorShell）
 // 结局画面（「你赢了！」）在 HUD 里（Hud.tsx），因为它是通关画面的一种。
@@ -12,6 +12,7 @@ import { CutscenePlayer } from './cutscenes';
 import { EditorShell } from './EditorShell';
 import { spotPx } from './geometry';
 import { useBoxSize } from './useBox';
+import { sfx } from './sfx';
 
 type Phase = 'idle' | 'building' | 'menu';
 
@@ -27,7 +28,8 @@ export function StoryLayer() {
       const el = root.current;
       if (!el) return;
       setPhase(p => (p === 'idle' ? 'building' : p));
-      setBuildHand(prev => (h.spot ? { at: spotPx(el, h.spot), pose: h.pose, from: 'bottom', anchor: 'pinch', ms: h.ms } : prev && { ...prev, at: { x: prev.at.x, y: el.clientHeight + 80 }, pose: 'open', ms: h.ms }));
+      if (h.whoosh) sfx('whoosh');
+      setBuildHand(h.spot ? { at: spotPx(el, h.spot), pose: h.pose, from: h.from ?? 'bottom', tilt: h.tilt, anchor: 'palm', ms: h.ms } : null);
     };
     const onBuilt = () => setPhase('menu');
     bridge.on(EVT.storyHand, onHand);

@@ -1,92 +1,126 @@
-// ===== 标题画面的第一段：骷髅手在玩家眼前飞快地把这个房间搭出来 =====
-// 房间先整个被盖住（黑块），手从下往上、一排排从左到右地「放下」一块块，被放下的地方掀开盖子、闪一下。
-// 手在 React 那边画（ui/story/StoryHand），这里每一步把手的位置（画面比例坐标）发过去。搭完发 EVT.openingBuilt，
+// ===== 标题画面的第一段：骷髅手一挥，房间从天上一条条砸下来 =====
+// 房间先是一片黑。骷髅手从画面下面伸上来，张开手掌从左往右一挥（手腕跟着转，划一道弧）；手扫过哪一条，那一条（几格宽的竖条，连背景、砖、物件一起）就从画面上方掉下来，
+// 落地弹两下、扬一点灰、「咚」一声，最后一条落地时整个画面一震。
+// 做法：主镜头先藏起来，每一条用一个只看那一条的镜头（视口在那一条，滚动和主镜头对齐），把镜头的视口从画面上方移下来——
+// 不用复制画面，房间里的东西照常画。全部落地后拆掉这些镜头、换回主镜头，画面和平时一模一样。
+// 手在 React 那边画（ui/story/GmHand），这里把手的位置（画面比例坐标）发过去。落完发 EVT.openingBuilt，
 // 然后等菜单里选「开始」（EVT.openingStart）：叫 onStart（放主角出场；fresh = 标题画面里清除了进度，从头开一局）。
 import Phaser from 'phaser';
-import { bridge, EVT, type OpeningStart, type ScreenSpot } from '@/protocol';
+import { bridge, EVT, type OpeningStart } from '@/protocol';
 import type { PlayContext } from '@/game/core/PlayContext';
+import { openBus, tone, type SynthBus } from '@/audio/synth';
 import { DEPTH } from '@/game/depth';
 
-/** 一块盖子几格见方；每一步放下几块；每一步多久（毫秒）；手第一次伸进来要多久 */
-const BLOCK = 2, PER_STEP = 4, STEP_MS = 60, REACH_MS = 450;
-/** 盖子的颜色（和画布底色一样黑） */
-const COVER = 0x05060d;
+/** 分成几条（房间 30 格宽 = 每条 3 格） */
+const STRIPS = 10;
+/** 手从下面伸上来要多久；挥过整个画面要多久；一条从上面掉到底（含弹两下）要多久；手收回去要多久（毫秒） */
+const T = { reach: 380, sweep: 640, drop: 560, retract: 320 };
+/** 挥手的弧线：起点、最高点、终点（画面比例坐标）和手腕转的角度（度） */
+const ARC = { from: { x: 0.08, y: 0.42, tilt: -32 }, top: { x: 0.5, y: 0.26, tilt: 0 }, to: { x: 0.92, y: 0.42, tilt: 32 } };
+/** 手藏在画面下面多远（画面高的比例） */
+const BELOW = 1.45;
+/** 一条掉下来、碰到地的时刻（Bounce.out 第一次碰底大约在整段的这个比例） */
+const FIRST_HIT = 0.36;
 
 export class Opening {
-  private covers: Phaser.GameObjects.Rectangle[][] = [];
-  private timer: Phaser.Time.TimerEvent | null = null;
+  private cams: Phaser.Cameras.Scene2D.Camera[] = [];
+  private timers: Phaser.Time.TimerEvent[] = [];
   private built = false;
+  private bus: SynthBus | null = null;
 
   constructor(private readonly ctx: PlayContext, private readonly onStart: (fresh: boolean) => void) {
     bridge.on(EVT.openingStart, this.start);
   }
 
-  /** 盖住当前房间、开始搭 */
+  /** 藏起主镜头、开始扫 */
   begin(): void {
-    const { ctx } = this, T = ctx.cfg.tile, r = ctx.rooms.current;
-    const x0 = r.rx * ctx.rooms.pxW, y0 = r.ry * ctx.rooms.pxH;
-    const cols = Math.ceil(ctx.rooms.w / BLOCK), rows = Math.ceil(ctx.rooms.h / BLOCK);
-    const S = BLOCK * T;
-    // 从下往上一排一排，每排从左到右
-    for (let j = rows - 1; j >= 0; j--) {
-      const row: Phaser.GameObjects.Rectangle[] = [];
-      for (let i = 0; i < cols; i++) row.push(ctx.scene.add.rectangle(x0 + i * S + S / 2, y0 + j * S + S / 2, S + 1, S + 1, COVER).setDepth(DEPTH.openingCover));
-      this.covers.push(row);
+    const scene = this.ctx.scene, main = scene.cameras.main, W = main.width, H = main.height;
+    const sw = Math.ceil(W / STRIPS);
+    main.setVisible(false);
+    for (let i = 0; i < STRIPS; i++) {
+      const w = Math.min(sw, W - i * sw);
+      const cam = scene.cameras.add(i * sw, -H, w, H, false, `opening-${i}`);
+      cam.setScroll(main.scrollX + i * sw, main.scrollY).setRoundPixels(true);
+      this.cams.push(cam);
     }
-    const order = this.covers.flat();
-    let k = 0;
-    this.hand(this.spotOf(order.slice(0, PER_STEP)), 'pinch', REACH_MS);
-    const step = () => {
-      const batch = order.slice(k, k + PER_STEP);
-      k += PER_STEP;
-      if (!batch.length) { this.finish(); return; }
-      batch.forEach(c => this.reveal(c));
-      const next = order.slice(k, k + PER_STEP);
-      if (next.length) this.hand(this.spotOf(next), 'pinch', STEP_MS);
-    };
-    // 手先伸进来，到了再开始一块块放
-    this.timer = ctx.scene.time.delayedCall(REACH_MS, () => {
-      step();
-      this.timer = ctx.scene.time.addEvent({ delay: STEP_MS, loop: true, callback: step });
+    this.bus = openBus(0.5);
+    // 手：从下面伸上来，挥一道弧（两段：到最高点、再落到右边）
+    const { from, top, to } = ARC, go = 30 + T.reach;
+    this.hand(from.x, BELOW, from.tilt, 0);
+    this.later(30, () => this.hand(from.x, from.y, from.tilt, T.reach));
+    this.later(go, () => this.hand(top.x, top.y, top.tilt, T.sweep / 2, true));
+    this.later(go + T.sweep / 2, () => this.hand(to.x, to.y, to.tilt, T.sweep / 2));
+    // 手挥过哪一条，那一条就掉下来（手在 from.x 到 to.x 之间走）
+    this.cams.forEach((cam, i) => {
+      const k = Math.max(0, Math.min(1, ((i + 0.5) / STRIPS - from.x) / (to.x - from.x)));
+      this.later(go + T.sweep * k - 40, () => this.drop(cam, i === STRIPS - 1));
     });
   }
 
   destroy(): void {
     bridge.off(EVT.openingStart, this.start);
-    this.timer?.remove();
+    this.timers.forEach(t => t.remove());
+    this.removeCams();
+    this.bus?.close();
   }
 
-  /** 放下一块：盖子缩没，闪一下白 */
-  private reveal(c: Phaser.GameObjects.Rectangle): void {
+  /** 一条掉下来：碰到地的那一下「咚」、扬灰；最后一条落地整个画面一震，然后收尾 */
+  private drop(cam: Phaser.Cameras.Scene2D.Camera, last: boolean): void {
     const scene = this.ctx.scene;
-    const flash = scene.add.rectangle(c.x, c.y, c.width - 2, c.height - 2, 0xffffff, 0.35).setDepth(DEPTH.openingCover + 1);
-    scene.tweens.add({ targets: flash, alpha: 0, duration: 220, onComplete: () => flash.destroy() });
-    scene.tweens.add({ targets: c, scale: 0.2, alpha: 0, duration: 140, ease: 'Quad.in', onComplete: () => c.destroy() });
+    scene.tweens.add({ targets: cam, y: 0, duration: T.drop, ease: 'Bounce.out' });
+    this.later(T.drop * FIRST_HIT, () => {
+      this.thud(last);
+      this.dust(cam);
+      if (last) scene.cameras.main.shake(260, 0.008);
+    });
+    if (last) this.later(T.drop + 40, () => this.finish());
+  }
+
+  /** 落地扬起的一点灰：这一条底下几团往两边散开、淡掉 */
+  private dust(cam: Phaser.Cameras.Scene2D.Camera): void {
+    const scene = this.ctx.scene, main = scene.cameras.main;
+    const y = main.scrollY + main.height - this.ctx.cfg.tile * 0.9;
+    for (let k = 0; k < 4; k++) {
+      const x = cam.scrollX + cam.width * (k + 0.5) / 4;
+      const puff = scene.add.circle(x, y, 5 + Math.random() * 4, 0xc9c4b4, 0.55).setDepth(DEPTH.openingDust);
+      scene.tweens.add({ targets: puff, x: x + (Math.random() - 0.5) * 50, y: y - 12 - Math.random() * 18, scale: 2.4, alpha: 0, duration: 520, ease: 'Quad.out', onComplete: () => puff.destroy() });
+    }
+  }
+
+  /** 「咚」：低频正弦往下滑；最后一下更重 */
+  private thud(heavy: boolean): void {
+    const b = this.bus;
+    if (!b) return;
+    const at = b.now();
+    tone(b, { at, dur: heavy ? 0.45 : 0.22, type: 'sine', f0: heavy ? 120 : 160, f1: 38, glide: 'exp', gain: heavy ? 0.9 : 0.45 });
+    tone(b, { at, dur: 0.06, type: 'square', f0: 90, f1: 50, gain: heavy ? 0.25 : 0.12 });
   }
 
   private finish(): void {
-    this.timer?.remove(); this.timer = null;
     if (this.built) return;
     this.built = true;
-    this.hand(null, 'open', 300);
-    this.ctx.scene.cameras.main.shake(120, 0.004);
+    this.removeCams();
+    this.hand(ARC.to.x, BELOW, ARC.to.tilt, T.retract);   // 手收回下面
     bridge.emit(EVT.openingBuilt);
+    this.later(T.retract, () => bridge.emit(EVT.storyHand, { spot: null, pose: 'open', ms: 0 }));
   }
 
-  /** 这几块的中心在画面上的哪 */
-  private spotOf(batch: Phaser.GameObjects.Rectangle[]): ScreenSpot {
-    const cam = this.ctx.scene.cameras.main;
-    const x = batch.reduce((s, c) => s + c.x, 0) / batch.length, y = batch.reduce((s, c) => s + c.y, 0) / batch.length;
-    return { x: (x - cam.scrollX) / cam.width, y: (y - cam.scrollY) / cam.height };
+  private removeCams(): void {
+    const scene = this.ctx.scene;
+    this.cams.forEach(c => { scene.tweens.killTweensOf(c); scene.cameras.remove(c); });
+    this.cams = [];
+    scene.cameras.main?.setVisible(true);
   }
 
-  private hand(spot: ScreenSpot | null, pose: 'pinch' | 'open', ms: number): void {
-    bridge.emit(EVT.storyHand, { spot, pose, ms });
+  private later(ms: number, fn: () => void): void { this.timers.push(this.ctx.scene.time.delayedCall(ms, fn)); }
+
+  private hand(x: number, y: number, tilt: number, ms: number, whoosh = false): void {
+    bridge.emit(EVT.storyHand, { spot: { x, y }, pose: 'open', ms, from: 'bottom', tilt, whoosh });
   }
 
-  /** 菜单里选了「开始」：还没搭完（不该发生）就先搭完 */
+  /** 菜单里选了「开始」：还没落完（不该发生）就直接落完 */
   private readonly start = (s: OpeningStart): void => {
-    if (!this.built) { this.covers.flat().forEach(c => c.destroy()); this.finish(); }
+    if (!this.built) { this.timers.forEach(t => t.remove()); this.finish(); }
     this.onStart(s.fresh);
   };
 }

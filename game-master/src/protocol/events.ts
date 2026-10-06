@@ -31,8 +31,11 @@ export interface StartGameData {
 
 /** 骷髅手的姿势（asset 的 GM_HAND 帧）：张开 / 指着 / 捏着 / 握拳 */
 export type HandPose = 'open' | 'point' | 'pinch' | 'fist';
-/** 开场搭地图时骷髅手在哪（画面上的比例坐标）、什么姿势；null = 手收走 */
-export interface StoryHand { spot: ScreenSpot | null; pose: HandPose; ms: number }
+/**
+ * 开场时骷髅手在哪（画面上的比例坐标）、什么姿势、多久挪过去；null = 手收走。
+ * from = 手臂从哪边伸进来（默认下面），tilt = 再转几度，whoosh = 这一下带风声（挥手）
+ */
+export interface StoryHand { spot: ScreenSpot | null; pose: HandPose; ms: number; from?: 'left' | 'right' | 'top' | 'bottom'; tilt?: number; whoosh?: boolean }
 
 /** 编辑器改造游戏时，骷髅手要点的一格：在画面上的位置、地图上的格子、画什么砖 */
 export interface PaintCell { spot: ScreenSpot; x: number; y: number; tile: string }
@@ -123,9 +126,9 @@ export const EVT = {
   heroEntry: 'hero:entry',
   /** 3D → Phaser：人走回画面了，放出来接着玩；参数是落在哪（HeroEntryQuery 的 answer），null = 原地 */
   heroReturn: 'hero:return',
-  /** Phaser → React：开场搭地图时骷髅手到哪了；参数是 StoryHand */
+  /** Phaser → React：开场时骷髅手到哪了（一挥手，房间从天上砸下来）；参数是 StoryHand */
   storyHand: 'story:hand',
-  /** Phaser → React：开场的房间搭完了，该拍标题和菜单了 */
+  /** Phaser → React：开场的房间落完了，该拍标题和菜单了 */
   openingBuilt: 'story:opening-built',
   /** React → Phaser：菜单里选了「开始」，标题和按钮已经扫走：放主角出场；参数是 OpeningStart */
   openingStart: 'story:opening-start',

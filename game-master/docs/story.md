@@ -22,7 +22,7 @@ src/story/
   montage.ts      第二幕开头：骷髅手在编辑器里画哪些格子
 src/game/mechanics/story/
   index.ts        通用机制 story（每一层都启用），登记物件 g
-  Opening.ts      标题画面第一段：盖住房间，骷髅手一块块搭出来
+  Opening.ts      标题画面第一段：骷髅手一挥，房间一条条从天上砸下来
   Gm.ts           GM 的化身 g：通关之后走近自动说剧本，演出期间接管人（takesControl），说完被拖进编辑器
 src/ui/story/
   StoryLayer.tsx  叠在游戏画布上的一层：开场、演出、编辑器外壳都挂在这
@@ -38,8 +38,8 @@ src/ui/story/
 ## 一路走下来
 
 1. **开场**（`StartGameData.opening`）。游戏页一打开就起游戏场景（有存档就是存档的那个房间）。剧情机制的 `delaysEntrance()` 让场景先别放主角，HUD 是 `opening` 模式（不显示）。
-   - `Opening` 盖住房间，从下往上一块块揭开，每一步发 `EVT.storyHand` 告诉界面手在哪。
-   - 搭完发 `EVT.openingBuilt`，界面把标题和三个按钮一个个拍进来（画面一震，「咚」）。
+   - `Opening` 先让画面一片黑。骷髅手从左往右一挥（`EVT.storyHand` 告诉界面手在哪），手扫过哪一条，那一条房间就从画面上方砸下来、弹两下、扬灰，最后一条落地时画面一震。每一条是一个只看那一条的镜头，房间里的东西照常画，不用复制画面。
+   - 落完发 `EVT.openingBuilt`，界面把标题和三个按钮一个个拍进来（画面一震，「咚」）。
    - 菜单里手指着选中的那一项。「开始」：手把标题和按钮扫出画面，发 `EVT.openingStart`，场景调 `ctx.enter()` 放主角出场、换成这一层的音乐。「设置」里清除了进度再「开始」：从头开一局（`ctx.newGame()`）。
 2. **第一幕**：第一层的平台解谜。碰到终点（`G`）时，`GameScene.win` 查 `ENDINGS`：这一层是第一幕的结局，不弹「通关！」，HUD 的 `ending` 带上选项，显示 `Celebration`。
 3. **结局画面**：选项发 `EVT.endingChoice`。

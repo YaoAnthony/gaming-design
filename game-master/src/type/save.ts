@@ -10,10 +10,9 @@ export interface FogState {
   revealedZones: string[];
 }
 
-/** 换层时各机制交出来、带到下一层的东西（Mechanic.persist 往里写） */
-export interface CarryOver {
-  /** 手里拿着的道具（Items 注册表的 id） */
-  held?: string;
-  /** 头上戴着帽子 */
-  hat?: boolean;
-}
+/**
+ * 换层、存档时各机制交出来、带到下一层的东西：机制 id → 那个机制自己的数据（Mechanic.persist 返回的，要能存成 JSON）。
+ * 进层时机制用 ctx.carried(自己的 id) 拿回来，自己检查对不对——存档可能是旧版本的、被改过的。
+ * 例：{ carry: 'candle'（手上的道具）, hat: true（戴着帽子） }。新机制要带东西：实现 persist / 读 carried，这里和存档格式都不用改
+ */
+export type CarryOver = Record<string, unknown>;

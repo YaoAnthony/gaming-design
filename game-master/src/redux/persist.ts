@@ -5,8 +5,9 @@
 // 别的地方不直接碰存储；读进来的东西逐个字段检查，不对的丢掉用默认值，坏档不会让游戏起不来。
 import type { EditorState, PlayLoadout } from './slices/editorSlice';
 import type { SettingsState } from './slices/settingsSlice';
-import { RUN_VERSION, type GameConfig, type Project, type RoomCoord, type RunState } from '@/type';
+import { RUN_VERSION, type CarryOver, type GameConfig, type Project, type RoomCoord, type RunState } from '@/type';
 import { EMPTY_RUN } from './slices/runSlice';
+import { jsonCarry } from '@/shared/carry';
 import { asProject, roomKeyAt } from '@/game/world/WorldModel';
 import type { SaveName, SaveStorage } from '@/platform/storage';
 import { isLang } from '@/i18n/langs';
@@ -65,11 +66,19 @@ function readLoadout(v: unknown): Partial<PlayLoadout> | undefined {
   return out;
 }
 
-/** 存档：版本不对、不是进行中的一局就不要；字段不对的用默认值 */
+/** 第 1 版存档：帽子、手上的道具是单独的字段 → 第 2 版的 carry（帽子机制 id 'hat'、携带机制 id 'carry'） */
+function carryOfV1(o: Record<string, unknown>): CarryOver {
+  const out: CarryOver = {};
+  if (o.hat === true) out.hat = true;
+  if (typeof o.held === 'string') out.carry = o.held;
+  return out;
+}
+
+/** 存档：版本认不出、不是进行中的一局就不要；字段不对的用默认值。旧版本（1）读进来转成现在的样子 */
 export function readRun(v: unknown): RunState | undefined {
   if (!v || typeof v !== 'object') return undefined;
   const o = v as Record<string, unknown>;
-  if (o.version !== RUN_VERSION || o.active !== true) return undefined;
+  if ((o.version !== RUN_VERSION && o.version !== 1) || o.active !== true) return undefined;
   const count = (n: unknown) => (Number.isInteger(n) && (n as number) >= 0 ? n as number : 0);
   const stats = obj(o.stats), deep = obj(o.deep);
   const flags = Object.fromEntries(Object.entries(obj(o.flags)).filter(([, on]) => on === true)) as Record<string, true>;
@@ -78,7 +87,8 @@ export function readRun(v: unknown): RunState | undefined {
     realm: o.realm === 'deep' ? 'deep' : 'flat',
     floorId: typeof o.floorId === 'string' ? o.floorId : null,
     room: isRoom(o.room) ? { rx: o.room.rx, ry: o.room.ry } : null,
-    stage: count(o.stage), hat: o.hat === true, held: typeof o.held === 'string' ? o.held : null,
+    stage: count(o.stage),
+    carry: o.version === 1 ? carryOfV1(o) : jsonCarry(o.carry),
     stats: { jumps: count(stats.jumps), destroyed: count(stats.destroyed) },
     flags,
     deep: typeof deep.levelId === 'string' ? { levelId: deep.levelId } : null,

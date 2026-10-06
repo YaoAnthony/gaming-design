@@ -6,7 +6,6 @@
 import Phaser from 'phaser';
 import type { PlayContext, Suckable } from '@/game/core/PlayContext';
 import { INPUT_DOWN } from '@/shared/input';
-import type { CarryOver } from '@/type';
 import { floorMechanicOf, type Mechanic } from '../define';
 import { Colors, hex } from '@/shared/palette';
 
@@ -22,7 +21,7 @@ export class Hat implements Mechanic {
   private takeOff = () => this.drop('off');
 
   constructor(private ctx: PlayContext) {
-    this.worn = !!ctx.start.hat;
+    this.worn = ctx.carried('hat') === true;
     this.enabled = floorMechanicOf(ctx.floor).id === 'platform';
   }
 
@@ -61,7 +60,8 @@ export class Hat implements Mechanic {
     }
   }
 
-  persist(out: CarryOver): void { if (this.worn) out.hat = true; }
+  /** 戴着帽子就带到下一层（存档里是 carry.hat = true） */
+  persist(): true | undefined { return this.worn ? true : undefined; }
 
   vortexTargets(): Suckable[] { return this.head ? [this.head] : []; }
 

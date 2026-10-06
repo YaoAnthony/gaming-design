@@ -271,7 +271,7 @@ export async function load(opts: { level?: string; floor?: string; room?: string
   const entry = opts.at ? { x: opts.at[0] * T + T / 2, y: opts.at[1] * T + T / 2, vx: 0, vy: 0 } : null;
   release();
   game().loop.sleep();
-  scene().scene.restart({ project, floorId: floor.id, playtest: false, startRoom, entry, held: opts.held, hat: opts.hat, stage: opts.stage });
+  scene().scene.restart({ project, floorId: floor.id, playtest: false, startRoom, entry, carry: { ...(opts.hat ? { hat: true } : {}), ...(opts.held ? { carry: opts.held } : {}) }, stage: opts.stage });
   for (let i = 0; i < 600 && !(scene().player?.body && !scene().respawn.respawning); i++) step(1);
   step(10);
   return view();

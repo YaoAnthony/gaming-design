@@ -19,7 +19,7 @@ import { roomPx } from '@/game/PhaserGame';
 function resumeData(project: Project, run: RunState): StartGameData {
   const floor = project.floors.find(f => f.id === run.floorId);
   const room = floor && run.room && roomKeyAt(floor.model, run.room.rx, run.room.ry) ? run.room : null;
-  return { project, playtest: false, floorId: floor?.id, startRoom: room, stats: { ...run.stats }, stage: run.stage, hat: run.hat, held: run.held ?? undefined };
+  return { project, playtest: false, floorId: floor?.id, startRoom: room, stats: { ...run.stats }, stage: run.stage, carry: { ...run.carry } };
 }
 
 /** 游戏页：标题页；有存档就接着玩，没有（或点了「新游戏」）从头玩 */

@@ -2,7 +2,7 @@
 // React → Phaser：编辑器重载、重置、试玩退出、攥纸团特效的往返。
 // Phaser → React：展示数据 dispatch 到 Redux 的 hud 切片（只在场景和 core 里做，机制通过 PlayContext），不走这里。
 // 事件名在 EVT，参数在 BridgeEvents。
-import type { Project, RoomCoord } from '@/type';
+import type { Project, RoomCoord, CarryOver } from '@/type';
 import type { HeroEntryQuery, HeroHandoff, ScreenSpot } from './handoff';
 
 export interface StartGameData {
@@ -14,10 +14,8 @@ export interface StartGameData {
   startRoom?: RoomCoord | null;
   entry?: { x: number; y: number; vx: number; vy: number } | null;
   stats?: { jumps: number; destroyed: number } | null;
-  /** 手里拿着的东西（换层时带过去；钥匙不带） */
-  held?: string;
-  /** 头上戴着帽子（换层时带过去） */
-  hat?: boolean;
+  /** 各机制带进这一层的东西（换层、读档、试玩的起始状态）：机制 id → 数据，见 type/save.ts 的 CarryOver */
+  carry?: CarryOver;
   /** 长大阶段（0 = 1 格高，1 = 1.5 格，2 = 2 格；换层时带过去） */
   stage?: number;
   playtest?: boolean;

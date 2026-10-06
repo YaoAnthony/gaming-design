@@ -4,6 +4,7 @@
 // + 若干通用机制（Boss、钥匙、角色……），这里按生命周期调用它们的钩子，不认识具体机制。
 import Phaser from 'phaser';
 import type { CarryOver, CellRef, CoreHost, EnemySpawn, Floor, GameConfig, Point, Project, WorldModel } from '@/type';
+import { jsonCarry } from '@/shared/carry';
 import { classify } from '@/game/registry/registry';
 import { Terrain } from '@/game/terrain/Terrain';
 import { entityRows, floorAfter, fogRows, fuseRows, roomKeyAt, worldRows } from '@/game/world/WorldModel';
@@ -326,7 +327,7 @@ export class GameScene extends Phaser.Scene {
     // eslint-disable-next-line @typescript-eslint/no-this-alias -- 上下文里的 getter 要读场景的当前值
     const s = this;
     return {
-      scene: this, cfg: this.cfg, project: this.project, floor: this.floor, model: this.model, start: this.startData,
+      scene: this, cfg: this.cfg, project: this.project, floor: this.floor, model: this.model, start: this.startData, carried: id => this.startData.carry?.[id],
       terrain: this.terrain, fuses: this.fuses, fog: this.fog, sparks: this.sparks, music: this.music, dialogue: this.dialogue, rooms: this.rooms,
       get player() { return s.player; },
       get enemies() { return s.enemies; },
@@ -438,7 +439,7 @@ export class GameScene extends Phaser.Scene {
     this.won = true; this.wonFinal = final;
     this.player.freeze(0xffffff);
     this.player.clearTint();
-    const hat = (this.mechById.get('hat') as { wearing?: boolean } | undefined)?.wearing ?? false;
+    const hat = this.collectCarry().hat === true;   // 通关画面上画不画帽子
     store.dispatch(setMode({ mode: 'won', final, stage: this.player.stage, hat }));
     store.dispatch(setStats({ ...this.stats }));
     if (final && !this.playtest) store.dispatch(clearRun());   // 真通关：这一局结束，下次从头开始
@@ -447,10 +448,15 @@ export class GameScene extends Phaser.Scene {
   /** 存档的检查点（进层、换房间）：在哪层哪个房间、身上带着什么。试玩不存 */
   private saveCheckpoint(): void {
     if (this.playtest) return;
-    const carry: CarryOver = {};
-    this.mechs.forEach(m => m.persist?.(carry));
     const { rx, ry } = this.rooms.current;
-    store.dispatch(checkpoint({ floorId: this.floor.id, room: { rx, ry }, stage: this.player.stage, hat: !!carry.hat, held: carry.held ?? null, stats: { ...this.stats } }));
+    store.dispatch(checkpoint({ floorId: this.floor.id, room: { rx, ry }, stage: this.player.stage, carry: this.collectCarry(), stats: { ...this.stats } }));
+  }
+
+  /** 各机制要带走的东西（Mechanic.persist）：机制 id → 数据 */
+  private collectCarry(): CarryOver {
+    const out: CarryOver = {};
+    this.mechById.forEach((m, id) => { const v = m.persist?.(); if (v !== undefined) out[id] = v; });
+    return jsonCarry(out);
   }
 
   private continueAfterWin(): void {
@@ -480,9 +486,7 @@ export class GameScene extends Phaser.Scene {
     this.player.clearTint();
     const cam = this.cameras.main;
     const restart = () => {
-      const carry: CarryOver = {};
-      this.mechs.forEach(m => m.persist?.(carry));
-      const data: StartGameData = { project: this.project, floorId: id, playtest: this.playtest, announceFloor: true, stats: { ...this.stats }, held: carry.held, hat: carry.hat, stage: this.player.stage, origin: this.origin };
+      const data: StartGameData = { project: this.project, floorId: id, playtest: this.playtest, announceFloor: true, stats: { ...this.stats }, carry: this.collectCarry(), stage: this.player.stage, origin: this.origin };
       this.scene.restart(data);
     };
     const fade = (ms: number) => { cam.fadeOut(ms, 0, 0, 0); cam.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, restart); };

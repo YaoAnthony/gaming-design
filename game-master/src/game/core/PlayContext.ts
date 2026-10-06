@@ -50,6 +50,8 @@ export interface PlayContext {
   model: WorldModel;
   /** 进层时带进来的数据（读档 / 换层） */
   start: StartGameData;
+  /** 这个机制带进这一层的东西（上一层 / 存档里它 persist 交出来的）；没有是 undefined。拿到之后自己检查对不对 */
+  carried(mechanicId: string): unknown;
   terrain: Terrain;
   fuses: FuseNet;
   fog: FogOfWar | null;

@@ -63,7 +63,7 @@ docs/architecture-review.md  # 2026-10 的架构审查：改了什么、还建�
 
 - **房间布局**：`layout` 是稀疏网格，`null` 是空位（游戏里是实心岩石）。编辑器里房间以缩略图显示，可拖拽交换 / 移动，任意空位点「+」新建，选中的房间可删除。
 - **地图**：`map/world.json` 是默认地图（多层项目 `{ floors: [{ id, name, model }] }`，旧的单层格式也能读）；运行时在 Redux `editor.project` 里，编辑器改的就是它，游戏也用它。开发版自动存进编辑器的工作区（`editor` 那一份，见 [docs/desktop.md](docs/desktop.md)）。开发服务器下编辑器有「写入 src/map/world.json」按钮（Vite 插件 `climb-save-map` 提供的 `POST /__climb/save-map`），一键写回源码；打包版本用「导出 world.json」手动覆盖。
-- **存档**：玩家的进度在 Redux 的 `run` 切片（结构见 `type/run.ts`），2D 和 3D 共用一份，`redux/persist.ts` 落盘（和语言、音量一起存成很小的一份 `save`：网页是 localStorage，桌面版是用户数据目录下的 `save/save.json`，Steam 自动云同步它；地图更新后进度保留、只是从那一层的出生点开始。详见 [docs/desktop.md](docs/desktop.md)），带版本号。只在检查点写：进层、换房间（`GameScene.saveCheckpoint`）、跳出 / 回到画面；记的是哪一层哪个房间、长大阶段、帽子、手上的道具、统计数字、人在哪个世界。读档 = 回到检查点：那一层按初始状态重建，人出现在那个房间（炸掉的地形不记）。标题页有存档时提示变成「继续」，左上角多一个「新游戏」；真通关后存档清空。编辑器试玩不读不写存档。层与层之间在 Phaser 里还是用 `StartGameData` 带东西（试玩也走这条路）。迷雾和引线的 `toState` 留着，将来要存它们时用。
+- **存档**：玩家的进度在 Redux 的 `run` 切片（结构见 `type/run.ts`），2D 和 3D 共用一份，`redux/persist.ts` 落盘（和语言、音量一起存成很小的一份 `save`：网页是 localStorage，桌面版是用户数据目录下的 `save/save.json`，Steam 自动云同步它；地图更新后进度保留、只是从那一层的出生点开始。详见 [docs/desktop.md](docs/desktop.md)），带版本号。只在检查点写：进层、换房间（`GameScene.saveCheckpoint`）、跳出 / 回到画面；记的是哪一层哪个房间、长大阶段、各机制要带走的东西（`carry`：手上的道具、帽子……按机制 id 存）、统计数字、人在哪个世界。存档版本 2；第 1 版的存档（帽子、道具是单独字段）读进来自动转换。读档 = 回到检查点：那一层按初始状态重建，人出现在那个房间（炸掉的地形不记）。标题页有存档时提示变成「继续」，左上角多一个「新游戏」；真通关后存档清空。编辑器试玩不读不写存档。层与层之间在 Phaser 里还是用 `StartGameData` 带东西（试玩也走这条路）。迷雾和引线的 `toState` 留着，将来要存它们时用。
 - **参数**：`game/config.ts` 是默认值，运行时在 Redux `config` 里，将来可以做调参面板。
 - **Phaser → React**：场景和 core 把展示数据 dispatch 到 `hud`；机制不直接碰 store，设置走 `PlayContext.settings`。**React → Phaser**：`protocol/` 的事件总线（事件和参数都有类型），或场景启动时传数据。
 - **引擎边界**：`game/`（Phaser）和 `stage3d/`、`world3d/`（three.js）互不引入，只通过 `protocol/` 和 Redux 说话；`protocol/` 自己不依赖任何引擎。规则写在 `eslint.config.js`（`no-restricted-imports`），违反了 lint 不过。
@@ -100,7 +100,7 @@ docs/architecture-review.md  # 2026-10 的架构审查：改了什么、还建�
 - **层机制**（`scope: 'floor'`）：决定这一层怎么玩，每层一个，接管玩家移动和按键、手机端按键布局。现在有 `platform`（平台跳 + 起跳爆炸，默认）和 `pacman`（吃豆人）。层设置里的「玩法」下拉就是这个列表；`floor.mode` 存机制 id，旧地图的 `'topdown'` 自动认成吃豆人。没选过的层，放了哪个层机制的物件就是哪个。
 - **通用机制**（`scope: 'global'`）：哪层都能用，地图里放了它的物件就自动启用（`activeOn` 可以改规则）。`boss`、`goal`（终点）、`portal`（小城堡）、`textBlock`（文字方块）、`npc`（会说话的角色）、`carry`（携带，每层都开）、`slider`（设置滑块）、`locks`（钥匙与门）、`mover`（移动方块）。
 
-机制能用的东西都在 `core/PlayContext.ts`（地形、玩家、怪物、对话、房间查询、死亡 / 换层、`mech('carry')` 拿别的机制）。可选的钩子在 `mechanics/define.ts` 的 `Mechanic`：`start`、`update`（每帧）、`updateAlive`（活着才跑）、`blocks`（额外挡路的格子）、`onRoomChanged`、`onClear` / `onReset`（重置；Boss 用返回值改复活点）、`onFuseBurn`、`persist`（存档 / 带到下一层）、`vortexTargets`、`bake`（建地形前改模型，比如把门烘成砖）。机制还能声明 `roomFlags`，编辑器房间面板自动出现对应开关（吃豆人的「左右打通」）。
+机制能用的东西都在 `core/PlayContext.ts`（地形、玩家、怪物、对话、房间查询、死亡 / 换层、`mech('carry')` 拿别的机制）。可选的钩子在 `mechanics/define.ts` 的 `Mechanic`：`start`、`update`（每帧）、`updateAlive`（活着才跑）、`blocks`（额外挡路的格子）、`onRoomChanged`、`onClear` / `onReset`（重置；Boss 用返回值改复活点）、`onFuseBurn`、`persist`（存档 / 带到下一层：返回这个机制自己的数据，存在 `carry[机制 id]` 下；进层时用 `ctx.carried(id)` 拿回来自己校验——新机制要带东西，存档格式和场景都不用改）、`vortexTargets`、`bake`（建地形前改模型，比如把门烘成砖）。机制还能声明 `roomFlags`，编辑器房间面板自动出现对应开关（吃豆人的「左右打通」）。
 
 **加一个新机制**：`mechanics/<名字>/index.ts` 里 `defineMechanic({ id, name, scope, create: ctx => new X(ctx) })` + 需要的 `.entity(...)`，然后在 `mechanics/index.ts` 加一行 import（顺序 = 每帧调用顺序 = 物品栏顺序）。单元测试里 `phaser` 被换成替身（`tests/support/phaser-stub.ts`），所以注册表可以直接在 Node 里测。
 

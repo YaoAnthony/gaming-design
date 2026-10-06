@@ -48,7 +48,7 @@ export function PlayPanel({ playing, onStart }: Props) {
     // 资源还在加载（编辑器场景还没开始）就开试玩，Boot 加载完会再启动编辑器场景，两个场景叠在一起跑
     if (!game || !game.scene.isActive(SCENE.editor)) { void message.info('还在加载，稍等一下'); return; }
     dispatch(setPicking(false));
-    const data: StartGameData = { project, floorId: floor.id, playtest: true, stage: loadout.stage, hat: loadout.hat, held: held || undefined, ...where };
+    const data: StartGameData = { project, floorId: floor.id, playtest: true, stage: loadout.stage, carry: { ...(loadout.hat ? { hat: true } : {}), ...(held ? { carry: held } : {}) }, ...where };
     game.scene.getScene(SCENE.editor).scene.start(SCENE.game, data);
     onStart();
   };

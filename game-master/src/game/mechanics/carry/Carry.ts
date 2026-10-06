@@ -5,7 +5,7 @@
 // 地上的钥匙有重力、有碰撞体积：会掉下去、会被怪物推着走（LooseKeys.ts）；蜡烛固定在原地。
 // 往下按一下（↓ / S / 手柄 / 触屏）把手上的钥匙放在脚边；戴着帽子时这一下是摘帽子，钥匙不放。
 import Phaser from 'phaser';
-import type { CarryOver, ItemDef } from '@/type';
+import type { ItemDef } from '@/type';
 import { Items } from '@/game/registry/registry';
 import { lockGroup } from '@/game/world/WorldModel';
 import type { PlayContext } from '@/game/core/PlayContext';
@@ -62,7 +62,8 @@ export class Carry implements Mechanic {
   private afterPhysics = () => { this.looseKeys.sync(this.ctx.scene.time.now); this.place(); };
 
   constructor(private ctx: PlayContext) {
-    this.heldId = ctx.start.held ?? null;
+    const carried = ctx.carried('carry');
+    this.heldId = typeof carried === 'string' ? carried : null;
     this.looseKeys = new LooseKeys(ctx);
   }
 
@@ -194,9 +195,9 @@ export class Carry implements Mechanic {
     this.syncKeyAnchors();
   }
 
-  /** 只有注册过的道具能带到下一层；钥匙留在本层 */
-  persist(out: CarryOver): void {
-    if (this.heldId && Items.has(this.heldId)) out.held = this.heldId;
+  /** 只有注册过的道具能带到下一层（存档里是 carry.carry = 道具 id）；钥匙留在本层 */
+  persist(): string | undefined {
+    return this.heldId && Items.has(this.heldId) ? this.heldId : undefined;
   }
 
   destroy(): void {

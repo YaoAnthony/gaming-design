@@ -4,9 +4,9 @@ import reducer, { checkpoint, clearRun, EMPTY_RUN, setFlag, setRealm } from '@/r
 describe('run 切片（存档）', () => {
   it('检查点只改给的那几样，这一局算开始了', () => {
     const a = reducer(EMPTY_RUN, checkpoint({ floorId: 'f2', room: { rx: 1, ry: 0 }, stage: 1 }));
-    expect(a).toMatchObject({ active: true, floorId: 'f2', room: { rx: 1, ry: 0 }, stage: 1, hat: false, held: null });
-    const b = reducer(a, checkpoint({ hat: true, stats: { jumps: 3, destroyed: 9 } }));
-    expect(b).toMatchObject({ floorId: 'f2', stage: 1, hat: true, stats: { jumps: 3, destroyed: 9 } });
+    expect(a).toMatchObject({ active: true, floorId: 'f2', room: { rx: 1, ry: 0 }, stage: 1, carry: {} });
+    const b = reducer(a, checkpoint({ carry: { hat: true }, stats: { jumps: 3, destroyed: 9 } }));
+    expect(b).toMatchObject({ floorId: 'f2', stage: 1, carry: { hat: true }, stats: { jumps: 3, destroyed: 9 } });
   });
 
   it('跳出画面记下 3D 关卡，回到画面后关卡还留着', () => {

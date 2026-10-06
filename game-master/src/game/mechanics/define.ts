@@ -2,7 +2,7 @@
 // 层机制（scope: 'floor'）：决定这一层怎么玩，每层一个，接管玩家移动和按键。平台跳、吃豆人……
 // 通用机制（scope: 'global'）：哪一层都能用，默认地图里出现它的物件就自动启用。Boss、钥匙、滑块……
 // 新机制 = mechanics/ 下一个文件夹 + mechanics/index.ts 里一行 import，GameScene 不用改。
-import type { CarryOver, EntitySpec, Floor, SpawnAt, WorldModel } from '@/type';
+import type { EntitySpec, Floor, SpawnAt, WorldModel } from '@/type';
 import { defineEntity, Entities, Registry } from '@/game/registry/registry';
 import type { PlayContext, Suckable } from '@/game/core/PlayContext';
 
@@ -38,8 +38,11 @@ export interface Mechanic {
   resetsRoomOnDeath?(): boolean;
   /** 引线烧过这些格子 */
   onFuseBurn?(cells: FuseBurnCell[]): void;
-  /** 换层时要带到下一层的状态（手上的道具、帽子……） */
-  persist?(out: CarryOver): void;
+  /**
+   * 换层、存档时要带走的东西（手上的道具、帽子……）：返回这个机制自己的数据（要能存成 JSON），没有就返回 undefined。
+   * 存在 CarryOver[这个机制的 id] 下；进层时用 ctx.carried(id) 拿回来，自己检查对不对
+   */
+  persist?(): unknown;
   /** 旋涡（进城堡门）时要一起吸进去的东西 */
   vortexTargets?(): Suckable[];
   destroy?(): void;

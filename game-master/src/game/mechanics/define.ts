@@ -47,6 +47,11 @@ export interface Mechanic {
    * 这一刻按键和人归这个机制管（比如节奏关卡开打了）：场景不让人走、不响应跳和 R，机制自己用 ctx.held() 读方向、自己听按键
    */
   takesControl?(): boolean;
+  /**
+   * 进层时主角先别出场（比如标题画面：骷髅手先搭房间、拍菜单）：场景把人藏着、冻着，等机制调 ctx.enter() 才放出来。
+   * 进层时（start 之后）问一次
+   */
+  delaysEntrance?(): boolean;
   /** 旋涡（进城堡门）时要一起吸进去的东西 */
   vortexTargets?(): Suckable[];
   destroy?(): void;

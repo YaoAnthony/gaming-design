@@ -4,3 +4,8 @@ dist/
 
 # 谱面录制留的带时间的备份（recordings/<谱面 id>.json 那一份进仓库）
 recordings/*-20*.json
+
+# 桌面版打包输出、SteamPipe 生成的构建脚本和日志、上传用的本地配置（账号、depot 号）
+release/
+steam/build/
+.env.steam.local

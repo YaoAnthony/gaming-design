@@ -4,7 +4,7 @@
 
 ## 线上版本
 
-推到 `main` 后 GitHub Actions 自动打包部署到 GitHub Pages（`.github/workflows/pages.yml`）。线上只有游戏（正中一个「开始游戏」），没有编辑器；地图在本地编辑器里改，「写入 world.json」后 push。
+推到 `main` 后 GitHub Actions 自动打包部署到 GitHub Pages（`.github/workflows/pages.yml`）。线上只有游戏（一打开先「按任意键」，然后是标题画面），没有编辑器；地图在本地编辑器里改，「写入 world.json」后 push。
 
 ## 命令
 
@@ -16,6 +16,8 @@ npm test           # vitest 单元测试
 npm run lint       # ESLint（CI 里和测试一起跑）
 npm run gen-art    # 重新生成占位 PNG 美术到 src/asset/（会覆盖同名文件；后面跟文件名就只生成那几张）
 npm run desktop    # 打包后用 Electron 打开桌面版；desktop:dev 连开发服务器（见 docs/desktop.md）
+npm run desktop:pack:win   # 打包成免安装目录（:mac / :linux 同理），steam:upload 传到 Steam（见 docs/desktop.md）
+node scripts/gen-story-audio.mjs   # 重新生成主线剧情的占位音效和开场音乐（src/asset/story/）
 ```
 
 ## 目录
@@ -37,6 +39,7 @@ src/
 ├── protocol/           # 引擎无关的协议（不引入 phaser / three）：bus.ts 事件总线，events.ts 事件名和每个事件带什么参数（emit / on 按它检查），screen.ts 游戏画面的来源，handoff.ts 主角交接的数据
 ├── stage3d/            # three.js 舞台（不引入 phaser）：Stage3D（按需接手显示）、ScreenPlane（游戏画布当实时贴图的那块屏幕）、fx/（舞台特效，每个一个文件夹，define.ts 注册表：tilt 往后倒、crumple 攥纸团）
 ├── world3d/            # 3D 世界（不引入 phaser）：主角跳出画面之后的关卡。World3D（跑在舞台上）、physics（纯计算，有测试）、Hero3D、LevelView、input、levels/（关卡数据）
+├── story/              # 主线剧情的数据（不引入 phaser / three）：剧情标记、哪一层是哪一幕、GM 的剧本、演出名单（见 docs/story.md）
 ├── rhythm/             # 节奏关卡里引擎无关的部分（不引入 phaser / three）：chart（谱面格式）、modes（各玩法的谱面怎么写、在哪个世界玩）、score（判定计分）、flight（音符在路上）——都是纯计算有测试；Conductor（放曲子、报时间）、session、charts/（谱面数据）
 ├── game/               # Phaser 本体
 │   ├── registry/       # 注册表 + 能力特征（registry.ts），基础砖块与核心物件（tiles.ts），角色技能（skills.ts）
@@ -49,21 +52,25 @@ src/
 │   ├── inputDevice.ts  # 全局盯着玩家用的是键盘还是手柄，记到 store.input
 │   └── PhaserGame.ts   # 创建 / 销毁 Phaser 实例
 └── ui/                 # React 界面：游戏页 + HUD + 通关弹窗（WinModal + Motion 礼花）、编辑器侧边栏（物品栏、房间缩略图布局）
-electron/               # 桌面版：主进程（main.cjs）、preload、存档文件读写（saveFiles.cjs）
+    ├── story/          # 主线剧情的界面：骷髅手、标题菜单、设置、第一幕的结局画面、演出、关卡编辑器外壳
+    └── menu/           # 菜单的按键（键盘、手柄、鼠标、触屏一套）
+electron/               # 桌面版：主进程（main.cjs）、preload、存档文件读写（saveFiles.cjs）、可选的 Steam 连接（steam.cjs）
 tests/                  # 所有测试（vitest），目录结构和 src/ 一一对应；support/ 放测试用的替身（Phaser）
-docs/desktop.md         # 桌面版和 Steam 云存档怎么配
+docs/desktop.md         # 桌面版、Steam 云存档、打包和上传到 Steam
+docs/story.md           # 主线剧情的代码结构，怎么改剧本、加演出
+docs/controls.md        # 键盘 / 手柄 / 触屏的完整键位
 docs/architecture-review.md  # 2026-10 的架构审查：改了什么、还建议改什么
 ```
 
 ## 多语言
 
-`i18next` + `react-i18next`，入口 `src/i18n/index.ts`，文案在 `src/i18n/en.json` / `zh.json`。默认英文，标题页右上角切换，选过的跟着玩家存档（`save`）一起存；`setLang('zh')` 切换。玩家看得到的文字都走翻译：界面用 `t()`；游戏代码里的飘字、死亡原因、NPC 名字和台词写成 key（`msg.*` / `death.*` / `npc.*` / `dialogue.*`），由 `GameScene.flash` 和 `Dialogue` 用 `tr()` 翻译；地图里填的层名、位置写英文原文，中文放在 `map.<原文>` 下，由 `mapText()` 查。编辑器是开发工具，保持中文。
+`i18next` + `react-i18next`，入口 `src/i18n/index.ts`，文案在 `src/i18n/en.json` / `zh.json`。默认英文，标题菜单的「设置」里切换，选过的跟着玩家存档（`save`）一起存；`setLang('zh')` 切换。玩家看得到的文字都走翻译：界面用 `t()`；游戏代码里的飘字、死亡原因、NPC 名字和台词写成 key（`msg.*` / `death.*` / `npc.*` / `dialogue.*`），由 `GameScene.flash` 和 `Dialogue` 用 `tr()` 翻译；地图里填的层名、位置写英文原文，中文放在 `map.<原文>` 下，由 `mapText()` 查。编辑器是开发工具，保持中文。
 
 ## 数据流
 
 - **房间布局**：`layout` 是稀疏网格，`null` 是空位（游戏里是实心岩石）。编辑器里房间以缩略图显示，可拖拽交换 / 移动，任意空位点「+」新建，选中的房间可删除。
 - **地图**：`map/world.json` 是默认地图（多层项目 `{ floors: [{ id, name, model }] }`，旧的单层格式也能读）；运行时在 Redux `editor.project` 里，编辑器改的就是它，游戏也用它。开发版自动存进编辑器的工作区（`editor` 那一份，见 [docs/desktop.md](docs/desktop.md)）。开发服务器下编辑器有「写入 src/map/world.json」按钮（Vite 插件 `climb-save-map` 提供的 `POST /__climb/save-map`），一键写回源码；打包版本用「导出 world.json」手动覆盖。
-- **存档**：玩家的进度在 Redux 的 `run` 切片（结构见 `type/run.ts`），2D 和 3D 共用一份，`redux/persist.ts` 落盘（和语言、音量一起存成很小的一份 `save`：网页是 localStorage，桌面版是用户数据目录下的 `save/save.json`，Steam 自动云同步它；地图更新后进度保留、只是从那一层的出生点开始。详见 [docs/desktop.md](docs/desktop.md)），带版本号。只在检查点写：进层、换房间（`GameScene.saveCheckpoint`）、跳出 / 回到画面；记的是哪一层哪个房间、长大阶段、各机制要带走的东西（`carry`：手上的道具、帽子……按机制 id 存）、统计数字、人在哪个世界。存档版本 2；第 1 版的存档（帽子、道具是单独字段）读进来自动转换。读档 = 回到检查点：那一层按初始状态重建，人出现在那个房间（炸掉的地形不记）。标题页有存档时提示变成「继续」，左上角多一个「新游戏」；真通关后存档清空。编辑器试玩不读不写存档。层与层之间在 Phaser 里还是用 `StartGameData` 带东西（试玩也走这条路）。迷雾和引线的 `toState` 留着，将来要存它们时用。
+- **存档**：玩家的进度在 Redux 的 `run` 切片（结构见 `type/run.ts`），2D 和 3D 共用一份，`redux/persist.ts` 落盘（和语言、音量一起存成很小的一份 `save`：网页是 localStorage，桌面版是用户数据目录下的 `save/<SteamID>/save.json`，Steam 自动云同步它；地图更新后进度保留、只是从那一层的出生点开始。详见 [docs/desktop.md](docs/desktop.md)），带版本号。只在检查点写：进层、换房间（`GameScene.saveCheckpoint`）、跳出 / 回到画面；记的是哪一层哪个房间、长大阶段、各机制要带走的东西（`carry`：手上的道具、帽子……按机制 id 存）、统计数字、人在哪个世界。存档版本 2；第 1 版的存档（帽子、道具是单独字段）读进来自动转换。读档 = 回到检查点：那一层按初始状态重建，人出现在那个房间（炸掉的地形不记）。标题菜单的「开始」有存档就接着玩，「设置 → 清除进度」从头开始；剧情走到哪也记在存档里（`run.flags`，见 docs/story.md）；真通关后存档清空。编辑器试玩不读不写存档。层与层之间在 Phaser 里还是用 `StartGameData` 带东西（试玩也走这条路）。迷雾和引线的 `toState` 留着，将来要存它们时用。
 - **参数**：`game/config.ts` 是默认值，运行时在 Redux `config` 里，将来可以做调参面板。
 - **Phaser → React**：场景和 core 把展示数据 dispatch 到 `hud`；机制不直接碰 store，设置走 `PlayContext.settings`。**React → Phaser**：`protocol/` 的事件总线（事件和参数都有类型），或场景启动时传数据。
 - **引擎边界**：`game/`（Phaser）和 `stage3d/`、`world3d/`（three.js）互不引入，只通过 `protocol/` 和 Redux 说话；`protocol/` 自己不依赖任何引擎。规则写在 `eslint.config.js`（`no-restricted-imports`），违反了 lint 不过。
@@ -172,6 +179,10 @@ docs/architecture-review.md  # 2026-10 的架构审查：改了什么、还建�
 ## 设置房间的机关
 
 「音量滑块」物件（`V`）：放在地上，喇叭图标右边伸出一条 8 格长的轨道，上面一个滑钮。走过去把它推到哪儿，音乐就多大（`config.musicVolume`，即时生效、记在本地）；喇叭旁边的声波弧线跟着变，推到最左是静音的红叉。滑块绑定的是 `GameConfig` 里的数字字段，以后要加别的设置就是再放一个绑不同字段的物件。
+
+## 主线剧情
+
+标题画面、第一幕的结局（「你赢了！」）、施工区、Game Master 的剧本和演出、第二幕的关卡编辑器，见 `docs/story.md`。
 
 ## 会说话的角色
 
@@ -335,8 +346,10 @@ defineSkill({
 | 贴墙下滑时按跳 | 贴墙下滑时按 A | 蹬墙跳（墙面爆炸） |
 | R | Y（PS：△） | 重置当前房间（先放攥纸团特效，见「第四面墙」；换层的旋涡、长大、特效的过程中不响应） |
 | ESC | Back / Select | 试玩时回编辑器 |
-| 空格 / 回车 | A / Start | 标题画面开始游戏 |
+| ↑ ↓ + 回车 / Esc | 十字键 + A / B | 菜单（标题、设置、结局画面）：换选项、选中、返回 |
 
-**手柄**：用浏览器的 Gamepad API 标准布局（Xbox、PS 按钮位置一样），默认映射在 `game/gamepad.ts` 的 `GAMEPAD_BUTTONS`（按钮编号），改键就改这张表；摇杆推过 `STICK_DEADZONE` 才算。浏览器要等页面打开后按一下手柄上的键才认得出手柄。"往下按一下"（摘帽子）键盘、手柄、触屏都走同一个场景事件 `INPUT_DOWN`（`game/input.ts`）。
+完整的键位表在 `docs/controls.md`。
+
+**手柄**：用浏览器的 Gamepad API 标准布局（Xbox、PS 按钮位置一样），默认映射在 `shared/gamepad.ts` 的 `GAMEPAD_BUTTONS`（按钮编号），改键就改这张表；摇杆推过 `STICK_DEADZONE` 才算。浏览器要等页面打开后按一下手柄上的键才认得出手柄。"往下按一下"（摘帽子）键盘、手柄、触屏都走同一个场景事件 `INPUT_DOWN`（`game/input.ts`）。
 
 **R 重置房间的规则**：按材料的来源算，不按它现在在哪。地形每格记着"这块材料原本在哪一格"：这个房间的沙土、碎块掉到了别的房间，重置时一起收回来；别的房间的材料落在这个房间里，重置时放回它原来的位置（原位空着才放）。别的房间里正在掉的碎块、被怪物驮着的纸照常进行；正在烧的引线和一跳跳往下烧的连锁则整张图一起停。**死了之后重置什么**看 `config.deathReset`（编辑器左边栏「游戏设置 → 死了之后」可以切）：默认 `none` 什么都不重置，解过的就算解过了（炸掉的砖、烧过的引线、开过的门、推过的箱子、打死的怪都保持原样，手上的东西也还在），人回到这个房间的入口、心回满（`Respawn.revive`），卡关了就按 R 重置这个房间；例外是机制的 `resetsRoomOnDeath` 说要重开的——Boss 战打到一半死了、吃豆人层被抓到，还是重置当前房间。`room` = 死了重置当前房间；`world` = 死了、按 R 都重置整张图，所有东西都复原。

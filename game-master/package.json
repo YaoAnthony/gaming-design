@@ -12,7 +12,12 @@
     "test": "vitest run",
     "gen-art": "node scripts/gen-art.mjs",
     "level": "node scripts/level.mjs",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "desktop:pack": "npm run build && electron-builder --dir",
+    "desktop:pack:win": "npm run build && electron-builder --win dir --x64",
+    "desktop:pack:mac": "npm run build && electron-builder --mac dir --universal",
+    "desktop:pack:linux": "npm run build && electron-builder --linux dir --x64",
+    "steam:upload": "node scripts/steam-upload.mjs"
   },
   "dependencies": {
     "@reduxjs/toolkit": "^2.3.0",
@@ -34,6 +39,7 @@
     "@types/three": "^0.186.0",
     "@vitejs/plugin-react": "^4.7.0",
     "electron": "^44.5.1",
+    "electron-builder": "^26.15.3",
     "eslint": "^10.11.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "globals": "^17.12.0",
@@ -45,5 +51,62 @@
   "engines": {
     "node": ">=22"
   },
-  "main": "electron/main.cjs"
+  "main": "electron/main.cjs",
+  "optionalDependencies": {
+    "steamworks.js": "^0.4.0"
+  },
+  "build": {
+    "appId": "com.gamemaster.desktop",
+    "productName": "Game Master",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json",
+      "!node_modules/**/*",
+      "node_modules/steamworks.js/**/*"
+    ],
+    "asar": true,
+    "asarUnpack": [
+      "node_modules/steamworks.js/**/*"
+    ],
+    "mac": {
+      "target": [
+        {
+          "target": "dir",
+          "arch": [
+            "universal"
+          ]
+        }
+      ],
+      "category": "public.app-category.games",
+      "identity": null,
+      "x64ArchFiles": "**/steamworks.js/dist/osx/*.node"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "dir",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "signAndEditExecutable": false
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "dir",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "category": "Game"
+    }
+  },
+  "description": "Game Master"
 }

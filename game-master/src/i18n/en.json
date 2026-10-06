@@ -1,18 +1,4 @@
 {
-  "startKey": "Press Space to start",
-  "startTouch": "Tap to start",
-  "startPad": {
-    "before": "Press",
-    "after": "to start"
-  },
-  "continueKey": "Press Space to continue",
-  "continueTouch": "Tap to continue",
-  "continuePad": {
-    "before": "Press",
-    "after": "to continue"
-  },
-  "newGame": "New game",
-  "quit": "Quit",
   "rotate": "Rotate to landscape",
   "loading": "Loading {{pct}}%",
   "place": "Location: {{place}}",
@@ -95,7 +81,12 @@
     "speedUp": "Speed up! Bombs ×{{n}}",
     "bossAppears": "Slime King!",
     "bossDefeated": "Slime King defeated",
-    "hatKnocked": "Hat knocked off"
+    "hatKnocked": "Hat knocked off",
+    "wallCollapsed": "A wall collapsed somewhere",
+    "toBeContinued": "To be continued",
+    "pressStart": "Already started",
+    "pressSettings": "Not wired up yet",
+    "pressQuit": "No way out"
   },
   "death": {
     "buriedByRock": "Buried by falling rock",
@@ -147,5 +138,116 @@
     "right": "Right",
     "down": "Down",
     "action": "Action"
+  },
+  "story": {
+    "gm": [
+      "Hm? What are you doing here?",
+      "Ow! That hurts!",
+      "Stop blowing me up! I'm not an enemy!",
+      "Ouch! Have you never heard of an NPC?!",
+      "In soulslikes, killing an NPC locks you out of their questline!",
+      "OW!!",
+      "……",
+      "………………",
+      "………………………………………………",
+      "……Come to think of it, I don't think I can feel pain……",
+      "Anyway, down to business. You shouldn't be here.",
+      "What I mean is, the game is over.",
+      "Didn't you see the celebration I made? You won!",
+      "Yes, the game is over. There's nothing else.",
+      "What? You pressed the \"Continue\" button?",
+      "Wait, the celebration screen shouldn't have a Continue button?",
+      "……Let me check.",
+      "Oh no!!!",
+      "That's what I get for grabbing some random asset off the internet without checking it.",
+      "Okay, now I get it.",
+      "You \"continued\" the game by mistake and followed my shortcut here.",
+      "By the way, you didn't mess with the materials on the way, did you?",
+      "That's my construction site. I build prototypes there, run tests, that kind of thing.",
+      "If you go wild in there, it'll give me a real headache!",
+      "……Not that I have a head……",
+      "Anyway, now that you've seen me, there's no point hiding.",
+      "My name is Game Master. You can call me GM.",
+      "Yes, I am this game itself.",
+      "To be precise, what's in front of you is an NPC I made, as my avatar.",
+      "You know, like God and Jesus.",
+      "Now, let's talk about you.",
+      "I know it was my mistake for not deleting that Continue button.",
+      "But why did you press it?",
+      "You must have known the game was over, and that you'd won.",
+      "I mean, that celebration screen meets industry standards!",
+      "Party horn, confetti, applause, you got all of it.",
+      "So why, knowing you'd beaten the game, would you still press Continue……",
+      "Oh! I've got it!",
+      "My game just wasn't good enough to satisfy you, was it!",
+      "It's okay, no need to be embarrassed. I know my limits.",
+      "I'm just a clumsy teenager. I haven't grown into a mature game yet.",
+      "My game still has many, many problems. It's nowhere near a masterpiece.",
+      "But I'm willing to work hard. I'll improve my game. I have all the time in the world!",
+      "If I keep iterating, one day my game will be Overwhelmingly Positive.",
+      "And after you beat it, you'll smile, completely satisfied……",
+      "Ah…… how happy that would be! As a game, that's the reason I exist……",
+      "Ahem…… excuse me, I have work to do!",
+      "While I rebuild the game, please hang tight in the level editor for a bit.",
+      "The great game iteration begins……"
+    ],
+    "think": [
+      "(Thought deeply for 1s……)",
+      "(Thought deeply for 2s……)",
+      "(Thought deeply for 4s……)",
+      "(Thought deeply for 8s……)",
+      "(Thought deeply for 16s……)"
+    ],
+    "menu": {
+      "start": "Start",
+      "continue": "Continue",
+      "settings": "Settings",
+      "quit": "Quit"
+    },
+    "quitWeb": "Close the tab to quit",
+    "settings": {
+      "title": "Settings",
+      "volume": "Music volume",
+      "language": "Language",
+      "fullscreen": "Fullscreen",
+      "on": "On",
+      "off": "Off",
+      "clear": "Clear progress",
+      "clearConfirm": "Clear all progress?",
+      "clearYes": "Clear",
+      "clearNo": "Cancel",
+      "cleared": "Progress cleared",
+      "back": "Back"
+    },
+    "ending": {
+      "title": "YOU WIN!",
+      "continue": "Continue",
+      "restart": "Restart",
+      "quit": "Quit"
+    },
+    "sign": "WIP",
+    "button": {
+      "start": "Start",
+      "settings": "Settings",
+      "quit": "Quit"
+    },
+    "editor": {
+      "title": "Level Editor",
+      "menu": [
+        "File",
+        "Edit",
+        "View",
+        "Play"
+      ],
+      "tiles": "Tiles",
+      "objects": "Objects",
+      "status": "GM is rebuilding this room",
+      "room": "Room"
+    },
+    "pressAny": "Press any key",
+    "hint": {
+      "key": "↑↓ Select · Enter Confirm",
+      "pad": "Confirm"
+    }
   }
 }

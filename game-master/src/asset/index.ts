@@ -38,6 +38,14 @@ import plate2DownUrl from './plate2_down.png';
 import handHoldUrl from './hand_hold.png';
 import handOpenUrl from './hand_open.png';
 import grabHandUrl from './grab_hand.png';
+import gmHandUrl from './gm_hand.png';
+import gmArmUrl from './gm_arm.png';
+import storySignUrl from './story_sign.png';
+import storyButtonUrl from './story_button.png';
+import storyWireUrl from './story_wire.png';
+import storyPileUrl from './story_pile.png';
+import storyGateUrl from './story_gate.png';
+import openingMusicUrl from './story/openingMusic.mp3';
 import boomUrl from './boob.mp3';
 import bgmUrl from './Pixelated_Coffee.mp3';
 import bossMusicUrl from './boss.mp3';
@@ -88,6 +96,8 @@ export interface ImageAsset { key: string; url: string }
 
 export const SPRITESHEETS: SpriteSheetAsset[] = [
   { key: 'tiles', url: tilesUrl, frameWidth: TILE_SIZE, frameHeight: TILE_SIZE },
+  /** 施工区散落的菜单按钮：上一帧抬起、下一帧按下（字是游戏里现写的） */
+  { key: 'story_button', url: storyButtonUrl, frameWidth: 64, frameHeight: 20 },
 ];
 
 export const IMAGES: ImageAsset[] = [
@@ -127,6 +137,12 @@ export const IMAGES: ImageAsset[] = [
   { key: 'bomb', url: bombUrl },
   { key: 'hand_hold', url: handHoldUrl },
   { key: 'hand_open', url: handOpenUrl },
+  /** 主线剧情：施工牌、线框格（还没画上砖的格子）、一堆素材 */
+  { key: 'story_sign', url: storySignUrl },
+  { key: 'story_wire', url: storyWireUrl },
+  { key: 'story_pile', url: storyPileUrl },
+  /** 剧情墙（只在编辑器里显示：游戏里它就是一格岩石） */
+  { key: 'story_gate', url: storyGateUrl },
 ];
 
 /**
@@ -157,6 +173,22 @@ export const GRAB_HAND = {
   fistHeight: 70,
 };
 
+/**
+ * Game Master 的骷髅手（主线剧情里那只：开场搭地图、拍标题、指着菜单、揉掉「继续」按钮、拉出关卡编辑器……React 里用）。
+ * 横排 4 帧，每帧 frameW × frameH，手臂从左边伸进来、指尖朝右：张开 / 指着 / 捏着 / 握拳（顺序和 HandPose 一致）。
+ * tip = 指尖（指着那一帧）、pinch = 捏合点（捏着那一帧）、palm = 手心：在一帧里的位置（0~1），手按这一点对准目标
+ */
+export const GM_HAND = {
+  url: gmHandUrl,
+  /** 一小段前臂（16 × frameH），在手的左边横向平铺：手伸到画面中间时手臂一直接到画面外 */
+  armUrl: gmArmUrl,
+  frames: ['open', 'point', 'pinch', 'fist'] as const,
+  frameW: 380, frameH: 200,
+  tip: [348 / 380, 66 / 200] as [number, number],
+  pinch: [300 / 380, 84 / 200] as [number, number],
+  palm: [250 / 380, 100 / 200] as [number, number],
+};
+
 /** 对话框头像（React 里用 URL 显示，不进 Phaser）。同一个角色不同表情 = 不同 key，台词里按句指定 */
 /** 左上角生命值的心（HUD 里放大显示，像素风） */
 export const HEART_ICONS = { full: heartFullUrl, empty: heartEmptyUrl };
@@ -175,6 +207,7 @@ export const AUDIO: AudioAsset[] = [
   { key: 'bossLaugh', url: bossLaughUrl },                          // 骷髅消失时的笑声
   { key: 'keyPickup', url: keyPickupUrl },                          // 捡到钥匙（scripts/gen-sfx.sh 合成的，可以换成手工音效）
   { key: 'warning', url: warningUrl },                              // Boss 出场前的 WARNING 警报（过场里循环放）
+  { key: 'openingMusic', url: openingMusicUrl, music: '开场' },      // 标题画面（scripts/gen-story-audio.mjs 合成的占位曲）
 ];
 
 /** 能当背景音乐的曲目 */

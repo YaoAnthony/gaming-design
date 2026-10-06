@@ -43,4 +43,34 @@ describe('桌面版存档文件', () => {
     expect(saves.write(base, '../../etc', '{}')).toMatch(/unknown save/);
     expect(() => saves.read(base, 'passwd')).toThrow(/unknown save/);
   });
+
+  it('Steam 账号：save 放进 save/<SteamID>/，几个账号各存各的；editor 不受影响', () => {
+    saves.write(base, 'save', '{"who":"a"}', '76561198000000001');
+    saves.write(base, 'save', '{"who":"b"}', '76561198000000002');
+    expect(saves.read(base, 'save', '76561198000000001')).toBe('{"who":"a"}');
+    expect(saves.read(base, 'save', '76561198000000002')).toBe('{"who":"b"}');
+    expect(existsSync(path.join(base, 'save', '76561198000000001', 'save.json'))).toBe(true);
+    expect(saves.read(base, 'save')).toBeNull();   // 公共的那份没被写
+    expect(saves.fileOf(base, 'editor', '76561198000000001')).toBe(path.join(base, 'workspace', 'editor.json'));
+  });
+
+  it('Steam 账号不是一串数字：当没有账号（不能借它写到别的目录）', () => {
+    expect(saves.fileOf(base, 'save', '../../x')).toBe(path.join(base, 'save', 'save.json'));
+    expect(saves.isUser('76561198000000001')).toBe(true);
+    expect(saves.isUser('')).toBe(false);
+  });
+
+  it('第一次认出 Steam 账号：接 Steam 之前的公共存档复制过去，公共的留着；已经有自己的就不动', () => {
+    saves.write(base, 'save', '{"v":"shared"}');
+    expect(saves.adoptShared(base, '76561198000000001')).toBe(true);
+    expect(saves.read(base, 'save', '76561198000000001')).toBe('{"v":"shared"}');
+    expect(saves.read(base, 'save')).toBe('{"v":"shared"}');
+    saves.write(base, 'save', '{"v":"mine"}', '76561198000000001');
+    expect(saves.adoptShared(base, '76561198000000001')).toBe(false);
+    expect(saves.read(base, 'save', '76561198000000001')).toBe('{"v":"mine"}');
+  });
+
+  it('没有公共存档：不复制', () => {
+    expect(saves.adoptShared(base, '76561198000000003')).toBe(false);
+  });
 });

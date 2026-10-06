@@ -609,6 +609,33 @@ const boneKnob = (c, x, y, r) => { c.roundRect(x - r - 1, y - r - 1, 2 * r + 2, 
     sheet.blit(c, f * FW, 0);
   });
   sheet.save('grab_hand.png');
+
+  // ---- GM 的骷髅手（剧情里搭地图、拍标题、指菜单、揽走东西用）：和上面同一只手，换几种姿势。
+  //      gm_hand.png：4 帧横排（每帧 380x200）：0 张开、1 食指指着、2 捏着（拇指和食指捏小东西）、3 握拳。
+  //      手臂从左边水平伸进来，指尖朝右；要从右边伸进来就水平翻转。和 asset/index.ts 的 GM_HAND 一致 ----
+  const POSES = [
+    { fingers: [0, 0, 0, 0], thumb: 0 },            // 张开
+    { fingers: [0, 1, 1, 1], thumb: 0.85 },         // 指着：食指伸直，别的攥起来
+    { fingers: [0.5, 0.62, 0.72, 0.8], thumb: 0.62 },   // 捏着
+    { fingers: [1, 1, 1, 1], thumb: 1 },            // 握拳
+  ];
+  const gm = new Canvas(FW * POSES.length, FH);
+  POSES.forEach((pose, f) => {
+    const c = new Canvas(FW, FH);
+    boneSeg(c, [[-8, 88], [188, 88]], 11); boneKnob(c, 186, 88, 9);
+    boneSeg(c, [[-8, 116], [186, 116]], 10); boneKnob(c, 184, 116, 8);
+    CARPALS.forEach(([x, y]) => boneKnob(c, x, y, 7));
+    FINGERS.forEach(g => boneSeg(c, [g.from, g.knuckle], 7));
+    [...FINGERS].reverse().forEach((g, i) => boneSeg(c, finger(g.knuckle, g.dir, g.lens, pose.fingers[FINGERS.length - 1 - i]), 7));
+    boneSeg(c, thumb([206, 82], pose.thumb), 7);
+    gm.blit(c, f * FW, 0);
+  });
+  gm.save('gm_hand.png');
+  // gm_arm.png：16x200，只有两根前臂骨（和手的贴图同一高度）。手伸到画面中间时，在手的贴图左边横向平铺它，手臂一直接到画面外面
+  const arm = new Canvas(16, FH);
+  boneSeg(arm, [[-8, 88], [24, 88]], 11);
+  boneSeg(arm, [[-8, 116], [24, 116]], 10);
+  arm.save('gm_arm.png');
 }
 
 
@@ -680,4 +707,47 @@ const boneKnob = (c, x, y, r) => { c.roundRect(x - r - 1, y - r - 1, 2 * r + 2, 
   ridge(duskHills, BH * 0.72, 22, [[1, 0.5, 1], [3, 2.1, 0.5]], 0x4a2547);
   ridge(duskHills, BH * 0.86, 14, [[2, 1.4, 1], [6, 0.2, 0.3]], 0x24122b);
   duskHills.save('backgrounds/dusk_hills.png');
+}
+
+// ---- 主线剧情：施工区的道具（game/mechanics/story/）----
+{
+  // 施工牌 32x40：黄黑斜纹的牌子立在一根杆子上（字是游戏里现写的）
+  const sign = new Canvas(32, 40);
+  sign.rect(14, 18, 4, 22, 0x6b5a45); sign.rect(14, 18, 1, 22, 0x8a7558);   // 杆子
+  sign.rect(1, 2, 30, 18, 0x1a1a1a);
+  for (let x = -18; x < 32; x += 8) for (let j = 0; j < 16; j++) for (let i = 0; i < 4; i++) {   // 斜纹
+    const px = x + i + j, py = 3 + j;
+    if (px >= 2 && px < 30) sign.set(px, py, 0xf2c14e);
+  }
+  sign.rect(5, 7, 22, 8, 0xf2c14e);   // 中间写字的那条（黄底）
+  sign.save('story_sign.png');
+
+  // 菜单按钮 64x20 两帧（上下排）：抬起 / 按下（按下的那帧矮一截、颜色暗一点）
+  const btn = new Canvas(64, 40);
+  btn.roundRect(0, 4, 64, 16, 4, 0x15182c); btn.roundRect(1, 4, 62, 14, 4, 0x2a3160); btn.rect(4, 5, 56, 2, 0x4a55a0);
+  btn.roundRect(0, 28, 64, 12, 4, 0x15182c); btn.roundRect(1, 28, 62, 10, 4, 0x1e2448);
+  btn.save('story_button.png');
+
+  // 线框格 32x32：编辑器里还没画上砖的格子（虚线框 + 中间一个小十字）
+  const wire = new Canvas(32, 32);
+  for (let i = 0; i < 32; i += 6) for (let k = 0; k < 3; k++) {
+    wire.set(i + k, 0, 0x8fd3ff); wire.set(i + k, 31, 0x8fd3ff); wire.set(0, i + k, 0x8fd3ff); wire.set(31, i + k, 0x8fd3ff);
+  }
+  wire.rect(15, 12, 2, 8, 0x8fd3ff); wire.rect(12, 15, 8, 2, 0x8fd3ff);
+  wire.save('story_wire.png');
+
+  // 一堆素材 32x32：几块小砖斜着堆在地上
+  const pile = new Canvas(32, 32);
+  pile.rect(2, 22, 12, 10, 0x5d6470); pile.rect(2, 22, 12, 2, 0x7a828f);
+  pile.rect(16, 24, 14, 8, 0xd9a066); pile.rect(16, 24, 14, 2, 0xe8b884);
+  pile.rect(9, 14, 12, 9, 0xc9b27c); pile.rect(9, 14, 12, 2, 0xdcc89a);
+  pile.rect(20, 18, 10, 3, 0xb07a45);
+  pile.save('story_pile.png');
+
+  // 剧情墙 32x32（只在编辑器里看得到）：一格岩石，四周金色虚线，中间一道裂缝
+  const gate = new Canvas(32, 32);
+  gate.rect(0, 0, 32, 32, 0x5d6470); gate.rect(2, 4, 12, 10, 0x474d57); gate.rect(18, 16, 12, 12, 0x474d57);
+  gate.line(16, 2, 12, 14, 0x1a1d24, 2); gate.line(12, 14, 19, 22, 0x1a1d24, 2); gate.line(19, 22, 15, 30, 0x1a1d24, 2);
+  for (let i = 0; i < 32; i += 6) for (let k = 0; k < 3; k++) { gate.set(i + k, 0, 0xffd166); gate.set(i + k, 31, 0xffd166); gate.set(0, i + k, 0xffd166); gate.set(31, i + k, 0xffd166); }
+  gate.save('story_gate.png');
 }

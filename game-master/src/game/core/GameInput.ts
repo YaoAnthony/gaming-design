@@ -3,6 +3,7 @@
 import Phaser from 'phaser';
 import type { MoveInput } from '@/game/mechanics/define';
 import { bridge, EVT, type CrumpleDone, type HeroEntryQuery, type ScreenSpot } from '@/protocol';
+import type { EndingChoice } from '@/story/config';
 import { INPUT_DOWN, touch, TOUCH_ACTION, TOUCH_JUMP } from '@/shared/input';
 import { padAction, readPads } from '@/game/gamepad';
 
@@ -18,6 +19,8 @@ export interface InputHandlers {
   nextLevel(): void;
   /** ESC / 手柄 Back / 编辑器按钮；只在试玩时挂 ESC */
   exitPlaytest(): void;
+  /** 结局画面（「你赢了！」）上选了一项 */
+  endingChoice(c: EndingChoice): void;
   crumpleFreeze(): void;
   crumpleDone(d: CrumpleDone): void;
   /** 让主角跳出画面 / 主角要从这里走回画面，能落在哪 / 主角走回画面了 */
@@ -44,7 +47,7 @@ export class GameInput {
     const touchPress = () => h.press('touch');
     bridge.on(TOUCH_JUMP, touchPress); bridge.on(TOUCH_ACTION, touchPress);
     bridge.on(EVT.requestReset, h.reset); bridge.on(EVT.continueGame, h.continueGame); bridge.on(EVT.restartGame, h.restartRun); bridge.on(EVT.nextLevel, h.nextLevel);
-    bridge.on(EVT.requestPlaytestExit, h.exitPlaytest);
+    bridge.on(EVT.requestPlaytestExit, h.exitPlaytest); bridge.on(EVT.endingChoice, h.endingChoice);
     bridge.on(EVT.crumpleFreeze, h.crumpleFreeze); bridge.on(EVT.crumpleDone, h.crumpleDone);
     bridge.on(EVT.heroPopOut, h.popOut); bridge.on(EVT.heroEntry, h.heroEntry); bridge.on(EVT.heroReturn, h.heroReturn);
     // 手柄按钮：和对应的键盘键做同样的事（映射表在 game/gamepad.ts）；方向在 read 里读
@@ -59,7 +62,7 @@ export class GameInput {
       scene.input.gamepad?.off(Phaser.Input.Gamepad.Events.BUTTON_DOWN, onPad);
       bridge.off(TOUCH_JUMP, touchPress); bridge.off(TOUCH_ACTION, touchPress);
       bridge.off(EVT.requestReset, h.reset); bridge.off(EVT.continueGame, h.continueGame); bridge.off(EVT.restartGame, h.restartRun); bridge.off(EVT.nextLevel, h.nextLevel);
-      bridge.off(EVT.requestPlaytestExit, h.exitPlaytest);
+      bridge.off(EVT.requestPlaytestExit, h.exitPlaytest); bridge.off(EVT.endingChoice, h.endingChoice);
       bridge.off(EVT.crumpleFreeze, h.crumpleFreeze); bridge.off(EVT.crumpleDone, h.crumpleDone);
       bridge.off(EVT.heroPopOut, h.popOut); bridge.off(EVT.heroEntry, h.heroEntry); bridge.off(EVT.heroReturn, h.heroReturn);
       touch.left = false; touch.right = false; touch.up = false; touch.down = false;

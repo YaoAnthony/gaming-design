@@ -16,6 +16,7 @@ import type { Dialogue } from './Dialogue';
 import type { Debris } from './Debris';
 import type { Enemies } from './Enemies';
 import type { LightKind } from './sceneFx';
+import type { StoryFlag } from '@/story/flags';
 
 /** 旋涡能吸走的东西：有位置、缩放、透明度 */
 export type Suckable = Phaser.GameObjects.GameObject & Phaser.GameObjects.Components.Transform & Phaser.GameObjects.Components.AlphaSingle;
@@ -94,8 +95,20 @@ export interface PlayContext {
   die(reason: DeathKey): void;
   /** 挨一下：扣一颗心、被往 from 的反方向弹开；心扣光才死（没开生命值的层直接死）。被压、被埋这种用 die */
   hurt(reason: DeathKey, from?: Point): void;
-  /** final = 真结束；否则是「假通关」，按一下继续玩 */
+  /** final = 真结束；否则是「假通关」，按一下继续玩。这一层的终点是一幕的结局（story/config.ts 的 ENDINGS）就换成那一幕的庆祝画面 */
   win(final: boolean): void;
+  /** 有机制让主角晚点出场（Mechanic.delaysEntrance）：现在放出来 */
+  enter(): void;
+  /** 清空存档、从第一层的出生点开一局新的（试玩：从试玩的起点重来） */
+  newGame(): void;
+  /** 主线剧情走到哪了（存档里的事件标记，见 story/flags.ts）。试玩时只记在这一场里、不进存档，也不读存档里的 */
+  story: {
+    has(f: StoryFlag): boolean;
+    /** 记下「这件事发生过」，通知 watch 的 */
+    flag(f: StoryFlag): void;
+    /** 有标记新记下时调 cb（场景关了自动解除） */
+    watch(cb: (f: StoryFlag) => void): void;
+  };
   /** 换层；给了 via（门的位置）就先来一段旋涡 */
   goToFloor(id: string, via?: Point): void;
   /** 点燃引线端点（带颜色：只沿这种颜色烧），返回会烧到几格；0 = 什么都没点着 */
@@ -124,6 +137,8 @@ export interface PlayContext {
     rhythmMode(mode: string): void;
     /** 整个画面闪一下白光（破屏） */
     whiteout(): void;
+    /** 关卡编辑器套在游戏画面外面（第二幕）；gm = GM 的化身已经在物品栏里 */
+    editorShell(v: { on: boolean; gm: boolean }): void;
   };
 
   /** 本层启用的另一个机制的实例（没启用就是 undefined） */

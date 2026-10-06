@@ -3,6 +3,7 @@ import { shallowEqual } from 'react-redux';
 import { useTranslation } from 'react-i18next';
 import { useAppSelector } from '@/redux/hooks';
 import { WinModal } from './WinModal';
+import { Celebration } from './story/Celebration';
 import { bridge, EVT } from '@/protocol';
 import { AVATARS, HEART_ICONS } from '@/asset';
 import { Typewriter } from './Typewriter';
@@ -84,7 +85,7 @@ const Score = memo(function Score() {
  * 血条、心、分数、节奏关卡的判定字各自只订自己那一小块：节奏关卡里每个音符都会派发好几次，不能每次把整个 HUD 重画一遍
  */
 export function Hud() {
-  const hud = useAppSelector(s => s.hud, (a, b) => a.mode === b.mode && a.bossIntro === b.bossIntro && a.place === b.place && a.whiteout === b.whiteout && a.message === b.message
+  const hud = useAppSelector(s => s.hud, (a, b) => a.mode === b.mode && a.ending === b.ending && a.bossIntro === b.bossIntro && a.place === b.place && a.whiteout === b.whiteout && a.message === b.message
     && a.dialogue === b.dialogue && a.jumps === b.jumps && a.destroyed === b.destroyed && a.playtest === b.playtest && a.final === b.final && a.wonStage === b.wonStage && a.wonHat === b.wonHat);
   const { t } = useTranslation();
   const [msgVisible, setMsgVisible] = useState(false);
@@ -97,7 +98,7 @@ export function Hud() {
 
   useEffect(() => { if (!hud.message) return; setMsgVisible(true); const t = setTimeout(() => setMsgVisible(false), 1100); return () => clearTimeout(t); }, [hud.message]);
 
-  if (hud.mode === 'idle') return null;
+  if (hud.mode === 'idle' || hud.mode === 'opening') return null;
   return (
     <div className="hud">
       {hud.bossIntro === 'warning' && (
@@ -131,7 +132,7 @@ export function Hud() {
           {hud.dialogue.avatar && AVATARS[hud.dialogue.avatar] && <img className="dialogue-avatar" src={AVATARS[hud.dialogue.avatar]} alt="" />}
           <div className="dialogue-body">
             <div className="dialogue-name">{hud.dialogue.speaker}</div>
-            <div className={'dialogue-text' + (hud.dialogue.grow ? ' grow' : '')}><Typewriter key={hud.dialogue.index + ":" + hud.dialogue.text} text={hud.dialogue.text} grow={hud.dialogue.grow} /></div>
+            <div className={'dialogue-text' + (hud.dialogue.grow ? ' grow' : '') + (hud.dialogue.think ? ' think' : '')}><Typewriter key={hud.dialogue.index + ":" + hud.dialogue.text} text={hud.dialogue.text} grow={hud.dialogue.grow} /></div>
             {!hud.dialogue.auto && <div className="dialogue-hint">▸</div>}
           </div>
         </div>
@@ -144,7 +145,8 @@ export function Hud() {
             : <div className="death-sub death-sub-pad"><span>{t('deadPad.before')}</span><ResetButtonIcon kind={device} /><span>{t('deadPad.after')}</span></div>}
         </div>
       )}
-      {hud.mode === 'won' && !winClosed && (
+      {hud.mode === 'won' && hud.ending && <Celebration key={hud.ending.id} choices={hud.ending.choices} />}
+      {hud.mode === 'won' && !hud.ending && !winClosed && (
         <WinModal jumps={hud.jumps} destroyed={hud.destroyed} playtest={hud.playtest} final={hud.final} stage={hud.wonStage} hat={hud.wonHat}
           onClose={() => { if (hud.final) setWinClosed(true); else bridge.emit(EVT.continueGame); }}
           onRetry={() => bridge.emit(EVT.restartGame)}

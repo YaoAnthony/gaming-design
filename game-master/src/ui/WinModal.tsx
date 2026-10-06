@@ -1,5 +1,7 @@
 // ===== 通关弹窗：和对话框同一套样子（深底、米白描边），后面炸一次礼花。右上角 X 关掉，「再来一次」从这一局的起点重开 =====
+// 键盘 / 手柄：回车、A 按下面那个按钮（再来一次 / 进入下一关），Esc、B 关掉（ui/menu/useMenuNav）
 import { useTranslation } from 'react-i18next';
+import { useMenuNav } from './menu/useMenuNav';
 import { motion } from 'motion/react';
 import { Confetti } from './Confetti';
 
@@ -21,6 +23,7 @@ interface Props {
 export function WinModal({ jumps, destroyed, playtest, final, stage, hat, onClose, onRetry, onNext }: Props) {
   const { t } = useTranslation();
   const title = hat ? t(`wonHat${Math.min(Math.max(stage, 0), 2)}`) : t('won');
+  useMenuNav({ count: 1, index: 0, setIndex: () => {}, onPick: () => (final ? onRetry() : onNext()), onBack: onClose });
   return (
     <div className="modal-backdrop">
       <Confetti />

@@ -5,7 +5,7 @@ import reactHooks from 'eslint-plugin-react-hooks';
 import globals from 'globals';
 
 export default tseslint.config(
-  { ignores: ['dist', 'node_modules'] },
+  { ignores: ['dist', 'node_modules', 'release', 'steam/build'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
@@ -19,9 +19,9 @@ export default tseslint.config(
     },
   },
   // 引擎边界：Phaser 一侧（game/）和 3D 一侧互不引入，只通过 src/protocol 和 Redux 说话；
-  // 两边都要用的东西（调色板、输入、合成音、存储……）放在不依赖任何引擎的 shared / audio / platform / protocol / rhythm 里
+  // 两边都要用的东西（调色板、输入、合成音、存储、剧情的数据……）放在不依赖任何引擎的 shared / audio / platform / protocol / rhythm / story 里
   {
-    files: ['src/protocol/**/*.ts', 'src/rhythm/**/*.ts', 'src/audio/**/*.ts', 'src/platform/**/*.ts', 'src/shared/**/*.ts'],
+    files: ['src/protocol/**/*.ts', 'src/rhythm/**/*.ts', 'src/audio/**/*.ts', 'src/platform/**/*.ts', 'src/shared/**/*.ts', 'src/story/**/*.ts'],
     rules: { 'no-restricted-imports': ['error', { paths: ['phaser', 'three'], patterns: ['three/*', '@/game/*', '@/sprite/*', '@/stage3d/*', '@/world3d/*', '@/ui/*'] }] },
   },
   {

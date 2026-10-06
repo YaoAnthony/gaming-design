@@ -1,7 +1,7 @@
 // ===== 存储后端：游戏只说「读 / 写某一份」，存在哪由运行环境决定 =====
 // - 浏览器（网页版、开发服务器）：localStorage，一份一个 key
-// - 桌面版（Electron）：preload 暴露的 window.gameDesktop.save，主进程写成用户数据目录下的 <名字>.json。
-//   Steam 的自动云同步（Auto-Cloud）只要指向那个目录就能同步存档，不用接 SDK，见 docs/desktop.md
+// - 桌面版（Electron）：preload 暴露的 window.gameDesktop.save，主进程写成用户数据目录下的 <名字>.json
+//   （从 Steam 启动时按 Steam 账号分文件夹）。Steam 的自动云同步（Auto-Cloud）指向那个目录就能同步存档，见 docs/desktop.md
 // 不依赖任何引擎；Redux（redux/persist.ts）是唯一的调用方。
 
 /**
@@ -26,6 +26,8 @@ export interface DesktopBridge {
   /** 切换全屏 */
   toggleFullscreen(): void;
   quit(): void;
+  /** 主进程要退出了：cb 里把还没写的存档马上写掉（Steam 云在游戏退出之后上传） */
+  onFlush(cb: () => void): void;
 }
 
 declare global {

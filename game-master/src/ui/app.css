@@ -234,37 +234,7 @@ label.check { display: flex; align-items: center; gap: 6px; margin: 8px 0; color
 /* 字体放在项目里（src/asset/fonts，只含拉丁字符，OFL 协议），离线也能用；中文走系统字体 */
 @font-face { font-family: "Press Start 2P"; src: url("../asset/fonts/PressStart2P.woff2") format("woff2"); font-display: block; }
 @font-face { font-family: "Space Grotesk"; font-weight: 700; src: url("../asset/fonts/SpaceGrotesk-Bold.woff2") format("woff2"); font-display: swap; }
-.title-screen { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: clamp(28px, 7vh, 72px); cursor: pointer; user-select: none; -webkit-user-select: none; container-type: size;
-  background:
-    radial-gradient(ellipse at center, rgba(30, 60, 90, .45) 0%, transparent 65%),
-    linear-gradient(rgba(76, 201, 240, .05) 1px, transparent 1px) 0 0 / 40px 40px,
-    linear-gradient(90deg, rgba(76, 201, 240, .05) 1px, transparent 1px) 0 0 / 40px 40px,
-    #0b0b14; }
-.title-logo { margin: 0; display: flex; flex-direction: column; align-items: center; gap: .35em; font-family: "Press Start 2P", ui-monospace, monospace; font-weight: normal; font-size: min(11cqw, 17cqh); line-height: 1; color: #f1efe6;
-  text-shadow: 0 .07em 0 #9a6a3c, 0 0 .35em rgba(76, 201, 240, .45); }
-.title-line2 { position: relative; }
-/* 小人站在 R 右边，脚和字底对齐，一直跳 */
-.title-hero { position: absolute; left: 100%; bottom: 0; margin-left: .3em; height: .75em; image-rendering: pixelated; transform-origin: 50% 100%; animation: hero-jump .9s cubic-bezier(.3, 0, .4, 1) infinite; }
-@keyframes hero-jump {
-  0%, 100% { transform: translateY(0) scale(1.12, .88); }
-  12% { transform: translateY(0) scale(1, 1); }
-  45% { transform: translateY(-.9em) scale(.92, 1.08); }
-  55% { transform: translateY(-.9em) scale(1, 1); }
-  88% { transform: translateY(0) scale(1, 1); }
-}
-.title-prompt { font-family: "Space Grotesk", -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; font-weight: 700; font-size: clamp(16px, 3.2cqw, 40px); color: #ffd166; letter-spacing: .02em; animation: prompt-blink 1.4s ease-in-out infinite; }
-@keyframes prompt-blink { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
-/* 认出手柄后：手柄剪影 + 「Press Ⓐ to start」，图标是像素画（PadIcons.tsx），跟着字号缩放 */
-.title-prompt-pad { display: flex; align-items: center; gap: .4em; }
-.title-prompt-pad > .pad-icon:first-child { margin-right: .3em; }
 .pad-icon { display: block; flex: none; }
-.title-lang { position: absolute; top: max(14px, env(safe-area-inset-top)); right: max(16px, env(safe-area-inset-right)); background: transparent; border: 1px solid rgba(241, 239, 230, .35); border-radius: 6px; color: #f1efe6; padding: 6px 12px; font-size: 13px; cursor: pointer; }
-.title-lang:hover { border-color: #4cc9f0; color: #4cc9f0; }
-.title-new { position: absolute; top: max(14px, env(safe-area-inset-top)); left: max(16px, env(safe-area-inset-left)); background: transparent; border: 1px solid rgba(241, 239, 230, .35); border-radius: 6px; color: #f1efe6; padding: 6px 12px; font-size: 13px; cursor: pointer; }
-.title-new:hover { border-color: #4cc9f0; color: #4cc9f0; }
-.title-quit { position: absolute; bottom: max(14px, env(safe-area-inset-bottom)); right: max(16px, env(safe-area-inset-right)); background: transparent; border: 1px solid rgba(241, 239, 230, .35); border-radius: 6px; color: #f1efe6; padding: 6px 12px; font-size: 13px; cursor: pointer; }
-.title-quit:hover { border-color: #ef476f; color: #ef476f; }
-@media (prefers-reduced-motion: reduce) { .title-hero, .title-prompt { animation: none; } }
 
 /* ---- 第四面墙：攥纸团。冻住之前是透明的一层（只有手），不挡鼠标 / 触摸；冻住之后铺上背景，连 HUD 和手机按键一起盖住 ---- */
 /* 3D 舞台：盖在游戏画布上面、HUD 下面；平时藏着 */
@@ -305,3 +275,96 @@ label.check { display: flex; align-items: center; gap: 6px; margin: 8px 0; color
 .lab-key { display: flex; align-items: center; gap: 5px; padding: 3px 7px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; }
 .lab-key kbd { padding: 1px 6px; font-weight: bold; color: #0b0b14; background: #ffd166; border-radius: 4px; }
 .lab-status { color: #80ed99; }
+
+/* ==== 主线剧情（ui/story/）==== */
+.story-layer { position: absolute; inset: 0; pointer-events: none; overflow: hidden; container-type: size; }
+.stage > .phaser-host { transition: transform .7s cubic-bezier(.3, .8, .3, 1); }
+.stage.shake { animation: stage-shake .3s linear; }
+.stage.shake-strong { animation: stage-shake-strong .32s linear; }
+@keyframes stage-shake { 0%, 100% { transform: none; } 20% { transform: translate(-4px, 3px); } 40% { transform: translate(4px, -2px); } 60% { transform: translate(-3px, -3px); } 80% { transform: translate(2px, 2px); } }
+@keyframes stage-shake-strong { 0%, 100% { transform: none; } 15% { transform: translate(-9px, 7px); } 35% { transform: translate(8px, -6px); } 55% { transform: translate(-6px, -5px); } 75% { transform: translate(5px, 4px); } }
+
+/* 骷髅手：外层负责位置（transform 过渡），里面是前臂和手 */
+.gm-hand { position: absolute; left: 0; top: 0; pointer-events: none; will-change: transform; z-index: 6; filter: drop-shadow(0 6px 8px rgba(0, 0, 0, .45)); }
+.gm-hand-img, .gm-hand-arm { position: absolute; top: 0; background-repeat: no-repeat; image-rendering: pixelated; }
+.gm-hand-img { left: 0; }
+.gm-hand-arm { background-repeat: repeat-x; }
+.gm-hand.tremble .gm-hand-img, .gm-hand.tremble .gm-hand-arm { animation: hand-tremble .07s linear infinite; }
+@keyframes hand-tremble { 0% { transform: translate(0, 0); } 25% { transform: translate(2px, -2px); } 50% { transform: translate(-2px, 1px); } 75% { transform: translate(1px, 2px); } }
+
+/* 标题画面：标题 + 三个按钮（骷髅手一个个拍进来）*/
+.opening { position: absolute; inset: 0; pointer-events: auto; display: flex; align-items: center; justify-content: center; user-select: none; -webkit-user-select: none; }
+.op-menu { display: flex; flex-direction: column; align-items: center; gap: 2.4cqh; transition: opacity .2s; }
+.op-menu.dim { opacity: .2; }
+.op-title { margin: 0 0 2.5cqh; text-align: center; font-family: "Press Start 2P", ui-monospace, monospace; font-weight: normal; font-size: min(9cqw, 13cqh); line-height: 1.2; color: #f1efe6;
+  text-shadow: 0 .07em 0 #9a6a3c, .1em .14em 0 rgba(0, 0, 0, .55), 0 0 .4em rgba(155, 93, 229, .55); }
+.op-btn, .cel-btn, .st-row { font-family: "Press Start 2P", "PingFang SC", "Microsoft YaHei", sans-serif; cursor: pointer; color: #f1efe6; background: rgba(11, 11, 20, .9); border: clamp(2px, .35cqh, 4px) solid #f1efe6; border-radius: 8px; }
+.op-btn { min-width: 10em; padding: .7em 1.6em; font-size: clamp(11px, min(3.2cqh, 4cqw), 30px); box-shadow: 0 .25em 0 rgba(0, 0, 0, .5); }
+.op-btn.sel, .cel-btn.sel, .st-row.sel { background: #ffd166; border-color: #ffd166; color: #0b0b14; }
+.op-note { margin-top: 1cqh; font-family: -apple-system, "PingFang SC", sans-serif; font-size: clamp(12px, 2.4cqh, 22px); color: #c9d1f0; background: rgba(11, 11, 20, .85); padding: .3em .8em; border-radius: 6px; }
+.op-hint { position: absolute; bottom: 4cqh; left: 0; right: 0; display: flex; justify-content: center; align-items: center; gap: .5em; font-family: -apple-system, "PingFang SC", sans-serif; font-size: clamp(11px, 2.2cqh, 20px); color: rgba(241, 239, 230, .75); text-shadow: 0 1px 2px #000; }
+
+/* 设置 */
+.op-settings { position: absolute; display: flex; flex-direction: column; gap: 1.4cqh; min-width: min(70cqw, 30em); padding: 3cqh 3cqw; background: rgba(11, 11, 20, .96); border: 3px solid #f1efe6; border-radius: 12px; box-shadow: 0 10px 40px rgba(0, 0, 0, .6); }
+.st-title { font-family: "Press Start 2P", "PingFang SC", sans-serif; color: #ffd166; font-size: clamp(14px, 3.4cqh, 30px); text-align: center; margin-bottom: 1cqh; }
+.st-row { display: flex; justify-content: space-between; align-items: center; gap: 2em; padding: .65em 1em; font-size: clamp(11px, 2.6cqh, 22px); text-align: left; }
+.st-row.danger { border-color: #ef476f; }
+.st-row.danger.sel { background: #ef476f; border-color: #ef476f; color: #fff; }
+.st-val { white-space: nowrap; }
+.st-bar { display: flex; gap: 3px; }
+.st-bar i { width: .55em; height: 1em; background: rgba(241, 239, 230, .2); }
+.st-bar i.on { background: currentColor; }
+.st-ask { color: #f1efe6; font-family: -apple-system, "PingFang SC", sans-serif; font-size: clamp(13px, 2.8cqh, 24px); text-align: center; padding: 1cqh 0; }
+.st-note { color: #80ed99; font-family: -apple-system, "PingFang SC", sans-serif; text-align: center; font-size: clamp(11px, 2.2cqh, 18px); }
+
+/* 第一幕的结局：夸张的庆祝 */
+.celebration { position: absolute; inset: 0; pointer-events: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow: hidden; container-type: size;
+  background: radial-gradient(ellipse at center, rgba(255, 209, 102, .35), rgba(155, 93, 229, .35) 45%, rgba(11, 11, 20, .88) 80%); }
+.celebration.inspect { pointer-events: none; }
+.cel-rays { position: absolute; inset: -60%; background: repeating-conic-gradient(from 0deg, rgba(255, 209, 102, .16) 0 9deg, transparent 9deg 18deg); animation: cel-spin 14s linear infinite; pointer-events: none; }
+@keyframes cel-spin { to { transform: rotate(360deg); } }
+.cel-title { position: relative; font-family: "PingFang SC", "Microsoft YaHei", "Press Start 2P", sans-serif; font-weight: 900; font-size: min(17cqw, 30cqh); line-height: 1; letter-spacing: .04em;
+  background: linear-gradient(90deg, #ffd166, #ef476f, #9b5de5, #4cc9f0, #80ed99, #ffd166); background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(.04em .06em 0 #0b0b14) drop-shadow(0 0 .2em rgba(255, 209, 102, .6));
+  animation: cel-pop .7s cubic-bezier(.2, 1.8, .4, 1) both, cel-shine 2.4s linear infinite, cel-wobble 1.6s ease-in-out .7s infinite; }
+.celebration.inspect .cel-title { animation: none; }
+@keyframes cel-pop { from { transform: scale(3) rotate(-8deg); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes cel-shine { to { background-position: 200% 0; } }
+@keyframes cel-wobble { 0%, 100% { transform: rotate(-2deg) scale(1); } 50% { transform: rotate(2deg) scale(1.05); } }
+.cel-choices { position: relative; display: flex; flex-wrap: wrap; justify-content: center; gap: 2cqh 3cqw; max-width: 94cqw; margin-top: 7cqh; }
+.cel-btn { padding: .7em 1.4em; font-size: clamp(11px, min(3cqh, 3.4cqw), 28px); box-shadow: 0 .25em 0 rgba(0, 0, 0, .5); }
+.cel-btn.gone { visibility: hidden; }
+
+/* 演出 */
+.cutscene { position: absolute; inset: 0; pointer-events: none; }
+.cs-panel { position: absolute; inset: 0; }
+.cs-crumpling { position: absolute; display: grid; place-items: center; box-sizing: border-box; background: #f1efe6; color: #0b0b14; border-radius: 8px; font-family: "Press Start 2P", "PingFang SC", sans-serif; font-size: clamp(12px, 3cqh, 28px); overflow: hidden; animation: cs-crumple .65s cubic-bezier(.5, 0, .7, 1) forwards; }
+@keyframes cs-crumple { 40% { transform: scale(.75, .6) rotate(-12deg); border-radius: 30%; color: transparent; } to { transform: scale(.32) rotate(-160deg); border-radius: 50%; color: transparent; box-shadow: inset -6px -8px 0 rgba(0, 0, 0, .18); } }
+.cs-ball { position: absolute; left: 0; top: 0; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff, #ebe7d8 40%, #b8b29c 100%); box-shadow: inset -4px -5px 0 rgba(0, 0, 0, .15), 0 4px 10px rgba(0, 0, 0, .4); }
+.cs-carried { position: absolute; left: 0; top: 0; background-size: 100% 100%; background-repeat: no-repeat; image-rendering: pixelated; }
+
+/* 第二幕：游戏画面缩进关卡编辑器（时长和 EditorShell.tsx 的 EDITOR_SHELL_MS 一致）*/
+.stage.in-editor > .phaser-host { transform: translateY(2%) scale(.72); }
+.editor-shell { position: absolute; inset: 0; pointer-events: none; animation: es-in .7s ease-out; font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
+@keyframes es-in { from { opacity: 0; } to { opacity: 1; } }
+.es-top, .es-side, .es-status { position: absolute; box-sizing: border-box; background: #141a30; border: 1px solid #2a3560; color: #c9d1f0; font-size: clamp(9px, 1.6cqh, 14px); overflow: hidden; }
+.es-top { display: flex; align-items: center; gap: 1.4em; padding: 0 .8em; border-radius: 8px 8px 0 0; }
+.es-top b { color: #4cc9f0; }
+.es-top span { color: #9aa0b4; }
+.es-side { display: flex; flex-direction: column; align-items: center; padding: .6em .3em; gap: .6em; }
+.es-head { color: #9aa0b4; }
+.es-grid { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+.es-tile { display: block; box-sizing: border-box; border: 2px solid #2a3560; border-radius: 4px; image-rendering: pixelated; background-repeat: no-repeat; transition: transform .08s; }
+.es-tile.on { border-color: #ffd166; box-shadow: 0 0 8px rgba(255, 209, 102, .7); }
+.es-tile.pressed { transform: scale(.85); }
+.es-obj { background-size: contain; background-position: center; background-color: #0e1326; }
+.es-gm { border-style: dashed; border-color: #9b5de5; }
+.es-gm.filled { border-style: solid; box-shadow: 0 0 10px rgba(155, 93, 229, .8); }
+.es-status { display: flex; justify-content: space-between; align-items: center; padding: 0 .8em; border-radius: 0 0 8px 8px; color: #9aa0b4; }
+
+/* 网页版的第一屏：按任意键（浏览器要先有一下交互才让出声）*/
+.audio-gate { position: absolute; inset: 0; display: grid; place-items: center; background: #05060d; cursor: pointer; font-family: "Press Start 2P", "PingFang SC", sans-serif; font-size: clamp(12px, 2.4vw, 22px); color: #ffd166; }
+.audio-gate span { animation: prompt-blink 1.4s ease-in-out infinite; }
+@keyframes prompt-blink { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+.dialogue-text.think { color: #9aa0b4; font-style: italic; }
+@media (prefers-reduced-motion: reduce) { .cel-rays, .cel-title, .audio-gate span { animation: none; } }

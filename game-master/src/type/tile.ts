@@ -122,6 +122,8 @@ export interface DialogueLine {
   shout?: string;
   /** 越说越大：台词用 | 分成几截，一截比一截大 */
   grow?: boolean;
+  /** 「思考中」的那种灰字（GM 的「已深度思考 Ns……」） */
+  think?: boolean;
 }
 
 export interface NpcSpawn extends Point {

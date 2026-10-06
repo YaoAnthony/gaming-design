@@ -1,7 +1,8 @@
 // ===== 手柄：标准布局（Xbox、PS 按钮位置一样）的默认映射 =====
 // 浏览器要等页面打开后按一下手柄上的键才认得出手柄。按钮编号是浏览器 Gamepad API 的标准布局：
 // 0 = A / ✕，1 = B / ○，2 = X / □，3 = Y / △，8 = Back / Select，9 = Start，12~15 = 十字键上下左右。
-// 左摇杆、十字键 = 方向键；游戏里的按钮在 GameScene.bindInput 接，标题画面在 TitleScreen 自己查。
+// 左摇杆、十字键 = 方向键。游戏里的按钮在 game/core/GameInput 接；菜单（标题、设置、结局画面）在 ui/menu/useMenuNav 直接查浏览器的手柄。
+// 完整的键位表见 docs/controls.md。
 import type { MoveInput } from './input';
 
 /** 按钮 → 动作。改键就改这张表 */
@@ -12,8 +13,10 @@ export const GAMEPAD_BUTTONS = {
   reset: [3],
   /** 编辑器试玩时退出：和 ESC 一样 */
   exit: [8],
-  /** 标题画面开始游戏 */
-  start: [0, 9],
+  /** 菜单：选中（A / ✕，或 Start）——标题、设置、结局画面 */
+  confirm: [0, 9],
+  /** 菜单：返回（B / ○，或 Back / Select）——设置里退回上一层、关掉确认框 */
+  back: [1, 8],
 } as const satisfies Record<string, readonly number[]>;
 
 /** 十字键的按钮编号（标准布局） */
@@ -64,7 +67,20 @@ export function padKind(id: string): PadKind {
   return /054c|dualsense|dualshock|playstation/i.test(id) ? 'ps' : 'xbox';
 }
 
-/** 这些手柄里有没有哪个正按着这几个按钮之一（标题画面直接查 navigator.getGamepads()） */
+/**
+ * 菜单里按住方向键的连发：刚按下走一格，按住超过 delay 之后每 every 毫秒再走一格。
+ * 纯函数（每帧给它这一帧的方向和时间，返回这一帧要不要走、往哪走），手柄和测试都用它
+ */
+export interface RepeatState { dir: -1 | 0 | 1; since: number; last: number }
+export const MENU_REPEAT = { delay: 380, every: 110 };
+export function menuRepeat(state: RepeatState, dir: -1 | 0 | 1, now: number): { state: RepeatState; step: -1 | 0 | 1 } {
+  if (dir === 0) return { state: { dir: 0, since: now, last: now }, step: 0 };
+  if (dir !== state.dir) return { state: { dir, since: now, last: now }, step: dir };
+  if (now - state.since >= MENU_REPEAT.delay && now - state.last >= MENU_REPEAT.every) return { state: { ...state, last: now }, step: dir };
+  return { state, step: 0 };
+}
+
+/** 这些手柄里有没有哪个正按着这几个按钮之一（菜单直接查 navigator.getGamepads()） */
 export function anyPressed(pads: ArrayLike<{ buttons: ArrayLike<{ pressed: boolean }> } | null>, buttons: readonly number[]): boolean {
   return Array.from(pads).some(p => !!p && buttons.some(i => !!p.buttons[i]?.pressed));
 }

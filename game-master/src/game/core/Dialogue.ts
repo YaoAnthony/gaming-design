@@ -1,6 +1,6 @@
 // ===== 对话服务 =====
 // 两种对话共用一个对话框（hud.dialogue）：
-// - talk：角色对话，按一下（平台层 = 跳一下）翻一句，说完回调
+// - talk：角色对话，按一下（平台层 = 跳一下）翻一句，说完回调。写了 autoMs 的那句也会自己翻（GM 的「已深度思考」），按一下照样能跳过
 // - cutscene：剧情对话，每句按 autoMs 自动翻页（字还没打完就再等等：打完之后才翻）
 import type { DialogueLine } from '@/type';
 import { store } from '@/redux/store';
@@ -14,7 +14,7 @@ const AFTER_TYPED_MS = 800;
 export interface Speaker { name: string; avatar?: string; lines: DialogueLine[] }
 
 export class Dialogue {
-  private talk_: { who: Speaker; index: number; onDone?: () => void } | null = null;
+  private talk_: { who: Speaker; index: number; onDone?: () => void; /** 这一句自己翻页的时刻；-1 = 下一帧再定（showTalk 时还不知道现在几点）；null = 不自己翻 */ until: number | null } | null = null;
   private scene_: { speaker: string; lines: DialogueLine[]; index: number; until: number; onDone?: () => void } | null = null;
 
   /** @param playerScreen 玩家在屏幕上的 y 和屏幕高：对话框要躲开玩家 */
@@ -24,7 +24,7 @@ export class Dialogue {
   get talking(): boolean { return !!this.talk_; }
 
   talk(who: Speaker, onDone?: () => void): void {
-    this.talk_ = { who, index: 0, onDone };
+    this.talk_ = { who, index: 0, onDone, until: null };
     this.showTalk();
   }
 
@@ -43,8 +43,14 @@ export class Dialogue {
     this.showScene(now);
   }
 
-  /** 剧情自动翻页；每帧调 */
+  /** 自动翻页；每帧调 */
   update(now: number): void {
+    const t = this.talk_;
+    if (t && t.until !== null) {
+      const line = t.who.lines[t.index];
+      if (t.until < 0) t.until = now + Math.max(line.autoMs ?? 0, typingMs(tr(line.text), line.grow) + AFTER_TYPED_MS);
+      else if (now >= t.until) this.advance();
+    }
     const c = this.scene_; if (!c || now < c.until) return;
     c.index++;
     if (c.index < c.lines.length) { this.showScene(now); return; }
@@ -70,7 +76,8 @@ export class Dialogue {
   private showTalk(): void {
     const t = this.talk_; if (!t) return;
     const line = t.who.lines[t.index];
-    store.dispatch(setDialogue({ speaker: tr(t.who.name), text: tr(line.text), avatar: line.avatar ?? t.who.avatar, index: t.index, total: t.who.lines.length, pos: this.pos(line), shout: line.shout ? tr(line.shout) : undefined, grow: line.grow }));
+    t.until = line.autoMs ? -1 : null;
+    store.dispatch(setDialogue({ speaker: tr(t.who.name), text: tr(line.text), avatar: line.avatar ?? t.who.avatar, index: t.index, total: t.who.lines.length, auto: !!line.autoMs, pos: this.pos(line), shout: line.shout ? tr(line.shout) : undefined, grow: line.grow, think: line.think }));
   }
 
   private showScene(now: number): void {
@@ -78,6 +85,6 @@ export class Dialogue {
     const line = c.lines[c.index];
     // 字打完之前不翻页：至少等打完再停一会
     c.until = now + Math.max(line.autoMs ?? 2500, typingMs(tr(line.text), line.grow) + AFTER_TYPED_MS);
-    store.dispatch(setDialogue({ speaker: tr(c.speaker), text: tr(line.text), avatar: line.avatar ?? 'default', index: c.index, total: c.lines.length, auto: true, pos: this.pos(line), shout: line.shout ? tr(line.shout) : undefined, grow: line.grow }));
+    store.dispatch(setDialogue({ speaker: tr(c.speaker), text: tr(line.text), avatar: line.avatar ?? 'default', index: c.index, total: c.lines.length, auto: true, pos: this.pos(line), shout: line.shout ? tr(line.shout) : undefined, grow: line.grow, think: line.think }));
   }
 }

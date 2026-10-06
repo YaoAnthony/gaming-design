@@ -4,6 +4,8 @@
 // 事件名在 EVT，参数在 BridgeEvents。
 import type { Project, RoomCoord, CarryOver } from '@/type';
 import type { HeroEntryQuery, HeroHandoff, ScreenSpot } from './handoff';
+import type { CutsceneId } from '@/story/cutscenes';
+import type { EndingChoice } from '@/story/config';
 
 export interface StartGameData {
   /** 整个项目（多层）；游戏从 floorId 那层开始，缺省第一层 */
@@ -23,7 +25,33 @@ export interface StartGameData {
   rhythmLab?: boolean;
   /** 这一局最开始的启动数据（换层时一路带着）：「再来一次」从这里重开 */
   origin?: StartGameData;
+  /** 标题画面：骷髅手先把这个房间搭出来，主角等菜单里选了「开始」（EVT.openingStart）才出场 */
+  opening?: boolean;
 }
+
+/** 骷髅手的姿势（asset 的 GM_HAND 帧）：张开 / 指着 / 捏着 / 握拳 */
+export type HandPose = 'open' | 'point' | 'pinch' | 'fist';
+/** 开场搭地图时骷髅手在哪（画面上的比例坐标）、什么姿势；null = 手收走 */
+export interface StoryHand { spot: ScreenSpot | null; pose: HandPose; ms: number }
+
+/** 编辑器改造游戏时，骷髅手要点的一格：在画面上的位置、地图上的格子、画什么砖 */
+export interface PaintCell { spot: ScreenSpot; x: number; y: number; tile: string }
+
+/**
+ * 放一段剧情演出（实现在 ui/story/cutscenes/）：游戏一侧把演出要用的位置（主角、GM 在画面上的哪）、要画的格子一起给过去。
+ * 放完回 EVT.storyCutsceneDone（同一个 id）
+ */
+export interface StoryCutscene {
+  id: CutsceneId;
+  /** 主角 / GM 在画面上的位置和大小（比例坐标），演出里拿手拎着他们走 */
+  hero?: ScreenSpot & { w: number; h: number; texture: string };
+  gm?: ScreenSpot & { w: number; h: number; texture: string };
+  /** 编辑器改造：一笔一笔画哪些格子（按顺序） */
+  paint?: PaintCell[][];
+}
+export interface StoryCutsceneDone { id: CutsceneId }
+/** 标题菜单里选了「开始」。fresh = 在标题画面的设置里清除了进度：不接着这个存档，从头开一局 */
+export interface OpeningStart { fresh: boolean }
 
 /** 第四面墙特效（攥纸团）开始：手攥住的位置（画面上的比例坐标 0..1） */
 export interface CrumpleStart { grab: { x: number; y: number } }
@@ -95,6 +123,22 @@ export const EVT = {
   heroEntry: 'hero:entry',
   /** 3D → Phaser：人走回画面了，放出来接着玩；参数是落在哪（HeroEntryQuery 的 answer），null = 原地 */
   heroReturn: 'hero:return',
+  /** Phaser → React：开场搭地图时骷髅手到哪了；参数是 StoryHand */
+  storyHand: 'story:hand',
+  /** Phaser → React：开场的房间搭完了，该拍标题和菜单了 */
+  openingBuilt: 'story:opening-built',
+  /** React → Phaser：菜单里选了「开始」，标题和按钮已经扫走：放主角出场；参数是 OpeningStart */
+  openingStart: 'story:opening-start',
+  /** Phaser → React：放一段剧情演出；参数是 StoryCutscene */
+  storyCutscene: 'story:cutscene',
+  /** React → Phaser：演出放完了；参数是 StoryCutsceneDone */
+  storyCutsceneDone: 'story:cutscene-done',
+  /** React → Phaser：编辑器改造时骷髅手点下了一格；参数是 PaintCell */
+  storyPaint: 'story:paint',
+  /** React → Phaser：结局画面（「你赢了！」）上选了一项；参数是 EndingChoice */
+  endingChoice: 'story:ending-choice',
+  /** Phaser → React：回到标题画面（结局画面上选了「退出」） */
+  toTitle: 'game:to-title',
 } as const;
 
 /** 每个事件带什么参数（元组）：没有参数就是 [] */
@@ -122,6 +166,14 @@ export interface BridgeEvents {
   [EVT.heroLeft]: [HeroHandoff];
   [EVT.heroEntry]: [HeroEntryQuery];
   [EVT.heroReturn]: [ScreenSpot | null];
+  [EVT.storyHand]: [StoryHand];
+  [EVT.openingBuilt]: [];
+  [EVT.openingStart]: [OpeningStart];
+  [EVT.storyCutscene]: [StoryCutscene];
+  [EVT.storyCutsceneDone]: [StoryCutsceneDone];
+  [EVT.storyPaint]: [PaintCell];
+  [EVT.endingChoice]: [EndingChoice];
+  [EVT.toTitle]: [];
   /** 触屏按键（常量在 input.ts，字面量要和那边一致） */
   'input:jump': [];
   'input:action': [];

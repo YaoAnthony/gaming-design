@@ -19,9 +19,11 @@ import { store } from '@/redux/store';
 import { resizeGame } from '@/game/resize';
 import { Music } from '@/game/Music';
 import { DEFAULT_MUSIC } from '@/asset';
-import { flash, setBoss, setBossIntro, setControls, setHearts, setDialogue, setMode, setPlace, setRhythm, setRhythmMode, setScore, setStats, whiteout } from '@/redux/slices/hudSlice';
+import { flash, setBoss, setBossIntro, setControls, setEditorShell, setHearts, setDialogue, setMode, setPlace, setRhythm, setRhythmMode, setScore, setStats, whiteout } from '@/redux/slices/hudSlice';
 import { setConfig } from '@/redux/slices/configSlice';
-import { checkpoint, clearRun } from '@/redux/slices/runSlice';
+import { checkpoint, clearRun, setFlag } from '@/redux/slices/runSlice';
+import { ENDINGS, endingChoices, type EndingChoice } from '@/story/config';
+import { STORY, type StoryFlag } from '@/story/flags';
 import { mapText, tr } from '@/i18n';
 import { floorMechanicOf, globalMechanicsOf, type FloorMechanic, type FuseBurnCell, type Mechanic, type MechanicDef } from '@/game/mechanics/define';
 import type { PlayContext } from '@/game/core/PlayContext';
@@ -91,6 +93,11 @@ export class GameScene extends Phaser.Scene {
   private wonFinal = false;
   /** 正在切层（淡出中），不再响应输入 */
   private leaving = false;
+  /** 有机制让主角晚点出场（标题画面）：人藏着、冻着，等 ctx.enter() */
+  private awaitingEntrance = false;
+  /** 试玩时的剧情标记（只记在这一场里）；正式玩记在存档 run.flags */
+  private localFlags = new Set<StoryFlag>();
+  private flagWatchers: ((f: StoryFlag) => void)[] = [];
   private stats = { jumps: 0, destroyed: 0 };
 
   constructor() { super(SCENE.game); }
@@ -103,7 +110,9 @@ export class GameScene extends Phaser.Scene {
     this.fog = null; this.fogTile = { x: -1, y: -1 }; this.fogDirty = true; this.fogCarried = false;
     this.spawnPoints = [];
     this.stats = { jumps: data.stats?.jumps ?? 0, destroyed: data.stats?.destroyed ?? 0 };
-    this.won = false; this.wonFinal = false; this.leaving = false;
+    this.won = false; this.wonFinal = false; this.leaving = false; this.awaitingEntrance = false;
+    this.flagWatchers = [];
+    if (!data.origin) this.localFlags = new Set();   // 换层时试玩的标记跟着走；新的一场清空
   }
 
   create(): void {
@@ -229,26 +238,29 @@ export class GameScene extends Phaser.Scene {
     this.mechs.forEach(m => m.onRoomChanged?.(this.rooms.current));
 
     this.controls = new GameInput(this, {
-      press: key => { if (this.respawn.respawning || this.popOut.away || this.controlled) return; if (this.won) this.continueAfterWin(); else this.floorMech.onPress(key, this.time.now); },
+      press: key => { if (this.awaitingEntrance || this.respawn.respawning || this.popOut.away || this.controlled) return; if (this.won) this.continueAfterWin(); else this.floorMech.onPress(key, this.time.now); },
       // 换层（旋涡、淡出）和长大的过程中不响应 R：重置会清掉它们正在等的计时器和镜头，画面就卡在半路
-      reset: () => { if (this.won || this.leaving || this.growth.growing || this.respawn.respawning || this.crumple.active || this.controlled) return; if (this.respawn.dead) this.respawn.resetAfterDeath(); else this.requestRoomReset(); },
+      reset: () => { if (this.awaitingEntrance || this.won || this.leaving || this.growth.growing || this.respawn.respawning || this.crumple.active || this.controlled) return; if (this.respawn.dead) this.respawn.resetAfterDeath(); else this.requestRoomReset(); },
       continueGame: () => { if (this.won) this.continueAfterWin(); },
       restartRun: () => this.restartRun(),
       nextLevel: () => this.fakeNextLevel(),
       exitPlaytest: () => { if (this.playtest) this.exitPlaytest(); },
+      endingChoice: c => this.onEndingChoice(c),
       crumpleFreeze: () => this.crumple.freeze(),
       crumpleDone: d => this.crumple.end(d),
       popOut: () => this.popOut.request(),
       heroEntry: q => this.popOut.answerEntry(q),
       heroReturn: at => this.popOut.comeBack(at),
     }, this.playtest);
-    // 玩家出场：换层带着 origin（这一局早就开始了），没有就是这一局的第一次出现
-    this.respawn.appear(this.startData.origin ? 'floor' : 'start');
+    // 玩家出场：换层带着 origin（这一局早就开始了），没有就是这一局的第一次出现。有机制要人晚点出场（标题画面）就先藏着
+    if (this.mechs.some(m => m.delaysEntrance?.())) {
+      this.awaitingEntrance = true;
+      this.player.freeze(0xffffff); this.player.clearTint(); this.player.setVisible(false);
+      store.dispatch(setMode({ mode: 'opening', playtest: this.playtest }));
+    } else this.enterPlayer();
     this.saveCheckpoint();
-    // 存档里人在 3D 世界：出场之后接着跳出去
-    if (!this.playtest && store.getState().run.realm === 'deep') this.popOut.request();
 
-    this.music.playBase();
+    if (!this.awaitingEntrance) this.music.playBase();   // 标题画面的音乐由让人晚出场的那个机制放
     let lastVol = this.cfg.musicVolume;
     const unsubVol = store.subscribe(() => { const v = store.getState().config.musicVolume; if (v !== lastVol) { lastVol = v; this.music.setVolume(v); } });
     if (this.startData.announceFloor) {
@@ -268,11 +280,37 @@ export class GameScene extends Phaser.Scene {
 
   private get playtest(): boolean { return !!this.startData.playtest; }
   /** 人被别的事占着：死了、通关画面、换层、长大仪式、出场动画、跳出画面去了 3D 世界 */
-  private get busy(): boolean { return this.respawn.dead || this.won || this.leaving || this.growth.growing || this.respawn.respawning || this.popOut.away; }
+  private get busy(): boolean { return this.awaitingEntrance || this.respawn.dead || this.won || this.leaving || this.growth.growing || this.respawn.respawning || this.popOut.away; }
   /** 有机制接管了按键和人（比如节奏关卡开打了，见 Mechanic.takesControl） */
   private get controlled(): boolean { return this.mechs.some(m => m.takesControl?.()); }
   /** 人不归玩家管的时候：被别的事占着，或者被机制接管了 */
   private get frozen(): boolean { return this.busy || this.controlled; }
+  /** 主角出场（骷髅手放进来）；存档里人在 3D 世界：出场之后接着跳出去 */
+  private enterPlayer(): void {
+    this.respawn.appear(this.startData.origin ? 'floor' : 'start');
+    if (!this.playtest && store.getState().run.realm === 'deep') this.popOut.request();
+  }
+
+  /** 标题画面选了「开始」：放主角出场，换成这一层的音乐 */
+  private enter(): void {
+    if (!this.awaitingEntrance) return;
+    this.awaitingEntrance = false;
+    this.player.setVisible(true);
+    store.dispatch(setMode({ mode: 'playing', playtest: this.playtest }));
+    this.music.playBase();
+    this.enterPlayer();
+  }
+
+  private hasFlag(f: StoryFlag): boolean { return this.playtest ? this.localFlags.has(f) : !!store.getState().run.flags[f]; }
+  private setStoryFlag(f: StoryFlag): void {
+    if (this.hasFlag(f)) return;
+    if (this.playtest) this.localFlags.add(f); else store.dispatch(setFlag(f));
+    this.flagWatchers.forEach(cb => cb(f));
+  }
+  private storyFlags(): Record<string, true> {
+    return this.playtest ? Object.fromEntries([...this.localFlags].map(f => [f, true as const])) : store.getState().run.flags;
+  }
+
   /** 人不在画面里的时候死不了（落石砸不到 3D 世界里的人） */
   private die(reason: DeathKey): void { if (!this.popOut.away) this.respawn.die(reason); }
 
@@ -302,6 +340,13 @@ export class GameScene extends Phaser.Scene {
       die: reason => this.die(reason),
       hurt: (reason, from) => this.health.hurt(reason, from),
       win: final => this.win(final),
+      enter: () => this.enter(),
+      newGame: () => this.newGame(),
+      story: {
+        has: f => this.hasFlag(f),
+        flag: f => this.setStoryFlag(f),
+        watch: cb => { this.flagWatchers.push(cb); },
+      },
       goToFloor: (id, via) => this.goToFloor(id, via),
       igniteFuses: ends => this.fuses.ignite(ends, this.terrain, cells => this.onFuseBurn(cells)),
       fx: {
@@ -318,6 +363,7 @@ export class GameScene extends Phaser.Scene {
         rhythm: v => store.dispatch(setRhythm(v)),
         rhythmMode: mode => store.dispatch(setRhythmMode(mode)),
         whiteout: () => store.dispatch(whiteout()),
+        editorShell: v => store.dispatch(setEditorShell(v)),
       },
       settings: {
         config: () => store.getState().config,
@@ -401,9 +447,29 @@ export class GameScene extends Phaser.Scene {
     this.player.freeze(0xffffff);
     this.player.clearTint();
     const hat = this.collectCarry().hat === true;   // 通关画面上画不画帽子
-    store.dispatch(setMode({ mode: 'won', final, stage: this.player.stage, hat }));
     store.dispatch(setStats({ ...this.stats }));
+    // 这一层的终点是一幕的结局：不弹「通关！」，换成那一幕的庆祝画面（「继续」能接着玩，这一局不结束）
+    const ending = ENDINGS[this.floor.id];
+    if (ending) {
+      this.wonFinal = false;
+      this.setStoryFlag(STORY.act1Won);
+      store.dispatch(setMode({ mode: 'won', ending: { id: ending, choices: endingChoices(this.storyFlags()) }, playtest: this.playtest }));
+      return;
+    }
+    store.dispatch(setMode({ mode: 'won', final, stage: this.player.stage, hat }));
     if (final && !this.playtest) store.dispatch(clearRun());   // 真通关：这一局结束，下次从头开始
+  }
+
+  /** 结局画面上选了一项：继续 = 接着玩（角落那段墙塌开）；重新开始 = 清空存档从头玩；退出 = 回标题画面 */
+  private onEndingChoice(c: EndingChoice): void {
+    if (!this.won || !ENDINGS[this.floor.id]) return;
+    if (c === 'continue') {
+      if (this.hasFlag(STORY.continueRemoved)) return;   // 「继续」已经被 GM 扔掉了
+      this.setStoryFlag(STORY.act1Continued);
+      this.continueAfterWin(true);
+    } else if (c === 'restart') this.newGame();
+    else if (this.playtest) this.exitPlaytest();
+    else bridge.emit(EVT.toTitle);
   }
 
   /** 存档的检查点（进层、换房间）：在哪层哪个房间、身上带着什么。试玩不存 */
@@ -420,8 +486,9 @@ export class GameScene extends Phaser.Scene {
     return jsonCarry(out);
   }
 
-  private continueAfterWin(): void {
-    if (!this.won || this.wonFinal) return;
+  /** 通关画面关掉、接着玩。结局画面（ending）只认画面上的「继续」（fromEnding），跳、关弹窗都不算 */
+  private continueAfterWin(fromEnding = false): void {
+    if (!this.won || this.wonFinal || (ENDINGS[this.floor.id] && !fromEnding)) return;
     this.won = false;
     this.player.unfreeze();
     store.dispatch(setMode({ mode: 'playing', playtest: this.playtest }));
@@ -462,6 +529,13 @@ export class GameScene extends Phaser.Scene {
 
   /** 这一局的起点（第一次进场的启动数据） */
   private get origin(): StartGameData { return this.startData.origin ?? this.startData; }
+
+  /** 清空存档、开一局新的（结局画面「重新开始」、标题画面清除进度后「开始」）；试玩从试玩的起点重来 */
+  private newGame(): void {
+    if (this.playtest) { this.restartRun(); return; }
+    store.dispatch(clearRun());
+    this.scene.restart({ project: this.project, playtest: false });
+  }
 
   /** 再来一次：从这一局的起点重开 */
   private restartRun(): void {

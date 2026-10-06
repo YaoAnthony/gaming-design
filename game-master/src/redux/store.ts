@@ -79,7 +79,11 @@ if (storage) {
     try { localStorage.removeItem(LEGACY_KEY); } catch { /* 删不掉也没关系：有了新的两份就不会再读它 */ }
   }
   // 关页面 / 关窗口之前：还没写的马上写掉
-  if (typeof window !== 'undefined') window.addEventListener('pagehide', () => { save.flush(); editor.flush(); });
+  if (typeof window !== 'undefined') {
+    window.addEventListener('pagehide', () => { save.flush(); editor.flush(); });
+    // 桌面版：主进程退出前（菜单里「退出」、Cmd+Q、关窗口）先叫这里写完，再退出、再让 Steam 云上传
+    window.gameDesktop?.onFlush?.(() => { save.flush(); editor.flush(); });
+  }
 }
 
 export type RootState = ReturnType<typeof store.getState>;

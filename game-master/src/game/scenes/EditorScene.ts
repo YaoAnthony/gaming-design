@@ -1,44 +1,30 @@
 // ===== 编辑器画布：显示当前房间，左键画、右键擦。侧边栏在 React 里。=====
-// 迷雾区画笔不是一格一格画：按住拖出一个矩形，松开整片填上（右键整片擦掉），区大也一下就画完。
+// 砖块、物件之外的画笔（引线、移动方块、钥匙与门、文字、迷雾区……）都是登记的编辑器工具（game/editor/tools.ts）：这里只把点到的格子交给它、按顺序让它们叠加画。
 import Phaser from 'phaser';
 import { classify } from '@/game/registry/registry';
 import { Terrain } from '@/game/terrain/Terrain';
-import { FUSE_CHANNELS, fuseHas } from '@/game/fuse/channels';
-import { nextFloorId, roomKeyAt, worldRows } from '@/game/world/WorldModel';
-import { DOOR_CHAR, lockGroup } from '@/game/mechanics/locks/model';
-import { layerRows } from '@/game/world/layers';
-import { layoutText, textSize } from '@/game/world/font';
+import { roomKeyAt, worldRows } from '@/game/world/WorldModel';
 import { bridge, EVT, type PickedCell } from '@/protocol';
 import { SCENE } from '@/game/scenes/keys';
 import { store } from '@/redux/store';
 import { resizeGame } from '@/game/resize';
-import { addText, beginStroke, currentModel, paintCell, paintDoor, paintEntity, paintFogRect, paintFuse, paintKey, paintMover, removeText } from '@/redux/slices/editorSlice';
-import { canCarry, moverKind } from '@/game/mechanics/mover/kinds';
-import { TILE_FRAMES } from '@/asset';
-import { FOG_ZONE_COLORS } from '@/game/fog/zones';
+import { beginStroke, currentFloor, currentModel, paintCell, paintEntity } from '@/redux/slices/editorSlice';
 import { Colors, hex } from '@/shared/palette';
 import { backgroundDef, backgroundKey } from '@/asset/backgrounds';
 import { backgroundOf, coverScale } from '@/game/background/layout';
 import { loadBackgrounds } from '@/game/background/Backdrop';
 import { DEPTH } from '@/game/depth';
-import { currentFloor } from '@/redux/slices/editorSlice';
+import { EditorTools, toolOf } from '@/game/editor/allTools';
+import { isStatus, type EditorHost, type ToolView } from '@/game/editor/tools';
 
 export class EditorScene extends Phaser.Scene {
   private layer!: Phaser.Tilemaps.TilemapLayer;
   private entityImgs = new Map<string, Phaser.GameObjects.Image>();
-  /** 门后面藏着的砖：在门那一格右下角画个小图标（门可以盖在别的砖上，开门后露出来） */
-  private hiddenImgs: Phaser.GameObjects.Image[] = [];
   private overlay!: Phaser.GameObjects.Graphics;
-  private fogLayer!: Phaser.GameObjects.Graphics;
-  /** 引线：每种颜色一层（白色贴图按颜色染色），交叉的格子两层叠着都看得见 */
-  private fuseTiles: Phaser.Tilemaps.TilemapLayer[] = [];
   private cursor!: Phaser.GameObjects.Rectangle;
   private grid!: Phaser.GameObjects.Graphics;
-  private textLayer!: Phaser.GameObjects.Graphics;
-  /** 移动标记：每格画一个双向箭头；底下的砖不能动时画红叉 */
-  private moverLayer!: Phaser.GameObjects.Graphics;
-  private textLabels: Phaser.GameObjects.Text[] = [];
-  private keyImgs: Phaser.GameObjects.Image[] = [];
+  /** 各编辑器工具在画布上的那一部分（editor/tools.ts；按物品栏的顺序：文字先烘进网格，门再盖上去） */
+  private views: ToolView[] = [];
   private T = 32;
   private lastVersion = -1;
   private lastRoomKey: string | null = null;
@@ -52,8 +38,8 @@ export class EditorScene extends Phaser.Scene {
   private restarting = false;
   /** 这一笔是在画布里按下的：从画布外（侧栏、滚动条）按住拖进来不算画 */
   private stroking = false;
-  /** 迷雾区画笔正在拖的矩形：按下的格、现在拖到的格、是不是右键（擦） */
-  private fogRect: { x0: number; y0: number; x1: number; y1: number; erase: boolean } | null = null;
+  /** 拖矩形的工具正在拖的矩形：按下的格、现在拖到的格、是不是右键（擦） */
+  private dragRect: { x0: number; y0: number; x1: number; y1: number; erase: boolean } | null = null;
   private dragLayer!: Phaser.GameObjects.Graphics;
 
   constructor() { super(SCENE.editor); }
@@ -75,31 +61,34 @@ export class EditorScene extends Phaser.Scene {
     const map = this.make.tilemap({ tileWidth: T, tileHeight: T, width: model.roomW, height: model.roomH });
     const ts = map.addTilesetImage('tiles', 'tiles', T, T, 0, 0)!;
     this.layer = map.createBlankLayer('room', ts, 0, 0)!;
-    this.fuseTiles = FUSE_CHANNELS.map(c => map.createBlankLayer('fuse' + c.id, ts, 0, 0)!.setDepth(2.2 + c.id * 0.01));
 
     this.grid = this.add.graphics().setDepth(1);
     this.overlay = this.add.graphics().setDepth(3);
-    this.fogLayer = this.add.graphics().setDepth(2.5);
-    this.textLayer = this.add.graphics().setDepth(2.6);
-    this.moverLayer = this.add.graphics().setDepth(2.65);
     this.dragLayer = this.add.graphics().setDepth(3.5);
+    // eslint-disable-next-line @typescript-eslint/no-this-alias -- 工具读场景的当前值
+    const scene = this;
+    const host: EditorHost = {
+      scene: this, T, tiles: this.layer, map, tileset: ts,
+      model: () => scene.model(), state: () => scene.state(), key: () => scene.key(),
+    };
+    this.views = [...EditorTools.list()].sort((a, b) => a.order - b.order).flatMap(t => (t.create ? [t.create(host)] : []));
     this.cursor = this.add.rectangle(0, 0, T, T).setOrigin(0).setStrokeStyle(2, 0xffffff, 0.9).setDepth(4).setVisible(false);
 
     this.input.mouse?.disableContextMenu();
     this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
       store.dispatch(beginStroke());   // 按下到松开画的所有格子算一步撤销
       this.stroking = true;
+      const stroke = toolOf(this.state().brush)?.stroke ?? 'cell';
       if (this.state().picking) this.pickStart(p);   // 选试玩起点：不画东西
-      else if (this.state().brush === 'text') this.placeText(p);
-      else if (this.state().brush.startsWith('fog:')) this.beginFogRect(p);
+      else if (stroke === 'rect') this.beginRect(p);
       else this.paint(p);
     });
     this.input.on('pointermove', (p: Phaser.Input.Pointer) => {
       this.moveCursor(p);
-      if (!this.stroking || !p.isDown || this.state().picking || this.state().brush === 'text') return;
-      if (this.fogRect) this.dragFogRect(p); else this.paint(p);
+      if (!this.stroking || !p.isDown || this.state().picking || toolOf(this.state().brush)?.stroke === 'click') return;
+      if (this.dragRect) this.dragTo(p); else this.paint(p);
     });
-    const endStroke = () => { this.stroking = false; this.endFogRect(); };
+    const endStroke = () => { this.stroking = false; this.endRect(); };
     this.input.on('pointerup', endStroke);
     this.input.on('pointerupoutside', endStroke);
     this.input.on('pointerout', () => this.cursor.setVisible(false));
@@ -122,7 +111,8 @@ export class EditorScene extends Phaser.Scene {
     if (s.version !== this.lastVersion || this.key() !== this.lastRoomKey || this.viewFlags() !== this.lastView) this.refreshAll();
   }
 
-  private viewFlags(): string { const s = this.state(); return `${s.showSupport}|${s.showFog}|${s.brush.startsWith('fog:')}`; }
+  /** 显示开关（标出会掉落的格子、各工具自己的开关）：变了也要重画 */
+  private viewFlags(): string { const s = this.state(); return [s.showSupport, ...EditorTools.list().map(t => t.viewKey?.(s) ?? '')].join('|'); }
 
   private state() { return store.getState().editor; }
   private model() { return currentModel(this.state()); }
@@ -157,109 +147,67 @@ export class EditorScene extends Phaser.Scene {
     this.game.events.emit('editor:status', `(${c.x}, ${c.y})  ${tile.name}${ent && ent.kind === 'entity' ? ' + ' + ent.def.name : ''}`);
   }
 
+  /** 点到的这一格交给它的工具（引线、移动方块、钥匙与门……）；砖块和物件是核心的两种，自己画 */
   private paint(p: Phaser.Input.Pointer): void {
-    const c = this.cellAt(p);
-    const key = this.key();
+    const c = this.cellAt(p), key = this.key();
     if (!c || !key) return;
-    const brush = this.state().brush;
-    if (brush.startsWith('fuse:')) {
-      // 引线：左键画这种颜色，右键只擦这种颜色（同一格别的颜色不动）
-      const ch = Number(brush.slice(5));
-      const on = !p.rightButtonDown();
-      if (fuseHas(this.model().fuse?.[key]?.[c.y]?.[c.x], ch) === on) return;
-      store.dispatch(paintFuse({ key, x: c.x, y: c.y, ch, on }));
-      return;
-    }
-    if (brush.startsWith('mover:')) {
-      // 移动标记：只能画在能动的砖上（实心、自己不会掉）；右键擦掉这一格的任何移动标记
-      const kind = moverKind(brush.slice(6));
-      const ch = p.rightButtonDown() || !kind ? '.' : kind.ch;
-      const cur = this.model().movers?.[key]?.[c.y]?.[c.x] ?? '.';
-      if (cur === ch) return;
-      if (ch !== '.' && !canCarry(this.rows()[c.y]?.[c.x])) {
-        this.game.events.emit('editor:status', `(${c.x}, ${c.y})  这里的砖不能移动：要实心、自己不会掉的砖（沙土、脆岩、纸不行）`);
-        return;
-      }
-      store.dispatch(paintMover({ key, x: c.x, y: c.y, ch }));
-      return;
-    }
-    if (brush.startsWith('door:') || brush.startsWith('key:')) {
-      // 钥匙与门：门画在门层（游戏里烘进砖块），钥匙画在钥匙层；右键擦
-      const isDoor = brush.startsWith('door:');
-      const id = p.rightButtonDown() ? 0 : Number(brush.split(':')[1]);
-      const layer = isDoor ? this.model().locks?.doors : this.model().locks?.keys;
-      const cur = Number(layer?.[key]?.[c.y]?.[c.x] ?? 0) || 0;
-      if (cur === id) return;
-      store.dispatch((isDoor ? paintDoor : paintKey)({ key, x: c.x, y: c.y, id }));
+    const s = this.state(), brush = s.brush, erase = p.rightButtonDown(), tool = toolOf(brush);
+    if (tool) {
+      const r = tool.paint?.({ model: this.model(), state: s, key, x: c.x, y: c.y, brush, erase }) ?? null;
+      if (isStatus(r)) this.game.events.emit('editor:status', r.status);
+      else if (r) store.dispatch(r);
       return;
     }
     const cls = classify(brush);
     if (cls.kind === 'entity') {
       // 物件画在自己那一层，底下的砖块（比如尖刺）保留；右键只擦物件
-      const ch = p.rightButtonDown() ? '.' : brush;
+      const ch = erase ? '.' : brush;
       const cur = this.model().entities?.[key]?.[c.y]?.[c.x] ?? '.';
       if (cur === ch) return;
       store.dispatch(paintEntity({ key, x: c.x, y: c.y, ch, unique: cls.def.unique }));
       return;
     }
-    const ch = p.rightButtonDown() ? '.' : brush;
+    const ch = erase ? '.' : brush;
     if (this.rows()[c.y][c.x] === ch) return;
     store.dispatch(paintCell({ key, x: c.x, y: c.y, ch }));
   }
 
-  // ---------- 迷雾区：拖矩形 ----------
-  /** 按下：记住起点格，先不画 */
-  private beginFogRect(p: Phaser.Input.Pointer): void {
+  // ---------- 拖矩形的工具（迷雾区）：按下记住起点，拖着画预览框，松开整片一次填上 ----------
+  private beginRect(p: Phaser.Input.Pointer): void {
     const c = this.cellAt(p);
     if (!c) return;
-    this.fogRect = { x0: c.x, y0: c.y, x1: c.x, y1: c.y, erase: p.rightButtonDown() };
-    this.drawFogRect();
+    this.dragRect = { x0: c.x, y0: c.y, x1: c.x, y1: c.y, erase: p.rightButtonDown() };
+    this.drawRect();
   }
 
-  /** 拖：另一角跟着指针走（拖出画布外就贴在边上），画出预览框 */
-  private dragFogRect(p: Phaser.Input.Pointer): void {
-    const r = this.fogRect, m = this.model();
+  /** 拖：另一角跟着指针走（拖出画布外就贴在边上） */
+  private dragTo(p: Phaser.Input.Pointer): void {
+    const r = this.dragRect, m = this.model();
     if (!r) return;
     r.x1 = Phaser.Math.Clamp(Math.floor(p.worldX / this.T), 0, m.roomW - 1);
     r.y1 = Phaser.Math.Clamp(Math.floor(p.worldY / this.T), 0, m.roomH - 1);
-    this.drawFogRect();
+    this.drawRect();
   }
 
   /** 松开：整个矩形一次填上（或擦掉），一步撤销 */
-  private endFogRect(): void {
-    const r = this.fogRect, key = this.key();
-    this.fogRect = null;
+  private endRect(): void {
+    const r = this.dragRect, key = this.key(), s = this.state(), tool = toolOf(s.brush);
+    this.dragRect = null;
     this.dragLayer.clear();
-    if (!r || !key) return;
-    const zone = r.erase ? '.' : this.state().brush.slice(4);
-    store.dispatch(paintFogRect({ key, x0: r.x0, y0: r.y0, x1: r.x1, y1: r.y1, zone }));
+    if (!r || !key || !tool?.paintRect) return;
+    const action = tool.paintRect({ model: this.model(), state: s, key, brush: s.brush, erase: r.erase, x0: r.x0, y0: r.y0, x1: r.x1, y1: r.y1 });
+    if (action) store.dispatch(action);
   }
 
-  private drawFogRect(): void {
-    const r = this.fogRect, T = this.T, g = this.dragLayer;
+  private drawRect(): void {
+    const r = this.dragRect, T = this.T, g = this.dragLayer, brush = this.state().brush;
     g.clear();
     if (!r) return;
     const x = Math.min(r.x0, r.x1), y = Math.min(r.y0, r.y1), w = Math.abs(r.x1 - r.x0) + 1, h = Math.abs(r.y1 - r.y0) + 1;
-    const zone = this.state().brush.slice(4), color = r.erase ? 0xffffff : FOG_ZONE_COLORS[zone] ?? 0xffffff;
+    const color = toolOf(brush)?.rectColor?.(brush, r.erase) ?? 0xffffff;
     g.fillStyle(color, r.erase ? 0.15 : 0.3); g.fillRect(x * T, y * T, w * T, h * T);
     g.lineStyle(2, color, 1); g.strokeRect(x * T + 1, y * T + 1, w * T - 2, h * T - 2);
-    this.game.events.emit('editor:status', `${r.erase ? '擦掉迷雾区' : '迷雾区 ' + zone}：${w} × ${h} 格，松开填上`);
-  }
-
-  /** 文字画笔：左键在这一格放一串新字（内容在侧栏改），右键删掉点到的那串 */
-  private placeText(p: Phaser.Input.Pointer): void {
-    const c = this.cellAt(p), key = this.key();
-    if (!c || !key) return;
-    const s = this.state(), m = this.model();
-    const blocks = m.texts?.[key] ?? [];
-    if (p.rightButtonDown()) {
-      const hit = blocks.find(b => { const sz = textSize(b.text); return c.x >= b.x && c.y >= b.y && c.x < b.x + sz.w && c.y < b.y + sz.h; });
-      if (hit) store.dispatch(removeText({ key, id: hit.id }));
-      return;
-    }
-    const next = s.project.floors[s.floor + 1];
-    const target = next ? next.id : nextFloorId(s.project);
-    store.dispatch(addText({ key, block: { id: 't' + Date.now().toString(36), x: c.x, y: c.y, text: 'START', tile: '=', target } }));
+    this.game.events.emit('editor:status', `${r.erase ? '擦掉' : '填上'}：${w} × ${h} 格，松开生效`);
   }
 
   /** grid 是把物件替换成空气后的网格，只用来算砖块的拼贴掩码；分类要看原始字符 */
@@ -318,125 +266,12 @@ export class EditorScene extends Phaser.Scene {
     this.grid.clear(); this.grid.lineStyle(1, 0xffffff, 0.12);
     for (let x = 0; x <= m.roomW; x++) this.grid.lineBetween(x * T, 0, x * T, m.roomH * T);
     for (let y = 0; y <= m.roomH; y++) this.grid.lineBetween(0, y * T, m.roomW * T, y * T);
+    // 各工具先改网格（文字方块、门烘进砖块，和游戏里一样），再画砖块，最后各自叠加
     const grid = this.rows().map(r => r.split(''));
-    // 文字方块烘进网格：只占空气格，和游戏里一样
-    const key = this.key();
-    const blocks = key ? m.texts?.[key] ?? [] : [];
-    blocks.forEach(b => layoutText(b.text, b.x, b.y).forEach(c => { if (grid[c.y]?.[c.x] === '.') grid[c.y][c.x] = b.tile; }));
-    // 门也烘进网格（盖在什么砖上都行，和游戏里一样），画完再按组染色；盖住的砖记下来，右下角画个小图标
-    const doorRows = key ? m.locks?.doors[key] : undefined;
-    const hidden: { x: number; y: number; id: string }[] = [];
-    doorRows?.forEach((row, y) => [...row].forEach((ch, x) => {
-      if (!lockGroup(m, Number(ch)) || grid[y]?.[x] === undefined) return;
-      if (grid[y][x] !== '.' && grid[y][x] !== DOOR_CHAR) hidden.push({ x, y, id: grid[y][x] });
-      grid[y][x] = DOOR_CHAR;
-    }));
+    this.views.forEach(v => v.prepareGrid?.(grid));
     for (let y = 0; y < m.roomH; y++) for (let x = 0; x < m.roomW; x++) this.refreshCell(x, y, grid);
-    doorRows?.forEach((row, y) => [...row].forEach((ch, x) => { const g = lockGroup(m, Number(ch)); const t = g && grid[y]?.[x] === DOOR_CHAR ? this.layer.getTileAt(x, y) : null; if (t) t.tint = g!.color; }));
-    this.hiddenImgs.forEach(i => i.destroy());
-    this.hiddenImgs = hidden.map(h => this.add.image(h.x * T + T * 0.74, h.y * T + T * 0.74, 'tiles', Terrain.frameOf(h.id, 'editor')).setScale(0.46).setDepth(2.25));
-    this.drawKeys(key ? m.locks?.keys[key] : undefined);
-    this.drawTextBlocks(blocks);
-    this.drawFogZones();
-    this.drawFuse();
-    this.drawMovers(grid);
+    this.views.forEach(v => v.draw(grid));
     this.updateSupport();
-  }
-
-  /** 钥匙：按组染色的小钥匙 */
-  private drawKeys(rows: string[] | undefined): void {
-    const T = this.T, m = this.model();
-    this.keyImgs.forEach(i => i.destroy()); this.keyImgs = [];
-    rows?.forEach((row, y) => [...row].forEach((ch, x) => {
-      const g = lockGroup(m, Number(ch));
-      if (!g) return;
-      this.keyImgs.push(this.add.image(x * T + T / 2, y * T + T / 2, 'key').setTint(g.color).setDepth(2.4));
-    }));
-  }
-
-  /** 每串字画个框 + 目标层标签，编辑时能看出边界 */
-  private drawTextBlocks(blocks: { id: string; x: number; y: number; text: string; target: string }[]): void {
-    const T = this.T, s = this.state();
-    this.textLayer.clear();
-    this.textLabels.forEach(t => t.destroy()); this.textLabels = [];
-    blocks.forEach(b => {
-      const sz = textSize(b.text);
-      this.textLayer.lineStyle(2, Colors.gold, 0.9);
-      this.textLayer.strokeRect(b.x * T - 2, b.y * T - 2, sz.w * T + 4, sz.h * T + 4);
-      const target = s.project.floors.find(f => f.id === b.target);
-      const label = this.add.text(b.x * T, b.y * T - 16, '→ ' + (target ? target.name : '?'), { fontSize: '12px', color: hex(Colors.gold), backgroundColor: '#141a2ccc', padding: { x: 3, y: 1 } }).setDepth(2.7);
-      this.textLabels.push(label);
-    });
-  }
-
-  /** 引线层：按四周连接自动拼贴，编辑器里整条线可见（游戏里只有端点）。
-   *  掩码用整张大地图算，所以房间边缘的引线会显示成"连到隔壁房间"，而不是端头。 */
-  private drawFuse(): void {
-    const s = this.state(), m = currentModel(s);
-    const rows = layerRows(m, 'fuse');
-    const ox = s.room.rx * m.roomW, oy = s.room.ry * m.roomH;
-    FUSE_CHANNELS.forEach((c, i) => {
-      const layer = this.fuseTiles[i];
-      // 只看这一种颜色：拼贴按同色邻居算，交叉的别的颜色不会被画成连着
-      const world = rows.map(r => [...r].map(ch => (fuseHas(ch, c.id) ? 'W' : '.')));
-      for (let y = 0; y < m.roomH; y++) for (let x = 0; x < m.roomW; x++) {
-        if (world[oy + y]?.[ox + x] !== 'W') { layer.removeTileAt(x, y); continue; }
-        layer.putTileAt(TILE_FRAMES.fuse + Terrain.maskAt(world, ox + x, oy + y), x, y).tint = c.color;
-      }
-    });
-  }
-
-  /** 移动标记：按种类画双向箭头（左右 / 上下）；底下的砖不能动（后来换成了沙土之类）画红叉，游戏里会忽略 */
-  private drawMovers(grid: string[][]): void {
-    const T = this.T, g = this.moverLayer, key = this.key();
-    g.clear();
-    const rows = key ? this.model().movers?.[key] : undefined;
-    rows?.forEach((row, y) => [...row].forEach((ch, x) => {
-      const kind = moverKind(ch);
-      if (!kind) return;
-      const cx = x * T + T / 2, cy = y * T + T / 2, a = T * 0.32, hd = T * 0.14;
-      if (!canCarry(grid[y]?.[x])) {
-        g.lineStyle(3, Colors.rose, 0.95);
-        g.lineBetween(cx - a, cy - a, cx + a, cy + a); g.lineBetween(cx + a, cy - a, cx - a, cy + a);
-        return;
-      }
-      g.fillStyle(Colors.ink, 0.45); g.fillRect(x * T + 2, y * T + 2, T - 4, T - 4);
-      g.lineStyle(3, kind.color, 1); g.fillStyle(kind.color, 1);
-      if (kind.axis === 'x') {
-        g.lineBetween(cx - a, cy, cx + a, cy);
-        g.fillTriangle(cx - a - hd, cy, cx - a + hd, cy - hd, cx - a + hd, cy + hd);
-        g.fillTriangle(cx + a + hd, cy, cx + a - hd, cy - hd, cx + a - hd, cy + hd);
-      } else {
-        g.lineBetween(cx, cy - a, cx, cy + a);
-        g.fillTriangle(cx, cy - a - hd, cx - hd, cy - a + hd, cx + hd, cy - a + hd);
-        g.fillTriangle(cx, cy + a + hd, cx - hd, cy + a - hd, cx + hd, cy + a - hd);
-      }
-    }));
-  }
-
-  /**
-   * 迷雾区叠加：按区号上色，编辑时能看见，游戏里是黑的。
-   * 一片连着的同区格子看成一整块：只淡淡铺色，轮廓只画在和别的区 / 没有迷雾的格子相邻的那几条边上，底下的砖块看得清。
-   * 「显示迷雾区」关掉就不画；选着迷雾画笔时不管开关都画（画的时候总要看见）
-   */
-  private drawFogZones(): void {
-    const T = this.T, s = this.state(), key = this.key(), g = this.fogLayer;
-    g.clear();
-    if (!s.showFog && !s.brush.startsWith('fog:')) return;
-    const rows = key ? currentModel(s).fog?.[key] : undefined;
-    if (!rows) return;
-    const zoneAt = (x: number, y: number) => rows[y]?.[x] ?? '.';
-    rows.forEach((row, y) => [...row].forEach((z, x) => {
-      const color = FOG_ZONE_COLORS[z];
-      if (color === undefined) return;
-      g.fillStyle(color, 0.22); g.fillRect(x * T, y * T, T, T);
-      g.lineStyle(2, color, 0.95);
-      const x0 = x * T, y0 = y * T, x1 = x0 + T, y1 = y0 + T;
-      if (zoneAt(x, y - 1) !== z) g.lineBetween(x0, y0 + 1, x1, y0 + 1);
-      if (zoneAt(x, y + 1) !== z) g.lineBetween(x0, y1 - 1, x1, y1 - 1);
-      if (zoneAt(x - 1, y) !== z) g.lineBetween(x0 + 1, y0, x0 + 1, y1);
-      if (zoneAt(x + 1, y) !== z) g.lineBetween(x1 - 1, y0, x1 - 1, y1);
-    }));
   }
 
   /** 标出一开始就会掉落的格子 */

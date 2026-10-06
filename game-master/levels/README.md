@@ -31,7 +31,7 @@ RRRRRRRR...
 ...
 
 room A fuse            房间 A 的引线层（可选）：. 无，W 橙，2 蓝，4 绿，8 紫，混合用十六进制相加
-room A movers          房间 A 的移动方块层（可选）：h 左右，v 上下，只能画在 R r = _ 上
+room A movers          房间 A 的移动方块层（可选）：h 左右，v 上下，只能画在 R r = _ E 上
 room A fog             房间 A 的迷雾区（可选）：1-4 区号
 ```
 

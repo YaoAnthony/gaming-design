@@ -4,12 +4,12 @@
 /** 主图里的字符：砖块 */
 export const TILES = new Set(['.', 'R', 'r', 'B', 'S', 'X', 'Z', '=', '_', 'E']);
 /** 主图里的字符：物件（底下是空气） */
-export const ENTITIES = new Set(['P', 'M', 'G', 'T', 'C', 'h', 'b', 'D', 'q', 'Q', 'N', 'K', 'k']);
+export const ENTITIES = new Set(['P', 'M', 'G', 'T', 'C', 'h', 'b', 'D', 'q', 'Q', 'N', 'K', 'k', 'V']);
 /** 主图里的字符：门（底下是空气）→ 组号；钥匙直接写组号 1-9 */
 export const DOORS = { '!': 1, '@': 2, '$': 3, '^': 4 };
 /** 移动方块只能画在这些砖上（实心、自己不会掉） */
-const MOVABLE = new Set(['R', 'r', '=', '_']);
-const SOLID = new Set(['R', 'r', 'B', 'S', 'Z', '=']);   // 挡人的（木板单向，不算）
+export const MOVABLE = new Set(['R', 'r', '=', '_', 'E']);
+export const SOLID = new Set(['R', 'r', 'B', 'S', 'Z', '=', 'E']);   // 挡人的（木板单向，不算）
 
 export function parseLevel(text) {
   const lines = text.split(/\r?\n/);
@@ -93,7 +93,7 @@ export function compileLevel(lv) {
     if (c === '.') return;
     if (c !== 'h' && c !== 'v') errors.push(`房间 ${key} movers (${x},${y})：只有 h / v`);
     const t = model.rooms[key]?.[y]?.[x];
-    if (!MOVABLE.has(t)) errors.push(`房间 ${key} movers (${x},${y})：底下是 '${t}'，移动方块只能画在 R r = _ 上`);
+    if (!MOVABLE.has(t)) errors.push(`房间 ${key} movers (${x},${y})：底下是 '${t}'，移动方块只能画在 R r = _ E 上`);
   }));
   if (Object.keys(lv.flags).length) model.roomFlags = lv.flags;
   for (const key of Object.keys(lv.roomBackgrounds)) if (!lv.rooms[key]) errors.push(`roombg ${key}：没有这个房间`);

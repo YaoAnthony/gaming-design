@@ -43,7 +43,8 @@ src/
 │   ├── mechanics/      # 玩法机制：每个机制一个文件夹（见下面「机制」）
 │   ├── core/           # GameScene 的核心部件：PlayContext（给机制的上下文）、Rooms（房间与镜头）、Respawn（死亡与重置）、Growth（长大仪式）、CrumpleFx（攥纸团）、GameInput（按键）、solids（实心体登记）、对话、怪物、碎块、旋涡、物理小工具
 │   ├── terrain/        # 格子地形：Terrain（网格、爆炸、支撑、重置）、TerrainView（瓦片层、投影、体积感）、Chunks（碎块下落）；frames / blast / support 是纯函数
-│   ├── world/          # 世界模型纯函数：拼图、找出生点、加房间
+│   ├── world/          # 世界模型纯函数：拼图、找出生点、加房间；layers.ts 是按房间存的地图数据的登记表（allLayers.ts 列出所有图层）
+│   ├── editor/         # 地图编辑器的工具登记表（tools.ts）：每种画笔在自己的文件夹里登记，allTools.ts 列出所有工具
 │   ├── scenes/         # Boot（加载资产）、Game、Editor；keys.ts 是场景名
 │   ├── inputDevice.ts  # 全局盯着玩家用的是键盘还是手柄，记到 store.input
 │   └── PhaserGame.ts   # 创建 / 销毁 Phaser 实例
@@ -103,6 +104,17 @@ docs/architecture-review.md  # 2026-10 的架构审查：改了什么、还建�
 机制能用的东西都在 `core/PlayContext.ts`（地形、玩家、怪物、对话、房间查询、死亡 / 换层、`mech('carry')` 拿别的机制）。可选的钩子在 `mechanics/define.ts` 的 `Mechanic`：`start`、`update`（每帧）、`updateAlive`（活着才跑）、`blocks`（额外挡路的格子）、`onRoomChanged`、`onClear` / `onReset`（重置；Boss 用返回值改复活点）、`onFuseBurn`、`takesControl`（这一刻按键和人归这个机制管，比如节奏关卡开打了）、`persist`（存档 / 带到下一层：返回这个机制自己的数据，存在 `carry[机制 id]` 下；进层时用 `ctx.carried(id)` 拿回来自己校验——新机制要带东西，存档格式和场景都不用改）、`vortexTargets`、`bake`（建地形前改模型，比如把门烘成砖）。层机制用 `hearts: true` 声明这一层有生命值（平台跳有，吃豆人没有）。机制还能声明 `roomFlags`，编辑器房间面板自动出现对应开关（吃豆人的「左右打通」）。
 
 **加一个新机制**：`mechanics/<名字>/index.ts` 里 `defineMechanic({ id, name, scope, create: ctx => new X(ctx) })` + 需要的 `.entity(...)`，然后在 `mechanics/index.ts` 加一行 import（顺序 = 每帧调用顺序 = 物品栏顺序）。单元测试里 `phaser` 被换成替身（`tests/support/phaser-stub.ts`），所以注册表可以直接在 Node 里测。
+
+**机制要在地图里存自己的东西**（比如移动方块的标记、钥匙与门）：
+1. 在它的文件夹里写 `layer.ts`，用 `defineGridLayer({ id, table })` 登记一个格子图层（每个房间 roomH 行、每行 roomW 个字符，`'.'` 是空；`accepts` 可以拒绝不合法的字符）。不是格子的数据（比如文字方块是一串对象）用 `defineRoomData`。然后在 `game/world/allLayers.ts` 加一行。登记了之后，删房间、清空房间、改房间尺寸都会自动带上它，`layerCell` / `setLayerCell` / `layerRows` 可以读写、拼整张图，`WorldModel` 和编辑器的 reducer（通用的 `paintLayer` / `paintLayerRect`）都不用改。
+2. 要在编辑器里画它：在文件夹里写 `editorTool.ts`，用 `defineEditorTool` 登记。要写的有：
+   - 物品栏那一组按钮（图标、说明，可选「添加」按钮、删组的确认、开关）
+   - `paint`：点一格派发什么动作，纯函数，能单测；返回 `{ status }` 就是不让画，状态栏提示原因
+   - `stroke`：一格格画、拖矩形，还是只认点一下
+   - `create`：编辑器画布上怎么叠加画；`prepareGrid` 可以在画砖块之前改网格，比如门烘进砖块
+   
+   然后在 `game/editor/allTools.ts` 加一行。`EditorScene` 和物品栏只遍历登记表。现成的例子是 `mechanics/mover/`、`mechanics/locks/`、`mechanics/textBlock/`、`game/fuse/`、`game/fog/`。
+3. 文字关卡（`scripts/levelFormat.mjs`）是纯 Node 脚本，引用不了注册表，里面手抄了砖块 / 物件字符表；`tests/scripts/levelChars.test.ts` 会拿注册表核对，忘了改会报出来。
 
 ## 帽子与箱子
 

@@ -6,9 +6,8 @@ import { DEFAULT_MUSIC } from '@/asset';
 import { DEFAULT_BACKGROUND } from '@/asset/backgrounds';
 import { DEFAULT_FLOOR_MECHANIC } from '@/game/mechanics/define';
 import { addRoomAt, fitRoomSize, clearChar, clearRoom as clearModelRoom, resizeRooms, deleteRoom as deleteModelRoom, findStart, firstRoom, moveRoom as moveModelRoom, newFloor, normalizeModel, positionOf, roomKeyAt, setCell as setModelCell, setEntityCell, setRoomBackground as setModelRoomBackground, setRoomFlags } from '@/game/world/WorldModel';
-import { addLockGroup as addModelLock, removeLockGroup as removeModelLock, setDoorCell, setKeyCell, lockGroup } from '@/game/mechanics/locks/model';
+import { addLockGroup as addModelLock, removeLockGroup as removeModelLock, lockGroup } from '@/game/mechanics/locks/model';
 import { addTextBlock as addModelText, removeTextBlock as removeModelText, updateTextBlock as updateModelText } from '@/game/mechanics/textBlock/model';
-import { setFuseCell } from '@/game/fuse/layer';
 import { setLayerCell } from '@/game/world/layers';
 
 export interface EditorState {
@@ -125,30 +124,18 @@ const editorSlice = createSlice({
       setEntityCell(m(state), key, x, y, ch);
       state.version++;
     },
-    paintFog(state, action: PayloadAction<{ key: string; x: number; y: number; zone: string }>) {
+    /** 格子图层（world/layers.ts 登记的：引线、迷雾区、移动标记、门、钥匙……）的一格写成 ch，'.' = 擦掉；图层不收这个字符就不写 */
+    paintLayer(state, action: PayloadAction<{ layer: string; key: string; x: number; y: number; ch: string }>) {
       record(state, 'stroke');
-      const { key, x, y, zone } = action.payload;
-      setLayerCell(m(state), 'fog', key, x, y, zone);
+      const { layer, key, x, y, ch } = action.payload;
+      setLayerCell(m(state), layer, key, x, y, ch);
       state.version++;
     },
-    /** 迷雾区：按住拖出的整个矩形（两角都含）一次填上同一个区号，'.' = 擦掉；一步撤销 */
-    paintFogRect(state, action: PayloadAction<{ key: string; x0: number; y0: number; x1: number; y1: number; zone: string }>) {
+    /** 格子图层：按住拖出的整个矩形（两角都含）一次填上同一个字符，'.' = 擦掉；一步撤销 */
+    paintLayerRect(state, action: PayloadAction<{ layer: string; key: string; x0: number; y0: number; x1: number; y1: number; ch: string }>) {
       record(state, 'stroke');
-      const { key, x0, y0, x1, y1, zone } = action.payload;
-      for (let y = Math.min(y0, y1); y <= Math.max(y0, y1); y++) for (let x = Math.min(x0, x1); x <= Math.max(x0, x1); x++) setLayerCell(m(state), 'fog', key, x, y, zone);
-      state.version++;
-    },
-    paintFuse(state, action: PayloadAction<{ key: string; x: number; y: number; ch: number; on: boolean }>) {
-      record(state, 'stroke');
-      const { key, x, y, ch, on } = action.payload;
-      setFuseCell(m(state), key, x, y, ch, on);
-      state.version++;
-    },
-    /** 移动标记：ch = 种类字符，'.' = 擦掉 */
-    paintMover(state, action: PayloadAction<{ key: string; x: number; y: number; ch: string }>) {
-      record(state, 'stroke');
-      const { key, x, y, ch } = action.payload;
-      setLayerCell(m(state), 'movers', key, x, y, ch);
+      const { layer, key, x0, y0, x1, y1, ch } = action.payload;
+      for (let y = Math.min(y0, y1); y <= Math.max(y0, y1); y++) for (let x = Math.min(x0, x1); x <= Math.max(x0, x1); x++) setLayerCell(m(state), layer, key, x, y, ch);
       state.version++;
     },
     setRoomFlag(state, action: PayloadAction<{ key: string; flags: Partial<RoomFlags> }>) {
@@ -165,8 +152,6 @@ const editorSlice = createSlice({
     // ---- 钥匙与门 ----
     addLock(state) { record(state); addModelLock(m(state)); state.version++; },
     removeLock(state, action: PayloadAction<number>) { record(state); removeModelLock(m(state), action.payload); validateBrush(state); state.version++; },
-    paintDoor(state, action: PayloadAction<{ key: string; x: number; y: number; id: number }>) { record(state, 'stroke'); const { key, x, y, id } = action.payload; setDoorCell(m(state), key, x, y, id); state.version++; },
-    paintKey(state, action: PayloadAction<{ key: string; x: number; y: number; id: number }>) { record(state, 'stroke'); const { key, x, y, id } = action.payload; setKeyCell(m(state), key, x, y, id); state.version++; },
     // ---- 文字方块 ----
     addText(state, action: PayloadAction<{ key: string; block: TextBlock }>) { record(state); addModelText(m(state), action.payload.key, action.payload.block); state.version++; },
     updateText(state, action: PayloadAction<{ key: string; id: string; patch: Partial<TextBlock> }>) { record(state, 'text:' + action.payload.id); updateModelText(m(state), action.payload.key, action.payload.id, action.payload.patch); state.version++; },
@@ -275,8 +260,8 @@ const editorSlice = createSlice({
 });
 
 export const {
-  setBrush, setRoom, setShowSupport, setShowFog, setFileHash, paintCell, paintEntity, paintFog, paintFogRect, paintFuse, paintMover, setRoomFlag, setRoomBackground,
-  addText, updateText, removeText, addLock, removeLock, paintDoor, paintKey, addRoom, moveRoom, deleteRoom, clearRoom, setFloor, addFloor, renameFloor, deleteFloor, replaceProject, setPlayLoadout, setPicking,
+  setBrush, setRoom, setShowSupport, setShowFog, setFileHash, paintCell, paintEntity, paintLayer, paintLayerRect, setRoomFlag, setRoomBackground,
+  addText, updateText, removeText, addLock, removeLock, addRoom, moveRoom, deleteRoom, clearRoom, setFloor, addFloor, renameFloor, deleteFloor, replaceProject, setPlayLoadout, setPicking,
   beginStroke, undo, redo,
 } = editorSlice.actions;
 export default editorSlice.reducer;

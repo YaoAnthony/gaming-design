@@ -1,37 +1,69 @@
 import { App as AntApp } from 'antd';
-import { IMAGES, SPRITESHEETS, TILE_FRAMES, TILE_SIZE } from '@/asset';
+import { IMAGES, SPRITESHEETS, TILE_SIZE } from '@/asset';
 import { Entities, Tiles } from '@/game/registry/registry';
 import { useAppDispatch, useAppSelector } from '@/redux/hooks';
-import { addLock, currentModel, removeLock, setBrush, setShowFog } from '@/redux/slices/editorSlice';
-import { LOCK_COLOR_NAMES, LOCK_COLORS } from '@/game/mechanics/locks/model';
-import { FOG_ZONES, FOG_ZONE_COLORS, fogBrush } from '@/game/fog/zones';
-import { FUSE_CHANNELS } from '@/game/fuse/channels';
-import { MOVER_KINDS, moverBrush } from '@/game/mechanics/mover/kinds';
+import { currentModel, setBrush } from '@/redux/slices/editorSlice';
+import { paletteTools } from '@/game/editor/allTools';
+import type { EditorTool, ToolIcon } from '@/game/editor/tools';
 
 const tilesUrl = SPRITESHEETS.find(s => s.key === 'tiles')!.url;
 const imageUrl = (key: string) => IMAGES.find(i => i.key === key)?.url ?? '';
+const hex = (c: number) => '#' + c.toString(16).padStart(6, '0');
+
+/** 工具按钮的图标 */
+function Icon({ icon }: { icon: ToolIcon }) {
+  if (icon.kind === 'frame') {
+    const tint = icon.tint !== undefined ? { backgroundColor: hex(icon.tint), backgroundBlendMode: 'multiply' as const } : {};
+    return <div className="frame" style={{ backgroundImage: `url(${tilesUrl})`, backgroundPosition: `-${icon.frame * TILE_SIZE}px 0`, ...tint }} />;
+  }
+  if (icon.kind === 'class') return <span className={icon.className} style={{ background: hex(icon.color) }} />;
+  return icon.color !== undefined ? <span className="movericon" style={{ color: hex(icon.color) }}>{icon.text}</span> : <span>{icon.text}</span>;
+}
+
+/** 物品栏里一个编辑器工具的那一组（game/editor/tools.ts 登记的：引线、移动方块、文字、钥匙与门、迷雾区……） */
+function ToolSection({ tool }: { tool: EditorTool }) {
+  const brush = useAppSelector(s => s.editor.brush);
+  const editor = useAppSelector(s => s.editor);
+  const model = useAppSelector(s => currentModel(s.editor));
+  const dispatch = useAppDispatch();
+  const { modal } = AntApp.useApp();
+  const p = tool.palette!, add = p.add?.(model);
+  return (
+    <>
+      <h2>{p.title}</h2>
+      <div className="palette">
+        {p.buttons(model, editor).map(b => (
+          <button key={b.brush} className={'item' + (brush === b.brush ? ' active' : '')} title={b.title} onClick={() => dispatch(setBrush(b.brush))}>
+            <div className="icon"><Icon icon={b.icon} /></div>
+            <div className="label">
+              <b>{b.name}</b>
+              {b.remove
+                ? <span className="mini" role="button" tabIndex={0} title={b.remove.title}
+                  onClick={e => { e.stopPropagation(); const r = b.remove!; modal.confirm({ title: r.confirm.title, content: r.confirm.content, okText: '删除', okButtonProps: { danger: true }, cancelText: '取消', onOk: () => dispatch(r.action) }); }}
+                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); (e.currentTarget as HTMLElement).click(); } }}>✕</span>
+                : b.sub !== undefined && <small>{b.sub}</small>}
+            </div>
+          </button>
+        ))}
+        {add && (
+          <button className="item add" disabled={add.disabled} onClick={() => dispatch(add.action)}>
+            <div className="icon"><span>＋</span></div>
+            <div className="label"><b>{add.label}</b><small>{add.sub}</small></div>
+          </button>
+        )}
+      </div>
+      {p.toggles?.map(t => (
+        <label key={t.label} className="check" title={t.title}><input type="checkbox" checked={t.checked(editor)} onChange={e => dispatch(t.action(e.target.checked))} /> {t.label}</label>
+      ))}
+      {p.hint && <div className="hint">{p.hint}</div>}
+    </>
+  );
+}
 
 /** 物品栏：从注册表生成，图标直接取自图集 / 贴图 */
 export function Palette() {
   const brush = useAppSelector(s => s.editor.brush);
-  const showFog = useAppSelector(s => s.editor.showFog);
-  const locks = useAppSelector(s => currentModel(s.editor).locks);
-  const hex = (c: number) => '#' + c.toString(16).padStart(6, '0');
-  const colorName = (c: number) => LOCK_COLOR_NAMES[LOCK_COLORS.indexOf(c)] ?? '';
   const dispatch = useAppDispatch();
-  const { modal } = AntApp.useApp();
-  /** 删掉一组钥匙和门：这一层所有房间里这个颜色的门、钥匙都会一起没了，先弹窗确认（写明有几格门、几把钥匙） */
-  const confirmRemoveLock = (id: number, color: number) => {
-    const count = (layer: Record<string, string[]> | undefined) =>
-      Object.values(layer ?? {}).reduce((n, rows) => n + rows.reduce((m, r) => m + r.split(String(id)).length - 1, 0), 0);
-    const doors = count(locks?.doors), keys = count(locks?.keys), name = colorName(color);
-    modal.confirm({
-      title: `删除${name}色这一组钥匙和门？`,
-      content: doors || keys ? `这一层所有房间里的${name}门（${doors} 格）和${name}钥匙（${keys} 把）会一起删掉。可以撤销。` : '这一组还没画过门和钥匙。可以撤销。',
-      okText: '删除', okButtonProps: { danger: true }, cancelText: '取消',
-      onOk: () => dispatch(removeLock(id)),
-    });
-  };
   const tiles = Tiles.filter(d => d.editorVisible);
   const entities = Entities.list();
   const groups = [...new Set(entities.map(e => e.group))];
@@ -51,69 +83,7 @@ export function Palette() {
           </button>
         ))}
       </div>
-      <h2>引线</h2>
-      <div className="palette">
-        {FUSE_CHANNELS.map(c => (
-          <button key={'fuse' + c.id} className={'item' + (brush === 'fuse:' + c.id ? ' active' : '')} title={`${c.name}色引线：${c.shatter ? '烧到岩石直接烧没，不留碎岩。' : ''}只和${c.name}色的引线相连。和别的颜色交叉也不相通、不一起烧。游戏里所有颜色看起来一样。右键只擦${c.name}色`} onClick={() => dispatch(setBrush('fuse:' + c.id))}>
-            <div className="icon"><span className="fuseicon" style={{ background: hex(c.color) }} /></div>
-            <div className="label"><b>{c.name}色引线</b><small>{c.shatter ? '直接烧碎岩石' : '右键擦除'}</small></div>
-          </button>
-        ))}
-      </div>
-      <div className="hint">引线可以穿过空气和任何砖块。只有两端能点燃，烧到哪格烧哪格：岩石烧一次裂成碎岩，再烧一次才没；紫色引线一次就把岩石烧没。不同颜色互不相连，可以交叉画在同一格。</div>
-
-      <h2>移动方块</h2>
-      <div className="palette">
-        {MOVER_KINDS.map(k => (
-          <button key={k.ch} className={'item' + (brush === moverBrush(k) ? ' active' : '')} title={k.desc + '。右键擦掉'} onClick={() => dispatch(setBrush(moverBrush(k)))}>
-            <div className="icon"><span className="movericon" style={{ color: hex(k.color) }}>{k.axis === 'x' ? '⟷' : '↕'}</span></div>
-            <div className="label"><b>{k.name}</b><small>右键擦除</small></div>
-          </button>
-        ))}
-      </div>
-      <div className="hint">画在方块上（实心、自己不会掉的砖；沙土、脆岩、纸不行）。相连的同一种标记连同底下的方块一起来回走，任何一格撞到东西就停一下掉头；站在上面的会被带着走。方块被炸没了那一格就不走了，岩石裂成碎岩还在。</div>
-
-      <h2>文字</h2>
-      <div className="palette">
-        <button className={'item' + (brush === 'text' ? ' active' : '')} title="一串字，每个字母由可炸的砖拼成；全炸完就跳到指定的层。右键删除" onClick={() => dispatch(setBrush('text'))}>
-          <div className="icon"><div className="frame" style={{ backgroundImage: `url(${tilesUrl})`, backgroundPosition: `-${TILE_FRAMES.letter * TILE_SIZE}px 0` }} /></div>
-          <div className="label"><b>文字方块</b><small>text</small></div>
-        </button>
-      </div>
-
-      <h2>钥匙与门</h2>
-      <div className="palette">
-        {(locks?.groups ?? []).flatMap(g => [
-          <button key={'k' + g.id} className={'item' + (brush === 'key:' + g.id ? ' active' : '')} title={`${colorName(g.color)}钥匙：碰到同色的门就开`} onClick={() => dispatch(setBrush('key:' + g.id))}>
-            <div className="icon"><span className="keyicon" style={{ background: hex(g.color) }} /></div>
-            <div className="label"><b>{colorName(g.color)}钥匙</b><small>{g.id}</small></div>
-          </button>,
-          <button key={'d' + g.id} className={'item' + (brush === 'door:' + g.id ? ' active' : '')} title={`${colorName(g.color)}门：可以盖在别的砖上（比如尖刺），开门后露出来；右键擦`} onClick={() => dispatch(setBrush('door:' + g.id))}>
-            <div className="icon"><div className="frame" style={{ backgroundImage: `url(${tilesUrl})`, backgroundPosition: `-${TILE_FRAMES.door * TILE_SIZE}px 0`, backgroundColor: hex(g.color), backgroundBlendMode: 'multiply' }} /></div>
-            <div className="label"><b>{colorName(g.color)}门</b><span className="mini" role="button" tabIndex={0} title="删除这组" onClick={e => { e.stopPropagation(); confirmRemoveLock(g.id, g.color); }} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); confirmRemoveLock(g.id, g.color); } }}>✕</span></div>
-          </button>,
-        ])}
-        <button className="item add" disabled={(locks?.groups.length ?? 0) >= 9} onClick={() => dispatch(addLock())}>
-          <div className="icon"><span>＋</span></div>
-          <div className="label"><b>添加一组</b><small>{(locks?.groups.length ?? 0)}/9</small></div>
-        </button>
-      </div>
-
-      <h2>迷雾区</h2>
-      <div className="palette">
-        {FOG_ZONES.map(z => (
-          <button key={z} className={'item' + (brush === fogBrush(z) ? ' active' : '')} title={`迷雾区 ${z}：玩家踏进区内任一格，整个区永久揭开。按住拖出一个矩形，松开整片填上；右键拖擦掉`} onClick={() => dispatch(setBrush(fogBrush(z)))}>
-            <div className="icon"><div className="swatch" style={{ background: '#' + FOG_ZONE_COLORS[z].toString(16).padStart(6, '0') }} /></div>
-            <div className="label"><b>迷雾区 {z}</b><small>fog</small></div>
-          </button>
-        ))}
-        <button className={'item' + (brush === fogBrush('.') ? ' active' : '')} title="擦掉迷雾区标记：按住拖出矩形，松开整片擦掉（也可以选任意迷雾区后右键拖）" onClick={() => dispatch(setBrush(fogBrush('.')))}>
-          <div className="icon"><span>⌫</span></div>
-          <div className="label"><b>擦除迷雾区</b><small>fog</small></div>
-        </button>
-      </div>
-      <label className="check" title="只管编辑器里画不画迷雾区的叠加色，游戏里照旧；选着迷雾画笔时总会画"><input type="checkbox" checked={showFog} onChange={e => dispatch(setShowFog(e.target.checked))} /> 显示迷雾区（不影响游戏）</label>
-      <div className="hint">迷雾区揭开前伪装成周围的墙，不影响地形，任何房间都能画。</div>
+      {paletteTools().map(tool => <ToolSection key={tool.id} tool={tool} />)}
 
       {groups.map(g => (
         <div key={g}>

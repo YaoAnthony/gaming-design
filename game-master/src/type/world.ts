@@ -19,6 +19,8 @@ export interface WorldModel {
   texts?: Record<string, TextBlock[]>;
   /** 钥匙与门（可选）：每组一个颜色；doors / keys 每个房间 roomH 行，'.' = 无，'1'-'9' = 组号 */
   locks?: Locks;
+  /** 房间单独换背景（可选）：房间 key → 背景 id（见 asset/backgrounds.ts）。没写的房间用这一层的 Floor.background */
+  roomBackgrounds?: Record<string, string>;
   /** 移动标记（可选）：每个房间 roomH 行，'.' = 无，其它字符 = 哪种移动（见 game/mechanics/mover/kinds.ts 的 MOVER_KINDS）。
    *  叠在砖块上：相连的同种标记连同底下的砖一起来回移动 */
   movers?: Record<string, string[]>;
@@ -54,6 +56,8 @@ export interface Floor {
   mode?: string;
   /** 这一层的背景音乐：音频 key（见 asset 的 MUSIC_TRACKS）；'none' = 不放；不写 = 默认那首 */
   music?: string;
+  /** 这一层的背景：背景 id（见 asset/backgrounds.ts）；不写 = 默认的星空。房间可以单独换（WorldModel.roomBackgrounds） */
+  background?: string;
   model: WorldModel;
 }
 

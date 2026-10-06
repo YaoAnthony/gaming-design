@@ -8,6 +8,7 @@ import { floorAfter } from '@/game/world/WorldModel';
 import type { PlayContext } from '@/game/core/PlayContext';
 import { defineMechanic, type Mechanic } from '../define';
 import { Colors } from '@/game/palette';
+import { DEPTH } from '@/game/depth';
 
 /** 离门多近（像素）算到达 */
 const REACH_PX = 24;
@@ -48,7 +49,7 @@ class Goal implements Mechanic {
   /** 门后面的一座剪影建筑，亮着窗 */
   private drawBuilding(cx: number, baseY: number): void {
     const T = this.ctx.cfg.tile;
-    const g = this.ctx.scene.add.graphics().setDepth(-5);
+    const g = this.ctx.scene.add.graphics().setDepth(DEPTH.goalSilhouette);
     // 小楼：主楼 4.5 格宽、4.5 格高，上面一座 1.5 格宽的小塔加尖顶；窗 3 列 2 排，塔上一扇
     const win = (x: number, y: number) => g.fillRect(x - 6, y - 8, 12, 16);   // (x, y) = 窗的中心
     g.fillStyle(0x151a2e, 1);

@@ -201,6 +201,14 @@ export function setRoomFlags(m: WorldModel, key: string, flags: Partial<RoomFlag
   m.roomFlags[key] = { ...m.roomFlags[key], ...flags };
 }
 
+/** 这个房间单独用哪个背景（背景 id，见 asset/backgrounds.ts）；null = 跟着这一层 */
+export function setRoomBackground(m: WorldModel, key: string, id: string | null): void {
+  if (id) { m.roomBackgrounds ??= {}; m.roomBackgrounds[key] = id; return; }
+  if (!m.roomBackgrounds) return;
+  delete m.roomBackgrounds[key];
+  if (!Object.keys(m.roomBackgrounds).length) delete m.roomBackgrounds;
+}
+
 export const worldCols = (m: WorldModel): number => m.layout[0]?.length ?? 0;
 export const worldRowsCount = (m: WorldModel): number => m.layout.length;
 export const roomKeyAt = (m: WorldModel, rx: number, ry: number): string | null => (m.layout[ry] ?? [])[rx] ?? null;
@@ -288,6 +296,7 @@ export function deleteRoom(m: WorldModel, key: string): void {
   if (m.movers) delete m.movers[key];
   if (m.entities) delete m.entities[key];
   if (m.roomFlags) delete m.roomFlags[key];
+  if (m.roomBackgrounds) delete m.roomBackgrounds[key];
   if (m.texts) delete m.texts[key];
   if (m.locks) { delete m.locks.doors[key]; delete m.locks.keys[key]; }
   trimLayout(m);

@@ -78,7 +78,9 @@ class Canvas {
     }
   }
   save(name) {
-    if (ONLY.size && !ONLY.has(name)) return;
+    // 背景图在 backgrounds/ 子文件夹里：命令行写「backgrounds」就生成全部背景，也可以写单个文件名
+    if (ONLY.size && !ONLY.has(name) && !(name.startsWith('backgrounds/') && (ONLY.has('backgrounds') || ONLY.has(name.slice(12))))) return;
+    mkdirSync(dirname(join(OUT, name)), { recursive: true });
     writeFileSync(join(OUT, name), encodePNG(this)); console.log('wrote', name, `${this.w}x${this.h}`);
   }
 }
@@ -607,4 +609,75 @@ const boneKnob = (c, x, y, r) => { c.roundRect(x - r - 1, y - r - 1, 2 * r + 2, 
     sheet.blit(c, f * FW, 0);
   });
   sheet.save('grab_hand.png');
+}
+
+
+// ---- 背景（src/asset/backgrounds/，清单在 asset/backgrounds.ts）：480×288，一个房间（5:3）大小的比例，游戏里按房间放大 ----
+// 每套两层：远的一层不透明，近的一层透明（只有剪影），视差时两层挪得不一样
+{
+  const BW = 480, BH = 288;
+  /** 固定种子的随机数：每次生成一样 */
+  let seed = 12345;
+  const rnd = () => { seed = (seed * 1103515245 + 12345) % 2147483648; return seed / 2147483648; };
+  const mix = (a, b, t) => {
+    const ch = s => [(a >> s) & 255, (b >> s) & 255];
+    return [16, 8, 0].reduce((c, s) => { const [x, y] = ch(s); return c | (Math.round(x + (y - x) * t) << s); }, 0);
+  };
+  /** 竖直渐变：stops = [[位置 0..1, 颜色], …] */
+  const gradient = (c, stops) => {
+    for (let y = 0; y < c.h; y++) {
+      const t = y / (c.h - 1);
+      let i = 0; while (i < stops.length - 2 && t > stops[i + 1][0]) i++;
+      const [t0, c0] = stops[i], [t1, c1] = stops[i + 1];
+      c.rect(0, y, c.w, 1, mix(c0, c1, Math.min(1, Math.max(0, (t - t0) / (t1 - t0)))));
+    }
+  };
+  /** 一道起伏的剪影：从 base 往下填满，顶边是几个正弦叠起来 + 一点噪声 */
+  const ridge = (c, base, amp, waves, color, jag = 0) => {
+    for (let x = 0; x < c.w; x++) {
+      let h = 0; waves.forEach(([f, p, k]) => { h += Math.sin(x / c.w * Math.PI * 2 * f + p) * k; });
+      const top = Math.round(base - h * amp - (jag ? rnd() * jag : 0));
+      c.rect(x, top, 1, c.h - top, color);
+    }
+  };
+  /** 一根钟乳石（从上往下尖）或石笋（从下往上尖） */
+  const spike = (c, x, w, len, fromTop, color) => {
+    const y0 = fromTop ? 0 : c.h, dir = fromTop ? 1 : -1;
+    c.tri(x - w / 2, y0, x + w / 2, y0, x + (rnd() - 0.5) * w * 0.3, y0 + dir * len, color);
+  };
+
+  // 洞穴：远处的岩柱 + 发光的小晶体
+  const caveFar = new Canvas(BW, BH);
+  gradient(caveFar, [[0, 0x16212b], [0.55, 0x1d2c38], [1, 0x0d1218]]);
+  for (let i = 0; i < 9; i++) {   // 远处的岩柱
+    const x = rnd() * BW, w = 24 + rnd() * 40;
+    caveFar.rect(Math.round(x - w / 2), 0, Math.round(w), BH, mix(0x1d2c38, 0x2a3c4a, rnd()));
+  }
+  ridge(caveFar, BH * 0.78, 18, [[2, 0.3, 1], [5, 1.1, 0.4]], 0x111a22, 6);
+  for (let i = 0; i < 40; i++) {   // 晶体的光点
+    const x = rnd() * BW, y = BH * 0.3 + rnd() * BH * 0.55, r = 1 + Math.round(rnd() * 2);
+    caveFar.roundRect(Math.round(x), Math.round(y), r * 2, r * 2, r, rnd() < 0.5 ? 0x4cc9f0 : 0x80ed99);
+  }
+  caveFar.save('backgrounds/cave_far.png');
+
+  const caveNear = new Canvas(BW, BH);   // 透明底：只有近处的钟乳石和石笋
+  for (let i = 0; i < 16; i++) spike(caveNear, rnd() * BW, 14 + rnd() * 26, 30 + rnd() * 70, true, 0x0b1117);
+  for (let i = 0; i < 10; i++) spike(caveNear, rnd() * BW, 18 + rnd() * 30, 20 + rnd() * 50, false, 0x0b1117);
+  caveNear.save('backgrounds/cave_near.png');
+
+  // 黄昏：橙紫渐变的天、太阳、几条云；近处两道山
+  const duskSky = new Canvas(BW, BH);
+  gradient(duskSky, [[0, 0x2b1d4a], [0.45, 0x7a3b6b], [0.75, 0xe0805a], [1, 0xf2b766]]);
+  const sunX = BW * 0.68, sunY = BH * 0.66, sunR = 34;
+  for (let y = -sunR; y <= sunR; y++) for (let x = -sunR; x <= sunR; x++) if (x * x + y * y <= sunR * sunR) duskSky.set(sunX + x, sunY + y, 0xffd98a);
+  for (let i = 0; i < 6; i++) {   // 云：几条扁的横条
+    const y = BH * (0.15 + rnd() * 0.4), x = rnd() * BW, w = 60 + rnd() * 120;
+    duskSky.roundRect(Math.round(x), Math.round(y), Math.round(w), 6, 3, mix(0x7a3b6b, 0xf2b766, rnd() * 0.6));
+  }
+  duskSky.save('backgrounds/dusk_sky.png');
+
+  const duskHills = new Canvas(BW, BH);   // 透明底：两道山的剪影
+  ridge(duskHills, BH * 0.72, 22, [[1, 0.5, 1], [3, 2.1, 0.5]], 0x4a2547);
+  ridge(duskHills, BH * 0.86, 14, [[2, 1.4, 1], [6, 0.2, 0.3]], 0x24122b);
+  duskHills.save('backgrounds/dusk_hills.png');
 }

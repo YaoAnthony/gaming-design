@@ -17,6 +17,8 @@ floor claude2          层 id（唯一）
 name Floor 2           层名（游戏里换层时闪一下；中文靠 i18n 的 map.* 翻译）
 place Key Well         左上角的地点名（可选）
 music none             背景音乐（可选）
+background cave        这一层的背景（可选）：sky（默认星空）/ cave / dusk，清单在 src/asset/backgrounds.ts
+roombg B dusk          房间 B 单独换背景（可选）
 size 24 16             房间宽、高（格）
 group 1 #4cc9f0        钥匙与门的一组：组号和颜色
 flag B fog             房间开关：fog = 全屋暗

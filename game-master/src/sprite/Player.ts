@@ -2,6 +2,7 @@
 // 起跳后返回 JumpEvent（起跳类型 + 爆炸中心格），爆炸本身由场景处理。
 import Phaser from 'phaser';
 import type { CellRef, EntryState, GameConfig } from '@/type';
+import { DEPTH } from '@/game/depth';
 
 /** 三个阶段的身体贴图：第 1 关 1 格高、第 2 关 1.5 格高、第 3 关 2 格高（没注册的就拿现有的拉高） */
 const STAGE_TEXTURES = ['player', 'player_mid', 'player_tall'];
@@ -54,7 +55,7 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     super(scene, x, y, 'player');
     scene.add.existing(this);
     scene.physics.add.existing(this);
-    this.setDepth(10);
+    this.setDepth(DEPTH.player);
     this.applyShape();
     this.body.setMaxVelocityY(cfg.maxFall);
     // Arcade 会把精灵的缩放同步成碰撞框大小，所以变形只在物理跑完后套上、下一帧物理前还原。

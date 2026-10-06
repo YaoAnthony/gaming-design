@@ -40,7 +40,7 @@ import type { DeathKey } from '@/i18n/keys';
 import { CrumpleFx } from '@/game/core/CrumpleFx';
 import { GameInput } from '@/game/core/GameInput';
 import { standingSpot, touchingHazard } from '@/game/core/roomSpots';
-import { buildBackground } from '@/game/core/backdrop';
+import { Backdrop } from '@/game/background/Backdrop';
 import { applySceneFx, type SceneFx } from '@/game/core/sceneFx';
 import { vortex } from '@/game/core/vortex';
 import { Colors, hex } from '@/game/palette';
@@ -87,6 +87,7 @@ export class GameScene extends Phaser.Scene {
   private crumple!: CrumpleFx;
   private popOut!: PopOut;
   private rhythm!: RhythmFight;
+  private backdrop!: Backdrop;
   private controls!: GameInput;
 
   private spawnPoints: Point[] = [];
@@ -140,7 +141,7 @@ export class GameScene extends Phaser.Scene {
     }, worldRows(model), { tile: T, explosionRadius: this.cfg.explosionRadius, chunkGravity: this.cfg.chunkGravity, chunkMaxFall: this.cfg.chunkMaxFall });
     const levelW = this.terrain.w * T, levelH = this.terrain.h * T;
     this.physics.world.setBounds(0, 0, levelW, levelH);
-    buildBackground(this, levelW, levelH);
+    this.backdrop = new Backdrop(this, this.floor, { w: roomPxW, h: roomPxH });   // 背景（这一层 / 每个房间各用哪个，见 asset/backgrounds.ts）
     // 画面效果（config.sceneFx）：墙的投影、体积感、暗角、微尘
     if (this.cfg.sceneFx.shadow) this.terrain.enableShadow(4, 5, 0.35);
     if (this.cfg.sceneFx.depth) this.terrain.enableShading();
@@ -382,6 +383,7 @@ export class GameScene extends Phaser.Scene {
     this.updateFog();
     this.growth.update(time);   // 回到出生点、落了地再开始长
     this.popOut.update();
+    this.backdrop.update(this.player.x, this.player.y);
     this.rhythm.update();
     if (this.frozen) return;
 

@@ -10,6 +10,7 @@
 import type Phaser from 'phaser';
 import type { CellRef, FogState, RoomCoord } from '@/type';
 import { Tiles } from '@/game/registry/registry';
+import { DEPTH } from '@/game/depth';
 
 /** 迷雾区揭开时雾淡掉用多久（毫秒） */
 export const ZONE_REVEAL_MS = 400;
@@ -117,8 +118,8 @@ export class FogOfWar {
       saved.revealedZones.forEach(z => this.revealed.add(z));
     }
     const T = opts.tile;
-    this.rt = scene.add.renderTexture(0, 0, opts.roomW * T, opts.roomH * T).setOrigin(0).setDepth(12).setVisible(false);
-    this.rtPrev = scene.add.renderTexture(0, 0, opts.roomW * T, opts.roomH * T).setOrigin(0).setDepth(12).setVisible(false);
+    this.rt = scene.add.renderTexture(0, 0, opts.roomW * T, opts.roomH * T).setOrigin(0).setDepth(DEPTH.fog).setVisible(false);
+    this.rtPrev = scene.add.renderTexture(0, 0, opts.roomW * T, opts.roomH * T).setOrigin(0).setDepth(DEPTH.fog).setVisible(false);
     this.lightLayer = new FogLayer(scene, opts.roomW, opts.roomH, T, LIGHT_SUB);
     this.zoneLayer = new FogLayer(scene, opts.roomW, opts.roomH, T, ZONE_SUB);
     this.solidAtStart = new Uint8Array(this.w * this.h);

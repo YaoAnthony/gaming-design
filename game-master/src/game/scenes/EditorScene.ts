@@ -15,6 +15,11 @@ import { canCarry, moverKind } from '@/game/mechanics/mover/kinds';
 import { TILE_FRAMES } from '@/asset';
 import { FOG_ZONE_COLORS } from '@/game/fog/zones';
 import { Colors, hex } from '@/game/palette';
+import { backgroundDef, backgroundKey } from '@/asset/backgrounds';
+import { backgroundOf, coverScale } from '@/game/background/layout';
+import { loadBackgrounds } from '@/game/background/Backdrop';
+import { DEPTH } from '@/game/depth';
+import { currentFloor } from '@/redux/slices/editorSlice';
 
 export class EditorScene extends Phaser.Scene {
   private layer!: Phaser.Tilemaps.TilemapLayer;
@@ -37,6 +42,9 @@ export class EditorScene extends Phaser.Scene {
   private lastRoomKey: string | null = null;
   /** 上一次画的时候的显示开关（标出会掉落的格子、显示迷雾区、是不是迷雾画笔）：变了也要重画 */
   private lastView = '';
+  /** 现在画着的背景预览（背景 id）和它的那几张图 */
+  private shownBackground = '';
+  private backgroundImgs: Phaser.GameObjects.Image[] = [];
   /** 瓦片层按建场景时的房间尺寸建的；尺寸变了（改房间尺寸、切到另一种尺寸的层）就重启场景，不能在旧瓦片层上画 */
   private builtSize = { w: 0, h: 0 };
   private restarting = false;
@@ -55,6 +63,7 @@ export class EditorScene extends Phaser.Scene {
     this.builtSize = { w: model.roomW, h: model.roomH };
     this.restarting = false;
     this.stroking = false;
+    this.shownBackground = ''; this.backgroundImgs = [];   // 场景重开：旧的图跟着场景没了
     // 画布 = 一个房间；试玩回来时尺寸可能被游戏场景改过
     resizeGame(this.game, model.roomW * T, model.roomH * T);
     this.cameras.main.setSize(model.roomW * T, model.roomH * T);
@@ -272,6 +281,29 @@ export class EditorScene extends Phaser.Scene {
   }
 
 
+  /** 背景预览：这个房间用的背景（跟游戏里一样的取法），按房间正中、不带视差画在网格下面；默认的星空就是纯色底 */
+  private refreshBackground(): void {
+    const key = this.key(), floor = currentFloor(this.state());
+    const id = key ? backgroundOf(floor, floor.model, key) : '';
+    if (id === this.shownBackground) return;
+    this.shownBackground = id;
+    this.backgroundImgs.forEach(i => i.destroy()); this.backgroundImgs = [];
+    const def = backgroundDef(id);
+    if (!key || !def.layers.length) return;
+    loadBackgrounds(this, [id], () => {
+      if (this.shownBackground !== id || !this.sys.isActive()) return;
+      const W = floor.model.roomW * this.T, H = floor.model.roomH * this.T;
+      def.layers.forEach((layer, i) => {
+        const tk = backgroundKey(layer.file);
+        if (!this.textures.exists(tk)) return;
+        const tex = this.textures.get(tk);
+        tex.setFilter(def.pixelated ? Phaser.Textures.FilterMode.NEAREST : Phaser.Textures.FilterMode.LINEAR);
+        const src = tex.getSourceImage() as { width: number; height: number };
+        this.backgroundImgs.push(this.add.image(W / 2, H / 2, tk).setScale(coverScale(src.width, src.height, W, H, layer)).setAlpha(layer.alpha ?? 1).setDepth(DEPTH.background + i * DEPTH.backgroundStep));
+      });
+    });
+  }
+
   private refreshAll(): void {
     const s = this.state();
     this.lastVersion = s.version; this.lastRoomKey = this.key(); this.lastView = this.viewFlags();
@@ -280,6 +312,7 @@ export class EditorScene extends Phaser.Scene {
       if (!this.restarting) { this.restarting = true; this.scene.restart(); }
       return;
     }
+    this.refreshBackground();
     this.grid.clear(); this.grid.lineStyle(1, 0xffffff, 0.12);
     for (let x = 0; x <= m.roomW; x++) this.grid.lineBetween(x * T, 0, x * T, m.roomH * T);
     for (let y = 0; y <= m.roomH; y++) this.grid.lineBetween(0, y * T, m.roomW * T, y * T);

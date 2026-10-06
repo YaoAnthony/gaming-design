@@ -7,6 +7,7 @@ import { AUTOTILE_VARIANTS } from '@/asset';
 import { WALL_TEXTURE, WALL_VARIANTS, wallTemplates } from './walls';
 import { frameAt, isWallAt, WALL_GID } from './frames';
 import { depthToAirAround, shadeOf } from './shading';
+import { DEPTH } from '@/game/depth';
 
 const NEIGHBORS8: ReadonlyArray<readonly [number, number]> = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
 
@@ -76,7 +77,7 @@ export class TerrainView {
     const key = `terrainshade${TerrainView.shadeCount++}`;
     const tex = this.scene.textures.createCanvas(key, this.w, this.h)!;
     this.shade = { tex, pixels: tex.context.createImageData(this.w, this.h) };
-    this.scene.add.image(0, 0, key).setOrigin(0).setScale(this.T).setDepth(0.5);
+    this.scene.add.image(0, 0, key).setOrigin(0).setScale(this.T).setDepth(DEPTH.terrainShade);
     this.markShade(0, 0, this.w - 1, this.h - 1);
     this.update(solid);
   }
@@ -113,7 +114,7 @@ export class TerrainView {
     const map = this.scene.make.tilemap({ data, tileWidth: this.T, tileHeight: this.T });
     const tiles = map.addTilesetImage('tiles', 'tiles', this.T, this.T, 0, 0)!;
     const walls = map.addTilesetImage(WALL_TEXTURE, WALL_TEXTURE, this.T, this.T, 0, 0, WALL_GID)!;
-    this.shadow = map.createLayer(0, [tiles, walls], dx, dy)!.setAlpha(alpha).setDepth(-1);
+    this.shadow = map.createLayer(0, [tiles, walls], dx, dy)!.setAlpha(alpha).setDepth(DEPTH.terrainShadow);
     this.shadow.setTint(0x000000);
   }
 }

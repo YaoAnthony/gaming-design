@@ -82,3 +82,41 @@ describe('文字关卡', () => {
     expect(blocked.warnings.some(w => w.includes('A|B') && w.includes('左边空、右边堵'))).toBe(true);
   });
 });
+
+describe('文字关卡：背景', () => {
+  const TWO = `
+floor bg1
+size 4 3
+background cave
+roombg B dusk
+layout
+AB
+
+room A
+RRRR
+RP.R
+RRRR
+
+room B
+RRRR
+R..R
+RRRR
+`;
+  it('background 写到这一层，roombg 写到那个房间', () => {
+    const { floor, errors } = build(TWO);
+    expect(errors).toEqual([]);
+    expect(floor.background).toBe('cave');
+    expect(floor.model.roomBackgrounds).toEqual({ B: 'dusk' });
+  });
+
+  it('roombg 写了不存在的房间：报错', () => {
+    const { errors } = build(TWO.replace('roombg B dusk', 'roombg Z dusk'));
+    expect(errors.some(e => e.includes('roombg Z'))).toBe(true);
+  });
+
+  it('不写背景：这一层不带这两个字段', () => {
+    const { floor } = build(TWO.replace('background cave\n', '').replace('roombg B dusk\n', ''));
+    expect(floor.background).toBeUndefined();
+    expect(floor.model.roomBackgrounds).toBeUndefined();
+  });
+});

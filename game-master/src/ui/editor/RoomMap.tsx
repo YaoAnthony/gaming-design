@@ -1,9 +1,10 @@
 import { useMemo, useState, type DragEvent } from 'react';
 import { useAppDispatch, useAppSelector } from '@/redux/hooks';
-import { addRoom, clearRoom, deleteRoom, moveRoom, setRoom, setRoomFlag, currentModel } from '@/redux/slices/editorSlice';
+import { addRoom, clearRoom, deleteRoom, moveRoom, setRoom, setRoomBackground, setRoomFlag, currentModel } from '@/redux/slices/editorSlice';
+import { BACKGROUNDS, DEFAULT_BACKGROUND, backgroundDef } from '@/asset/backgrounds';
 import { roomKeyAt, worldCols, worldRowsCount } from '@/game/world/WorldModel';
 import type { RoomCoord } from '@/type';
-import { App as AntApp } from 'antd';
+import { App as AntApp, Select } from 'antd';
 import { RoomThumb } from './RoomThumb';
 import { floorMechanicOf, Mechanics } from '@/game/mechanics/define';
 
@@ -69,6 +70,11 @@ export function RoomMap() {
       {key && (
         <>
           <label className="check"><input type="checkbox" checked={!!model.roomFlags?.[key]?.fog} onChange={e => dispatch(setRoomFlag({ key, flags: { fog: e.target.checked } }))} /> 全屋暗</label>
+          <div className="row"><span className="hint" style={{ flex: 'none', alignSelf: 'center' }}>背景</span>
+            <Select size="small" style={{ flex: 1 }} value={model.roomBackgrounds?.[key] ?? ''}
+              options={[{ value: '', label: `跟着这一层（${backgroundDef(floor?.background ?? DEFAULT_BACKGROUND).name}）` }, ...BACKGROUNDS.map(b => ({ value: b.id, label: b.name }))]}
+              onChange={val => dispatch(setRoomBackground({ key, id: val || null }))} />
+          </div>
           {roomFlagOptions.map(f => (
             <label key={f.key} className="check"><input type="checkbox" checked={!!model.roomFlags?.[key]?.[f.key]} onChange={e => dispatch(setRoomFlag({ key, flags: { [f.key]: e.target.checked } }))} /> {f.label}</label>
           ))}

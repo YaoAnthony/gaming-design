@@ -1,6 +1,7 @@
 // ===== 画面效果：暖光、光束、四周暗角、空气里飘的微尘（墙的投影、体积感在 Terrain） =====
 // 每样都能在 config.sceneFx 里单独关掉。
 import Phaser from 'phaser';
+import { DEPTH } from '@/game/depth';
 
 /** 暗角：Phaser 的暗角滤镜超出半径就全黑，半径放大到比对角线还大，四角只暗两成多、四边中点一成不到 */
 const VIGNETTE = { radius: 1, strength: 0.3 };
@@ -83,7 +84,7 @@ export function applySceneFx(scene: Phaser.Scene, on: { vignette: boolean; dust:
       tint: DUST.tint,
       alpha: { onEmit: () => 0, onUpdate: (_p, _k, t) => Math.sin(t * Math.PI) * DUST.alpha },
       blendMode: 'ADD',
-    }).setDepth(-8);
+    }).setDepth(DEPTH.dust);
   }
 
   if (on.shafts) {
@@ -96,7 +97,7 @@ export function applySceneFx(scene: Phaser.Scene, on: { vignette: boolean; dust:
         const x = room.x + room.w * (0.08 + 0.55 * (i + rand()) / n), alpha = between(rand, SHAFTS.alpha);
         const shaft = scene.add.image(x, room.y, 'lightshaft').setOrigin(0.5, 0).setRotation(-angle)
           .setScale(between(rand, SHAFTS.width), room.h / Math.cos(angle) * 0.95 / SHAFT_TEX.h)
-          .setTint(SHAFTS.tint).setBlendMode(Phaser.BlendModes.ADD).setAlpha(alpha).setDepth(-8.5);
+          .setTint(SHAFTS.tint).setBlendMode(Phaser.BlendModes.ADD).setAlpha(alpha).setDepth(DEPTH.shafts);
         // 慢慢呼吸、轻轻摆
         scene.tweens.add({ targets: shaft, alpha: alpha * 0.5, duration: between(rand, [3500, 6000]), delay: rand() * 3000, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
         scene.tweens.add({ targets: shaft, x: x + 6, duration: between(rand, [7000, 9000]), yoyo: true, repeat: -1, ease: 'Sine.inOut' });
@@ -123,7 +124,7 @@ export function applySceneFx(scene: Phaser.Scene, on: { vignette: boolean; dust:
       if (!on.lights) return null;
       const k = LIGHTS[kind], scale = k.radius * 2 * tile / LIGHT_TEX;
       const img = scene.add.image(x, y, 'warmlight').setTint(k.color).setBlendMode(Phaser.BlendModes.ADD)
-        .setAlpha(k.alpha).setScale(scale).setDepth(4.5);   // 地形、体积感之上，碎块、物件、人之下
+        .setAlpha(k.alpha).setScale(scale).setDepth(DEPTH.warmLight);
       lights.add({ img, alpha: k.alpha, scale, amp: k.flicker, speed: k.speed, phase: Math.random() * 100 });
       return img;
     },

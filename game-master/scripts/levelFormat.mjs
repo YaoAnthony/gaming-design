@@ -13,7 +13,7 @@ const SOLID = new Set(['R', 'r', 'B', 'S', 'Z', '=']);   // 挡人的（木板�
 
 export function parseLevel(text) {
   const lines = text.split(/\r?\n/);
-  const lv = { id: '', name: '', place: undefined, music: undefined, w: 0, h: 0, groups: [], layout: [], rooms: {}, layers: { fuse: {}, movers: {}, fog: {} }, flags: {} };
+  const lv = { id: '', name: '', place: undefined, music: undefined, background: undefined, w: 0, h: 0, groups: [], layout: [], rooms: {}, layers: { fuse: {}, movers: {}, fog: {} }, flags: {}, roomBackgrounds: {} };
   const errors = [];
   let i = 0;
   const grid = (n, what) => {
@@ -30,6 +30,8 @@ export function parseLevel(text) {
     else if (cmd === 'name') lv.name = args.join(' ');
     else if (cmd === 'place') lv.place = args.join(' ');
     else if (cmd === 'music') lv.music = args[0];
+    else if (cmd === 'background') lv.background = args[0];
+    else if (cmd === 'roombg') lv.roomBackgrounds[args[0]] = args[1];
     else if (cmd === 'size') { lv.w = Number(args[0]); lv.h = Number(args[1]); }
     else if (cmd === 'group') lv.groups.push({ id: Number(args[0]), color: parseInt(args[1].replace('#', ''), 16) });
     else if (cmd === 'flag') (lv.flags[args[0]] ??= {})[args[1]] = true;
@@ -94,8 +96,10 @@ export function compileLevel(lv) {
     if (!MOVABLE.has(t)) errors.push(`房间 ${key} movers (${x},${y})：底下是 '${t}'，移动方块只能画在 R r = _ 上`);
   }));
   if (Object.keys(lv.flags).length) model.roomFlags = lv.flags;
+  for (const key of Object.keys(lv.roomBackgrounds)) if (!lv.rooms[key]) errors.push(`roombg ${key}：没有这个房间`);
+  if (Object.keys(lv.roomBackgrounds).length) model.roomBackgrounds = lv.roomBackgrounds;
   checkEdges(lv, model, warnings);
-  const floor = { id: lv.id, name: lv.name || lv.id, ...(lv.place ? { place: lv.place } : {}), ...(lv.music ? { music: lv.music } : {}), model };
+  const floor = { id: lv.id, name: lv.name || lv.id, ...(lv.place ? { place: lv.place } : {}), ...(lv.music ? { music: lv.music } : {}), ...(lv.background ? { background: lv.background } : {}), model };
   return { floor, errors, warnings, count };
 }
 

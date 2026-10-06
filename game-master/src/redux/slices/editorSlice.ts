@@ -3,12 +3,13 @@ import { createSlice, original, type PayloadAction } from '@reduxjs/toolkit';
 import type { Project, RoomCoord, RoomFlags, TextBlock, WorldModel } from '@/type';
 import { DEFAULT_PROJECT } from '@/game/world/defaultWorld';
 import { DEFAULT_MUSIC } from '@/asset';
+import { DEFAULT_BACKGROUND } from '@/asset/backgrounds';
 import { DEFAULT_FLOOR_MECHANIC } from '@/game/mechanics/define';
 import {
   addLockGroup as addModelLock, removeLockGroup as removeModelLock, setDoorCell, setKeyCell,
   addRoomAt, addTextBlock as addModelText, fitRoomSize, lockGroup, clearChar, clearRoom as clearModelRoom, resizeRooms, deleteRoom as deleteModelRoom, findStart, firstRoom, moveRoom as moveModelRoom,
   newFloor, normalizeModel, positionOf, removeTextBlock as removeModelText, roomKeyAt, setCell as setModelCell, setEntityCell, setFogCell,
-  setFuseCell, setMoverCell, setRoomFlags, updateTextBlock as updateModelText,
+  setFuseCell, setMoverCell, setRoomBackground as setModelRoomBackground, setRoomFlags, updateTextBlock as updateModelText,
 } from '@/game/world/WorldModel';
 
 export interface EditorState {
@@ -156,6 +157,12 @@ const editorSlice = createSlice({
       setRoomFlags(m(state), action.payload.key, action.payload.flags);
       state.version++;
     },
+    /** 这个房间单独用哪个背景；id = null 跟着这一层 */
+    setRoomBackground(state, action: PayloadAction<{ key: string; id: string | null }>) {
+      record(state);
+      setModelRoomBackground(m(state), action.payload.key, action.payload.id);
+      state.version++;
+    },
     // ---- 钥匙与门 ----
     addLock(state) { record(state); addModelLock(m(state)); state.version++; },
     removeLock(state, action: PayloadAction<number>) { record(state); removeModelLock(m(state), action.payload); validateBrush(state); state.version++; },
@@ -200,20 +207,21 @@ const editorSlice = createSlice({
       validateBrush(state);
       state.version++;
     },
-    addFloor(state, action: PayloadAction<{ name: string; roomW: number; roomH: number; place?: string; /** 层机制 id；不写 / platform = 默认 */ mode?: string; /** 背景音乐 key / 'none'；不写 = 默认 */ music?: string }>) {
+    addFloor(state, action: PayloadAction<{ name: string; roomW: number; roomH: number; place?: string; /** 层机制 id；不写 / platform = 默认 */ mode?: string; /** 背景音乐 key / 'none'；不写 = 默认 */ music?: string; /** 背景 id；不写 / 默认那个 = 不存 */ background?: string }>) {
       record(state);
       const size = fitRoomSize(action.payload.roomW, action.payload.roomH, { w: m(state).roomW, h: m(state).roomH });
       const f = newFloor(state.project, action.payload.name, size.w, size.h);
       if (action.payload.place) f.place = action.payload.place;
       if (action.payload.mode && action.payload.mode !== DEFAULT_FLOOR_MECHANIC) f.mode = action.payload.mode;
       if (action.payload.music && action.payload.music !== DEFAULT_MUSIC) f.music = action.payload.music;
+      if (action.payload.background && action.payload.background !== DEFAULT_BACKGROUND) f.background = action.payload.background;
       state.project.floors.push(f);
       state.floor = state.project.floors.length - 1;
       state.room = { rx: 0, ry: 0 };
       validateBrush(state);
       state.version++;
     },
-    renameFloor(state, action: PayloadAction<{ index: number; name: string; place?: string; mode?: string; music?: string; /** 改这一层的房间尺寸（格）：左上角不动，变小从右边和下边裁掉 */ roomW?: number; roomH?: number }>) {
+    renameFloor(state, action: PayloadAction<{ index: number; name: string; place?: string; mode?: string; music?: string; background?: string; /** 改这一层的房间尺寸（格）：左上角不动，变小从右边和下边裁掉 */ roomW?: number; roomH?: number }>) {
       const f = state.project.floors[action.payload.index];
       if (!f) return;
       record(state);
@@ -223,6 +231,7 @@ const editorSlice = createSlice({
       if (action.payload.place !== undefined) { if (action.payload.place) f.place = action.payload.place; else delete f.place; }
       if (action.payload.mode !== undefined) { if (action.payload.mode && action.payload.mode !== DEFAULT_FLOOR_MECHANIC) f.mode = action.payload.mode; else delete f.mode; }
       if (action.payload.music !== undefined) { if (action.payload.music && action.payload.music !== DEFAULT_MUSIC) f.music = action.payload.music; else delete f.music; }
+      if (action.payload.background !== undefined) { if (action.payload.background && action.payload.background !== DEFAULT_BACKGROUND) f.background = action.payload.background; else delete f.background; }
       state.version++;
     },
     deleteFloor(state, action: PayloadAction<number>) {
@@ -267,7 +276,7 @@ const editorSlice = createSlice({
 });
 
 export const {
-  setBrush, setRoom, setShowSupport, setShowFog, setFileHash, paintCell, paintEntity, paintFog, paintFogRect, paintFuse, paintMover, setRoomFlag,
+  setBrush, setRoom, setShowSupport, setShowFog, setFileHash, paintCell, paintEntity, paintFog, paintFogRect, paintFuse, paintMover, setRoomFlag, setRoomBackground,
   addText, updateText, removeText, addLock, removeLock, paintDoor, paintKey, addRoom, moveRoom, deleteRoom, clearRoom, setFloor, addFloor, renameFloor, deleteFloor, replaceProject, setPlayLoadout, setPicking,
   beginStroke, undo, redo,
 } = editorSlice.actions;

@@ -3,7 +3,7 @@ import { IMAGES, SPRITESHEETS, TILE_FRAMES, TILE_SIZE } from '@/asset';
 import { Entities, Tiles } from '@/game/registry/registry';
 import { useAppDispatch, useAppSelector } from '@/redux/hooks';
 import { addLock, currentModel, removeLock, setBrush, setShowFog } from '@/redux/slices/editorSlice';
-import { LOCK_COLOR_NAMES, LOCK_COLORS } from '@/game/world/WorldModel';
+import { LOCK_COLOR_NAMES, LOCK_COLORS } from '@/game/mechanics/locks/model';
 import { FOG_ZONES, FOG_ZONE_COLORS, fogBrush } from '@/game/fog/zones';
 import { FUSE_CHANNELS } from '@/game/fuse/channels';
 import { MOVER_KINDS, moverBrush } from '@/game/mechanics/mover/kinds';

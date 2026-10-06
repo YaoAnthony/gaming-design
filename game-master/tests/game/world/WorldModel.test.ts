@@ -69,7 +69,8 @@ describe('WorldModel', () => {
 });
 
 // ---- 多层项目 + 文字方块 ----
-import { asProject, bakeTexts, floorAfter, newFloor } from '@/game/world/WorldModel';
+import { asProject, floorAfter, newFloor } from '@/game/world/WorldModel';
+import { bakeTexts } from '@/game/mechanics/textBlock/model';
 import { layoutText, textSize } from '@/game/world/font';
 
 describe('font', () => {
@@ -110,7 +111,7 @@ describe('project', () => {
 });
 
 // ---- 钥匙与门 ----
-import { addLockGroup, bakeLocks, LOCK_COLORS, removeLockGroup, setDoorCell, setKeyCell } from '@/game/world/WorldModel';
+import { addLockGroup, bakeLocks, LOCK_COLORS, removeLockGroup, setDoorCell, setKeyCell } from '@/game/mechanics/locks/model';
 
 describe('locks', () => {
   const base = (): WorldModel => ({ roomW: 5, roomH: 4, layout: [['A']], rooms: { A: ['RRRRR', 'R...R', 'R.r.R', 'RRRRR'] } });

@@ -7,7 +7,7 @@
 // 不然门关了钥匙没了就卡死）；别的房间的门不动，用在别的房间的钥匙也不回来（不然能刷出两把）。
 // 门在建地形前烘成 % 砖（bake），这里按组染色。门可以盖在别的砖上（比如尖刺）：开门后那一格露出底下的砖，不是空气。
 import type Phaser from 'phaser';
-import { DOOR_CHAR, lockGroup, type LockCell } from '@/game/world/WorldModel';
+import { DOOR_CHAR, lockGroup, type LockCell } from '@/game/mechanics/locks/model';
 import type { PlayContext } from '@/game/core/PlayContext';
 import type { Mechanic } from '../define';
 import { keyCarryable, type Carry } from '../carry/Carry';

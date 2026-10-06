@@ -1,6 +1,6 @@
 // ===== 钥匙门的连锁（纯函数，单测直接调） =====
 import type { CellRef } from '@/type';
-import type { LockCell } from '@/game/world/WorldModel';
+import type { LockCell } from '@/game/mechanics/locks/model';
 
 /** 连锁里的一扇门：hop = 从碰到的那扇门开始传了几格 */
 export interface DoorHop extends LockCell { hop: number }

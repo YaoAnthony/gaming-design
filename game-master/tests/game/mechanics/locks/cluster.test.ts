@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { LockCell } from '@/game/world/WorldModel';
+import type { LockCell } from '@/game/mechanics/locks/model';
 import { doorCluster, touchedDoor } from '@/game/mechanics/locks/cluster';
 
 /** 字符画转门：数字 = 组号，'.' = 没有门 */

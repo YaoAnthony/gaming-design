@@ -6,7 +6,8 @@ import { getGame } from '@/game/PhaserGame';
 import { bridge, EVT, type PickedCell, type StartGameData } from '@/protocol';
 import { SCENE } from '@/game/scenes/keys';
 import { Items, Tiles } from '@/game/registry/registry';
-import { findStart, LOCK_COLOR_NAMES, LOCK_COLORS } from '@/game/world/WorldModel';
+import { findStart } from '@/game/world/WorldModel';
+import { LOCK_COLOR_NAMES, LOCK_COLORS } from '@/game/mechanics/locks/model';
 import { Colors, hex } from '@/shared/palette';
 
 const STAGES = [

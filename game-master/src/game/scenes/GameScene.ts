@@ -7,7 +7,8 @@ import type { CarryOver, CellRef, CoreHost, EnemySpawn, Floor, GameConfig, Point
 import { jsonCarry } from '@/shared/carry';
 import { classify } from '@/game/registry/registry';
 import { Terrain } from '@/game/terrain/Terrain';
-import { entityRows, floorAfter, fogRows, fuseRows, roomKeyAt, worldRows } from '@/game/world/WorldModel';
+import { entityRows, floorAfter, roomKeyAt, worldRows } from '@/game/world/WorldModel';
+import { layerRows } from '@/game/world/layers';
 import { FuseNet } from '@/game/fuse/Fuse';
 import { FogOfWar } from '@/game/fog/Fog';
 import { bridge, EVT, type StartGameData } from '@/protocol';
@@ -143,11 +144,11 @@ export class GameScene extends Phaser.Scene {
       x: rx * roomPxW, y: ry * roomPxH, w: roomPxW, h: roomPxH, key, dark: !!model.roomFlags?.[key]?.fog,
     }] : [])));
     this.sceneFx = applySceneFx(this, this.cfg.sceneFx, fxRooms, T);
-    this.fuses = new FuseNet(this, fuseRows(model), { tile: T, delayMs: this.cfg.fuseDelayMs, light: (x, y) => this.sceneFx.light(x, y, 'ember') });
+    this.fuses = new FuseNet(this, layerRows(model, 'fuse'), { tile: T, delayMs: this.cfg.fuseDelayMs, light: (x, y) => this.sceneFx.light(x, y, 'ember') });
 
     // 迷雾层：有全屋暗的房间（roomFlags.fog），或者画了迷雾区，才建；普通房间里只有迷雾区是黑的
     const darkRooms = new Set(Object.entries(model.roomFlags ?? {}).filter(([, f]) => f.fog).map(([k]) => k));
-    const zones = fogRows(model);
+    const zones = layerRows(model, 'fog');
     if (darkRooms.size || zones.some(r => /[^.]/.test(r))) {
       this.fog = new FogOfWar(this, this.terrain.grid, zones.map(r => r.split('')), {
         tile: T, roomW: model.roomW, roomH: model.roomH, radius: this.cfg.fogRadius, memoryAlpha: this.cfg.fogMemoryAlpha, unseenAlpha: this.cfg.fogUnseenAlpha,

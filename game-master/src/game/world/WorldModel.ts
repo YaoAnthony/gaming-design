@@ -1,11 +1,19 @@
 // ===== 世界模型的纯函数：拼图、找出生点、房间增删移动、导出 =====
-import type { LockGroup, Locks, CellRef, Floor, Project, RoomCoord, RoomFlags, TextBlock, WorldModel } from '@/type';
-import { layoutText } from './font';
+// 各图层（引线、迷雾区、移动标记、门、钥匙、文字……）不在这里一样样写：它们在 world/layers.ts 登记，删房间、清空、改尺寸都遍历登记表
+import type { CellRef, Floor, Project, RoomCoord, RoomFlags, WorldModel } from '@/type';
 import { Entities } from '@/game/registry/registry';
-import { decodeFuse, encodeFuse, fuseBit } from '@/game/fuse/channels';
-import { Colors } from '@/shared/palette';
+import { defineGridLayer, defineRoomData, dropRoomData, resizeRoomData, setLayerCell } from './layers';
+import './allLayers';
 
 export function cloneModel(m: WorldModel): WorldModel { return JSON.parse(JSON.stringify(m)); }
+
+// 核心的按房间存的数据：物件层、房间开关、房间背景（别的图层在各自的文件夹里登记，见 allLayers.ts）
+function entityTable(m: WorldModel, create: true): Record<string, string[]>;
+function entityTable(m: WorldModel, create?: false): Record<string, string[]> | undefined;
+function entityTable(m: WorldModel, create = false) { return create ? (m.entities ??= {}) : m.entities; }
+defineGridLayer({ id: 'entities', table: entityTable });
+defineRoomData({ id: 'roomFlags', dropRoom: (m, key) => { if (m.roomFlags) delete m.roomFlags[key]; } });
+defineRoomData({ id: 'roomBackgrounds', keepOnClear: true, dropRoom: (m, key) => { if (m.roomBackgrounds) delete m.roomBackgrounds[key]; } });
 
 /** 空位在游戏里是一整块岩石 */
 export function solidRoom(w: number, h: number): string[] { return Array.from({ length: h }, () => 'R'.repeat(w)); }
@@ -23,23 +31,6 @@ export function worldRows(m: WorldModel): string[] {
 const stripEntities = (row: string) => row.replace(/./g, ch => (Entities.has(ch) ? '.' : ch));
 
 /** 迷雾区拼成整张图（'.' = 无区） */
-export function fogRows(m: WorldModel): string[] {
-  const out: string[] = [];
-  const blank = '.'.repeat(m.roomW);
-  m.layout.forEach(layoutRow => {
-    for (let y = 0; y < m.roomH; y++) out.push(layoutRow.map(k => (k && m.fog?.[k]?.[y]) || blank).join(''));
-  });
-  return out;
-}
-
-export function setFogCell(m: WorldModel, key: string, x: number, y: number, zone: string): void {
-  m.fog ??= {};
-  m.fog[key] ??= Array.from({ length: m.roomH }, () => '.'.repeat(m.roomW));
-  const r = m.fog[key][y];
-  m.fog[key][y] = r.substring(0, x) + zone + r.substring(x + 1);
-}
-
-const blankRows = (m: WorldModel) => Array.from({ length: m.roomH }, () => '.'.repeat(m.roomW));
 
 /** 物件层拼成整张图（'.' = 无）。砖块行里若还混着旧格式的物件字符（P/M/G），也一并算进来 */
 export function entityRows(m: WorldModel): string[] {
@@ -61,12 +52,7 @@ export function entityRows(m: WorldModel): string[] {
   return out;
 }
 
-export function setEntityCell(m: WorldModel, key: string, x: number, y: number, ch: string): void {
-  m.entities ??= {};
-  m.entities[key] ??= blankRows(m);
-  const r = m.entities[key][y];
-  m.entities[key][y] = r.substring(0, x) + ch + r.substring(x + 1);
-}
+export function setEntityCell(m: WorldModel, key: string, x: number, y: number, ch: string): void { setLayerCell(m, 'entities', key, x, y, ch); }
 
 /** 旧格式迁移：砖块行里混着的物件字符（P/M/G）搬到物件层，原位置变空气。幂等 */
 export function normalizeModel(m: WorldModel): WorldModel {
@@ -84,43 +70,6 @@ export function normalizeModel(m: WorldModel): WorldModel {
   // 迷雾以前是全局开关 + 例外房间，现在是按房间开启：旧标记直接丢掉（默认就是不启用）
   if (m.roomFlags) Object.values(m.roomFlags).forEach(f => { delete f.noFog; });
   return m;
-}
-
-// ---------- 文字方块 ----------
-export function addTextBlock(m: WorldModel, key: string, block: TextBlock): void {
-  m.texts ??= {};
-  (m.texts[key] ??= []).push(block);
-}
-export function updateTextBlock(m: WorldModel, key: string, id: string, patch: Partial<TextBlock>): void {
-  const b = m.texts?.[key]?.find(t => t.id === id);
-  if (b) Object.assign(b, patch);
-}
-export function removeTextBlock(m: WorldModel, key: string, id: string): void {
-  if (!m.texts?.[key]) return;
-  m.texts[key] = m.texts[key].filter(t => t.id !== id);
-}
-
-/** 把所有文字方块烘焙进砖块行（只写到空气格、只写在房间内）；返回烘焙后的模型和每个文字块占的世界格子 */
-export function bakeTexts(m: WorldModel): { model: WorldModel; blocks: { block: TextBlock; key: string; cells: CellRef[] }[] } {
-  const model = cloneModel(m);
-  const blocks: { block: TextBlock; key: string; cells: CellRef[] }[] = [];
-  if (!model.texts) return { model, blocks };
-  Object.entries(model.texts).forEach(([key, list]) => {
-    const pos = positionOf(model, key);
-    if (!pos || !model.rooms[key]) return;
-    list.forEach(block => {
-      const cells: CellRef[] = [];
-      layoutText(block.text, block.x, block.y).forEach(c => {
-        if (c.x < 0 || c.y < 0 || c.x >= model.roomW || c.y >= model.roomH) return;
-        const row = model.rooms[key][c.y];
-        if (row[c.x] !== '.') return;
-        model.rooms[key][c.y] = row.substring(0, c.x) + block.tile + row.substring(c.x + 1);
-        cells.push({ x: pos.rx * model.roomW + c.x, y: pos.ry * model.roomH + c.y });
-      });
-      blocks.push({ block, key, cells });
-    });
-  });
-  return { model, blocks };
 }
 
 // ---------- 项目 / 层 ----------
@@ -158,43 +107,6 @@ export function newFloor(p: Project, name: string, roomW: number, roomH: number)
 
 export const floorIndex = (p: Project, id: string): number => p.floors.findIndex(f => f.id === id);
 export const floorAfter = (p: Project, id: string): Floor | null => p.floors[floorIndex(p, id) + 1] ?? null;
-
-/** 引线层拼成整张图（'.' = 无） */
-export function fuseRows(m: WorldModel): string[] {
-  const out: string[] = [];
-  const blank = '.'.repeat(m.roomW);
-  m.layout.forEach(layoutRow => {
-    for (let y = 0; y < m.roomH; y++) out.push(layoutRow.map(k => (k && m.fuse?.[k]?.[y]) || blank).join(''));
-  });
-  return out;
-}
-
-/** 画 / 擦一格里的某一种颜色的引线，同一格的其它颜色不动 */
-export function setFuseCell(m: WorldModel, key: string, x: number, y: number, ch: number, on: boolean): void {
-  m.fuse ??= {};
-  m.fuse[key] ??= Array.from({ length: m.roomH }, () => '.'.repeat(m.roomW));
-  const r = m.fuse[key][y];
-  const mask = on ? decodeFuse(r[x]) | fuseBit(ch) : decodeFuse(r[x]) & ~fuseBit(ch);
-  m.fuse[key][y] = r.substring(0, x) + encodeFuse(mask) + r.substring(x + 1);
-}
-
-/** 移动标记拼成整张图（'.' = 无） */
-export function moverRows(m: WorldModel): string[] {
-  const out: string[] = [];
-  const blank = '.'.repeat(m.roomW);
-  m.layout.forEach(layoutRow => {
-    for (let y = 0; y < m.roomH; y++) out.push(layoutRow.map(k => (k && m.movers?.[k]?.[y]) || blank).join(''));
-  });
-  return out;
-}
-
-/** 画 / 擦一格的移动标记（ch = '.' 擦掉） */
-export function setMoverCell(m: WorldModel, key: string, x: number, y: number, ch: string): void {
-  m.movers ??= {};
-  m.movers[key] ??= Array.from({ length: m.roomH }, () => '.'.repeat(m.roomW));
-  const r = m.movers[key][y];
-  m.movers[key][y] = r.substring(0, x) + ch + r.substring(x + 1);
-}
 
 export function setRoomFlags(m: WorldModel, key: string, flags: Partial<RoomFlags>): void {
   m.roomFlags ??= {};
@@ -291,26 +203,14 @@ export function deleteRoom(m: WorldModel, key: string): void {
   if (!p) return;
   m.layout[p.ry][p.rx] = null;
   delete m.rooms[key];
-  if (m.fog) delete m.fog[key];
-  if (m.fuse) delete m.fuse[key];
-  if (m.movers) delete m.movers[key];
-  if (m.entities) delete m.entities[key];
-  if (m.roomFlags) delete m.roomFlags[key];
-  if (m.roomBackgrounds) delete m.roomBackgrounds[key];
-  if (m.texts) delete m.texts[key];
-  if (m.locks) { delete m.locks.doors[key]; delete m.locks.keys[key]; }
+  dropRoomData(m, key, false);   // 每一层、每一样按房间存的数据（world/layers.ts 登记过的）一起删
   trimLayout(m);
-}
-
-/** 按新尺寸裁 / 补一组房间行（左上角不动）：多出来的补 fill，超出的裁掉 */
-function fitRows(rows: string[], w: number, h: number, fill: string): string[] {
-  return Array.from({ length: h }, (_, y) => (rows[y] ?? '').substring(0, w).padEnd(w, fill));
 }
 
 /** 改这一层所有房间的尺寸：左上角不动，变大补空气 / 空白，变小从右边和下边裁掉。每个按房间存的图层一起改 */
 export function resizeRooms(m: WorldModel, w: number, h: number): void {
-  const layers: (Record<string, string[]> | undefined)[] = [m.rooms, m.entities, m.fog, m.fuse, m.movers, m.locks?.doors, m.locks?.keys];
-  layers.forEach(layer => { if (layer) Object.keys(layer).forEach(k => { layer[k] = fitRows(layer[k], w, h, '.'); }); });
+  Object.keys(m.rooms).forEach(k => { m.rooms[k] = Array.from({ length: h }, (_, y) => (m.rooms[k][y] ?? '').substring(0, w).padEnd(w, '.')); });
+  resizeRoomData(m, w, h);
   m.roomW = w; m.roomH = h;
 }
 
@@ -318,13 +218,7 @@ export function resizeRooms(m: WorldModel, w: number, h: number): void {
 export function clearRoom(m: WorldModel, key: string): void {
   if (!m.rooms[key]) return;
   m.rooms[key] = emptyRoom(m.roomW, m.roomH);
-  if (m.fog) delete m.fog[key];
-  if (m.fuse) delete m.fuse[key];
-  if (m.movers) delete m.movers[key];
-  if (m.entities) delete m.entities[key];
-  if (m.roomFlags) delete m.roomFlags[key];
-  if (m.texts) delete m.texts[key];
-  if (m.locks) { delete m.locks.doors[key]; delete m.locks.keys[key]; }
+  dropRoomData(m, key, true);   // 标了 keepOnClear 的（背景）留着
 }
 
 export function setCell(m: WorldModel, key: string, x: number, y: number, ch: string): void {
@@ -355,75 +249,4 @@ export function isValidModel(m: unknown): m is WorldModel {
   if (!m || typeof m !== 'object') return false;
   const o = m as Record<string, unknown>;
   return typeof o.roomW === 'number' && typeof o.roomH === 'number' && Array.isArray(o.layout) && !!o.rooms && typeof o.rooms === 'object';
-}
-
-// ---------- 钥匙与门 ----------
-/** 组的颜色按添加顺序轮着来：蓝 绿 黄 红 紫 橙 粉 白 青 */
-export const LOCK_COLORS = [Colors.sky, Colors.green, Colors.gold, Colors.rose, Colors.violet, Colors.orange, 0xff8fab, Colors.paper, 0x00b4d8];
-export const LOCK_COLOR_NAMES = ['蓝', '绿', '黄', '红', '紫', '橙', '粉', '白', '青'];
-/** 门在砖块行里的字符（烘焙时写入，不进物品栏） */
-export const DOOR_CHAR = '%';
-
-export function lockGroup(m: WorldModel, id: number): LockGroup | undefined { return m.locks?.groups.find(g => g.id === id); }
-
-/** 加一组：id 取最小没用过的 1-9，颜色按 id 轮 */
-export function addLockGroup(m: WorldModel): LockGroup | null {
-  const locks: Locks = (m.locks ??= { groups: [], doors: {}, keys: {} });
-  let id = 1; while (locks.groups.some(g => g.id === id)) id++;
-  if (id > 9) return null;
-  const g = { id, color: LOCK_COLORS[(id - 1) % LOCK_COLORS.length] };
-  locks.groups.push(g);
-  return g;
-}
-
-/** 删一组：它的门和钥匙全擦掉 */
-export function removeLockGroup(m: WorldModel, id: number): void {
-  if (!m.locks) return;
-  m.locks.groups = m.locks.groups.filter(g => g.id !== id);
-  const ch = String(id);
-  [m.locks.doors, m.locks.keys].forEach(layer => Object.keys(layer).forEach(k => { layer[k] = layer[k].map(r => r.split(ch).join('.')); }));
-}
-
-function setLockCell(m: WorldModel, layer: 'doors' | 'keys', key: string, x: number, y: number, id: number): void {
-  if (id > 0 && !lockGroup(m, id)) return;   // 这一组不存在（删掉了、或者是别的层的）：不写，免得留下看不见的门 / 钥匙
-  const locks: Locks = (m.locks ??= { groups: [], doors: {}, keys: {} });
-  locks[layer][key] ??= Array.from({ length: m.roomH }, () => '.'.repeat(m.roomW));
-  const r = locks[layer][key][y];
-  locks[layer][key][y] = r.substring(0, x) + (id > 0 ? String(id) : '.') + r.substring(x + 1);
-}
-export const setDoorCell = (m: WorldModel, key: string, x: number, y: number, id: number): void => setLockCell(m, 'doors', key, x, y, id);
-export const setKeyCell = (m: WorldModel, key: string, x: number, y: number, id: number): void => setLockCell(m, 'keys', key, x, y, id);
-
-export interface LockCell extends CellRef {
-  group: number;
-  /** 门后面藏着的砖（门画在别的砖上，比如尖刺）：开门后露出来；没有 = 空气 */
-  under?: string;
-}
-/** 门烘进砖块行（盖在什么砖上都行，底下的砖记在 under 里，开门后露出来）；返回门格和钥匙格的世界坐标 + 组号 */
-export function bakeLocks(m: WorldModel): { model: WorldModel; doors: LockCell[]; keys: LockCell[] } {
-  const model = cloneModel(m);
-  const doors: LockCell[] = [], keys: LockCell[] = [];
-  const locks = model.locks;
-  if (!locks) return { model, doors, keys };
-  const valid = new Set(locks.groups.map(g => g.id));
-  const scan = (layer: Record<string, string[]>, out: LockCell[], bake: boolean) => {
-    Object.entries(layer).forEach(([key, rows]) => {
-      const pos = positionOf(model, key);
-      if (!pos || !model.rooms[key]) return;
-      rows.forEach((row, y) => [...row].forEach((ch, x) => {
-        const group = Number(ch);
-        if (!(group >= 1 && group <= 9) || !valid.has(group)) return;
-        let under: string | undefined;
-        if (bake) {
-          const r = model.rooms[key][y], cur = r[x];
-          if (cur !== '.' && cur !== DOOR_CHAR) under = cur;
-          model.rooms[key][y] = r.substring(0, x) + DOOR_CHAR + r.substring(x + 1);
-        }
-        out.push({ x: pos.rx * model.roomW + x, y: pos.ry * model.roomH + y, group, ...(under ? { under } : {}) });
-      }));
-    });
-  };
-  scan(locks.doors, doors, true);
-  scan(locks.keys, keys, false);
-  return { model, doors, keys };
 }

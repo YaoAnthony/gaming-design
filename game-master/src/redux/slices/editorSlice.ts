@@ -5,12 +5,11 @@ import { DEFAULT_PROJECT } from '@/game/world/defaultWorld';
 import { DEFAULT_MUSIC } from '@/asset';
 import { DEFAULT_BACKGROUND } from '@/asset/backgrounds';
 import { DEFAULT_FLOOR_MECHANIC } from '@/game/mechanics/define';
-import {
-  addLockGroup as addModelLock, removeLockGroup as removeModelLock, setDoorCell, setKeyCell,
-  addRoomAt, addTextBlock as addModelText, fitRoomSize, lockGroup, clearChar, clearRoom as clearModelRoom, resizeRooms, deleteRoom as deleteModelRoom, findStart, firstRoom, moveRoom as moveModelRoom,
-  newFloor, normalizeModel, positionOf, removeTextBlock as removeModelText, roomKeyAt, setCell as setModelCell, setEntityCell, setFogCell,
-  setFuseCell, setMoverCell, setRoomBackground as setModelRoomBackground, setRoomFlags, updateTextBlock as updateModelText,
-} from '@/game/world/WorldModel';
+import { addRoomAt, fitRoomSize, clearChar, clearRoom as clearModelRoom, resizeRooms, deleteRoom as deleteModelRoom, findStart, firstRoom, moveRoom as moveModelRoom, newFloor, normalizeModel, positionOf, roomKeyAt, setCell as setModelCell, setEntityCell, setRoomBackground as setModelRoomBackground, setRoomFlags } from '@/game/world/WorldModel';
+import { addLockGroup as addModelLock, removeLockGroup as removeModelLock, setDoorCell, setKeyCell, lockGroup } from '@/game/mechanics/locks/model';
+import { addTextBlock as addModelText, removeTextBlock as removeModelText, updateTextBlock as updateModelText } from '@/game/mechanics/textBlock/model';
+import { setFuseCell } from '@/game/fuse/layer';
+import { setLayerCell } from '@/game/world/layers';
 
 export interface EditorState {
   project: Project;
@@ -129,14 +128,14 @@ const editorSlice = createSlice({
     paintFog(state, action: PayloadAction<{ key: string; x: number; y: number; zone: string }>) {
       record(state, 'stroke');
       const { key, x, y, zone } = action.payload;
-      setFogCell(m(state), key, x, y, zone);
+      setLayerCell(m(state), 'fog', key, x, y, zone);
       state.version++;
     },
     /** 迷雾区：按住拖出的整个矩形（两角都含）一次填上同一个区号，'.' = 擦掉；一步撤销 */
     paintFogRect(state, action: PayloadAction<{ key: string; x0: number; y0: number; x1: number; y1: number; zone: string }>) {
       record(state, 'stroke');
       const { key, x0, y0, x1, y1, zone } = action.payload;
-      for (let y = Math.min(y0, y1); y <= Math.max(y0, y1); y++) for (let x = Math.min(x0, x1); x <= Math.max(x0, x1); x++) setFogCell(m(state), key, x, y, zone);
+      for (let y = Math.min(y0, y1); y <= Math.max(y0, y1); y++) for (let x = Math.min(x0, x1); x <= Math.max(x0, x1); x++) setLayerCell(m(state), 'fog', key, x, y, zone);
       state.version++;
     },
     paintFuse(state, action: PayloadAction<{ key: string; x: number; y: number; ch: number; on: boolean }>) {
@@ -149,7 +148,7 @@ const editorSlice = createSlice({
     paintMover(state, action: PayloadAction<{ key: string; x: number; y: number; ch: string }>) {
       record(state, 'stroke');
       const { key, x, y, ch } = action.payload;
-      setMoverCell(m(state), key, x, y, ch);
+      setLayerCell(m(state), 'movers', key, x, y, ch);
       state.version++;
     },
     setRoomFlag(state, action: PayloadAction<{ key: string; flags: Partial<RoomFlags> }>) {

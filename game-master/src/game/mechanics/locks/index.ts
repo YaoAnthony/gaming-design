@@ -2,7 +2,7 @@
 // 编辑器「钥匙与门」工具画的不是物件，是 model.locks；这一层有锁组就启用。
 import { TILE_FRAMES } from '@/asset';
 import { defineTile, Traits } from '@/game/registry/registry';
-import { bakeLocks } from '@/game/world/WorldModel';
+import { bakeLocks } from '@/game/mechanics/locks/model';
 import { defineMechanic } from '../define';
 import { Locks, type LockData } from './Locks';
 

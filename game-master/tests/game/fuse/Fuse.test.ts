@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { FuseNet } from '@/game/fuse/Fuse';
-import { fuseRows, setFuseCell } from '@/game/world/WorldModel';
+import { setFuseCell } from '@/game/fuse/layer';
+import { layerRows } from '@/game/world/layers';
 import { decodeFuse, encodeFuse, encodeFuseState, FUSE_ALL, FUSE_CHANNELS, fuseBit } from '@/game/fuse/channels';
 import type { WorldModel } from '@/type';
 
@@ -43,7 +44,7 @@ describe('引线跨房间', () => {
       rooms: { A: ['...', '...'], B: ['...', '...'] },
       fuse: { A: ['.WW', '...'], B: ['WW.', '...'] },   // A 的 (1,0)(2,0) 接 B 的 (0,0)(1,0)
     };
-    const rows = fuseRows(m);
+    const rows = layerRows(m, 'fuse');
     expect(rows[0]).toBe('.WWWW.');
     const { cells, w, h } = grid(rows);
     expect(FuseNet.isEnd(cells, w, h, 2, 0)).toBe(false);   // A 的边缘格不是端头，它连着 B

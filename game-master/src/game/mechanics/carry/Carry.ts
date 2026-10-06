@@ -7,7 +7,7 @@
 import Phaser from 'phaser';
 import type { ItemDef } from '@/type';
 import { Items } from '@/game/registry/registry';
-import { lockGroup } from '@/game/world/WorldModel';
+import { lockGroup } from '@/game/mechanics/locks/model';
 import type { PlayContext } from '@/game/core/PlayContext';
 import { INPUT_DOWN } from '@/shared/input';
 import type { Mechanic } from '../define';

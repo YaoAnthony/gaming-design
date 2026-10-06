@@ -4,7 +4,9 @@ import Phaser from 'phaser';
 import { classify } from '@/game/registry/registry';
 import { Terrain } from '@/game/terrain/Terrain';
 import { FUSE_CHANNELS, fuseHas } from '@/game/fuse/channels';
-import { DOOR_CHAR, fuseRows, lockGroup, nextFloorId, roomKeyAt, worldRows } from '@/game/world/WorldModel';
+import { nextFloorId, roomKeyAt, worldRows } from '@/game/world/WorldModel';
+import { DOOR_CHAR, lockGroup } from '@/game/mechanics/locks/model';
+import { layerRows } from '@/game/world/layers';
 import { layoutText, textSize } from '@/game/world/font';
 import { bridge, EVT, type PickedCell } from '@/protocol';
 import { SCENE } from '@/game/scenes/keys';
@@ -371,7 +373,7 @@ export class EditorScene extends Phaser.Scene {
    *  掩码用整张大地图算，所以房间边缘的引线会显示成"连到隔壁房间"，而不是端头。 */
   private drawFuse(): void {
     const s = this.state(), m = currentModel(s);
-    const rows = fuseRows(m);
+    const rows = layerRows(m, 'fuse');
     const ox = s.room.rx * m.roomW, oy = s.room.ry * m.roomH;
     FUSE_CHANNELS.forEach((c, i) => {
       const layer = this.fuseTiles[i];

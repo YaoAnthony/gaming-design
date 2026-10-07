@@ -1,0 +1,409 @@
+Game Master 美术方向与 AI 设定图提示词手册
+版本：2026-10-03｜用途：团队美术定调、概念设计、AI 设定图生成与后续像素资产制作。
+0. 依据与边界
+本文依据 proposal.pdf 中的玩法和故事概要，以及 script.md 中的事件、对白和交互。剧本中所有既有美术段落均已排除，包括风格、场景、角色／敌人、色彩关键词；下文重新从游戏设计推导。
+已经确定的内容：单人叙事平台解谜（narrative platformer puzzler）、银河城式地图（Metroidvania map）、起跳位置产生爆炸、爆炸破坏方块／引燃导火线／释放下落地形／消灭敌人、后续周目改变爆炸参数、单房间视图、GM 现场修改地图、最终向玩家开放编辑器。GM 将满足玩家视为自身存在意义，从庆祝胜利走向过度迭代与存在危机。
+剧本明确写到：骷髅手搭建开场并操作菜单；菜单元素可被搬运、揉皱、丢弃；玩家在首次通关后进入施工区域；GM 的 NPC 化身与玩家交谈；对白包含“虽然我没有头”；第一幕结尾 GM 开始改造游戏。详细剧本只覆盖序幕和第一幕，后期视觉演化依据提案概要提出。
+本文提出的主角外形、GM 服装、敌人种类、材料语言、色盘、场景模块、后期画面变化均为新的美术设计建议，不表示团队已决定这些设定。剧场、道具、修补的语言是视觉隐喻，不额外规定 GM 是现实中的人、亡灵或木偶师，也不增加现实世界外层剧情。
+没有把旧版本演示作为已验证的玩法或画面依据。
+1. 游戏分析：美术必须解决什么
+1.1 起跳爆炸使“移动”成为“修改世界”
+玩家每一次向上移动，都在起跳点留下改变。这个机制天然连接故事中 GM 对世界的修改：前期玩家依照 GM 的安排改动局部，后期 GM 修改规则，最后玩家获得更直接的改动权限。
+因此，最值得强调的图像关系是“搭起来 → 被作用 → 留下变化”。完整砖、碎裂砖、缺口；导火线的未燃、正在燃烧、烧尽；支撑件的完整、释放、坠落。这些状态应共享材料和轮廓，让玩家知道自己改变了同一个对象。
+爆炸从脚下原来的位置发出，不能画成主角携带的持续光球，也不能在主角升空后追随角色。范围、强度和可影响材料属于规则，必须在后续周目中有稳定、可比较的图像表达。
+1.2 单房间解谜要求画面有明确的信息层级
+每个房间应让玩家迅速辨认：自己在哪里、能站在哪里、什么可以炸、危险在哪里、出口在哪里。精确平台跳跃（precision platforming）还要求平台顶边、洞口、尖刺、下落物底面清楚可见。
+视觉个性可以来自轮廓、少量材料符号和动作，但不能靠让碰撞边缘歪斜、烟雾遮挡落点、随机噪点淹没导火线来实现。画面中可玩层与背景层必须分开；压低背景纹理比增加高光更经济。
+1.3 首次通关后的越界需要有可信的“表面”和“背面”
+开头需要让玩家愿意把这里当作一个完整的游戏。施工区域随后才揭示：平时的石墙有道具背板、漂亮的门后有安装支架、庆祝界面是可搬运的成品。开场骷髅手可以种下疑问，但第一批可玩房间不应到处显示图层名、选择框和工具面板，否则后续越界失去发现感。
+前台与后台共享物件身份。前台的一块拱门到后台后露出支撑架，而不是突然变成另一个画风的真实工厂。过渡应先出现一处松动的边角，再逐渐展示制作过程。
+1.4 GM 的情绪是“被回应的渴望”
+提案中 GM 因玩家继续游玩而判断自己的游戏不够好。它的视觉变化应体现认真、误读、补偿、疲惫。初期把一块砖摆正，后期反复检查同一块砖；初期庆祝标语放一次，后期不断堆叠；初期手势带着邀请，后期迟迟不松开修改按钮。
+玩家继续游玩可能来自好奇、享受或惯性，GM 把它理解成“不满意”。这是故事里很有力量的认知错位：美术应展示 GM 如何越来越用力地修补自己的作品，给玩家保留解释自身行为的空间，避免用全屏敌意强行规定玩家是破坏者。
+如果只把后期做成红眼、尖牙、血迹和画面乱码，玩家会更容易把 GM 读成敌意明确的恐怖反派。这里更有价值的压力来自一个创作者越来越无法停下。
+1.5 幽默发生在“严肃地执行荒唐事情”
+行业标准的庆祝画面、随手下载的按钮、NPC 抱怨跳跃爆炸、手把按钮揉成一团，这些笑点都适合用郑重的布置、突然的停顿和非常具体的小动作表达。角色不必每一帧都做鬼脸。
+“用跳跃推进对白”尤其值得单独处理：脚下的爆炸反馈可以保留，GM 的短暂后仰也可以形成笑点；对白框必须避开爆炸起点和落点。是否在对白期间屏蔽周围可破坏机关、怎样避免 NPC 对话被意外打断，是需要程序与关卡设计共同确认的交互问题，美术不能通过偷偷隐藏爆炸解决。
+1.6 学生团队需要可复用的风格
+平台为桌面与移动浏览器，提案采用 TypeScript、Phaser 3 和街机物理（Arcade Physics）。美术应以模块化贴图、少帧动画、独立特效与界面组件为主。画面里一张反复出现但逐渐被修补的标牌，可以比几十张互不相干的新背景更有效地服务故事。
+2. 方向迭代与收敛
+以下是设计推演，依据玩法、故事与制作限制比较；没有把它们包装成已经完成的玩家测试。
+轮次
+方向
+能解决的事
+暴露的问题
+本轮决定
+1
+极简几何谜题世界：纯色方块、少量符号
+易读、便于实现、编辑器自然
+GM 的亲手制作感与人格偏弱，情绪空间有限
+保留可玩层的几何清晰度
+2
+手工搭建的小型舞台：塔楼像认真做出的道具
+搬运菜单、拆改关卡、前后台关系都合理
+如果充满纸纹、木纹、绳线和小饰品，容易变成漂亮手工微缩景，削弱解谜与不安
+材料只保留少量符号，环境仍是正侧面的游戏房间
+3
+反复修改的像素小剧场：简洁模块、少量偏差、状态积累
+玩法与 GM 心理可以用同一组物件表达；建立独立视觉身份
+需要严格规定哪些“不整齐”只是装饰，哪些变化会改变玩法
+确定为主方向
+4
+制作约束修正：固定网格、稳定危险语言、明确变体
+防止 AI 把概念生成成噪点丰富的插画、透视模型或恐怖海报
+概念图仍需人工转译成实际像素资产
+锁定下文规范与提示词结构
+
+最终方向名称：反复修改的像素小剧场（A repeatedly revised pixel playhouse）。
+一句话美术定义：一个没有头的游戏搭建者，用简洁而有点笨拙的模块造出一座塔；砖块、怪物、菜单都带着同一双手制作的痕迹，随着它越来越想讨好玩家，原本整齐的世界逐渐积累返工、修补和停顿。
+与 Undertale 的关系
+借鉴的设计价值：少量视觉信息承载鲜明个性；角色的姿态、停顿与行为具有辨识度；幽默与脆弱可共存；画面服务叙事。
+这属于本项目对参考作品的设计解读。Toby Fox 与 Temmie Chang 的官方访谈中，Temmie 提到初见演示时对角色表演和笑声印象强烈，也谈到通过观察与理解喜好发展自己的表达方式。这个材料支持把参考转化为“表演与个人语言”的工作方法，不支持照搬现成角色。官方访谈
+独立性主要来自四件事：无头搭建者、脚下改变世界的小角色、可搬运的界面道具、反复修改留下的物件状态。生产提示词不使用“某游戏风格”“某角色同款”等风格锚点。
+应避开的强关联组合：穿现代外套或红围巾的笑脸骷髅；黄脸条纹衫人类小孩；骷髅头像对白框；红色心形玩家标识；黑底白框的回合战斗画面。骷髅手是当前剧情要求，可以通过结构、职业动作、比例和材料建立自己的身份。
+3. 全局视觉规范
+3.1 必须统一的六条规则
+固定侧视（fixed side view）与正交投影（orthographic projection），所有可玩地形服从规则网格。
+大轮廓、少细节；角色靠一种独特的比例或动作被记住。
+硬边像素色块（hard-edged pixel clusters）；每种材料通常一个主色、一个阴影、可选一个高光。
+物件具有简短的“制作痕迹”：一个接缝、一处铆钉或一片补丁即可，避免每件物品同时堆满所有符号。
+不完美的位置是装饰、摆放和表演；可玩边缘、危险提示、文本可读性必须稳定。
+后期改变同一批资产的状态和编排，维持主角、危险与规则的识别语言。
+3.2 轮廓与材料
+建筑：矩形平台、阶梯状塔顶、简单拱门、方形窗；拱形只出现在装饰与入口，不把站立平台画成倾斜弧面。
+主角：窄而直的小身体、折角头部、两只略大的鞋；GM：细长的无头骨架、围裙、空领口；手：分节长指与明确的掌部负形；敌人：每类只有一个主轮廓，例如夹子、折叠方壳、卷起的带子。
+材料词汇：刷过颜料的薄板（painted thin panels）、素纸标签（plain paper tags）、简化木质背撑（simplified wooden braces）、骨片式连接件（bone-like joints）、织物补丁（cloth patches）、少量金属铆钉（sparse metal rivets）。这些材料只用少数像素符号表达，不生成逼真的纤维和微观纹理。
+前台物件大多能站得直、看起来完整；后台会显示薄边、背撑与未上色部分；焦虑阶段会出现重复补丁、废弃部件与旧版本物件。
+3.3 建议逻辑尺寸
+以下是新建议，需结合实际关卡原型确认；不要为匹配设定图强制改变已经有效的跳跃手感。
+项目
+建议起点
+说明
+逻辑画布（logical canvas）
+320 × 180
+16:9，便于单房间编排
+地形网格
+10 × 10
+每屏 32 × 18 格；如果现有程序使用其他网格，统一换算即可
+主角
+12 × 18 像素
+鞋部与折角轮廓在小尺寸仍可识别
+GM 化身
+20 × 30 像素左右
+比主角高，但不能堵住房间信息
+普通敌人
+10–20 像素量级
+由碰撞与移动方式决定具体尺寸
+巨手
+80 × 60 像素量级
+仅菜单／编辑演出可放大，不在精确跳跃时长期遮挡平台
+
+游戏资产采用最近邻缩放（nearest-neighbor scaling）。浏览器和手机显示尺寸变化较大，优先整数倍显示；无法整数倍时由程序统一处理像素网格与布局，不由每张贴图各自缩放。移动端需要独立的触控区域，不能把游戏内小小的菜单道具直接当成足够大的触控目标。
+AI 设定图可以高分辨率展示设计，但不能声称它已经是像素格一致、可无缝拼接、帧间一致的成品。概念图与最终游戏资产分开验收。
+3.4 建议色盘与语义
+HEX 是制作标准；AI 图像只用于接近这个关系，后续人工量化颜色。
+色彩
+HEX
+主要用途
+炭黑（charcoal black）
+#19191B
+负空间、最深背景
+石墨灰（graphite gray）
+#333239
+背景结构、道具背板
+灰绿（gray green）
+#596D66
+前台塔楼背景面
+旧石灰（worn stone gray）
+#7D8072
+坚固地形主体
+素纸白（plain paper cream）
+#DDD5BC
+主角头部、标签、可玩边缘高光
+暗骨白（muted bone）
+#B6AD94
+GM 骨架主体，避免全身最亮
+陶土色（clay brown）
+#B77A63
+背撑、普通道具和少量服装
+陈旧黄（faded yellow）
+#D8C06A
+钥匙与奖励的少量点缀
+粉笔青（chalk teal）
+#7EBEB5
+主角鞋部、编辑选中框；用途靠位置与框形区分
+火花橙（spark orange）
+#EF8754
+爆炸、导火线燃烧、碎裂反馈
+警告红（warning red）
+#C94B52
+尖刺、危险提示、即将造成伤害的状态
+校改淡紫（revision lavender）
+#B2A0CC
+编辑辅助线与修改标记，主要在后台／编辑器出现
+
+普通房间不要把十二种颜色同时用满。背景以炭黑、石墨灰和灰绿为主；主角与可交互物件提高明度。钥匙不是仅靠黄色识别，必须有独特轮廓；危险也不能仅靠红色识别，必须结合尖角、标记与预警动作。
+颜色分工保持到结尾：GM 的情绪可以改变装饰和编排，不能随意把安全平台染成与尖刺相同的警告状态，让玩家重新猜规则。
+3.5 光影、纹理与动画
+光影：平面色阶（flat value steps），少量局部亮块。整屏不会罩上一层重雾、扫描线或动态脏污。没有必要把每次爆炸做成照亮全屏的强烈闪光。
+纹理：一个地形模块最多一两条接缝；大面留空；少用抖色（dithering），只有较大的背景阴影可局部使用。禁止均匀铺满随机点，这会破坏导火线识别。
+表演：主角静止仍然安静，起跳时略压缩、鞋底张开，再向上弹；GM 用手掌、肩线和围裙的倾斜表达情绪；敌人的危险动作提前出现可识别的准备姿势。每类核心动作先用 2–4 个关键姿势验证，再决定成品帧数。
+GM 的手应有“摆正 → 检查 → 犹豫 → 再摆正”的动作序列。后期的不安优先来自频率和停顿，不通过所有物件一直抖动来制造压力。
+4. 全流程的视觉演化
+阶段
+玩家感受
+画面规则
+优先使用的资产
+序幕
+有点奇怪，但欢迎进入
+手迅速摆好完整道具；标题逐块落位；少量震动
+手、菜单板、塔楼框架
+第一轮可玩塔楼
+清楚、安静、偶尔笨拙
+前台完成度高，制作痕迹克制；机关可读
+基础地形、门钥、导火线、标准敌人
+首次胜利
+热闹得略显用力
+庆祝画面短暂更饱和；纸屑与大标题像整套现成道具
+胜利板、彩纸、奖杯、继续按钮
+施工区与 GM 相遇
+原来有人在这里忙
+同一块墙露出背面；材料堆在安全角落；按钮有薄边
+背撑、备用块、揉皱按钮、GM
+GM 开始迭代
+认真得逐渐过头
+同房间出现小修补、更多说明牌；镜头可见拆装过程
+地形替换状态、手部操作动画
+焦虑升级〔提案推导〕
+越来越难让它满意
+旧版本堆积、标牌遮住自己的旧标牌、手重复检查
+补丁、撤销影像、失衡装饰
+玩家获得编辑器〔提案推导〕
+改动权限被交到自己手上
+编辑器沿用相同道具与色盘；工具清楚且功能完整
+工具栏、选择框、网格、状态图标
+存在危机与结束选择〔提案推导〕
+空间重新安静，选择具有分量
+逐步撤去过量装饰；留下 GM、玩家、核心物件和空白
+稀疏房间、手的停顿与松开姿势
+
+后期建议只是一种视觉支持，不规定新结局或对话。尤其不要默认 GM 在结尾变成需要被杀死的巨大头目。
+5. 场景设定与关键词
+所有场景使用横向单房间构图，视角相同。设定图可展现模块关系，具体平台位置、跳跃距离与爆炸半径由关卡设计决定。
+S01 菜单搭建舞台
+背景是大块留空的炭黑色。少量塔楼边框构成舞台，标题与三个菜单板逐个被摆入。手来自画框外，手腕无需解释完整身体的位置。菜单板只有一个薄侧边与安装孔；面板内部留空以便后期排字。
+关键词：空白舞台（empty playhouse stage）、逐块搭建（piece-by-piece assembly）、可搬运标题板（movable title board）、实体菜单板（physical menu plaques）、分节骷髅手（segmented skeletal hand）、郑重的摆放动作（earnest placement gesture）、少量装饰（sparse decoration）。
+S02 基础教学房
+一眼可读的入口、站立面、出口；只展示本房教学所需的机关。塔楼由干净的涂色薄板构成，少量接缝暗示人工搭建。背景窗不模拟可以进入的出口。
+关键词：完成的塔楼前台（finished tower frontage）、矩形落脚平台（rectangular landing platforms）、清晰的站立顶边（clear standing edges）、留白的谜题空间（spacious puzzle layout）、低细节背景（low-detail backdrop）、单个教学焦点（single tutorial focus）。
+S03 导火线与下落地形房
+导火线是固定粗细的有端点连续线，安装在可玩层。悬挂块有一目了然的支撑件。点燃与释放状态要在设计图里配对展示；不能让装饰绳和导火线使用同样的纹样。
+关键词：连续导火线（continuous fuse line）、可见连接端点（visible connection endpoints）、独立支撑扣（distinct support latch）、悬挂矩形地形（suspended rectangular terrain）、烧尽轨迹（spent fuse trail）、空白下落路径（uncluttered falling path）、完整与触发状态对照（intact and triggered state comparison）。
+S04 钥匙门与探索节点
+钥匙、锁孔、门徽使用相同的特有缺口轮廓；可以以方缺、双齿等形状区分不同锁，不只换颜色。背景可以有一扇小假窗，避免出现与真正出口完全相同的装饰门。
+关键词：形状匹配的钥匙与锁（shape-matched key and lock）、带徽记的门板（emblem-marked door panel）、重复地标（recurring landmark）、紧凑探索节点（compact exploration junction）、清楚的路径分支（clear path branching）。
+S05 胜利城堡与庆祝画面
+终点城堡像认真制作的小塔楼门面。庆祝板故意比环境热闹，彩纸有规则的短条形和菱形，奖杯略夸张；保留可移动面板的薄边。喜剧性来自仪式的用力程度，不把整张图画得脏乱。
+关键词：郑重的胜利仪式（earnest victory ceremony）、过大的庆祝板（oversized celebration plaque）、规整彩纸（simple geometric confetti）、现成奖杯道具（stock-looking trophy prop）、略显过度的热情（slightly excessive enthusiasm）、可分离按钮（detachable button）。
+S06 后台施工区
+墙板的正面仍像塔楼，背面显示简化背撑。相同砖块整齐码在侧边；未上色的拱门、备用按钮、工具盒放在不阻碍通行的位置。这里是 GM 的工作空间，不额外引入现代电脑桌或写实工厂。
+关键词：塔楼道具背面（back of tower scenery）、薄板边缘（thin panel edges）、简化安装支架（simplified mounting braces）、备用地形堆（stacked spare terrain pieces）、未上色门框（unpainted doorway frame）、散放界面道具（loose interface props）、安静的制作空间（quiet construction space）。
+S07 GM 返工中的同一房间
+与 S02 使用同一机位与主要地标。第一版修改只增加一处修补与一个新模块；焦虑版则显示多次覆盖的旧标牌、废弃版物件和手的检查动作。装饰混乱留在房间边缘，玩家路径仍然可读。
+关键词：相同房间的版本对照（same-room revision comparison）、积累的修补（accumulated repairs）、被覆盖的旧标牌（overwritten old placards）、撤下的旧地形（discarded previous terrain）、重复检查（repeated checking）、边缘拥挤中央清楚（crowded edges with a clear center）。
+S08 编辑器与安静的终局空间
+编辑器有网格、工具栏、选中对象边框、预览／游玩模式区别。所有工具图标来自现有的砖、门、角色和手，不突然采用一套高科技界面。结尾可将工具和多余装饰逐渐收走，让“停止继续修改”获得具体视觉形式。
+关键词：道具式编辑器（prop-based level editor）、稳定网格（stable editing grid）、清晰选择框（clear selection outline）、对象缩略图（object thumbnails）、清楚的编辑与游玩模式（distinct edit and play modes）、留出的空白（deliberate empty space）、悬停后松开的手（a hand that hesitates and releases）。
+6. 主角与 GM
+C01 主角：折角小跑者〔新建议〕
+外形：狭窄的炭黑色身体，素纸白的方形头片右上角折下一个小角；脸只有短短的水平暗槽，正面无大笑脸。鞋略大，鞋底有两片可以张合的青色薄片。起跳时鞋底张开，脚下出现橙色爆炸。
+不为这套外形附加“纸人种族”或“GM 造出玩家”等新剧情。它只提供一个可识别的游戏化身。折角与鞋底是身份锚点：无论后来周目、场景、光线怎样变化，都保留这两件事。
+姿态：正常站姿略向前；待机安静；起跳前身体压低；起跳后头与身体保持可读的直线关系；被拖进编辑器时四肢短暂松开。避免把主角做成会说大量对白的独立故事人物。
+关键词：折角头片（folded-corner head plate）、窄身小角色（narrow-bodied small avatar）、极少面部标记（minimal facial marking）、双片弹开鞋底（split opening soles）、脚下爆炸（takeoff-point explosion）、安静待机（quiet idle pose）、清晰小尺寸剪影（readable small-scale silhouette）。
+C02 GM 的 NPC 化身：无头搭建者〔服装与比例为新建议〕
+保留剧情中的骷髅与“没有头”。上方是空领口，不能补上一颗悬浮头。骨架细长，骨节像简化的装配连接件；胸前只有三条短肋线。穿一条过长的灰绿工作围裙，一侧口袋略低，挂一枚素纸标签。围裙和工具并不把它规定为现实职业。
+用肩线、手势和围裙表达性格：欢迎时双掌朝上；辩解时一手按住围裙，一手指向庆祝板；意识到“继续”按钮存在时手僵在半空；反复修改时身体略前倾；后期疲惫时手指未合拢、肩线降低。表情图应画姿态，不画不存在的头部表情。
+身份锚点：空领口、长围裙、低口袋、分节骨手。避免现代连帽衫、夸张牙齿、戏剧红围巾和带笑脸的骷髅头。
+关键词：无头骨架化身（headless skeletal avatar）、空领口（empty collar opening）、简化装配骨节（simplified assembly-like joints）、过长工作围裙（overlong work apron）、略不对称的口袋（slightly uneven pockets）、掌心朝上的邀请（open-palmed invitation）、肩线表达情绪（emotion through shoulder posture）、用力过度的认真（overearnest care）。
+C03 画框外的骷髅手
+与 NPC 的骨节、骨色、手指数保持一致。建议风格化为四个手指（含拇指），只为降低制作复杂度；若团队采用五指，两种尺寸必须一起修改。指尖短圆、指节方一些，掌部留下清楚负形，远离写实骨骼与恐怖利爪。
+动作设计：指向选项；拇指与食指轻夹砖块；掌面压平标题；横扫菜单；把继续按钮压缩揉皱；放下一个模块后轻敲检查；想撤销时停住；最后缓慢松开。
+关键词：画框外伸入（reaching in from outside the frame）、分节长指（segmented long fingers）、钝圆指尖（blunt rounded fingertips）、清晰掌部负形（clear negative space in the palm）、精细道具操作（careful prop manipulation）、犹豫的悬停（hesitant hovering）、克制的骨骼结构（restrained skeletal structure）。
+7. 敌人体系〔具体种类均为新建议〕
+提案只确定有敌人及爆炸可以消灭它们，未确定种类、移动与攻击模式。以下三类提供视觉候选；不能因为设定图画了机关，直接给游戏增加未经讨论的新机制。
+E01 木夹巡逻怪：标准敌人候选
+主形是一只竖立的宽木夹，两个短脚，一处铆钉／转轴。闭合时顶部平齐，准备造成伤害时夹口张开并露出警告红内侧。眼睛只用一个偏低的小黑点，形成认真却略迟钝的性格。身体轮廓不能与可站立方块完全相同。
+建议对应地面巡逻（ground patrol）；如果当前原型没有张口攻击，就让张口只是接触危险的预警表演，不增加攻击行为。
+关键词：木夹式身体（clothespin-shaped body）、一个转轴（single pivot joint）、短脚巡逻（short-legged patrol）、张口预警（opening-jaw warning pose）、警告红内侧（warning-red inner surface）、笨拙的认真（awkward earnestness）。
+E02 折壳怪：静止／缓慢移动敌人候选
+主形是有三角折边的小方壳，两条细腿；侧面有清楚的眼槽与张合口。表面采用陶土色和灰绿，危险状态才显示警告红。不要把它做成可破坏砖的同色同形版本，也不要擅自增加需要多次爆炸击杀的装甲规则。
+关键词：折叠方壳（folded box shell）、突出的三角折边（distinct triangular flaps）、细腿（thin legs）、短眼槽（short eye slit）、一体化道具生物（simple prop creature）、清楚的敌人轮廓（distinct enemy silhouette）。
+E03 卷带虫：可选的第三轮廓
+主形是一圈宽而扁的卷带，头部伸出一个有短眼槽的平端，下面是两只小脚。身体用连续的宽面，不用细细一条发光线，避免与导火线混淆。建议先作备用概念；只有现有敌人行为需要第三种轮廓时才制作成品。
+关键词：宽卷带身体（wide rolled-strip body）、平端小头（flat-ended small head）、连续大色面（continuous broad color shapes）、缓慢笨拙动作（slow awkward motion）、与机关线明显区分（clearly distinct from mechanical lines）。
+共用敌人状态
+每种敌人至少有正常、危险预警、爆炸受击、消失四个状态。受击时拆成二三块原来的材料，留下一个短暂的小废件；不用血肉或大量爆炸烟雾。若增加尸体或废件，默认只作为短时视觉反馈，是否有碰撞由关卡规则单独决定。
+后期变体优先增加一小片补丁、替换一块壳板、动作频率改变；不要给每一周目重新设计一个怪物阵营。变体外观必须与对应行为一起确认，避免用“升级外形”暗示实际不存在的新能力。
+8. 地形、机关与特效
+对象
+常态身份
+状态对照
+关键词
+坚固平台
+规则矩形、完整顶边、整块主色
+正常／编辑选中；无随机裂纹
+坚固矩形平台（solid rectangular platform）、完整顶边（unbroken top edge）
+可破坏块
+明确缺口或两条贯穿短缝、露出陶土色内层
+完整／裂开／碎片／空位
+接缝可破坏块（seamed breakable block）、可见内层（visible inner layer）
+导火线
+连续线、有端点、稀疏短节标记
+未燃／橙色火头／烧尽暗线
+连续点火路径（continuous ignition path）、移动火头（moving spark tip）
+悬挂地形
+上方支撑扣，宽矩形主体
+固定／支撑释放／下落／落定
+支撑释放（support release）、清楚下落底边（clear falling bottom edge）
+尖刺与危险
+统一尖角轮廓，加警告红内侧
+待机／已激活，取决于实际规则
+尖角危险语言（pointed hazard shapes）、一致警告标记（consistent warning marking）
+钥匙与门
+缺口轮廓匹配
+上锁／解锁／打开
+形状配对（shape pairing）、清楚锁孔（clear keyhole）
+跳跃爆炸
+起跳原点，扁平块状放射
+起点标记／瞬时放射／外圈／少量碎屑
+脚下块状爆炸（blocky takeoff burst）、短时空心外圈（brief hollow outer ring）
+参数变化
+同一爆炸身份，按实际范围／强度变化
+范围预览、对应材料反应、必要的简短参数标记
+一致的范围预览（consistent range preview）、材料反应对照（material response comparison）
+
+爆炸美术与规则的关系：外圈依据真实影响形状设计。如果碰撞判定是圆形，使用像素阶梯圆；如果是矩形，明确显示矩形边界。不要生成漂亮的圆形爆炸，再让程序使用不同形状。
+强度与范围分开表达。范围由轮廓和预览控制；强度可以通过爆炸中心结构与可受影响材料标记辅助表达。不要仅把强度变化画成更大的爆炸，这会造成范围误判。具体预览是否常驻、按键显示或教学时显示，由 UI 和玩法共同决定。
+建议爆炸反馈短、中央尽快空出；具体持续时间需实机确认。粒子飞出后低于平台顶边的阅读优先级，避免持续遮住落脚点。视效不能画成主角能投掷炸弹，当前核心是起跳产生爆炸。
+9. 界面（UI）也是同一世界的道具
+菜单板：实体、可拆、可揉皱，文字单独排版。主标题可以像几块字牌组合，但保持字形和可读性一致。面板装饰只放一个安装孔或一条短接缝。
+对白框：素纸色的扁平长条，上下边稍有层叠但正文区域规整。说话者标签采用文字或 GM 的围裙／空领口图标，避免用骷髅脸补上不存在的头。跳跃继续的提示放在固定位置，用脚底／上箭头图标表达；若已有程序控件，按真实操作调整。
+紧凑状态栏（compact HUD）：只展示游戏确实需要的信息。钥匙、爆炸参数和当前模式是候选；不凭空增加血条、魔力条和武器栏。爆炸范围与强度若需要数字，用清楚文字标记，而不是生成难懂的装饰符文。
+编辑器：网格、对象选择框、工具栏、撤销、预览与回到游玩等均应按真实功能制作；未实现的按钮不能只因画面好看而加入。叙事演出可以让 GM 移动编辑器道具，真正编辑时工具区域应稳定、可点击。
+移动端：触控按钮放在独立布局区，避开关卡关键落点；GM 的手不能持续挡住触控目标。中文字体不必模拟小尺寸西文像素字，优先保证可读性。
+关键词：实体化界面（physicalized interface）、可拆菜单板（detachable menu plaque）、留空排字区（blank typesetting area）、朴素说话者标签（plain speaker label）、稳定工具位置（stable tool placement）、道具与界面同材质（shared material language for props and UI）。
+10. AI 生成方式：统一母提示词＋对象模块
+10.1 固定母提示词：每次都复制
+中文关键词：原创游戏设定（original game design）、反复修改的像素小剧场（repeatedly revised pixel playhouse）、克制的业余制作感（restrained handmade amateur character）、稀疏像素块（sparse pixel clusters）、大色块（large flat color shapes）、低细节高辨识（low detail with strong readability）、固定侧视（fixed side view）、清晰剪影（clear silhouettes）、有限色盘（limited palette）、少量装配痕迹（sparse assembly marks）、郑重的笨拙（earnest awkwardness）、克制的幽默与脆弱（restrained humor and vulnerability）。
+可直接复制的英文母提示词：
+Original art direction for Game Master, a single-room 2D platform puzzle game: a repeatedly revised pixel playhouse, built with simple painted modular scenery and sparse assembly marks. Restrained handmade amateur character, earnest awkwardness, quiet humor and vulnerability. Hard-edged pixel clusters, large flat color shapes, strong small-scale silhouettes, very low surface detail, one base color and one shadow per material. Fixed side view, orthographic presentation for playable elements. Charcoal, graphite, gray green and plain paper cream; muted bone and clay brown; faded yellow rewards, chalk teal identity and selection accents, orange ignition, red danger, lavender editing marks. Decoration is sparse; functional edges are precise. Preserve consistent proportions and materials across the image. Concept design for later manual pixel production, not a polished painterly illustration. Original characters and interface language.
+10.2 共用排除约束
+有负面提示词栏时放入该栏；没有时用“Constraints / Avoid”附在正文后。不同模型对这些约束的执行效果不同，不把关键词当成一致性的保证。
+Avoid: photorealism, realistic miniature photography, 3D render, isometric camera, dramatic perspective on playable geometry, smooth gradients, bloom, lens flare, volumetric fog, dense surface texture, random pixel noise, excessive dithering, glossy materials, ornate fantasy armor, crowded decorative backgrounds, gore, horror claws, cyberpunk neon, constant glitch overlays, oversized cute faces, modern hoodie skeletons, striped-shirt child protagonists, skull-faced dialogue portraits, heart-shaped player icons, copied game characters, logos, watermarks, illegible pseudo-text.
+中文对照：写实摄影（photorealism）、微缩景摄影（miniature photography）、三维渲染（3D render）、等距视角（isometric camera）、平滑渐变（smooth gradients）、泛光（bloom）、体积雾（volumetric fog）、密集纹理（dense texture）、随机像素噪点（random pixel noise）、华丽盔甲（ornate armor）、持续故障覆盖（constant glitch overlays）、血腥（gore）、超大可爱表情（oversized cute faces）、现成游戏角色与标识（copied game characters and icons）。
+10.3 输出规格模块
+角色设定表（character design sheet）：
+Asset type: character design sheet. One consistent character identity only. Large front, side and back orthographic views, plus a small silhouette row and three clearly separated action poses. Same proportions, head or collar structure, clothing, colors and joint design in every view. Neutral graphite background, no scene, no labels or text. Present design information clearly; do not invent additional costumes or weapons. Concept art, not a frame-perfect animation sheet.
+场景设定图（environment concept sheet）：
+Asset type: side-view environment concept for one playable room. Wide horizontal composition. Clear walkable top edges, readable avatar scale, visible entrance and exit, low-detail background, uncluttered puzzle area. No isometric or cinematic perspective. Separate a few prop details in a margin if necessary. Platform distances and puzzle connections are illustrative and must be validated by the level designer.
+机关状态表（mechanism state sheet）：
+Asset type: mechanism state comparison. Show the same object at exactly the same angle and scale in separate panels: intact, activated, resolved, plus a simple component breakdown. Preserve geometry and material identity. Neutral background, no text, no unrelated props. The visual effect must match the specified gameplay interaction.
+界面组件表（UI component sheet）：
+Asset type: interface component design sheet. Clearly separated flat components, consistent border thickness and materials, large blank interior areas for later typography. No generated text, no perspective distortion, no decorative controls without a described function. Match the physical prop language of the game world.
+10.4 对象提示词模块：在母提示词后追加
+用法：母提示词＋对应输出规格模块＋下面一个对象模块＋共用排除约束。每次只请求一个主体或一个明确对照组。模块已经包含形状、材料、身份与状态要求。
+P01 主角
+Subject: the small player avatar, approximately 12 pixels wide and 18 pixels tall at final gameplay scale. Narrow charcoal body, plain paper-cream square head plate with one folded upper-right corner, one short horizontal dark facial slit, short simple limbs, two slightly oversized shoes with split chalk-teal soles. No hair, no hat, no weapon. The folded corner and split soles are identity anchors. Show quiet idle, compressed pre-jump and ascending jump poses. In the jump pose, place a small orange blocky burst at the original ground takeoff point, below and separate from the ascending avatar. No thrown bomb and no full-body glowing aura.
+P02 无头 GM 化身
+Subject: one headless skeletal game-builder avatar, taller and thinner than the player. Empty collar opening with no skull or floating head. Simplified muted-bone assembly-like joints, only three short rib marks, an overlong gray-green work apron, slightly uneven pockets, one plain paper tag. Four-fingered stylized hands including thumbs, blunt fingertips. Emotion is conveyed only through shoulders, hands and apron posture. Show front, side and back views plus welcoming open palms, frozen realization, overearnest adjusting and tired lowered shoulders. Preserve the empty collar in every pose. No grinning skull, hoodie, scarf, crown, armor or weapon.
+P03 GM 手部动作
+Subject: the oversized skeletal hand used by the same headless GM avatar. Muted-bone segmented long fingers, four digits including a thumb, blunt rounded tips, slightly squared joints, clear palm negative space, wrist extends outside the frame. A single consistent hand design in separated poses: pointing, gently pinching a terrain block, pressing a title plaque flat, sweeping away a menu, crumpling a blank button, hesitating above a piece, finally releasing it. Use sparse flat shading and precise prop contact. No claws, blood, realistic anatomical texture or magical aura.
+P04 标准木夹敌人
+Subject: a small clothespin-shaped enemy with a broad upright wooden body, one visible pivot joint, two short feet and one low-set tiny dark eye. Clay-brown outer surface, muted gray-green side, warning-red inner jaw only in the dangerous pose. Show a closed idle pose, a walking pose, an opening warning pose and a blast-hit pose breaking into three recognizable original parts. Keep the body distinct from rectangular platform blocks. No sharp fantasy teeth, gore, weapon or additional armor. Its movement and attack behavior are subject to gameplay approval.
+P05 折壳敌人
+Subject: a small folded-box-shell creature with prominent triangular side flaps, thin legs, one short dark eye slit and a simple opening seam. Clay and gray-green flat surfaces, warning-red interior visible only during a danger warning. Show normal, warning and disassembled blast-hit states at the same scale. Maintain a creature silhouette clearly distinct from a breakable terrain tile. Do not imply armor durability, ranged attacks, flight or special powers. Sparse rivet detail, no glossy metal or elaborate facial expression.
+P06 卷带虫候选
+Subject: an optional small rolled-strip creature. One broad flat strip rolled into a simple coil, a flat-ended head with a short dark eye slit and two tiny feet. Large continuous color areas, clay outer strip, graphite interior and a small warning-red danger accent. Show side view, idle and a slow awkward movement pose. The strip must be wide and visually solid, clearly unlike a thin fuse line. No measuring numbers, lettering, glowing cord, realistic tape texture or newly invented combat powers.
+P07 标题与菜单搭建
+Scene: the opening menu being physically assembled on a sparse charcoal stage framed by simple tower scenery. One large blank title plaque and three smaller blank menu plaques stacked vertically with clear gaps. The GM skeletal hand presses one plaque into place from outside the frame. Each plaque has a flat front and only a thin visible side edge with one mounting mark. Earnest, slightly awkward presentation, large quiet negative space. Leave all text areas blank for later typesetting. No computer screen, realistic desk or elaborate theater audience.
+P08 首轮教学房
+Scene: one finished-looking introductory tower room, fixed orthographic side view. Painted modular gray-green wall panels, simple rectangular stone-gray platforms with precise paper-cream standing edges, one compact doorway and one small folded-corner player avatar for scale. A single seamed breakable block near the takeoff area is the tutorial focus. Background is dark and sparse, with one simple decorative window that does not resemble an exit. Front-stage assembly marks are subtle. Clear empty space around the playable route. No editor grid, piles of tools or unfinished wall backs yet.
+P09 导火线机关房
+Scene: one side-view puzzle-room concept showing a continuous, easily traceable fuse mounted on the gameplay layer and a rectangular terrain block held by one distinct support latch. Separate neutral inset panels show the unlit fuse, a moving orange spark, the spent dark line and the released block. Precise standing edges, a clear downward path beneath the suspended block, subdued background. Fuse has visible endpoints and sparse regular segment marks. No decorative cords with the same appearance. Connections illustrate the interaction and require level-design validation.
+P10 钥匙门节点
+Scene: a compact side-view tower exploration junction. One real doorway has a distinctive square-notch emblem and a matching key displayed separately. The door panel is a simple painted prop with a thin side edge and a sturdy rectangular base. Clear path branches, a recognizable repeated landmark, sparse wall details. Show locked, unlocked and open door states in small matching insets. Key identity is based on shape as well as faded-yellow color. Do not add a decorative doorway that could be mistaken for a second playable exit.
+P11 首次胜利
+Scene: the player reaches a modest modular tower-castle frontage. An oversized celebration plaque has been placed in front with an overly earnest trophy and short rectangular and diamond-shaped confetti. The palette becomes briefly more cheerful while retaining charcoal, paper cream and faded yellow. Three separate blank option plaques sit beneath the blank headline, with visible detachable edges. The skeletal hand has just finished arranging the celebration carefully. The humor is ceremonial overenthusiasm, not dirty random clutter. No generated lettering or copied victory screen.
+P12 后台施工区
+Scene: the player has passed behind the finished tower scenery. Show the backs of the same painted panels, thin edges and simplified mounting braces, neatly stacked spare terrain pieces, one unpainted doorway frame, a small prop-tool box and loose blank menu plaques. The headless GM in the long apron stands near a clear walkway. Keep the foreground route legible and place spare materials at the margins. Quiet working space with a little awkwardness. Same camera, palette and pixel language as the playable rooms. No modern computer workstation, realistic factory, horror laboratory or unrelated world layer.
+P13 同房间叙事演化
+Asset type: a three-panel same-room narrative comparison. Identical camera, room dimensions, main doorway, central platform and avatar scale in all three panels. Panel one: a sparse finished tower room with subtle assembly marks. Panel two: the same scenery partly turned to reveal braces and one careful repair, the GM hand adjusting a piece. Panel three: the same room with accumulated patches, discarded earlier pieces and blank placards covering older placards at the edges; the central gameplay route remains clear. The GM hand repeatedly checks a piece rather than threatening the player. Increase revision traces, not gore, glitch noise or visual polish.
+P14 玩家接管编辑器
+Scene: a clear prop-based level editor surrounding a side-view game room. A subdued regular grid, chalk-teal selection outline, lavender alignment guide and a stable flat toolbar containing existing terrain, door and avatar thumbnails. Blank buttons reserved for only the real actions: undo, preview and return to play. The same skeletal hand is paused above the toolbar while the player avatar remains in the room. Match the tower's simple painted-panel materials. No futuristic hologram, floating code, unreadable text or ornamental controls. Clear distinction between editable objects and the backdrop.
+P15 终局空间候选
+Scene: a sparse late-game room using the same tower doorway and central platform. Most surplus placards and revision clutter have been removed, leaving quiet charcoal negative space, the small folded-corner avatar, the headless apron-wearing GM and one blank interface plaque. The large GM hand hovers uncertainly and begins to release a small scenery piece. Restrained vulnerability and fatigue, no villain transformation. Keep the playable geometry clear. This image supports an ending choice without inventing a specific ending, dialogue, boss fight or real-world backstory.
+P16 地形状态组件
+Asset type: a clean terrain component and state sheet. Group one: a solid rectangular platform with an unbroken precise top edge. Group two: a breakable block with two clear structural seams and a clay inner layer, shown intact, splitting, in three fragments and absent. Group three: a rectangular falling block with a distinct top support latch, shown fixed, released and settled. Same grid-compatible proportions and side view throughout. Sparse flat surfaces, neutral background, no labels. These are concept components, not guaranteed seamless production tiles.
+P17 起跳爆炸设定
+Asset type: a takeoff explosion effect study. Show a grounded avatar position marker and a separate ascending avatar above it. The orange blocky burst is fixed at the original foot-level takeoff position. Compare initiation, sparse radial burst, a brief hollow stepped outer boundary and a few fading fragments. Use a dark neutral background and preserve visible ground edges. The boundary must be adapted to the game's actual collision footprint; use a stepped circular ring only if the real blast area is circular. No thrown bomb, trailing aura, dense smoke, full-screen flash or persistent opaque fireball.
+P18 菜单、对白与编辑器组件
+Asset type: a flat interface component sheet. Separate blank movable title plaque, three detachable menu plaques, a crumpled version of one plaque, a paper-cream dialogue strip with a plain speaker-label area, one small jump-advance icon based on split soles, a chalk-teal selection outline and a minimal editor toolbar with existing object thumbnails. Consistent thin borders, sparse mounting marks, no skull portrait, heart icon or extra stat bars. All text interiors blank for real typesetting. No perspective-distorted UI or decorative buttons without functions.
+10.5 可直接复制的完整示例：GM 化身
+Original character concept for Game Master, a single-room 2D platform puzzle game. A repeatedly revised pixel playhouse with restrained handmade amateur character, earnest awkwardness, quiet humor and vulnerability. Hard-edged pixel clusters, large flat color shapes, very low detail, strong small-scale silhouette, one base color and one shadow per material. Muted bone, charcoal, gray green and plain paper cream, with one clay-brown pocket accent.
+
+Create one consistent headless skeletal game-builder avatar. Empty collar opening: no skull and no floating head. Tall thin body, simplified assembly-like bone joints, three short rib marks, an overlong gray-green work apron, uneven pockets and one plain paper tag. Four digits per stylized hand including the thumb, blunt rounded fingertips. Emotion is expressed through shoulders, hands and apron posture.
+
+Character design sheet: large front, side and back orthographic views plus four separated poses: welcoming open palms, frozen realization, overearnest adjusting and tired lowered shoulders. Identical proportions, apron and joints in every view. Neutral graphite background, no scene, no labels or text. Include a small silhouette row suggesting readability at approximately 20 by 30 gameplay pixels. Concept design for later manual pixel production, not a finished animation sheet.
+
+Avoid photorealism, 3D render, smooth gradients, dense texture, random pixel noise, skull faces, modern hoodies, red scarves, fantasy armor, weapons, gore, horror claws, magical aura, copied game characters, logos and watermarks.
+10.6 一致性工作流
+先生成 P01、P02、P03，确认主角、GM、巨手的身份锚点。一次只解决一个主体。
+选定后保存同一张身份参考图。后续变体使用参考图的编辑／引用功能，并写明“只改变姿态／状态，保留折角、空领口、围裙、手指数与比例”。只重复文字不能保证身份一致。
+生成 P08、P12、P13，确认同一世界从前台到后台再到返工的连续性。不要让三张图使用三种视角和渲染质量。
+按实际关卡需求生成 P16、P09、P10、P17，制作机关常态与触发态。连接、尺寸、时序以程序规则为准。
+最后生成敌人与 UI。敌人只制作玩法已经批准的种类；对白文本与按钮标签人工排字。
+把批准概念人工重绘／整理为原生像素资产，统一网格、色盘、碰撞边缘与动画基准。不要直接把一张高分辨率 AI 图缩小就当作完成。
+如果工具支持固定种子（seed），可以记录它帮助重现同配置结果，但不能将其视为跨图、跨姿态的角色一致性保证。
+11. 首批资产清单与验收
+本轮实际图像验证与修正
+已生成一张原创风格预览板，展示同一房间的完成前台、后台施工和修改积累，并附主角、无头 GM、手部动作与一类敌人的设计；随后做了一轮定向修改。
+首版的主要问题是坚固平台出现过多裂缝，容易让“可破坏”的视觉语义扩散到整片地形；手部骨节和表面细节也偏多。第二版减少了这些细节，将中央坚固平台改成完整顶边，把明显裂缝集中到单个示意可破坏块。
+这轮图像支持了前后台连续性、无头 GM 轮廓与道具生物的方向。最终预览仍有局部平滑阴影、手指结构和像素网格需要人工统一；房间中的机关位置也只是示意。它是美术方向参考，不是已通过关卡验证或可直接导入游戏的成品。正式资产以本文的清晰度、身份、色盘与网格规范为准；后期情绪还需要在动画与实际叙事中验证。
+最小风格验证包
+主角一个：站立、起跳前、升空、被拖拽概念。
+GM 一个：前侧后视图、四种身体表演。
+巨手一个：指向、夹取、压平、横扫、揉皱、释放。
+同一教学房三个叙事状态：完成前台、后台露出、反复修改。
+核心地形：坚固块、可破坏块、悬挂块、支撑件。
+机关：导火线三态、钥匙与门三态、尖刺。
+敌人先一类，确认小尺寸与爆炸受击后再扩展。
+界面：标题、菜单、胜利板、对白框、选择框与实际工具图标。
+特效：起跳爆炸与少量碎片。
+实际验收问题
+把画面缩到真实游戏尺寸，主角、敌人、平台与导火线能否迅速分开？
+转为灰度，危险与机关是否仍靠形状、状态被识别？
+移除颜色与纹理，主角的折角与鞋底、GM 的空领口与围裙是否仍有辨识度？
+关闭装饰层，谜题是否仍能被完整阅读？
+前台与后台是否像同一个物件的两面，而不是不同游戏？
+爆炸的起点、范围、影响形状是否与实际规则一致？
+GM 修改房间时，画面变化与真实碰撞变化是否同步；演出期间是否需要暂停玩家控制？
+后期让人读到努力与疲惫，还是只读到攻击与恐怖？
+巨手、对白框、触控区是否遮挡落点或按钮？
+去掉项目名称后，是否仍有明确识别特征？
+这些问题是下一步实机与团队评审的标准，本文不声称已经完成这些测试。
+12. 最终交付给美术的压缩关键词包
+核心：反复修改的像素小剧场（repeatedly revised pixel playhouse）、亲手搭建的模块世界（hand-assembled modular world）、郑重的笨拙（earnest awkwardness）、幽默与脆弱（humor and vulnerability）。
+画法：固定侧视（fixed side view）、正交投影（orthographic projection）、硬边像素块（hard-edged pixel clusters）、大平面色块（large flat color shapes）、极少纹理（minimal surface texture）、限制色盘（limited palette）、清楚负空间（clear negative space）、小尺寸剪影（small-scale silhouettes）。
+场景：完成的塔楼前台（finished tower frontage）、薄板背面（thin panel backs）、简化支架（simplified braces）、备用地形（spare terrain pieces）、同房间版本对照（same-room revisions）、积累修补（accumulated repairs）、稀疏终局空间（sparse finale space）。
+角色：折角头片（folded-corner head plate）、双片鞋底（split soles）、无头骨架化身（headless skeletal avatar）、空领口（empty collar）、长围裙（long apron）、分节手指（segmented fingers）、肩线与手势表演（acting through shoulders and hands）。
+敌人：道具生物（prop creatures）、木夹轮廓（clothespin silhouette）、折叠方壳（folded box shell）、宽卷带（wide rolled strip）、单一识别特征（single identity feature）、危险预警姿态（danger warning pose）、原材料拆散（disassembly into original materials）。
+玩法反馈：精确站立顶边（precise standing edges）、接缝可破坏块（seamed breakable blocks）、连续导火线（continuous fuse）、支撑释放（support release）、起跳点爆炸（takeoff-point blast）、符合判定的范围边界（collision-matched blast boundary）、形状匹配钥匙门（shape-matched key and door）。
+界面：可搬运标题板（movable title plaque）、可拆按钮（detachable buttons）、留空排字区（blank typesetting areas）、道具式编辑器（prop-based editor）、稳定工具位置（stable tool placement）、明确编辑／游玩状态（clear edit and play states）。
+情绪演化：认真布置（careful arrangement）、过度庆祝（overearnest celebration）、局部返工（local revision）、重复检查（repeated checking）、修改积累（accumulated revision）、停顿与释放（hesitation and release）。
+参考材料
+团队提供的 proposal.pdf：玩法、剧情概要、平台与开发方案。
+团队提供的 script.md：仅使用事件、对白与交互，所有既有美术内容排除。
+Toby Fox 与 Temmie Chang 官方访谈：角色表演、个人观察与表达方法。
+Billy Basso 在 PlayStation 官方博客介绍 Animal Well：作为像素美术可以承载复杂效果的对照资料。本项目选择低细节与简单效果，未把对方的渲染技术纳入制作需求。
+文中的色彩、比例、轮廓、材料与提示词均为针对 Game Master 新拟定的设计方案。
+

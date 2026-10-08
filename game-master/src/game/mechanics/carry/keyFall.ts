@@ -41,4 +41,21 @@ export function freeCellAbove(solid: (x: number, y: number) => boolean, x: numbe
   return null;
 }
 
+/**
+ * 被移动方块（或者怪物）顶进了单向木板那一格：木板只能从上面站，钥匙从下面穿进来本来会再掉回去；
+ * 身体和板重叠过半就算「穿过去了」，返回那块板的顶边 y（像素），钥匙该落在板上；没穿进板里返回 null。
+ * 几块板重叠时取最上面那块。(left, right, top, bottom) 是钥匙的碰撞框，T 一格多大，isOneWay(cx, cy) 这一格是不是单向板
+ */
+export function liftOntoPlank(left: number, right: number, top: number, bottom: number, T: number, isOneWay: (cx: number, cy: number) => boolean): number | null {
+  const h = bottom - top;
+  if (h <= 0) return null;
+  const cx0 = Math.floor((left + 1) / T), cx1 = Math.floor((right - 1) / T);
+  for (let cy = Math.floor(top / T); cy <= Math.floor((bottom - 1) / T); cy++) {
+    const overlap = Math.min(bottom, (cy + 1) * T) - Math.max(top, cy * T);
+    if (overlap < h / 2) continue;
+    for (let cx = cx0; cx <= cx1; cx++) if (isOneWay(cx, cy)) return cy * T;
+  }
+  return null;
+}
+
 export { pushOutX } from '@/game/core/solid';   // 被带进墙里推回墙外：移动方块、纸上的人和箱子也用，所以放在 core

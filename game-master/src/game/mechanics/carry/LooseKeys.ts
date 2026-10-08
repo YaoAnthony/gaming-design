@@ -6,6 +6,7 @@
 // - 碰到同色的门：门开、钥匙用掉（Locks.ts，和拿在手上的钥匙是同一段判断）
 // - 停着时轻轻上下浮（和以前一样）；在空中歪一点，落地摆正
 // - 被落下来的碎块埋住、被移动方块挤进来：挪到上面第一格空的地方
+// - 被移动方块从下面顶进木板（单向砖）那一格：穿过木板落到板上（上下移动的方块能把钥匙一层层顶上去给人）
 // - 站在移动方块上被带着撞墙：推回墙外，方块从底下走开，钥匙就掉下去（碎岩横梁当「刮板」，第四层的玩法）
 // - 按 R：出生（或被放下）在这个房间、或者现在就在这个房间的钥匙回到原位；死亡重置整张图时全部回去
 // 参数和纯计算在 keyFall.ts。
@@ -13,7 +14,7 @@ import Phaser from 'phaser';
 import type { RoomCoord } from '@/type';
 import type { PlayContext } from '@/game/core/PlayContext';
 import { syncDeltas } from '@/game/core/physics';
-import { bobOffset, fallTilt, freeCellAbove, KEY_BODY, KEY_DRAG, KEY_LANDING, landingBounce, pushOutX, squashY } from './keyFall';
+import { bobOffset, fallTilt, freeCellAbove, KEY_BODY, KEY_DRAG, KEY_LANDING, landingBounce, liftOntoPlank, pushOutX, squashY } from './keyFall';
 
 /** 跟着物理体走的东西 */
 export interface KeyView {
@@ -98,11 +99,12 @@ export class LooseKeys {
     return { x: k.body.center.x, y: k.body.bottom - this.fullHeight(k.view) / 2 };
   }
 
-  /** 每帧（物理已经走完这一步）：被埋了就挪出来；被移动方块带进墙里就推回去；刚落地就弹一下 */
+  /** 每帧（物理已经走完这一步）：被埋了就挪出来；被顶进木板就落到板上；被移动方块带进墙里就推回去；刚落地就弹一下 */
   update(now: number): void {
     this.list.forEach(k => {
       const b = k.body;
       this.unbury(k);
+      this.throughPlank(k);
       this.pushOutOfWalls(k);
       const onGround = b.blocked.down || b.touching.down;
       if (onGround && !k.onGround) this.land(k, now);
@@ -154,6 +156,16 @@ export class LooseKeys {
     if (!solid(cx, cy)) return;
     const free = freeCellAbove(solid, cx, cy);
     if (free !== null) b.reset(b.center.x, (free + 1) * T - KEY_BODY.h / 2);
+  }
+
+  /** 被从下面顶进了木板那一格（移动方块往上运、怪物推上去）：穿过木板落到板上。从上面落下来的不算，那本来就站得住 */
+  private throughPlank(k: LooseKey): void {
+    const { terrain, cfg } = this.ctx, b = k.body;
+    if (b.velocity.y > 0 && !b.touching.down) return;
+    const top = liftOntoPlank(b.left, b.right, b.top, b.bottom, cfg.tile, (cx, cy) => terrain.isSolid(cx, cy) && !!terrain.def(cx, cy).oneWay);
+    if (top === null) return;
+    b.reset(b.center.x, top - KEY_BODY.h / 2);
+    k.onGround = true;
   }
 
   /**

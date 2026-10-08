@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bobOffset, fallTilt, freeCellAbove, KEY_BOB, KEY_LANDING, KEY_SQUASH, KEY_TILT, landingBounce, pushOutX, squashY } from '@/game/mechanics/carry/keyFall';
+import { bobOffset, fallTilt, freeCellAbove, KEY_BOB, KEY_LANDING, KEY_SQUASH, KEY_TILT, landingBounce, pushOutX, squashY, liftOntoPlank } from '@/game/mechanics/carry/keyFall';
 
 describe('钥匙落地弹跳', () => {
   it('落得太慢不弹', () => {
@@ -92,5 +92,26 @@ describe('被带着撞进墙就推回去', () => {
     expect(pushOutX(4 * T + 4, 24, 64 + 14, 96, T, bar)).toBeNull();
     expect(pushOutX(150, 24, 32 + 14, 64, T, bar)).toBeNull();   // 在上面一行，碰不到横梁
     expect(pushOutX(150, 24, 64 + 14, 96, T, () => true)).toBeNull();
+  });
+});
+
+describe('liftOntoPlank：被从下面顶进木板那一格', () => {
+  const T = 32;
+  // 第 3 行（y 96..128）是一块单向木板，占第 2 格
+  const plank = (cx: number, cy: number) => cy === 3 && cx === 2;
+
+  it('身体和板重叠过半：落到板顶', () => {
+    expect(liftOntoPlank(68, 92, 100, 118, T, plank)).toBe(96);
+  });
+  it('只蹭到一点（重叠不到一半）：不算', () => {
+    expect(liftOntoPlank(68, 92, 122, 140, T, plank)).toBeNull();
+  });
+  it('不在板的那一列 / 那一行：不算', () => {
+    expect(liftOntoPlank(36, 60, 100, 118, T, plank)).toBeNull();
+    expect(liftOntoPlank(68, 92, 60, 78, T, plank)).toBeNull();
+  });
+  it('几块板叠着：取最上面那块', () => {
+    const two = (cx: number, cy: number) => cx === 2 && (cy === 2 || cy === 3);
+    expect(liftOntoPlank(68, 92, 86, 104, T, two)).toBe(64);
   });
 });

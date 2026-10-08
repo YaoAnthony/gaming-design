@@ -9,7 +9,8 @@
   大片的墙看着是一整面砌好的墙，不是一格一格重复的小方块。游戏启动时按周围 8 格从模板里取四个角拼起来（47 种）。
 二、tiles.png：编辑器 / 物品栏 / 不拼墙的砖用的单格图（帧号和 asset/index.ts 的 TILE_FRAMES 对应）。
 三、特效：tile_debris.png（被炸碎时飞出去的碎块，每种材料 4 块）、tile_crack.png（岩石被引线烧裂的过程）、
-    tile_ghost.png（炸没之后一闪而过的虚线空位）、tile_dust.png（落地扬尘）、fusenode.png（引线头）。
+    tile_ghost.png（炸没之后一闪而过的虚线空位）、tile_dust.png（落地扬尘）、fusenode.png（引线头）、
+    keyhole.png（门上的大锁孔，游戏里盖在每扇门正中）。
 
 用法（在本文件夹里跑，GAME = ../../game-master/src/asset/image，ASE = Aseprite.exe，见 boxman.py 开头）：
   python tiles.py frames_tiles            → frames_tiles/ 下所有 png（模板、单格图、特效）+ preview.png（拼好的样例房间）
@@ -214,47 +215,81 @@ class Masonry(Material):
         return c
 
     def draw_cracks(self, c, phase):
-        """碎岩：每块石头自己裂开——大多数石头从上沿到下沿一道折线裂纹（裂纹的位置跟着石头走，石头横跨两格也是同一道），
-        有的石头缺一个角；裂纹在石头里，所以整片看着是一面裂开的墙，不是画上去的线"""
+        """碎岩：和岩石同一种石头、同一个颜色，只是碎了——每块石头上 2~4 道折线裂纹（有的从上沿裂下来，有的从中间裂开，
+        一半带一小段分叉），一两个崩掉的角，几个小坑，砌缝也裂开了几段。全按全局坐标算（石头横跨两格也是同一道裂纹），
+        所以整片看着是一面碎了的墙；和完好的岩石连在一起，裂纹就是唯一的区别"""
         p = self.p
-        for y0 in (0, 16):
-            ci = 0 if y0 == 0 else 1
-            seams = COURSES[ci][1]
+
+        def put(gx, y, col, only_stone=False):
+            lx = gx - phase * T
+            for off in (0, PHASES * T, -PHASES * T):
+                x = lx + off
+                if 0 <= x < T and 0 <= y < T:
+                    if only_stone and c.get(x, y) in (p['crack'], p['mortar']):
+                        continue
+                    c.px(x, y, col)
+
+        for ci, (y0, seams) in enumerate(COURSES):
             pts = seams + [seams[0] + PHASES * T]
             for k in range(len(seams)):
                 a, b = pts[k], pts[k + 1]
-                h = hash2(ci, k, 31)
-                kind = h % 4                                # 0、1 = 裂开，2 = 缺角，3 = 完好
-                if kind <= 1:
-                    # 一道折线：从石头上沿某处往下折两下到下沿
-                    sx = a + 6 + (h >> 4) % max(1, (b - a - 12))
-                    path = [(sx, y0), (sx + (2 if kind else -2), y0 + 4), (sx + (-1 if kind else 1), y0 + 8), (sx + (3 if kind else -3), y0 + 14)]
-                    for (x0_, yA), (x1_, yB) in zip(path, path[1:]):
-                        steps = max(abs(x1_ - x0_), abs(yB - yA))
-                        for i in range(steps + 1):
-                            gx = round(x0_ + (x1_ - x0_) * i / steps)
-                            yy = round(yA + (yB - yA) * i / steps)
-                            lx = gx - phase * T
-                            for off in (0, PHASES * T, -PHASES * T):
-                                if 0 <= lx + off < T:
-                                    c.px(lx + off, yy, p['crack'])
-                                    if i % 2 == 0 and 0 <= lx + off + 1 < T and yy > y0:
-                                        c.px(lx + off + 1, yy, p['crack_hi'])
-                elif kind == 2:
-                    # 缺角：石头右上角崩掉一块（露出砌缝颜色，下面一圈暗边）
-                    cx0 = b - 6
-                    for dy in range(4):
-                        for dx in range(4 - dy):
-                            gx = cx0 + 1 + dx + dy
-                            lx = gx - phase * T
-                            for off in (0, PHASES * T, -PHASES * T):
-                                if 0 <= lx + off < T:
-                                    c.px(lx + off, y0 + dy, p['mortar'])
-                    for i in range(5):
-                        lx = cx0 + i - phase * T
-                        for off in (0, PHASES * T, -PHASES * T):
-                            if 0 <= lx + off < T and y0 + 4 - i >= y0:
-                                c.px(lx + off, y0 + max(0, 4 - i), p['lo'])
+                L = b - a
+                n = 2 + hash2(ci, k, 5) % 2 + (1 if L >= 40 else 0)
+                for i in range(n):
+                    h = hash2(ci, k, i, 77)
+                    x = a + 3 + h % max(1, L - 6)
+                    y = y0 if (h >> 8) % 3 else y0 + 3 + (h >> 12) % 6       # 多数从石头上沿裂下来，有的从中间裂开
+                    length = 6 + (h >> 16) % 9
+                    lean = 1 if (h >> 20) & 1 else -1
+                    branch_at = length // 2 if (h >> 24) & 1 else -1
+                    for st in range(length):
+                        if y > y0 + 14 or not (a < x < b):
+                            break
+                        put(x, y, p['crack'])
+                        put(x + 1, y, p['crack_hi'], only_stone=True)    # 裂口右边一条亮边：看得出是裂开的
+                        if st == branch_at:                               # 分叉：往另一边斜着裂一小段
+                            bx, by = x, y
+                            for bs in range(3 + hash2(ci, k, i, 9) % 3):
+                                bx -= lean
+                                by += 1 if bs % 2 else 0
+                                if not (a < bx < b) or by > y0 + 14:
+                                    break
+                                put(bx, by, p['crack'])
+                        r = hash2(ci, k, i, st) % 6
+                        x += lean if r < 2 else (-lean if r == 2 else 0)
+                        y += 1
+                # 崩掉的角：一两个，露出砌缝的颜色
+                for j in range(1 + hash2(ci, k, 13) % 2):
+                    hh = hash2(ci, k, j, 17)
+                    right, bottom = hh & 1, (hh >> 1) & 1
+                    sz = 2 + (hh >> 2) % 3
+                    for dy in range(sz):
+                        for dx in range(sz - dy):
+                            gx = (b - 1 - dx) if right else (a + 1 + dx)
+                            yy = (y0 + 13 - dy) if bottom else (y0 + dy)
+                            put(gx, yy, p['mortar'])
+                # 小坑
+                for j in range(2):
+                    hh = hash2(ci, k, j, 23)
+                    gx, yy = a + 3 + hh % max(1, L - 6), y0 + 3 + (hh >> 8) % 9
+                    put(gx, yy, p['crack'], only_stone=True)
+                    put(gx + 1, yy + 1, p['crack_hi'], only_stone=True)
+            # 砌缝裂开：横缝上几段变成更深的裂口
+            for gx in range(PHASES * T):
+                if hash2(gx // 3, ci, 41) % 4 == 0:
+                    put(gx, y0 + 15, p['crack'])
+        # 贯穿的大裂缝：从格子顶到底横穿两层石头（2 像素粗），走到底时回到起点的横向位置——
+        # 竖着叠起来的碎岩，这几道裂缝一格接一格连成一条长长的裂口
+        for j, x0 in enumerate((14, 61, 99)):
+            half = [(hash2(j, i, 53) % 3) - 1 for i in range(16)]
+            steps = half + [-v for v in half[::-1]]          # 和为 0：底下回到顶上的位置
+            x = x0
+            for y in range(T):
+                put(x, y, p['crack'])
+                put(x + 1, y, p['crack'])
+                put(x + 2, y, p['crack_hi'], only_stone=True)
+                put(x - 1, y, p['lo'], only_stone=True)
+                x += steps[y]
 
     def edges(self, c, out, concave, phase):
         frame_edges(c, out, concave, self.p)
@@ -266,13 +301,8 @@ ROCK = Masonry('rock', dict(
     cap=[hexc('#141317'), hexc('#b9b7bd'), hexc('#8d8b93'), hexc('#6c6a73'), hexc('#26252b')], rim=None,
     under=[hexc('#2c2b31')], side_hi=hexc('#5e5c66'), side_lo=hexc('#34323a'),
 ))
-CRACKED = Masonry('cracked', dict(
-    outline=hexc('#17150f'), mortar=hexc('#2e2b27'),
-    stone=[hexc('#6f6a62'), hexc('#736e66'), hexc('#6a655e')], hi=hexc('#847f76'), lo=hexc('#5d5952'),
-    cap=[hexc('#17150f'), hexc('#cfc8ba'), hexc('#a7a094'), hexc('#888277'), hexc('#2e2b27')], rim=None,
-    under=[hexc('#433f39')], side_hi=hexc('#8a857b'), side_lo=hexc('#4c4842'),
-    crack=hexc('#141210'), crack_hi=hexc('#9d978b'),
-), cracks=True)
+# 碎岩：和岩石是同一种石头（颜色一样，连在一起拼成一整面墙），只是碎了
+CRACKED = Masonry('cracked', dict(ROCK.p, crack=hexc('#141317'), crack_hi=hexc('#6c6a74')), cracks=True)
 
 
 # ---------------- 脆岩：吊着的石灰色大板，四个外角有安装孔（螺栓）；松脱掉下来时螺栓没了 ----------------
@@ -452,12 +482,48 @@ class Door(Material):
     def edges(self, c, out, concave, phase):
         p = self.p
         frame_edges(c, out, concave, p)
-        if 'N' in out and 'W' in out:                      # 锁孔：只在整扇门的左上角那一格（整个在左上四分之一里，拼的时候不会切掉一半）
-            c.rect(6, 9, 11, 15, p['band'])                # 锁片
-            c.hline(6, 11, 9, p['band_hi'])
-            c.rect(8, 10, 9, 12, p['hole'])                # 锁孔：圆头 + 竖缝
-            c.px(7, 11, p['hole']); c.px(10, 11, p['hole'])
-            c.rect(8, 13, 9, 14, p['hole'])
+        # 锁孔不画在拼墙模板上：游戏里每扇门正中盖一个大锁孔（keyhole.png，见 Locks）
+
+    def single(self):
+        c = super().single()
+        k = keyhole()
+        for y in range(k.h):
+            for x in range(k.w):
+                col = k.get(x, y)
+                if col[3]:
+                    c.px(6 + x, 4 + y, col)
+        return c
+
+
+def keyhole():
+    """门上的锁孔（20x24，游戏里盖在每扇门正中，不染色）：石墨色铁锁片，四角铆钉，中间一个大锁孔（圆头 + 往下张开的缝）"""
+    plate, plate_hi, plate_lo = hexc('#3a3940'), hexc('#6c6a72'), hexc('#26252b')
+    hole, hole_lo, rivet = hexc('#0c0c0e'), hexc('#1d1c21'), hexc('#8d8b93')
+    c = Cell(20, 24)
+    c.rect(1, 0, 18, 23, plate); c.rect(0, 1, 19, 22, plate)
+    c.hline(1, 18, 1, plate_hi); c.vline(1, 1, 21, plate_hi)
+    c.hline(1, 18, 22, plate_lo); c.vline(18, 2, 22, plate_lo)
+    for (x, y) in ((3, 3), (16, 3), (3, 20), (16, 20)):
+        c.px(x, y, rivet); c.px(x + 1, y + 1, plate_lo)
+    for y in range(24):                                     # 锁孔：圆头（半径 4）+ 下面一截往下张开的缝
+        for x in range(20):
+            d = ((x - 9.5) ** 2 + (y - 8.5) ** 2) ** 0.5
+            slot = 11 <= y <= 19 and abs(x - 9.5) <= 1.5 + (y - 11) * 0.3
+            if d <= 4.2 or slot:
+                c.px(x, y, hole)
+    for y in range(5, 20):                                  # 孔里左边一条暗、右上一点亮：看着有深度
+        for x in range(20):
+            if c.get(x, y) == hole and c.get(x - 1, y) != hole:
+                c.px(x, y, hole_lo)
+    c.px(12, 6, hexc('#4a4952'))
+    # 外圈描边
+    a = c.a.copy()
+    for y in range(24):
+        for x in range(20):
+            if a[y, x, 3] and any(not (0 <= x + dx < 20 and 0 <= y + dy < 24) or a[y + dy, x + dx, 3] == 0
+                                  for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1))):
+                c.px(x, y, hexc('#141317'))
+    return c
 
 
 DOOR = Door()
@@ -825,10 +891,12 @@ SAMPLE = [
     "R............................R",
     "RRRRR..rrrr........SSSS....RRR",
     "RRRRR..rrrr...R....SSSSS...RRR",
+    "RRRRRRRRRRRrrrrrrRRRRRRRRRRRRR",
     "RRRRRRRRRRRRRRRXXXXRRRRRRRRRRR",
     "RRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
 ]
 KEYS = {'R': 'rock', 'r': 'cracked', 'B': 'brittle', 'S': 'sand', 'Z': 'paper', '=': 'letter', '%': 'door'}
+GROUP = {'r': 'R'}   # 和哪种砖算连着（游戏里的 wallGroup）
 
 
 def preview(templates, atlas, bg=(46, 52, 48, 255)):
@@ -842,7 +910,7 @@ def preview(templates, atlas, bg=(46, 52, 48, 255)):
                 m = 0
                 for dx, dy, b in DIRS:
                     nx, ny = x + dx, y + dy
-                    if nx < 0 or ny < 0 or nx >= W or ny >= H or g[ny][nx] == ch:
+                    if nx < 0 or ny < 0 or nx >= W or ny >= H or GROUP.get(g[ny][nx], g[ny][nx]) == GROUP.get(ch, ch):
                         m |= b
                 tile = compose(templates[KEYS[ch]], m, x % PHASES)
                 img.alpha_composite(tile, (x * T, y * T))
@@ -868,6 +936,7 @@ if __name__ == '__main__':
     debris_sheet().save(f'{out}/tile_debris.png')
     crack_sheet().save(f'{out}/tile_crack.png')
     ghost().img().save(f'{out}/tile_ghost.png')
+    keyhole().img().save(f'{out}/keyhole.png')
     dust_sheet().save(f'{out}/tile_dust.png')
     pv = preview(templates, atlas)
     pv.save(f'{out}/preview.png')

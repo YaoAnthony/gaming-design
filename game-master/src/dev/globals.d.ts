@@ -9,5 +9,7 @@ declare global {
     __crumpleDebug?: { speed?: number; at?: number };
     /** 木手的 3D 画布（stage3d/hand/HandView，GmHandLayer 挂上）：看它现在的状态 */
     __gmHand?: unknown;
+    /** 正在跑的 3D 世界（world3d/World3D）：看演员、人在哪 */
+    __world3d?: unknown;
   }
 }

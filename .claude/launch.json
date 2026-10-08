@@ -25,6 +25,34 @@
         "5175"
       ],
       "port": 5175
+    },
+    {
+      "name": "game-master-preview",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "game-master",
+        "run",
+        "preview",
+        "--",
+        "--port",
+        "5176"
+      ],
+      "port": 5176
+    },
+    {
+      "name": "game-master-5177",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": [
+        "--prefix",
+        "game-master",
+        "run",
+        "dev",
+        "--",
+        "--port",
+        "5177"
+      ],
+      "port": 5177
     }
   ]
 }

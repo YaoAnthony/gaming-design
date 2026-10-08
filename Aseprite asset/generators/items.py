@@ -9,6 +9,7 @@
   plate1(_down).png 32x32 / plate2(_down).png 64x32   压板：石墨底座 + 木踏板 + 点火色的引线头（压下去变扁、引线头熄了）
   door.png 24x32     出口门：奖励金色的拱门框、里面黑
   castle.png 128x112 终点城堡：和岩石一样的砌石墙、陶土色尖顶、窗里透金光、正中底部是门、顶上一面危险红的旗
+  tape.png 22x22     胶带：奖励金色的一卷，陶土色纸芯，右边垂下一截胶带头（捡到心的上限 +1；游戏里另外加金光）
 
 用法（在本文件夹里跑）：python items.py <输出目录>（还会出一张 preview.png）
   然后 crate1/crate2/key/candle/hat/plate*/castle 复制到 ../../game-master/src/asset/image/items/，door.png 复制到 .../image/tiles/
@@ -265,6 +266,45 @@ def castle():
     return c
 
 
+# ---------------- 胶带（捡到心的上限 +1；金光在游戏里另外画：光晕、火星、暖光） ----------------
+def tape():
+    """一卷奖励金色的胶带，正面对着镜头、稍微俯视：下面露出一截卷的侧面，中间是陶土色的纸芯和黑洞，右边垂下来一截胶带头"""
+    gold, gold_hi, gold_lo, gold_dk = hexc('#d8c06a'), hexc('#f3e3a0'), hexc('#b9a050'), hexc('#8f7a34')
+    core, core_lo, hole = hexc('#b77a63'), hexc('#8a5a48'), hexc('#19191b')
+    ink = hexc('#3a3010')
+    c = Cell(22, 22)
+
+    def ell(cx, cy, rx, ry, col, x0=0, x1=21):
+        for y in range(22):
+            for x in range(x0, x1 + 1):
+                if ((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 <= 1.0:
+                    c.px(x, y, col)
+    ell(10.5, 12.5, 9.2, 7.6, gold_dk)                      # 卷的侧面（下面露出来的那截）
+    ell(10.5, 12.0, 9.2, 7.6, gold_lo)
+    ell(10.5, 9.5, 9.2, 7.6, gold)                          # 正面
+    for y in range(22):                                     # 正面左上一道高光、一圈圈的胶带层
+        for x in range(22):
+            if c.get(x, y) != gold:
+                continue
+            dx, dy = (x - 10.5) / 9.2, (y - 9.5) / 7.6
+            r = (dx * dx + dy * dy) ** 0.5
+            if r > 0.72 and dx < -0.15 and dy < 0.1:
+                c.px(x, y, gold_hi)
+            elif abs(r - 0.68) < 0.06:
+                c.px(x, y, gold_lo)
+    ell(10.5, 9.5, 4.2, 3.6, core)                          # 纸芯
+    ell(10.5, 9.8, 2.6, 2.1, hole)                          # 中间的洞
+    c.px(8, 7, hexc('#d39a80')); c.px(9, 7, hexc('#d39a80'))
+    # 垂下来的胶带头：从右下沿出来，往下垂，末端锯齿
+    for y in range(13, 21):
+        for x in (16, 17, 18):
+            c.px(x + (1 if y > 17 else 0), y, gold if x < 18 else gold_lo)
+    c.px(16, 21, gold); c.px(18, 21, gold)
+    outline(c, ink)
+    c.px(17, 21, CLEAR)
+    return c
+
+
 if __name__ == '__main__':
     out = sys.argv[1] if len(sys.argv) > 1 else 'frames_items'
     os.makedirs(out, exist_ok=True)
@@ -279,8 +319,9 @@ if __name__ == '__main__':
     plate(64, True).img().save(f'{out}/plate2_down.png')
     door().img().save(f'{out}/door.png')
     castle().img().save(f'{out}/castle.png')
+    tape().img().save(f'{out}/tape.png')
     # 预览
-    names = ['crate1', 'crate2', 'key', 'candle', 'hat', 'plate1', 'plate1_down', 'plate2', 'plate2_down', 'door', 'castle']
+    names = ['crate1', 'crate2', 'key', 'candle', 'hat', 'plate1', 'plate1_down', 'plate2', 'plate2_down', 'door', 'castle', 'tape']
     ims = [Image.open(f'{out}/{n}.png') for n in names]
     pv = Image.new('RGBA', (sum(i.width * 2 + 10 for i in ims), max(i.height * 2 for i in ims)), (46, 52, 48, 255))
     x = 0

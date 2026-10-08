@@ -34,12 +34,12 @@ describe('机制注册表', () => {
     expect(floorMechanicOf(floorWith('.o.', { mode: 'platform' })).id).toBe('platform');
   });
 
-  it('通用机制：放了物件才启用；携带、帽子、主线剧情、节奏关卡每层都启用', () => {
-    expect(ids(floorWith('...'))).toEqual(['carry', 'hat', 'story', 'rhythm']);
-    expect(ids(floorWith('.K.'))).toEqual(['boss', 'carry', 'hat', 'story', 'rhythm']);
-    expect(ids(floorWith('NVG'))).toEqual(['goal', 'npc', 'carry', 'slider', 'hat', 'story', 'rhythm']);
-    expect(ids(floorWith('.bD'))).toEqual(['carry', 'hat', 'pushBlock', 'story', 'rhythm']);
-    expect(ids(floorWith('.qQ'))).toEqual(['carry', 'hat', 'pushBlock', 'story', 'rhythm']);
+  it('通用机制：放了物件才启用；携带、帽子、胶带、主线剧情、节奏关卡每层都启用', () => {
+    expect(ids(floorWith('...'))).toEqual(['carry', 'hat', 'tape', 'story', 'rhythm']);
+    expect(ids(floorWith('.K.'))).toEqual(['boss', 'carry', 'hat', 'tape', 'story', 'rhythm']);
+    expect(ids(floorWith('NVG'))).toEqual(['goal', 'npc', 'carry', 'slider', 'hat', 'tape', 'story', 'rhythm']);
+    expect(ids(floorWith('.bD'))).toEqual(['carry', 'hat', 'tape', 'pushBlock', 'story', 'rhythm']);
+    expect(ids(floorWith('.qQ'))).toEqual(['carry', 'hat', 'tape', 'pushBlock', 'story', 'rhythm']);
   });
 
   it('层机制自己声明有没有生命值：平台跳有，吃豆人没有', () => {

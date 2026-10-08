@@ -42,7 +42,7 @@ export const DEFAULT_CONFIG: GameConfig = {
   directionalOffset: 2,
   deathReset: 'world',
   musicVolume: 0.35,
-  playerHearts: 3,
+  playerHearts: 1,   // 开局 1 颗心；捡胶带上限 +1（mechanics/tape）
   hurtInvulnMs: 1500,
   hurtFlickerMs: 1000,
   hurtFlashMs: 150,
@@ -78,6 +78,11 @@ export const DEFAULT_CONFIG: GameConfig = {
     armMargin: 40,
   },
   world3d: {
+    actors: {
+      bossHeight: 4, clipHeight: 0.9, clipSpeed: 1.8,
+      bossHandLength: 1.5, bossHands: { left: { pose: 'open', roll: 0 }, right: { pose: 'fist', roll: 0 } },
+    },
+    toon: { dir: [-0.5, 0.8, 0.6], ambient: 0.18, aoPower: 2 },
     moveSpeed: 7, jumpVelocity: 13, gravity: 36, maxFall: 28,
     popOut: { out: 8, up: 9 },
     camera: { distance: 18, height: 7, lookUp: 1.5, followMs: 260 },

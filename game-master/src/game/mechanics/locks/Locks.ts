@@ -7,7 +7,9 @@
 // 不然门关了钥匙没了就卡死）；别的房间的门不动，用在别的房间的钥匙也不回来（不然能刷出两把）。
 // 房间解开了（core/Solves.ts）：这个房间里开过的门就一直开着，开它们用掉的钥匙不再回来（重置整张地图也不回来）。
 // 门在建地形前烘成 % 砖（bake），这里按组染色。门可以盖在别的砖上（比如尖刺）：开门后那一格露出底下的砖，不是空气。
+// 每扇门（连在一起的同色门）正中盖一个大锁孔（keyhole.png）：门开了就收起来，门关回来再放出来。
 import type Phaser from 'phaser';
+import { DEPTH } from '@/game/depth';
 import type { RoomCoord } from '@/type';
 import { DOOR_CHAR, lockGroup, type LockCell } from '@/game/mechanics/locks/model';
 import type { PlayContext } from '@/game/core/PlayContext';
@@ -29,6 +31,8 @@ export class Locks implements Mechanic {
   private spent = new Map<number, string>();
   /** 连锁还没传到的那几格 */
   private pending: Phaser.Time.TimerEvent[] = [];
+  /** 每扇门的锁孔：挂在这扇门最靠正中的那一格上（格子序号 → 图） */
+  private keyholes = new Map<number, Phaser.GameObjects.Image>();
 
   constructor(private ctx: PlayContext, private data: LockData) {}
 
@@ -39,6 +43,7 @@ export class Locks implements Mechanic {
 
   start(): void {
     this.spawnKeys(new Set(this.spent.keys()));
+    this.placeKeyholes();
     this.tint();
   }
 
@@ -49,7 +54,7 @@ export class Locks implements Mechanic {
     for (const key of this.carry?.keysInPlay() ?? []) {
       const door = touchedDoor(this.data.doors, key.group, key.area, T, TOUCH_PX, locked);
       if (!door || !this.open(door)) continue;
-      key.use();
+      key.use({ x: door.x * T + T / 2, y: door.y * T + T / 2 });   // 身后飘着的钥匙飞到碰到的那扇门上
       if (key.origin !== undefined) this.used.set(key.origin, door);
     }
   }
@@ -82,7 +87,11 @@ export class Locks implements Mechanic {
     this.tint();
   }
 
-  destroy(): void { this.cancelPending(); }
+  destroy(): void {
+    this.cancelPending();
+    this.keyholes.forEach(k => k.destroy());
+    this.keyholes.clear();
+  }
 
   // ---------- 解开 ----------
   /** 这个房间里这一组（颜色）的门开过吗 */
@@ -125,12 +134,46 @@ export class Locks implements Mechanic {
     });
   }
 
-  /** 门砖是白底，按组乘上颜色 */
+  /** 门砖是白底，按组乘上颜色；锁孔跟着门在不在 */
   private tint(): void {
     this.data.doors.forEach(c => {
       if (!this.isDoor(c)) return;
       const t = this.ctx.terrain.layer.getTileAt(c.x, c.y);
       if (t) t.tint = this.color(c.group);
+    });
+    this.syncKeyholes();
+  }
+
+  /**
+   * 每扇门（上下左右连在一起的同色门）放一个锁孔：放在离这扇门正中最近的那一格（U 形、L 形的门正中可能不是门）。
+   * 一格宽的门就在那一格正中；宽的门在两格之间就放在格线上
+   */
+  private placeKeyholes(): void {
+    if (!this.ctx.scene.textures.exists('keyhole')) return;
+    const T = this.ctx.cfg.tile, seen = new Set<number>();
+    for (const start of this.data.doors) {
+      if (seen.has(this.index(start))) continue;
+      const door = doorCluster(this.data.doors, start, () => true);
+      door.forEach(c => seen.add(this.index(c)));
+      const cx = door.reduce((s, c) => s + c.x, 0) / door.length, cy = door.reduce((s, c) => s + c.y, 0) / door.length;
+      const at = door.reduce((best, c) => (Math.hypot(c.x - cx, c.y - cy) < Math.hypot(best.x - cx, best.y - cy) ? c : best));
+      // 正中落在格线上（偶数宽 / 高的门）而那边也是这扇门：锁孔放在格线上
+      const has = (x: number, y: number) => door.some(c => c.x === x && c.y === y);
+      const ox = Math.abs(cx - at.x - 0.5) < 0.01 && has(at.x + 1, at.y) ? 0.5 : 0;
+      const oy = Math.abs(cy - at.y - 0.5) < 0.01 && has(at.x, at.y + 1) ? 0.5 : 0;
+      const img = this.ctx.scene.add.image((at.x + 0.5 + ox) * T, (at.y + 0.5 + oy) * T, 'keyhole').setDepth(DEPTH.keyhole);
+      this.keyholes.set(this.index(at), img);
+    }
+  }
+
+  /** 锁孔挂的那一格还是锁着的门就显示，开了（或者门不在了）就收起来 */
+  private syncKeyholes(): void {
+    this.keyholes.forEach((img, i) => {
+      const w = this.ctx.terrain.w, show = this.ctx.terrain.grid[Math.floor(i / w)]?.[i % w] === DOOR_CHAR && !this.opened.has(i);
+      if (show === img.visible) return;
+      this.ctx.scene.tweens.killTweensOf(img);
+      if (show) { img.setVisible(true).setAlpha(1).setScale(1); return; }
+      this.ctx.scene.tweens.add({ targets: img, scale: 1.4, alpha: 0, duration: 200, ease: 'Quad.out', onComplete: () => img.setVisible(false) });
     });
   }
 
@@ -140,6 +183,7 @@ export class Locks implements Mechanic {
     const cluster = doorCluster(this.data.doors, start, c => this.isDoor(c) && !this.opened.has(this.index(c)));
     if (!cluster.length) return false;
     cluster.forEach(c => this.opened.add(this.index(c)));
+    this.syncKeyholes();
     ctx.scene.cameras.main.shake(120, 0.004);
     const byHop = new Map<number, DoorHop[]>();
     cluster.forEach(c => { const g = byHop.get(c.hop) ?? []; g.push(c); byHop.set(c.hop, g); });

@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import '@/game/registry/tiles';
 import '@/game/mechanics';
 import { BACKGROUNDS, DEFAULT_BACKGROUND, backgroundDef, backgroundUrl } from '@/asset/backgrounds';
-import { backgroundOf, backgroundsOfFloor, coverScale, parallaxOffset } from '@/game/background/layout';
+import { backgroundOf, backgroundsOfFloor, coverScale, parallaxOffset, startRoomKey } from '@/game/background/layout';
 import { deleteRoom, setRoomBackground } from '@/game/world/WorldModel';
 import reducer, { addFloor, renameFloor, replaceProject, setRoomBackground as setRoomBg, undo, type EditorState } from '@/redux/slices/editorSlice';
 import type { Floor, Project } from '@/type';
@@ -86,5 +86,19 @@ describe('地图和编辑器', () => {
     expect(s.project.floors[0].model.roomBackgrounds).toBeUndefined();
     s = reducer(s, addFloor({ name: 'G', roomW: 20, roomH: 12, background: 'dusk' }));
     expect(s.project.floors.at(-1)!.background).toBe('dusk');
+  });
+});
+
+describe('开场在哪个房间（它的背景进这一层之前就下好）', () => {
+  const m = { roomW: 3, roomH: 3, layout: [['A', 'B'], [null, 'C']], entities: { C: ['...', '.P.', '...'] } };
+  it('给了进场位置就是那个房间，给了起始房间就是它', () => {
+    expect(startRoomKey(m, 32, { entry: { x: 3 * 32 + 5, y: 5 } })).toBe('B');
+    expect(startRoomKey(m, 32, { startRoom: { rx: 1, ry: 0 } })).toBe('B');
+  });
+  it('都没给：出生点 P 所在的房间；没有出生点就是第一个房间；指到空格子的不算', () => {
+    expect(startRoomKey(m, 32, {})).toBe('C');
+    expect(startRoomKey({ ...m, entities: {} }, 32, {})).toBe('A');
+    expect(startRoomKey(m, 32, { startRoom: { rx: 0, ry: 1 } })).toBe('C');
+    expect(startRoomKey({ roomW: 3, roomH: 3, layout: [[null]] }, 32, {})).toBeNull();
   });
 });

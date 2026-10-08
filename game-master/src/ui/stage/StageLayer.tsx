@@ -13,7 +13,7 @@ import { levelById } from '@/world3d/levels';
 import { RhythmWorld } from '@/world3d/rhythm/RhythmWorld';
 import { rhythmSession } from '@/rhythm';
 import { setRealm } from '@/redux/slices/runSlice';
-import { IMAGES } from '@/asset';
+import { MODELS } from '@/asset';
 
 /** 现在挂着的舞台层：要用舞台时现建 */
 let host: (() => Stage3D | null) | null = null;
@@ -52,12 +52,12 @@ export function StageLayer() {
     const onFx = (ref: StageFxRef) => { if (!ensure()?.start(ref.id) && !stage?.isRunning(ref.id)) bridge.emit(EVT.stageFxDone, ref); };
     const onEnd = (ref: StageFxRef) => { stage?.end(ref.id); };
     const onHeroLeft = (handoff: HeroHandoff) => {
-      const heroImage = (IMAGES.find(i => i.key === handoff.texture) ?? IMAGES[0]).url, session = rhythmSession();
+      const session = rhythmSession();
       // 节奏关卡轮到 3D 的段落：带起来的是 RhythmWorld，人回到画面后那一场接着由 2D 一侧主持
       if (session) {
         const cfg = () => store.getState().config;
         const world = ensure()?.add(STAGE_FX.world, ctx => new RhythmWorld(ctx, handoff, {
-          config: () => cfg().world3d.rhythm, session, heroUrl: heroImage, returnMs: cfg().world3d.returnMs,
+          config: () => cfg().world3d.rhythm, session, heroUrl: MODELS.hero, returnMs: cfg().world3d.returnMs,
           onExit: () => { bridge.emit(EVT.heroReturn, null); },
         }));
         if (!world) bridge.emit(EVT.heroReturn, null);
@@ -65,9 +65,8 @@ export function StageLayer() {
       }
       const { run, hud } = store.getState(), saves = !hud.playtest;
       const level = levelById(run.deep?.levelId);
-      const heroUrl = heroImage;
       const world = ensure()?.add(STAGE_FX.world, ctx => new World3D(ctx, handoff, {
-        config: () => store.getState().config.world3d, level, heroUrl,
+        config: () => store.getState().config.world3d, level, heroUrl: MODELS.hero,
         onExit: at => { if (saves) store.dispatch(setRealm({ realm: 'flat' })); bridge.emit(EVT.heroReturn, at); },
         paused: () => store.getState().hud.paused,
       }));

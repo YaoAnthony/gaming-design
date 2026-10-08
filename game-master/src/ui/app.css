@@ -179,9 +179,9 @@ label.check { display: flex; align-items: center; gap: 6px; margin: 8px 0; color
 .boss-bar .seg.on { background: #ef476f; box-shadow: 0 0 6px rgba(239,71,111,.6); }
 .boss-bar .seg.on { animation: boss-seg-pop .22s ease-out; }
 /* 好几管血：只画最上面那一管，格子窄一点；打空的格子露出下一管的颜色；旁边写还剩几管。
-   管越多血条越大（--tube = 已经叠了几管，从顶边正中往外长）；一管一个颜色，满管数的那一管是金色的、带流光 */
-.boss-bar.tubes { gap: 2px; align-items: center; transform: translateX(-50%) scale(calc(1 + var(--tube, 0) * .04)); transform-origin: 50% 0; transition: transform .18s cubic-bezier(.2, 1.8, .4, 1); }
-.boss-bar.tubes .seg { width: 14px; }
+   管越多血条越大（--grow = 放大多少倍，Hud.tsx 的 BAR_GROW 算：每多一管大 7%，从顶边正中往外长、新叠一管弹一下）；一管一个颜色，满管数的那一管是金色的、带流光 */
+.boss-bar.tubes { gap: 2px; align-items: center; transform: translateX(-50%) scale(var(--grow, 1)); transform-origin: 50% 0; transition: transform .18s cubic-bezier(.2, 1.8, .4, 1); }
+.boss-bar.tubes .seg { width: var(--seg, 14px); }
 .boss-bar.tubes .seg.on { animation: boss-seg-pop .12s ease-out; }
 .boss-bar .seg.tube-c0 { --c: 239, 71, 111; }
 .boss-bar .seg.tube-c1 { --c: 255, 140, 66; }

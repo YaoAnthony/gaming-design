@@ -14,6 +14,8 @@ const DUST = { perRoom: 36, lifeMs: [6000, 10000] as const, alpha: 0.35, tint: [
 const LIGHTS = {
   candle: { radius: 1.8, color: 0xffb45a, alpha: 0.16, flicker: 0.1, speed: 1 },
   ember: { radius: 1.1, color: 0xff8a3d, alpha: 0.13, flicker: 0.12, speed: 1.5 },
+  /** 地上的胶带：一小圈金光 */
+  tape: { radius: 1.4, color: 0xffd54a, alpha: 0.2, flicker: 0.05, speed: 0.7 },
 };
 export type LightKind = keyof typeof LIGHTS;
 /** 光束：每个亮着的房间几道，从房顶往右下斜照（画在地形后面，只在空旷处看得见，被墙挡住）；位置按房间编号定死 */

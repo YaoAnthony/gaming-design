@@ -82,6 +82,7 @@
     "bossAppears": "史莱姆王！",
     "bossDefeated": "史莱姆王倒下了",
     "hatKnocked": "帽子被撞掉了",
+    "tapeGot": "胶带！心 +1",
     "toBeContinued": "未完待续"
   },
   "death": {

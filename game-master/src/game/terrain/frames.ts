@@ -27,29 +27,29 @@ export function maskAt(grid: string[][], x: number, y: number): number {
 }
 
 /**
- * 拼墙时这一格算不算连着的墙：wall 给了 = 同一种模板的墙才算（岩石和碎岩不连），不给 = 任何墙都算；
- * 地图外面也算（地图边上的墙朝外那面不画表面）
+ * 拼墙时这一格算不算连着的墙：group 给了 = 同一组的墙才算（TileDef.wallGroup：岩石和碎岩是一组，脆岩、沙土各是各的），
+ * 不给 = 任何墙都算；地图外面也算（地图边上的墙朝外那面不画表面）
  */
-export function isWallAt(grid: string[][], x: number, y: number, wall?: string | null): boolean {
+export function isWallAt(grid: string[][], x: number, y: number, group?: string | null): boolean {
   if (y < 0 || y >= grid.length || x < 0 || x >= grid[0].length) return true;
-  const w = Tiles.get(grid[y][x])?.wall;
-  return wall ? w === wall : !!w;
+  const g = Tiles.get(grid[y][x])?.wallGroup;
+  return group ? g === group : !!g;
 }
 
 /**
  * 看邻居选帧：游戏里的墙按周围 8 格从拼好的墙贴图里取（WALL_GID + wallFrame，相位按列号）；自动拼贴的材质用 起始帧 + 掩码；
  * 能改挂在旁边的（尖刺）按 mountSide 取那种挂法的帧；
  * 其它材质就是起始帧。游戏视角用 gameFrame，编辑器用 frame（编辑器里墙也整块画）。
- * isWall(x, y, wall) = 那一格算不算连着的、同一种模板的墙，默认见 isWallAt
+ * isWall(x, y, group) = 那一格算不算连着的、同一组的墙，默认见 isWallAt
  */
-export function frameAt(grid: string[][], x: number, y: number, view: TileView = 'game', isWall?: (x: number, y: number, wall: string) => boolean): number {
+export function frameAt(grid: string[][], x: number, y: number, view: TileView = 'game', isWall?: (x: number, y: number, group: string) => boolean): number {
   const id = grid[y]?.[x];
   const d = id != null ? Tiles.get(id) : undefined;
   if (!d) return -1;
   if (view === 'game' && d.wall) {
-    const wall = d.wall;
-    const at = isWall ?? ((wx: number, wy: number, w: string) => isWallAt(grid, wx, wy, w));
-    return WALL_GID + wallFrame(wall, wallMask((dx, dy) => at(x + dx, y + dy, wall)), x);
+    const group = d.wallGroup ?? d.wall;
+    const at = isWall ?? ((wx: number, wy: number, g: string) => isWallAt(grid, wx, wy, g));
+    return WALL_GID + wallFrame(d.wall, wallMask((dx, dy) => at(x + dx, y + dy, group)), x);
   }
   if (d.sideMount) {   // 改挂在旁边的（尖刺）：按挂法换帧，编辑器里也一样
     const side = mountSide(grid, x, y);
@@ -61,7 +61,7 @@ export function frameAt(grid: string[][], x: number, y: number, view: TileView =
 }
 
 /**
- * 单独画的一块砖（掉落的碎块、移动方块）用什么贴图和帧：墙按 connected（它那一组里哪些方向的邻居是同种墙）拼，相位按 x（第几列），
+ * 单独画的一块砖（掉落的碎块、移动方块）用什么贴图和帧：墙按 connected（它那一组里哪些方向的邻居是同一组的墙）拼，相位按 x（第几列），
  * loose = 正在往下掉（松脱了：脆岩换成没有螺栓的那张）；其它整块画
  */
 export function pieceTexture(id: string, connected: (dx: number, dy: number) => boolean, x = 0, loose = false): [string, number] {
@@ -70,11 +70,11 @@ export function pieceTexture(id: string, connected: (dx: number, dy: number) => 
   return ['tiles', frameOf(id)];
 }
 
-/** 一块碎块自己里面哪些邻居是同一种墙（它是单独掉下来的一整块，墙按块内拼） */
+/** 一块碎块自己里面哪些邻居是同一组的墙（它是单独掉下来的一整块，墙按块内拼） */
 export function pieceConnected(cells: { x: number; y: number; id: string }[]): (c: { x: number; y: number; id: string }) => (dx: number, dy: number) => boolean {
   const ids = new Map(cells.map(c => [`${c.x},${c.y}`, c.id]));
   return c => {
-    const wall = Tiles.get(c.id)?.wall;
-    return (dx, dy) => !!wall && Tiles.get(ids.get(`${c.x + dx},${c.y + dy}`) ?? AIR)?.wall === wall;
+    const group = Tiles.get(c.id)?.wallGroup;
+    return (dx, dy) => !!group && Tiles.get(ids.get(`${c.x + dx},${c.y + dy}`) ?? AIR)?.wallGroup === group;
   };
 }

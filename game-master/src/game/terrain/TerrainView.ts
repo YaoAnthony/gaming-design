@@ -44,9 +44,9 @@ export class TerrainView {
     this.layer.setCollision(collide);
   }
 
-  /** 拼墙时地图上哪些格子算连着的同种墙：被别处接管着画的格子（移动方块）不算 */
-  readonly wallAt = (x: number, y: number, wall: string): boolean =>
-    isWallAt(this.grid, x, y, wall) && !(x >= 0 && y >= 0 && x < this.w && y < this.h && this.drawnElsewhere(x, y));
+  /** 拼墙时地图上哪些格子算连着的同一组墙：被别处接管着画的格子（移动方块）不算 */
+  readonly wallAt = (x: number, y: number, group: string): boolean =>
+    isWallAt(this.grid, x, y, group) && !(x >= 0 && y >= 0 && x < this.w && y < this.h && this.drawnElsewhere(x, y));
 
   /** 这一格变了：重画它和邻居（墙看 8 个邻居，自动拼贴的材质、会改挂法的尖刺看上下左右） */
   cellChanged(x: number, y: number): void {

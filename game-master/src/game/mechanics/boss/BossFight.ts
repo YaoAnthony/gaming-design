@@ -23,6 +23,8 @@ import { overlaps } from '@/game/core/overlap';
 
 /** Boss 战的音乐（音频清单里的 key） */
 const BOSS_MUSIC = 'bossMusic';
+/** 血条下面的名字（i18n key；和出场时亮出来的名字是同一个） */
+const BOSS_NAME = 'bossIntro.name';
 /** 玩家离门口多远（格）才封门 */
 const SEAL_DISTANCE = 1.5;
 /** WARNING 警报正好放几遍 warning.mp3（显示多久跟着音频长度走，换了音频不用改） */
@@ -259,10 +261,10 @@ export class BossFight implements Mechanic {
     this.intro = 'filling';
     ctx.scene.cameras.main.shake(320, 0.014);
     for (let i = 0; i < 5; i++) ctx.sparks.explode(6, boss.x + (i - 2) * 18, boss.body.bottom - 4);
-    ctx.hud.boss({ hp: 0, max: boss.maxHp });
+    ctx.hud.boss({ hp: 0, max: boss.maxHp, name: BOSS_NAME });
     for (let k = 1; k <= boss.maxHp; k++) {
       this.later(250 + k * FILL_STEP_MS, () => {
-        ctx.hud.boss({ hp: k, max: boss.maxHp });
+        ctx.hud.boss({ hp: k, max: boss.maxHp, name: BOSS_NAME });
         this.sound?.beep(k, boss.maxHp);
         if (k === boss.maxHp) this.later(220, () => this.introTitle());
       });
@@ -323,7 +325,7 @@ export class BossFight implements Mechanic {
     if (!this.boss || this.boss.invulnerable(now)) return;
     const boss = this.boss;
     const dead = boss.hurt(amount, now);
-    ctx.hud.boss({ hp: boss.hp, max: boss.maxHp });
+    ctx.hud.boss({ hp: boss.hp, max: boss.maxHp, name: BOSS_NAME });
     ctx.scene.cameras.main.shake(120, 0.008);
     if (!dead) return;
     this.killMinions();

@@ -138,6 +138,7 @@ export class RhythmWorld implements StageFxRun {
       this.fly(dtMs / this.o.returnMs, this.home, this.camHome, this.quat.identity(), cfg.heroScale, 1, this.tilt, 0, () => { this.phase = 'handing'; this.o.onExit(); });
     } else {
       const now = conductor.timeMs(), dt = Math.min(dtMs, MAX_STEP_MS) / 1000;
+      this.hero.update(dt);
       // 轮到哪一段了：是 3D 的就玩，轮到 2D 的段落、或者谱面走完了，回画面里去
       const section = sectionAt(chart, now), mode = this.modes.get(section);
       if (!mode || conductor.finished) { this.leave(); return true; }

@@ -2,6 +2,7 @@
 // 挨打：人变红一下（hurtFlashMs）、被往伤害来源的反方向弹开（knockbackX / Y，弹开的 knockbackMs 里不听方向键）、
 // 左上角少一颗心、人一闪一闪（hurtFlickerMs），从挨打算起 hurtInvulnMs 里无敌。被压、被埋这些还是直接死（ctx.die）。
 // 只在平台层开（吃豆人层没有重力，碰到就死，也不显示心）。复活、R、换层都回满。
+// 上限 = config.playerHearts + 捡到的胶带加的（addMax，mechanics/tape）。
 import type Phaser from 'phaser';
 import type { GameConfig, Point } from '@/type';
 import type { DeathKey } from '@/i18n/keys';
@@ -34,13 +35,22 @@ export class Health {
   private knockVx = 0;
   /** 人身上现在有挨打的效果（变红 / 闪 / 弹开）：结束时要把颜色和透明度还原 */
   private marked = false;
+  /** 胶带加的上限 */
+  private bonus = 0;
 
   constructor(private readonly d: HealthDeps) {
     this.hp = d.cfg.playerHearts;
     this.publish();
   }
 
-  get max(): number { return this.d.cfg.playerHearts; }
+  get max(): number { return this.d.cfg.playerHearts + this.bonus; }
+
+  /** 上限加 n 颗（胶带），多出来的那几颗是满的 */
+  addMax(n: number): void {
+    this.bonus += n;
+    this.hp = Math.min(this.max, this.hp + n);
+    this.publish();
+  }
   invulnerable(time: number): boolean { return time < this.invulnUntil; }
 
   /** 挨一下：from = 伤害从哪来（往反方向弹开）；不给或者正好在脚下 → 往人朝向的反方向弹、主要往上 */

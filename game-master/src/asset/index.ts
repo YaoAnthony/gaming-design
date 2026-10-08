@@ -20,6 +20,7 @@ import tileDebrisUrl from './image/tiles/tile_debris.png';
 import tileCrackUrl from './image/tiles/tile_crack.png';
 import tileGhostUrl from './image/tiles/tile_ghost.png';
 import tileDustUrl from './image/tiles/tile_dust.png';
+import keyholeUrl from './image/tiles/keyhole.png';
 import playerUrl from './image/sprite/player.png';
 import playerSheetUrl from './image/sprite/player_sheet.png';
 import playerSheetDataUrl from './image/sprite/player_sheet.json?url';
@@ -68,12 +69,17 @@ import grabHandUrl from './image/sprite/grab_hand.png';
 import gmHandUrl from './image/sprite/gm_hand.png';
 import gmArmUrl from './image/sprite/gm_arm.png';
 import gmHandModelUrl from './model/gm_hand.glb?url';
+import heroModelUrl from './model/hero.glb?url';
+import clipModelUrl from './model/clip.glb?url';
+import bossModelUrl from './model/boss.glb?url';
 import openingMusicUrl from './music/openingMusic.mp3';
 import boomUrl from './audio/boob.mp3';
 import bgmUrl from './music/Pixelated_Coffee.mp3';
 import bossMusicUrl from './music/boss.mp3';
 import bossLaughUrl from './audio/boss_laughing.mp3';
 import keyPickupUrl from './audio/key_pickup.mp3';
+import eatUrl from './audio/eat.mp3';
+import tapeUrl from './image/items/tape.png';
 import warningUrl from './audio/warning.mp3';
 import avatarDefaultUrl from './image/ui/avatar_default.png';
 import avatarLaughUrl from './image/ui/avatar_la.png';
@@ -88,7 +94,7 @@ export const TILE_SIZE = 32;
 export const WALL_TEXTURES = {
   /** 岩石（Boss 封门也用它）：石墨色砌石墙 */
   rock: 'wall_rock',
-  /** 碎岩：浅一点、一块块石头裂开 / 缺角 */
+  /** 碎岩：和岩石同一种石头、同一个颜色（和岩石拼成一整面墙），只是碎了：满是裂纹、崩角，几道贯穿上下的大裂缝 */
   cracked: 'wall_cracked',
   /** 脆岩：吊着的石灰色大板，外角有螺栓 */
   brittle: 'wall_brittle',
@@ -99,7 +105,7 @@ export const WALL_TEXTURES = {
   paper: 'wall_paper',
   /** 字块：淡紫色实心字 */
   letter: 'wall_letter',
-  /** 门：白底竖木板门（按钥匙组染色），最上面一排有锁孔 */
+  /** 门：白底竖木板门、两道铁箍（按钥匙组染色）；锁孔是另一张图 keyhole，盖在每扇门正中 */
   door: 'wall_door',
 } as const;
 
@@ -190,6 +196,8 @@ export const IMAGES: ImageAsset[] = [
   { key: WALL_TEXTURES.letter, url: wallLetterUrl },
   { key: WALL_TEXTURES.door, url: wallDoorUrl },
   { key: TILE_FX.ghost, url: tileGhostUrl },
+  /** 门上的锁孔（20x24，不染色）：每扇门正中盖一个（mechanics/locks/Locks.ts） */
+  { key: 'keyhole', url: keyholeUrl },
   { key: 'spark', url: sparkUrl },
   { key: 'fusenode', url: fuseNodeUrl },
   { key: 'boss', url: bossUrl },
@@ -208,6 +216,8 @@ export const IMAGES: ImageAsset[] = [
   { key: 'bossTrigger', url: bossTriggerUrl },   // Boss 触发点（只在编辑器里显示）
   { key: 'ghost', url: ghostUrl },
   { key: 'hat', url: hatUrl },
+  /** 胶带（捡到心的上限 +1，mechanics/tape）：Aseprite asset/generators/items.py 画的 */
+  { key: 'tape', url: tapeUrl },
   { key: 'crate1', url: crate1Url },
   { key: 'crate2', url: crate2Url },
   { key: 'plate1', url: plate1Url },
@@ -244,10 +254,11 @@ export const GRAB_HAND = {
  * tip = 指尖（指着那一帧）、pinch = 捏合点（捏着那一帧）、palm = 手心：在一帧里的位置（0~1），手按这一点对准目标
  */
 /**
- * 3D 模型（three.js 里用）。gmHand = Game Master 的木手：骨架、四个姿势的动画、对准点都在模型里；
- * 源文件（.blend）和建模 / 导出脚本在仓库根目录的 3D asset/gm_hand/，改了模型用那里的 export_glb.py 重新导出
+ * 3D 模型（three.js 里用），源文件和建模 / 导出脚本都在仓库根目录的 3D asset/ 下，改了模型用那里的脚本重新导出：
+ * gmHand = Game Master 的木手（gm_hand/export_glb.py：骨架、姿势动画、对准点）；
+ * hero / clip / boss = 主角、夹子桑、Game Master 本体（各自文件夹的 build_*.py --export：骨架 + 动作 + 对准点，3D 世界里用）
  */
-export const MODELS = { gmHand: gmHandModelUrl };
+export const MODELS = { gmHand: gmHandModelUrl, hero: heroModelUrl, clip: clipModelUrl, boss: bossModelUrl };
 
 export const GM_HAND = {
   url: gmHandUrl,
@@ -276,7 +287,8 @@ export const AUDIO: AudioAsset[] = [
   { key: 'bgm', url: bgmUrl, music: 'Pixelated Coffee' },           // 平时的背景音乐（循环）
   { key: 'bossMusic', url: bossMusicUrl, music: 'Boss 战' },        // Boss 战音乐（循环）
   { key: 'bossLaugh', url: bossLaughUrl },                          // 骷髅消失时的笑声
-  { key: 'keyPickup', url: keyPickupUrl },                          // 捡到钥匙（scripts/gen-sfx.sh 合成的，可以换成手工音效）
+  { key: 'keyPickup', url: keyPickupUrl },
+  { key: 'eat', url: eatUrl },                                      // 捡到胶带（mechanics/tape）                          // 捡到钥匙（scripts/gen-sfx.sh 合成的，可以换成手工音效）
   { key: 'warning', url: warningUrl },                              // Boss 出场前的 WARNING 警报（过场里循环放）
   { key: 'openingMusic', url: openingMusicUrl, music: '开场' },      // 标题画面（scripts/gen-story-audio.mjs 合成的占位曲）
 ];

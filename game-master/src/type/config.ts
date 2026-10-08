@@ -129,7 +129,25 @@ export interface GameConfig {
 }
 
 /** 长度单位是「格」（画面里一格砖那么大），速度是格 / 秒 */
+/** 3D 关卡里的演员（world3d/Actors3D） */
+export interface ActorsConfig {
+  /** Game Master 本体多高、夹子桑多高（格）；夹子桑走多快（格 / 秒） */
+  bossHeight: number;
+  clipHeight: number;
+  clipSpeed: number;
+  /** 挂在 Boss 手腕上的木手多长（Boss 模型自己的单位：本体约 7.4 高） */
+  bossHandLength: number;
+  /** 两只手各摆什么姿势、绕前臂再转几度（left = Boss 的左手，看的人的右边） */
+  bossHands: { left: { pose: GmHandPoseName; roll: number }; right: { pose: GmHandPoseName; roll: number } };
+}
+
+/** 3D 世界里卡通材质的光：从哪来（世界坐标，指向光源）、环境光、凹槽的环境光遮蔽取几次方 */
+export interface ToonLightConfig { dir: [number, number, number]; ambient: number; aoPower: number }
+
 export interface World3DConfig {
+  /** 关卡里的演员；角色材质的光 */
+  actors: ActorsConfig;
+  toon: ToonLightConfig;
   /** 走路速度、起跳速度、重力（格 / 秒²）、最快下落 */
   moveSpeed: number;
   jumpVelocity: number;

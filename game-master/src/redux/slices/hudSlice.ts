@@ -8,6 +8,12 @@ export interface EndingView { id: 'act1'; choices: EndingChoice[] }
 /** opening = 标题画面（房间和菜单直接显示，主角还没出场） */
 export type GameMode = 'idle' | 'opening' | 'playing' | 'dead' | 'won';
 
+/**
+ * Boss 的血条（所有 Boss 共用一个，Hud.tsx 的 BossBar）：hp / max 滴；per = 一管多少滴（血多的时候分成好几管，一管打空露出下一管；
+ * 不写 = 一管装下全部）；name = 血条下面的名字（i18n key）
+ */
+export interface BossBarState { hp: number; max: number; per?: number; name?: string }
+
 export interface HudState {
   mode: GameMode;
   /** 游戏里按了 ESC：场景暂停着，暂停菜单开着 */
@@ -17,7 +23,7 @@ export interface HudState {
   jumps: number;
   destroyed: number;
   message: { text: string; color: string; at: number } | null;
-  boss: { hp: number; max: number; /** 一管多少滴：血多的时候分成好几管，一管打空露出下一管 */ per?: number } | null;
+  boss: BossBarState | null;
   /** 玩家的生命值（左上角的心）；null = 这一层不显示（吃豆人层） */
   hearts: { hp: number; max: number; /** 两滴血一格：满格金色，剩一滴红色，空了是空格（节奏关卡用） */ tiered?: boolean } | null;
   /** Boss 出场过场叠在画面上的那一段：WARNING 警报 / 名字；null = 不显示 */
@@ -60,7 +66,7 @@ const hudSlice = createSlice({
     setStats(state, action: PayloadAction<{ jumps: number; destroyed: number }>) { state.jumps = action.payload.jumps; state.destroyed = action.payload.destroyed; },
     flash(state, action: PayloadAction<{ text: string; color?: string }>) { state.message = { text: action.payload.text, color: action.payload.color ?? '#ffd166', at: Date.now() }; },
     clearMessage(state) { state.message = null; },
-    setBoss(state, action: PayloadAction<{ hp: number; max: number; per?: number } | null>) { state.boss = action.payload; },
+    setBoss(state, action: PayloadAction<BossBarState | null>) { state.boss = action.payload; },
     setBossIntro(state, action: PayloadAction<'warning' | 'title' | null>) { state.bossIntro = action.payload; },
     setHearts(state, action: PayloadAction<{ hp: number; max: number; tiered?: boolean } | null>) { state.hearts = action.payload; },
     setDialogue(state, action: PayloadAction<HudState['dialogue']>) { state.dialogue = action.payload; },

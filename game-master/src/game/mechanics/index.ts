@@ -19,6 +19,7 @@ import './carry';
 import './slider';
 import './locks';
 import './hat';
+import './tape';
 import './pushBlock';
 import './mover';
 import './solve';   // 看别的机制的状态（门、Boss、移动方块）：放在它们后面

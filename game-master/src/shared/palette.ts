@@ -54,3 +54,44 @@ export const GM_HAND_PALETTE: Record<string, { colors: string[]; stops: number[]
   frame: { colors: ['#6b6254'], stops: [] },                                                                    // 护腕上的方框
   boss: { colors: ['#958470'], stops: [] },                                                                     // 方框中间的小方块
 };
+
+/** 卡通分档材质用的调色板（stage3d/hand/ToonPaletteMaterial）：材质名 → 从亮到暗的几档颜色 + 每档的明暗下限 */
+export type ToonPalettes = Record<string, { colors: string[]; stops: number[] }>;
+const bands = (colors: string[]): { colors: string[]; stops: number[] } => ({ colors, stops: [[], [], [0.5], [0.7, 0.35], [0.78, 0.5, 0.25], [0.84, 0.55, 0.25, 0.11]][colors.length] ?? [] });
+
+/** 主角的 3D 模型（3D asset/hero，颜色取自 player_sheet.png） */
+export const HERO_PALETTE: ToonPalettes = {
+  hero_head: bands(['#ddcbac', '#b8a687', '#9c8468']),
+  hero_panel: bands(['#4a4e4f', '#3f4344', '#313536']),
+  hero_visor: bands(['#222325']),
+  hero_vest: bands(['#62564c', '#4a423b', '#292828']),
+  hero_stripe: bands(['#74665a', '#62564c', '#4a423b']),
+  hero_pad: bands(['#c0805c', '#a56b4f', '#7f5039']),
+  hero_arm: bands(['#777b6d', '#5d6155', '#454840']),
+  hero_leg: bands(['#bca280', '#9c8468', '#74665a']),
+  hero_boot: bands(['#62a695', '#4a7f72', '#3c5f57']),
+};
+
+/** 夹子桑的 3D 模型（3D asset/clip，颜色取自 clip_sheet.png） */
+export const CLIP_PALETTE: ToonPalettes = {
+  clip_wood: bands(['#dd8a5b', '#c0703f', '#a35a31', '#7d4426']),
+  clip_ring: bands(['#efe6d0', '#d9cfb6', '#bdb29a']),
+  clip_core: bands(['#2a2826', '#1b1a19']),
+  clip_leg: bands(['#3a332f', '#2e2724', '#221d1b']),
+  clip_foot: bands(['#4a403b', '#3a332f']),
+  clip_tongue: bands(['#8a2320', '#561512']),
+};
+
+/** Game Master 本体的 3D 模型（3D asset/boss）：木头和木手一样，围裙那些另配 */
+export const BOSS_PALETTE: ToonPalettes = {
+  ...GM_HAND_PALETTE,
+  plate: bands(['#e2d8c0', '#c9bda2', '#a89c84', '#7f7462']),   // 胸甲：奶白，比木头亮一档
+  apron: bands(['#6b7a5c', '#55624a', '#46523e', '#343c30']),
+  strap: bands(['#55624a', '#46523e', '#343c30']),
+  pocket: bands(['#c4ad84', '#a8926a', '#85714f']),
+  tag: bands(['#e0c468', '#c4a74c', '#96803a']),
+  string: bands(['#b09e80', '#978770']),
+  socket: bands(['#3a342e', '#262220', '#161412']),
+  slit: bands(['#3a342e', '#262220']),
+  buckle: bands(['#c4ad84', '#a8926a']),
+};

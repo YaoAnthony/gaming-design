@@ -82,6 +82,7 @@
     "bossAppears": "Slime King!",
     "bossDefeated": "Slime King defeated",
     "hatKnocked": "Hat knocked off",
+    "tapeGot": "Tape! +1 heart",
     "toBeContinued": "To be continued"
   },
   "death": {

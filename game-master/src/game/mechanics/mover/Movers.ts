@@ -317,10 +317,10 @@ export class Movers implements Mechanic {
   /** 第 i 格的贴图：墙按这一组里还在的邻居拼（整组一起动，跟旁边不动的墙分开算） */
   private pieceTexture(g: Group, i: number): [string, number] {
     const at = new Map(g.home.map((c, k) => [`${c.x},${c.y}`, k]));
-    const h = g.home[i], wall = Tiles.get(g.ids[i])?.wall;
+    const h = g.home[i], group = Tiles.get(g.ids[i])?.wallGroup;
     return Terrain.pieceTexture(g.ids[i], (dx, dy) => {
       const k = at.get(`${h.x + dx},${h.y + dy}`);
-      return k !== undefined && g.alive[k] && !!wall && Tiles.get(g.ids[k])?.wall === wall;
+      return k !== undefined && g.alive[k] && !!group && Tiles.get(g.ids[k])?.wallGroup === group;
     }, h.x);
   }
 

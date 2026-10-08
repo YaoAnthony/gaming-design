@@ -52,7 +52,7 @@ class RhythmMechanic implements Mechanic {
         ctx.hud.score(v ? v.points : null);
         if (!v || v.judge || v.fresh) ctx.hud.rhythm(v && { combo: v.combo, judge: v.judge });   // 自动判的只动分数，不把上一次的判定字冲掉
       },
-      onBoss: v => ctx.hud.boss(v),
+      onBoss: v => ctx.hud.boss(v && { ...v, name: 'npc.gameMaster' }),   // 血条下面写他的名字
       onHp: v => ctx.hud.hearts(v && { ...v, tiered: true }),   // null：打完换回平时的心
       onBreak: () => { ctx.hud.whiteout(); scene.cameras.main.flash(BREAK_FLASH_MS); },
       onResult: (won, percent, test) => {

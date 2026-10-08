@@ -89,7 +89,7 @@ export function status(): string {
   const cx = Math.floor(b.center.x / T), cy = Math.floor((b.bottom - 1) / T);
   const lx = cx - sc.rooms.current.rx * sc.rooms.w, ly = cy - sc.rooms.current.ry * sc.rooms.h;
   const where = p.onGround ? 'ground' : p.onWallLeft ? 'wall-L' : p.onWallRight ? 'wall-R' : 'air';
-  const held = mech('Carry')?.holding?.id ?? '-';
+  const carry = mech('Carry'), held = [carry?.holding?.id, ...(carry?.keys ?? []).map((k: { id: string }) => k.id)].filter(Boolean).join('+') || '-';
   const hat = mech('Hat')?.wearing ? ' hat' : '';
   const room = sc.model.layout[sc.rooms.current.ry]?.[sc.rooms.current.rx] ?? '?';
   const flags = [sc.respawn.dead && 'DEAD', sc.won && 'WON', sc.leaving && 'LEAVING', sc.respawn.respawning && 'respawning'].filter(Boolean).join(' ');
@@ -102,7 +102,7 @@ export function state(): Record<string, unknown> {
     room: sc.model.layout[sc.rooms.current.ry]?.[sc.rooms.current.rx], rx: sc.rooms.current.rx, ry: sc.rooms.current.ry,
     cell: [Math.floor(b.center.x / T) - sc.rooms.current.rx * sc.rooms.w, Math.floor((b.bottom - 1) / T) - sc.rooms.current.ry * sc.rooms.h],
     px: [Math.round(b.center.x), Math.round(b.bottom)], v: [Math.round(b.velocity.x), Math.round(b.velocity.y)],
-    onGround: p.onGround, held: mech('Carry')?.holding?.id ?? null, dead: sc.respawn.dead, won: sc.won, jumps: sc.stats.jumps,
+    onGround: p.onGround, held: mech('Carry')?.holding?.id ?? null, keys: (mech('Carry')?.keys ?? []).map((k: { id: string }) => k.id), dead: sc.respawn.dead, won: sc.won, jumps: sc.stats.jumps,
   };
 }
 

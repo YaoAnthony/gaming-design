@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import '@/game/registry/tiles';
 import { WALL_GID, Terrain } from '@/game/terrain/Terrain';
-import { WALL_E, WALL_PHASES, WALL_TEXTURE, WALL_VARIANTS, wallFrame, wallPhase, wallTemplates, wallVariant } from '@/game/terrain/walls';
+import { WALL_E, WALL_PHASES, WALL_W, WALL_TEXTURE, WALL_VARIANTS, wallFrame, wallPhase, wallTemplates, wallVariant } from '@/game/terrain/walls';
 import { defineTile, Tiles, Traits } from '@/game/registry/registry';
 import { mountSide } from '@/game/terrain/support';
 
@@ -284,6 +284,7 @@ describe('引线烧岩石：先裂成碎岩，再烧才没', () => {
 defineTile({ id: 'W', name: '测试墙', color: 0x5d6470, frame: 1, wall: 'wall_test' }, Traits.Solid, Traits.Anchor);
 defineTile({ id: 'Y', name: '测试墙（同模板）', color: 0x5d6470, frame: 1, wall: 'wall_test' }, Traits.Solid, Traits.Anchor);
 defineTile({ id: 'V', name: '测试墙 2', color: 0x5d6470, frame: 2, wall: 'wall_test2', wallLoose: 'wall_test2_loose' }, Traits.Solid);
+defineTile({ id: 'U', name: '测试墙（另一张模板、同一组）', color: 0x5d6470, frame: 2, wall: 'wall_test3', wallGroup: 'wall_test' }, Traits.Solid, Traits.Anchor);
 
 describe('墙：游戏里按周围 8 格拼，编辑器里整块画', () => {
   it('游戏视角的墙帧 = WALL_GID + 这种墙这一列的相位那一行 + 第几种样子；编辑器视角还是整块的帧', () => {
@@ -303,12 +304,15 @@ describe('墙：游戏里按周围 8 格拼，编辑器里整块画', () => {
     expect(wallPhase(-1)).toBe(WALL_PHASES - 1);
   });
 
-  it('只有同一张模板的墙挨着才算连着；别的墙、不是墙的砖、空气都不算', () => {
+  it('只有同一组的墙挨着才算连着；别的墙、不是墙的砖、空气都不算', () => {
     const grid = ['...', '.WW', '...'].map(r => r.split(''));
     expect(Terrain.frameAt(grid, 1, 1, 'game') - WALL_GID).toBe(wallFrame('wall_test', WALL_E, 1));
     const same = ['...', '.WY', '...'].map(r => r.split(''));   // 同一张模板的另一种砖（岩石和封门）：连着
     expect(Terrain.frameAt(same, 1, 1, 'game') - WALL_GID).toBe(wallFrame('wall_test', WALL_E, 1));
-    const other = ['...', '.WV', '...'].map(r => r.split(''));  // 另一种墙（岩石和碎岩）：不连
+    const grouped = ['...', '.WU', '...'].map(r => r.split(''));   // 另一张模板但写了同一组（岩石和碎岩）：连着，各用各的模板
+    expect(Terrain.frameAt(grouped, 1, 1, 'game') - WALL_GID).toBe(wallFrame('wall_test', WALL_E, 1));
+    expect(Terrain.frameAt(grouped, 2, 1, 'game') - WALL_GID).toBe(wallFrame('wall_test3', WALL_W | WALL_E, 2));   // 右边是地图外面，也算连着
+    const other = ['...', '.WV', '...'].map(r => r.split(''));  // 另一组的墙（岩石和脆岩）：不连
     expect(Terrain.frameAt(other, 1, 1, 'game') - WALL_GID).toBe(wallFrame('wall_test', 0, 1));
     const spikes = ['...', '.WX', '...'].map(r => r.split(''));
     expect(Terrain.frameAt(spikes, 1, 1, 'game') - WALL_GID).toBe(wallFrame('wall_test', 0, 1));

@@ -79,6 +79,8 @@ export interface TileSpec {
   wall?: string;
   /** 松脱往下掉的时候换成这张模板（脆岩：螺栓没了）；省略 = 掉的时候也用 wall */
   wallLoose?: string;
+  /** 和哪些墙拼成一整块：同一组的墙挨着算连着（碎岩写岩石那组：同一种石头，连成一整面墙）；省略 = 就是 wall 自己这一组 */
+  wallGroup?: string;
   /** 被炸没 / 烧没时崩出哪种材料的碎块（asset 的 TILE_DEBRIS.mats 之一）；省略 = 不崩碎块 */
   debris?: string;
   editorVisible?: boolean;
@@ -98,6 +100,8 @@ export interface TileDef extends TileCaps {
   wall: string | null;
   /** 掉下来时用的模板（见 TileSpec.wallLoose）；null = 和 wall 一样 */
   wallLoose: string | null;
+  /** 拼墙时算连着的那一组（见 TileSpec.wallGroup，默认 = wall）；null = 不是墙 */
+  wallGroup: string | null;
   /** 碎块材料（见 TileSpec.debris）；null = 不崩碎块 */
   debris: string | null;
   editorVisible: boolean;

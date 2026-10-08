@@ -13,23 +13,35 @@ import { RHYTHM_MODES, type ModeId } from '@/rhythm/modes';
 /** 好几管血时，除了最上面那一管（金色）之外的颜色有几种，轮着用（样式在 app.css 的 .tube-cN） */
 const TUBE_COLORS = 6;
 
+/** 一格血多宽（像素）：一管格子少就画宽一点，格子多就窄一点，整条差不多一样长 */
+const SEG_PX = { total: 300, min: 14, max: 26 };
 /**
- * Boss 的血条。per = 一管多少滴：血多的时候分成好几管，只画最上面那一管，打空的格子露出下一管的颜色，旁边写还剩几管。
- * 管越多血条越大、一管一个颜色；满管数的那一管（最后填上的）是金色的，带流光。血条下面是他的名字（紫色、发光）
+ * 血越多血条越大：每多叠一管放大 perTube 倍（从顶边正中往外长，新叠上一管时弹一下）；
+ * 但整条最宽只到窗口宽度的 fit（手机上不撑出屏幕；extraPx = 格子之外的边框、×N 大概多宽）
+ */
+const BAR_GROW = { perTube: 0.07, fit: 0.94, extraPx: 60 };
+
+/**
+ * Boss 的血条（所有 Boss 共用：史莱姆王、节奏关卡的 Game Master……，数据见 hudSlice 的 BossBarState）。
+ * per = 一管多少滴：血多的时候分成好几管，只画最上面那一管，打空的格子露出下一管的颜色；不写 per 就是一管。
+ * 右边写还剩几管（×1 起），下面是名字（紫色、发光）。管越多血条越大（BAR_GROW）、一管一个颜色；
+ * 不止一管时，满管数的那一管（最后填上的）是金色的，带流光
  */
 const BossBar = memo(function BossBar() {
   const boss = useAppSelector(s => s.hud.boss, shallowEqual);
-  const name = useTranslation().t('npc.gameMaster');
+  const { t } = useTranslation();
   if (!boss) return null;
-  const { hp, max, per } = boss;
-  if (!per || max <= per) return <div className="boss-bar">{Array.from({ length: max }, (_, i) => <span key={i} className={'seg' + (i < hp ? ' on' : '')} />)}</div>;
-  const tubes = Math.ceil(max / per), bars = Math.ceil(hp / per), top = hp - (bars - 1) * per;   // 一共几管；还剩几管；最上面那一管剩几滴
-  const color = (n: number) => (n >= tubes ? ' tube-gold' : ' tube-c' + ((n - 1) % TUBE_COLORS));   // 第 n 管（1 起）什么颜色
+  const { hp, max, name } = boss, per = Math.max(1, Math.min(boss.per ?? max, max));
+  const tubes = Math.ceil(max / per), bars = Math.max(1, Math.ceil(hp / per)), top = hp - (bars - 1) * per;   // 一共几管；还剩几管（空了也写 ×1）；最上面那一管剩几滴
+  const color = (n: number) => (tubes > 1 && n >= tubes ? ' tube-gold' : ' tube-c' + ((n - 1) % TUBE_COLORS));   // 第 n 管（1 起）什么颜色
+  const seg = Math.round(Math.max(SEG_PX.min, Math.min(SEG_PX.max, SEG_PX.total / per)));
+  const fit = window.innerWidth * BAR_GROW.fit / (per * (seg + 2) + BAR_GROW.extraPx);
+  const grow = Math.min(1 + (bars - 1) * BAR_GROW.perTube, Math.max(1, fit));
   return (
-    <div className={'boss-bar tubes' + (bars >= tubes && bars > 0 ? ' crowned' : '')} style={{ '--tube': Math.max(0, bars - 1) } as CSSProperties}>
+    <div className={'boss-bar tubes' + (tubes > 1 && bars >= tubes && hp > 0 ? ' crowned' : '')} style={{ '--grow': grow.toFixed(3), '--seg': `${seg}px` } as CSSProperties}>
       {Array.from({ length: per }, (_, i) => <span key={i} className={'seg' + (i < top ? ' on' + color(bars) : bars > 1 ? ' under' + color(bars - 1) : '')} />)}
       <span key={bars} className="tube-count">×{bars}</span>
-      <span className="boss-name">{name}</span>
+      {name && <span className="boss-name">{t(name)}</span>}
     </div>
   );
 });

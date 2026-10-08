@@ -97,6 +97,7 @@ export function defineTile(spec: TileSpec, ...traits: TileTrait[]): TileDef {
     gameFrame: spec.gameFrame ?? spec.frame ?? -1,
     wall: spec.wall ?? null,
     wallLoose: spec.wallLoose ?? null,
+    wallGroup: spec.wall ? spec.wallGroup ?? spec.wall : null,
     debris: spec.debris ?? null,
     editorVisible,
     canFall: caps.solid && !caps.anchor,

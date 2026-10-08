@@ -10,6 +10,7 @@ import type { Player } from '@/sprite';
 import type { SparkEmitter } from '@/particle';
 import type { StartGameData } from '@/protocol';
 import type { Mechanic, MoveInput } from '@/game/mechanics/define';
+import type { BossBarState } from '@/redux/slices/hudSlice';
 import type { Solids } from './solids';
 import type { DeathKey, MsgKey } from '@/i18n/keys';
 import type { Dialogue } from './Dialogue';
@@ -97,6 +98,8 @@ export interface PlayContext {
   die(reason: DeathKey): void;
   /** 挨一下：扣一颗心、被往 from 的反方向弹开；心扣光才死（没开生命值的层直接死）。被压、被埋这种用 die */
   hurt(reason: DeathKey, from?: Point): void;
+  /** 心的上限加 n 颗（胶带），多出来的那几颗是满的 */
+  addMaxHearts(n: number): void;
   /** final = 真结束；否则是「假通关」，按一下继续玩。这一层的终点是一幕的结局（story/config.ts 的 ENDINGS）就换成那一幕的庆祝画面 */
   win(final: boolean): void;
   /** 有机制让主角晚点出场（Mechanic.delaysEntrance）：现在放出来 */
@@ -138,7 +141,7 @@ export interface PlayContext {
     /** null = 不显示分数 */
     score(n: number | null): void;
     /** per = 一管多少滴（血多时分成好几管） */
-    boss(v: { hp: number; max: number; per?: number } | null): void;
+    boss(v: BossBarState | null): void;
     /** Boss 出场过场叠在画面上的那一段（WARNING / 名字），null = 收起 */
     bossIntro(v: 'warning' | 'title' | null): void;
     /** 换一套心（节奏关卡：两滴一格的金心）；null = 换回这一层平时的心 */

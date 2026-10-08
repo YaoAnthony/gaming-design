@@ -11,6 +11,7 @@ import type { StageFxContext, StageFxRun } from '@/stage3d/fx/define';
 import type { Level3D, Vec3 } from './level';
 import { groundBelow, stepBody, type Body3D } from './physics';
 import { Hero3D } from './Hero3D';
+import { Actors3D } from './Actors3D';
 import { LevelView } from './LevelView';
 import { WorldInput } from './input';
 
@@ -29,7 +30,7 @@ const WATCH = { shift: 0.3, height: 0.5, pullBack: 1.7 };
 export interface World3DOptions {
   config(): World3DConfig;
   level: Level3D;
-  /** 主角贴图的地址 */
+  /** 主角 3D 模型的地址（asset 的 MODELS.hero） */
   heroUrl: string;
   /** 人走回画面、镜头也回到原位了：把人交还给 2D 游戏。at = 落在画面的哪，null = 原地 */
   onExit(at: ScreenSpot | null): void;
@@ -45,7 +46,9 @@ export class World3D implements StageFxRun {
   private readonly root = new THREE.Group();
   private readonly view: LevelView;
   private readonly hero: Hero3D;
+  private readonly actors: Actors3D;
   private readonly input = new WorldInput();
+  private readonly light = new THREE.Vector3();
   private readonly body: Body3D;
   /** 屏幕的宽高（格）、人在画面上原来的位置（脚底中心，格） */
   private readonly screen: { w: number; h: number };
@@ -82,9 +85,11 @@ export class World3D implements StageFxRun {
 
     this.view = new LevelView(o.level);
     this.hero = new Hero3D(o.heroUrl, w, h);
-    this.root.add(this.view.object, this.hero.object);
+    this.actors = new Actors3D(o.level.actors ?? [], () => this.o.config().actors, () => this.body.pos);
+    this.root.add(this.view.object, this.hero.object, this.actors.object);
     ctx.scene.add(this.root);
     this.camHome = ctx.camera.position.clone();
+    if (import.meta.env.DEV) window.__world3d = this;   // 控制台调试：看关卡里的演员、人在哪
     this.syncHero(1);
     bridge.on(EVT.crumple, this.onCrumple); bridge.on(EVT.crumpleDone, this.onCrumpleDone);
   }
@@ -97,7 +102,7 @@ export class World3D implements StageFxRun {
     if (this.phase === 'handing') { this.phase = 'done'; return false; }
     if (this.o.paused?.()) return true;
     const dt = Math.min(dtMs, MAX_STEP_MS) / 1000;
-    if (this.phase === 'back') { this.stepBack(dtMs); return true; }
+    if (this.phase === 'back') { this.stepBack(dtMs); this.animate(dt); return true; }
 
     const cfg = this.o.config(), b = this.body, move = this.input.read();
     if (this.watching && this.watchLeft !== null && (this.watchLeft -= dtMs) <= 0) this.watching = false;
@@ -116,8 +121,20 @@ export class World3D implements StageFxRun {
     if (this.armed && this.phase === 'play' && !this.watching && this.touchingScreen()) this.startBack(true);
 
     this.syncHero(1);
+    this.hero.move(b.vel, b.grounded);
     if (this.watching) this.watch(dt, cfg); else this.follow(dt, cfg);
+    this.animate(dt);
     return true;
+  }
+
+  /** 每帧推进角色的动作，光按镜头换算 */
+  private animate(dt: number): void {
+    const t = this.o.config().toon, cam = this.ctx.camera;
+    this.light.set(t.dir[0], t.dir[1], t.dir[2]).normalize();
+    this.hero.update(dt);
+    this.actors.update(dt);
+    this.hero.setLight(this.light, cam, t.ambient, t.aoPower);
+    this.actors.setLight(this.light, cam, t.ambient, t.aoPower);
   }
 
   /** 请它收场：立刻往回走，回到跳出来的地方 */
@@ -129,6 +146,7 @@ export class World3D implements StageFxRun {
     this.root.removeFromParent();
     this.view.dispose();
     this.hero.dispose();
+    this.actors.dispose();
     this.ctx.resetCamera();
   }
 

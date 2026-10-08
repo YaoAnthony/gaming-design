@@ -44,7 +44,8 @@ import type { DeathKey } from '@/i18n/keys';
 import { CrumpleFx } from '@/game/core/CrumpleFx';
 import { GameInput } from '@/game/core/GameInput';
 import { standingSpot, touchingHazard } from '@/game/core/roomSpots';
-import { Backdrop } from '@/game/background/Backdrop';
+import { Backdrop, queueBackgrounds } from '@/game/background/Backdrop';
+import { backgroundOf, startRoomKey } from '@/game/background/layout';
 import { applySceneFx, type SceneFx } from '@/game/core/sceneFx';
 import { vortex } from '@/game/core/vortex';
 import { Colors, hex } from '@/shared/palette';
@@ -123,6 +124,12 @@ export class GameScene extends Phaser.Scene {
     this.won = false; this.wonFinal = false; this.leaving = false; this.awaitingEntrance = false;
     this.flagWatchers = [];
     if (!data.origin) this.localFlags = new Set();   // 换层时试玩的标记跟着走；新的一场清空
+  }
+
+  /** 开场所在房间的背景图先下好（进去第一帧就是对的背景，不先露出蓝色天空再突然换图）；别的房间的图进来以后 Backdrop 在后台接着下 */
+  preload(): void {
+    const key = startRoomKey(this.floor.model, store.getState().config.tile, this.startData);
+    if (key) queueBackgrounds(this, [backgroundOf(this.floor, this.floor.model, key)]);
   }
 
   create(): void {
@@ -372,6 +379,7 @@ export class GameScene extends Phaser.Scene {
       pushStats: () => store.dispatch(setStats({ ...this.stats })),
       die: reason => this.die(reason),
       hurt: (reason, from) => this.health.hurt(reason, from),
+      addMaxHearts: n => this.health.addMax(n),
       win: final => this.win(final),
       enter: () => this.enter(),
       newGame: () => this.newGame(),

@@ -15,7 +15,7 @@ defineTile(
 );
 
 defineTile(
-  { id: 'r', name: '碎岩', desc: '裂开的岩石：人能炸掉，引线再烧一次也碎掉；自己不会掉，也撑得住别的砖', color: 0x6e7480, frame: TILE_FRAMES.crackedRock, wall: WALL_TEXTURES.cracked, debris: 'cracked' },
+  { id: 'r', name: '碎岩', desc: '裂开的岩石：人能炸掉，引线再烧一次也碎掉；自己不会掉，也撑得住别的砖', color: 0x6e7480, frame: TILE_FRAMES.crackedRock, wall: WALL_TEXTURES.cracked, wallGroup: WALL_TEXTURES.rock, debris: 'cracked' },
   Traits.Solid, Traits.Anchor, Traits.Destructible(0),
 );
 

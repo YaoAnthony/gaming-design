@@ -26,6 +26,12 @@ export const CLIP_ATTACK = { range: 1.5, reach: 0.6, cooldownMs: 900, biteFrames
  * 看丢了就跑到最后看见的地方，每 lookMs 左右张望一次，丢了 forgetMs 回去巡逻。嘴里夹着纸的时候只顾驮纸，不追
  */
 export const CLIP_CHASE = { sight: 5, rows: 1, alertMs: 350, hop: -150, speed: 150, animRate: 2.2, lookMs: 400, forgetMs: 1800 };
+/**
+ * 站不稳就滑下去：站在地上、身子中线底下是空的（被箱子顶到崖边、落在边上，只剩几个像素踩着地），
+ * 就往没东西的那边以 slipSpeed（px/s）滑出去掉下去；掉的过程中不追人、不巡逻（不会在空中拐回去又蹭回崖顶），落稳了再接着来。
+ * 自己走的时候不会走到这一步：巡逻、追人在脚前面没地时就停 / 掉头了，中线一直在地上
+ */
+export const CLIP_EDGE = { slipSpeed: 80 };
 /** 后层画在纸（深度 5，见 terrain/Chunks.ts）后面、地形前面 */
 const BACK_DEPTH = 4.9;
 
@@ -54,6 +60,8 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   private mark: Phaser.GameObjects.Image | null = null;
   /** 这一帧往前走的速度（px/s）：顶着箱子走时箱子用同样的速度滑（PushBlocks），不然追人时会陷进箱子里 */
   speed = 0;
+  /** 正从边上滑下去（往哪边：1 右 -1 左）；0 = 没有。见 CLIP_EDGE */
+  private slipping: -1 | 0 | 1 = 0;
 
   /** @param look 变体：scale 缩放（Arcade 的碰撞框和偏移会跟着一起缩）。Boss 吐的小夹子用 */
   constructor(scene: Phaser.Scene, readonly spawn: EnemySpawn, look?: { scale?: number }) {
@@ -144,6 +152,11 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
   step(terrain: Terrain, _roomPxW: number, speed: number, footing: (cx: number, cy: number) => boolean = (x, y) => terrain.isFooting(x, y)): void {
     const b = this.body, T = terrain.T;
     this.speed = 0;
+    // 站不稳：中线底下悬空就往空的那边滑下去，掉到落稳为止（CLIP_EDGE）
+    const over = b.blocked.down ? this.overhang(T, footing) : 0;
+    if (over) this.slipping = over;
+    else if (b.blocked.down) this.slipping = 0;
+    if (this.slipping) { this.setVelocityX(this.slipping * CLIP_EDGE.slipSpeed); return; }
     if (this.biting) {
       const lunge = (this.anims.currentFrame?.index ?? 0) - 1 === CLIP_ATTACK.lungeFrame && this.groundAhead(T, footing);
       this.setVelocityX(lunge ? this.dir * CLIP_ATTACK.lungeSpeed * Math.abs(this.scaleX) : 0);
@@ -172,6 +185,14 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     }
     this.setVelocityX(this.dir * this.speed);
     this.setFlipX(this.dir > 0);
+  }
+
+  /** 站在边上、身子中线底下是空的：往空的那边滑（右 1 / 左 -1）；中线底下踩着东西、或者两边都空（站在别的东西上）= 0 */
+  private overhang(T: number, footing: (cx: number, cy: number) => boolean): -1 | 0 | 1 {
+    const b = this.body, below = Math.floor((b.bottom + 2) / T);
+    if (footing(Math.floor(b.center.x / T), below)) return 0;
+    const left = footing(Math.floor((b.left + 1) / T), below), right = footing(Math.floor((b.right - 1) / T), below);
+    return left === right ? 0 : left ? 1 : -1;
   }
 
   /** 脚下前方那一格能不能站（箱子、纸也算） */

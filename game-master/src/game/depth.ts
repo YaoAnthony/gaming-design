@@ -17,6 +17,8 @@ export const DEPTH = {
   terrainShadow: -1,
   terrain: 0,
   terrainShade: 0.5,
+  /** 门上的锁孔：盖在门砖和体积感上面 */
+  keyhole: 0.7,
   /** 暖光（蜡烛之类）：地形、体积感之上，碎块、物件、人之下 */
   warmLight: 4.5,
   /** GM 的化身 */

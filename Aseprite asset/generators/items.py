@@ -6,7 +6,7 @@
   key.png 16x16      钥匙（白，按钥匙组染色）：方形钥匙头带孔（设定集里的样子）、两颗齿
   candle.png 12x18   蜡烛：米白蜡身、石墨色烛台、点火色火苗
   hat.png 32x32      高脚帽：石墨色帽筒、危险红帽带
-  plate1(_down).png 32x32 / plate2(_down).png 64x32   压板：石墨底座 + 木踏板 + 点火色的引线头（压下去变扁、引线头熄了）
+  plate1(_down).png 32x32 / plate2(_down).png 64x32   压板：旧石灰底座 + 架着的灰绿薄面板（素纸白亮边、右上角折角）+ 陶土色木撑（压下去贴平、冒火花）
   door.png 24x32     出口门：奖励金色的拱门框、里面黑
   castle.png 128x112 终点城堡：和岩石一样的砌石墙、陶土色尖顶、窗里透金光、正中底部是门、顶上一面危险红的旗
   tape.png 22x22     胶带：奖励金色的一卷，陶土色纸芯，右边垂下一截胶带头（捡到心的上限 +1；游戏里另外加金光）
@@ -152,21 +152,37 @@ def hat():
 
 # ---------------- 压板 ----------------
 def plate(w, down):
-    base, base_hi, base_lo = hexc('#3a3940'), hexc('#6c6a72'), hexc('#26252b')
-    pad, pad_hi, pad_lo = (hexc('#9a654f'), hexc('#b37a62'), hexc('#7a4c3b')) if down else (hexc('#b97c64'), hexc('#d59b81'), hexc('#8d5a47'))
-    fire, fire_hi = (hexc('#7c4330'), hexc('#a8a5ad')) if down else (hexc('#ef8754'), hexc('#ffd2a6'))
+    """压板（设定集 03_mechanics 右上那排）：旧石灰色的底座，上面架一块刷了灰绿漆的薄面板（顶边素纸白亮边、
+    右上角折下来一个小角——和主角头片同一个折角记号），底下两根陶土色小木撑；压下去面板贴平、木撑没了、上面冒火花"""
+    base, base_hi, base_lo = hexc('#7d8072'), hexc('#a3a596'), hexc('#5f6258')
+    panel, panel_lo, cream = hexc('#596d66'), hexc('#44534d'), hexc('#ddd5bc')
+    brace, brace_lo = hexc('#b77a63'), hexc('#8d5a47')
+    fire, fire_hi = hexc('#ef8754'), hexc('#ffd2a6')
     c = Cell(w, 32)
     c.rect(1, 27, w - 2, 30, base); c.hline(1, w - 2, 27, base_hi); c.hline(1, w - 2, 30, base_lo)
-    top = 26 if down else 21
-    c.rect(4, top, w - 5, 26, pad); c.hline(4, w - 5, top, pad_hi); c.hline(4, w - 5, 26, pad_lo)
+    x0, x1 = 3, w - 4
+    top, bottom = (24, 26) if down else (19, 24)
+    c.rect(x0, top, x1, bottom, panel)
+    c.hline(x0 + 1, x1 - 1, top, cream)                      # 顶边亮边（可站的边）
+    c.hline(x0, x1, bottom, panel_lo)
+    c.vline(x1, top + 1, bottom, panel_lo)
+    for x, y in ((x0, top), (x0, bottom), (x1, bottom)):     # 圆一下角
+        c.px(x, y, CLEAR)
+    # 右上角折下来的小角：角缺一块，露出素纸白的背面
+    for x, y in ((x1, top), (x1 - 1, top), (x1, top + 1)):
+        c.px(x, y, CLEAR)
+    c.px(x1 - 1, top + 1, cream); c.px(x1 - 2, top + 1, cream); c.px(x1 - 1, top + 2, cream)
+    c.px(x1 - 2, top + 2, panel_lo)
     if not down:
-        c.vline(4, top, 26, pad_hi); c.vline(w - 5, top, 26, pad_lo)
-        for x in (8, w - 9):                                # 踏板上的两颗钉
-            c.px(x, top + 2, pad_lo)
-    cx = w // 2
-    c.rect(cx - 3, top - 5, cx + 2, top, fire)              # 引线头
-    c.rect(cx - 2, top - 6, cx + 1, top - 6, fire)
-    c.rect(cx - 2, top - 4, cx - 1, top - 3, fire_hi)
+        for x in range(7, w - 8, 16 if w > 32 else w):        # 木撑
+            c.rect(x, bottom + 1, x + 1, 26, brace); c.px(x + 1, 26, brace_lo)
+        c.rect(w - 9, bottom + 1, w - 8, 26, brace); c.px(w - 8, 26, brace_lo)
+    else:
+        cx = w // 2                                            # 点着了：面板上方一簇火花
+        c.rect(cx - 1, 20, cx, 22, fire); c.px(cx - 1, 21, fire_hi)
+        for x, y in ((cx - 3, 19), (cx + 2, 18), (cx, 16), (cx - 2, 17), (cx + 3, 21)):
+            c.px(x, y, fire)
+        c.px(cx, 17, fire_hi)
     outline(c)
     return c
 

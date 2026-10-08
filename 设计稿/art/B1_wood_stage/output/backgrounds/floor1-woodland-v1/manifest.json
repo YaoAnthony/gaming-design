@@ -1,0 +1,116 @@
+{
+  "mode": "built-in image_gen",
+  "layout": [
+    [
+      "H",
+      "J",
+      "K",
+      "M",
+      "N"
+    ],
+    [
+      "F",
+      "D",
+      "A",
+      "B",
+      "C"
+    ],
+    [
+      "G",
+      "E",
+      "I",
+      "O",
+      "P"
+    ]
+  ],
+  "excluded": [
+    "P"
+  ],
+  "notes": "Individual adjacent-room reference generation; visual continuity is approximate, not pixel-exact outpainting. Original A preserved. No API fallback or upscaling.",
+  "rooms": [
+    {
+      "room": "A",
+      "file": "woodland-a-v1.png",
+      "width": 1536,
+      "height": 1024
+    },
+    {
+      "room": "B",
+      "file": "woodland-b-v1.png",
+      "width": 1536,
+      "height": 1024
+    },
+    {
+      "room": "C",
+      "file": "woodland-c-v1.png",
+      "width": 1536,
+      "height": 1024
+    },
+    {
+      "room": "D",
+      "file": "woodland-d-v1.png",
+      "width": 1536,
+      "height": 1024
+    },
+    {
+      "room": "F",
+      "file": "woodland-f-v1.png",
+      "width": 1536,
+      "height": 1024
+    },
+    {
+      "room": "K",
+      "file": "woodland-k-v1.png",
+      "width": 1536,
+      "height": 1024
+    },
+    {
+      "room": "M",
+      "file": "woodland-m-v1.png",
+      "width": 1536,
+      "height": 1024
+    },
+    {
+      "room": "J",
+      "file": "woodland-j-v1.png",
+      "width": 1536,
+      "height": 1024
+    },
+    {
+      "room": "H",
+      "file": "woodland-h-v1.png",
+      "width": 1536,
+      "height": 1024
+    },
+    {
+      "room": "N",
+      "file": "woodland-n-v1.png",
+      "width": 1536,
+      "height": 1024
+    },
+    {
+      "room": "I",
+      "file": "woodland-i-v1.png",
+      "width": 1536,
+      "height": 1024
+    },
+    {
+      "room": "O",
+      "file": "woodland-o-v1.png",
+      "width": 1536,
+      "height": 1024
+    },
+    {
+      "room": "E",
+      "file": "woodland-e-v1.png",
+      "width": 1536,
+      "height": 1024
+    },
+    {
+      "room": "G",
+      "file": "woodland-g-v1.png",
+      "width": 1536,
+      "height": 1024
+    }
+  ]
+}

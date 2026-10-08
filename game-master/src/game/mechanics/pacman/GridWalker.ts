@@ -14,11 +14,9 @@ export class GridWalker {
 
   get heading(): Dir4 { return this.dir; }
 
-  /** 切到俯视：不受重力，碰撞体改成居中的方块，人稍微缩一点好在一格宽的走廊里转弯 */
+  /** 切到俯视：不受重力，碰撞体改成居中的方块，人稍微缩一点好在一格宽的走廊里转弯（具体尺寸 Player 自己知道） */
   attach(): void {
-    this.player.body.setAllowGravity(false);
-    this.player.setScale(0.8);
-    this.player.body.setSize(25, 25, true);
+    this.player.enterTopDown();
     this.reset();
   }
 

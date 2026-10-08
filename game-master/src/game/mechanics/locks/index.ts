@@ -1,13 +1,13 @@
 // ===== 通用机制：钥匙与门 =====
 // 编辑器「钥匙与门」工具画的不是物件，是 model.locks；这一层有锁组就启用。
-import { TILE_FRAMES } from '@/asset';
+import { TILE_FRAMES, WALL_TEXTURES } from '@/asset';
 import { defineTile, Traits } from '@/game/registry/registry';
 import { bakeLocks } from '@/game/mechanics/locks/model';
 import { defineMechanic } from '../define';
 import { Locks, type LockData } from './Locks';
 
 defineTile(
-  { id: '%', name: '门', desc: '锁着的门：拿对应颜色的钥匙碰一下就开。由「钥匙与门」工具烘焙，不直接画', color: 0xbdbdbd, frame: TILE_FRAMES.door, editorVisible: false },
+  { id: '%', name: '门', desc: '锁着的门：拿对应颜色的钥匙碰一下就开。由「钥匙与门」工具烘焙，不直接画', color: 0xbdbdbd, frame: TILE_FRAMES.door, wall: WALL_TEXTURES.door, editorVisible: false },
   Traits.Solid, Traits.Anchor, Traits.Fireproof,   // 门只能用钥匙开，引线烧不开
 );
 

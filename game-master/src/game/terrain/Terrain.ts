@@ -30,6 +30,10 @@ export interface TerrainHost {
   catchChunk?(chunk: Chunk): boolean;
   /** 挂着的砖（尖刺）因为下面没了而碎掉，用来播特效 */
   onCellsBroken?(cells: RemovedCell[]): void;
+  /** 砖被爆炸炸没、被引线烧没了（不含开门这种 destroyCellsForce），用来播碎裂特效 */
+  onCellsDestroyed?(cells: RemovedCell[]): void;
+  /** 砖被引线烧裂了（岩石 → 碎岩，还在），用来播裂开的特效 */
+  onCellsCracked?(cells: CellRef[]): void;
   /** 这个格子被地形以外的东西占着（比如箱子）：碎块落在它上面，它上面的砖算被撑住 */
   occupied?(x: number, y: number): boolean;
   /** 碎块没落地就被拿掉了（房间重置、被吞掉）：挂在它身上的东西（物理平台）一起清 */
@@ -238,7 +242,7 @@ export class Terrain {
       else immediate.push(r);
     });
     immediate.forEach(c => this.set(c.x, c.y, AIR));
-    if (immediate.length) { this.breakMounted(immediate); this.resolveSupportNear(immediate); this.shake(immediate, 0); }
+    if (immediate.length) { this.host.onCellsDestroyed?.(immediate); this.breakMounted(immediate); this.resolveSupportNear(immediate); this.shake(immediate, 0); }
     [...delayed.entries()].sort((a, b) => a[0] - b[0]).forEach(([delayMs, group]) => {
       const timer: Phaser.Time.TimerEvent = this.host.scene.time.delayedCall(delayMs, () => {
         this.pending = this.pending.filter(t => t !== timer);
@@ -246,6 +250,7 @@ export class Terrain {
         const still = group.filter(c => this.grid[c.y][c.x] === c.id);
         if (!still.length) return;
         still.forEach(c => this.set(c.x, c.y, AIR));
+        this.host.onCellsDestroyed?.(still);
         this.breakMounted(still);
         this.resolveSupportNear(still);
         this.shake(still, 0);
@@ -264,15 +269,17 @@ export class Terrain {
 
   /** 引线烧到这些格子：岩石裂成碎岩（还是实心、还撑着东西），其它实心的烧没；shatter（紫色引线）连岩石也直接烧没。然后做支撑检测。返回烧没的格子 */
   burnCells(cells: CellRef[], shatter = false): RemovedCell[] {
-    const removed: RemovedCell[] = [];
+    const removed: RemovedCell[] = [], cracked: CellRef[] = [];
     cells.forEach(c => {
       if (c.x < 0 || c.y < 0 || c.x >= this.w || c.y >= this.h) return;
       const def = this.def(c.x, c.y), to = burnedTo(def.id, shatter);
       if (to === def.id) return;
       this.set(c.x, c.y, to, this.origin[c.y * this.w + c.x]);   // 裂开的还是原来那块材料
       if (to === AIR) removed.push({ x: c.x, y: c.y, id: def.id, def, hop: 0 });
+      else cracked.push({ x: c.x, y: c.y });
     });
-    if (removed.length) { this.breakMounted(removed); this.resolveSupportNear(removed); }
+    if (cracked.length) this.host.onCellsCracked?.(cracked);
+    if (removed.length) { this.host.onCellsDestroyed?.(removed); this.breakMounted(removed); this.resolveSupportNear(removed); }
     return removed;
   }
 

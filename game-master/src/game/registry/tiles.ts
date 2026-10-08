@@ -1,7 +1,7 @@
 // ===== 基础砖块与核心物件的注册 =====
 // 想加新砖块：照着写一个 defineTile，其余系统自动认识它（地形、爆炸、掉落、贴图、编辑器物品栏）。
 // 属于某个机制的砖块 / 物件（门、Boss、豆子……）在 game/mechanics/<机制>/index.ts 里注册。
-import { TILE_FRAMES } from '@/asset';
+import { TILE_FRAMES, WALL_TEXTURES } from '@/asset';
 import type { CoreHost, SpawnAt } from '@/type';
 import { defineEntity, defineTile, Traits } from './registry';
 import { Colors } from '@/shared/palette';
@@ -10,27 +10,27 @@ import { Colors } from '@/shared/palette';
 defineTile({ id: '.', name: '空气 / 橡皮', desc: '什么都没有', color: 0x000000 });
 
 defineTile(
-  { id: 'R', name: '岩石', desc: '人炸不动的锚点；只有引线能烧它，烧一次裂成碎岩', color: Colors.dim, frame: TILE_FRAMES.rock },
+  { id: 'R', name: '岩石', desc: '人炸不动的锚点；只有引线能烧它，烧一次裂成碎岩', color: Colors.dim, frame: TILE_FRAMES.rock, wall: WALL_TEXTURES.rock, debris: 'rock' },
   Traits.Solid, Traits.Anchor, Traits.CracksTo('r'),
 );
 
 defineTile(
-  { id: 'r', name: '碎岩', desc: '裂开的岩石：人能炸掉，引线再烧一次也碎掉；自己不会掉，也撑得住别的砖', color: 0x6e7480, frame: TILE_FRAMES.crackedRock },
+  { id: 'r', name: '碎岩', desc: '裂开的岩石：人能炸掉，引线再烧一次也碎掉；自己不会掉，也撑得住别的砖', color: 0x6e7480, frame: TILE_FRAMES.crackedRock, wall: WALL_TEXTURES.cracked, debris: 'cracked' },
   Traits.Solid, Traits.Anchor, Traits.Destructible(0),
 );
 
 defineTile(
-  { id: 'B', name: '脆岩', desc: '周围一有爆炸（含引线）就整块松脱、随重力掉下来，相连的一起掉；炸不没，引线穿过它也烧不没（只会把它震松）。掉的时候也能站在上面', color: 0xc9b27c, frame: TILE_FRAMES.brittle },
+  { id: 'B', name: '脆岩', desc: '周围一有爆炸（含引线）就整块松脱、随重力掉下来，相连的一起掉；炸不没，引线穿过它也烧不没（只会把它震松）。掉的时候也能站在上面', color: 0xc9b27c, frame: TILE_FRAMES.brittle, wall: WALL_TEXTURES.brittle, wallLoose: WALL_TEXTURES.brittleLoose, debris: 'brittle' },
   Traits.Solid, Traits.Loose(1), Traits.Rideable, Traits.Fireproof,   // 防火：引线烧过这一格不烧没它，照样震松（Fuse.ignite 里 burnCells 之后 shake）
 );
 
 defineTile(
-  { id: 'S', name: '沙土', desc: '像碎岩，但爆炸范围外一圈也会被震碎（不连锁）。失去支撑掉下来的时候也能站在上面', color: 0xd9a066, frame: TILE_FRAMES.sand },
+  { id: 'S', name: '沙土', desc: '像碎岩，但爆炸范围外一圈也会被震碎（不连锁）。失去支撑掉下来的时候也能站在上面', color: 0xd9a066, frame: TILE_FRAMES.sand, wall: WALL_TEXTURES.sand, debris: 'sand' },
   Traits.Solid, Traits.Destructible(1), Traits.Rideable,
 );
 
 defineTile(
-  { id: 'X', name: '尖刺', desc: '碰到即死；掉下来的地块会把它盖住。默认挂在下面那格上；下面是空的就挂到旁边实心的那面墙上（两边都实心就两边都挂），三边都空才碎', color: Colors.rose, frame: TILE_FRAMES.spikes },
+  { id: 'X', name: '尖刺', desc: '碰到即死；掉下来的地块会把它盖住。默认挂在下面那格上；下面是空的就挂到旁边实心的那面墙上（两边都实心就两边都挂），三边都空才碎', color: Colors.rose, frame: TILE_FRAMES.spikes, debris: 'spikes' },
   Traits.Hazard('death.spikes', { x: 2, y: 20, w: 28, h: 12 }),   // 只有尖刺本体那一条会扎人，上面的空档不算
   Traits.Mounted,
   Traits.SideMount({
@@ -44,27 +44,29 @@ defineTile(
   }),
 );
 defineTile(
-  { id: 'Z', name: '纸', desc: '周围一有爆炸就松脱，慢慢飘下来；飘到怪物头上会被驮着走，可以踩', color: Colors.paperWarm, frame: TILE_FRAMES.paper },
+  { id: 'Z', name: '纸', desc: '周围一有爆炸就松脱，慢慢飘下来；飘到怪物头上会被驮着走，可以踩', color: Colors.paperWarm, frame: TILE_FRAMES.paper, wall: WALL_TEXTURES.paper, debris: 'paper' },
   Traits.Solid, Traits.Loose(1), Traits.Float(55),
 );
 
 defineTile(
-  { id: '=', name: '字块', desc: '文字方块默认用它：可炸，但自己不会掉、也撑得住别的砖（悬空的字才站得住）', color: 0xb8c4e0, frame: TILE_FRAMES.letter },
+  { id: '=', name: '字块', desc: '文字方块默认用它：可炸，但自己不会掉、也撑得住别的砖（悬空的字才站得住）', color: 0xb8c4e0, frame: TILE_FRAMES.letter, wall: WALL_TEXTURES.letter, debris: 'letter' },
   Traits.Solid, Traits.Anchor, Traits.Destructible(0),
 );
 
 defineTile(
-  { id: '_', name: '木板', desc: '薄木板：人和怪物能从上面走过去，从下面、侧面能穿过；箱子站不住，会漏下去。炸不坏，自己不会掉', color: 0xb07a45, frame: TILE_FRAMES.plank },
+  { id: '_', name: '木板', desc: '薄木板：人和怪物能从上面走过去，从下面、侧面能穿过；箱子站不住，会漏下去。炸不坏，自己不会掉', color: 0xb07a45, frame: TILE_FRAMES.plank, autotile: true, debris: 'plank' },
   Traits.Solid, Traits.Anchor, Traits.OneWay, Traits.BoxPassThrough,
 );
 
 // ---------- 核心物件 ----------
 defineEntity({
   id: 'P', name: '出生点', desc: '玩家从这里开始（全图唯一）', texture: 'player', unique: true, color: Colors.sky,
+  origin: [0.5, 1],   // 主角图脚底在最下面一行：编辑器里脚踩在这一格的底边
   spawn: (host: CoreHost, at: SpawnAt) => host.addSpawnPoint({ x: at.x, y: at.y }),
 });
 
 defineEntity({
-  id: 'M', name: '怪物', desc: '在房间里巡逻，碰到即死；会被落石压扁', texture: 'enemy', color: Colors.violet,
+  id: 'M', name: '怪物', desc: '夹子桑：在房间里巡逻，5 格内看见主角就冲过来，到跟前扑过来夹一口，碰到或被夹到扣一颗心；会被落石压扁', texture: 'enemy', color: Colors.violet,
+  origin: [0.5, 38 / 40],   // 图标脚底在第 38 行：编辑器里脚踩在这一格的底边
   spawn: (host: CoreHost, at: SpawnAt) => host.addEnemy({ x: at.x, y: at.y, rx: at.cell.rx, ry: at.cell.ry }),
 });

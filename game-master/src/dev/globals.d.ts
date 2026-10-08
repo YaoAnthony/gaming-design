@@ -7,5 +7,7 @@ declare global {
     __climb?: Record<string, unknown>;
     /** 攥纸团慢放 / 定格：{ speed: 0.2 } 慢放，{ at: 2000 } 停在第 2000 毫秒（CrumpleOverlay 读） */
     __crumpleDebug?: { speed?: number; at?: number };
+    /** 木手的 3D 画布（stage3d/hand/HandView，GmHandLayer 挂上）：看它现在的状态 */
+    __gmHand?: unknown;
   }
 }

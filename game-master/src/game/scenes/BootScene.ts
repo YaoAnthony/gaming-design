@@ -1,7 +1,7 @@
 // ===== 加载资产，然后跳到目标场景 =====
 import Phaser from 'phaser';
 import { setAudioOutput } from '@/audio/synth';
-import { AUDIO, IMAGES, SPRITESHEETS, TILE_SIZE } from '@/asset';
+import { ASEPRITES, AUDIO, IMAGES, SPRITESHEETS, TILE_SIZE } from '@/asset';
 import { SCENE } from '@/game/scenes/keys';
 import i18n from '@/i18n';
 import { FogOfWar } from '@/game/fog/Fog';
@@ -28,6 +28,7 @@ export class BootScene extends Phaser.Scene {
 
     SPRITESHEETS.forEach(s => this.load.spritesheet(s.key, s.url, { frameWidth: s.frameWidth, frameHeight: s.frameHeight }));
     IMAGES.forEach(i => this.load.image(i.key, i.url));
+    ASEPRITES.forEach(a => this.load.aseprite(a.key, a.url, a.dataUrl));
     // 背景曲（标了 music 的）很大，不在这里等：Music 第一次要放时才下载，加载条只等音效
     AUDIO.filter(a => !a.music).forEach(a => this.load.audio(a.key, a.url));
   }

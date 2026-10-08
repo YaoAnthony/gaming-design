@@ -1,7 +1,7 @@
 // ===== 机制能用的一切 =====
 // 机制只通过这里访问场景，不直接碰 GameScene 的字段。GameScene 负责实现它。
 import type Phaser from 'phaser';
-import type { EntryState, Floor, GameConfig, Point, Project, RoomCoord, WorldModel } from '@/type';
+import type { CellRef, EntryState, Floor, GameConfig, Point, Project, RoomCoord, WorldModel } from '@/type';
 import type { Terrain } from '@/game/terrain/Terrain';
 import type { FuseEnd, FuseNet } from '@/game/fuse/Fuse';
 import type { FogOfWar } from '@/game/fog/Fog';
@@ -131,6 +131,8 @@ export interface PlayContext {
     fogDirty(): void;
     /** 在 (x, y) 放一盏暖光（蜡烛等）；画面效果关了返回 null。返回的图片由调用方挪动、销毁 */
     light(x: number, y: number, kind: LightKind): Phaser.GameObjects.Image | null;
+    /** 一块碎块落地：最下面那一排底下扬尘（particle/tileFx.ts） */
+    landed(cells: CellRef[]): void;
   };
   hud: {
     /** null = 不显示分数 */

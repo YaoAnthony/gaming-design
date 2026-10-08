@@ -72,10 +72,15 @@ export interface TileSpec {
   /** 游戏里用的帧（autotile 时是起始帧）；省略用 frame。用来让某些砖块在游戏里不那么显眼 */
   gameFrame?: number;
   /**
-   * 墙：游戏里按周围 8 格从这张手画模板（5×3 格，见 game/terrain/walls.ts）拼出样子——朝外的表面有纹理，被墙围住的内部是黑的。
+   * 墙：游戏里按周围 8 格从这张模板（几个相位，每个 5×3 格，见 game/terrain/walls.ts）拼出样子——
+   * 连在一起的同种墙是一整块：外面一圈描边、顶上一道亮边，里面是横着连续的纹理。
    * 省略 = 不是墙，用 gameFrame 整块画。编辑器里墙也是整块画（frame）
    */
   wall?: string;
+  /** 松脱往下掉的时候换成这张模板（脆岩：螺栓没了）；省略 = 掉的时候也用 wall */
+  wallLoose?: string;
+  /** 被炸没 / 烧没时崩出哪种材料的碎块（asset 的 TILE_DEBRIS.mats 之一）；省略 = 不崩碎块 */
+  debris?: string;
   editorVisible?: boolean;
 }
 
@@ -91,6 +96,10 @@ export interface TileDef extends TileCaps {
   gameFrame: number;
   /** 墙的模板贴图 key（见 TileSpec.wall）；null = 不是墙 */
   wall: string | null;
+  /** 掉下来时用的模板（见 TileSpec.wallLoose）；null = 和 wall 一样 */
+  wallLoose: string | null;
+  /** 碎块材料（见 TileSpec.debris）；null = 不崩碎块 */
+  debris: string | null;
   editorVisible: boolean;
   /** 派生：实心且不是锚点的格子才可能掉落 */
   canFall: boolean;

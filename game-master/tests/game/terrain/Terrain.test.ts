@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import '@/game/registry/tiles';
 import { WALL_GID, Terrain } from '@/game/terrain/Terrain';
-import { WALL_E, WALL_TEXTURE, WALL_VARIANTS, wallFrame, wallTemplates, wallVariant } from '@/game/terrain/walls';
+import { WALL_E, WALL_PHASES, WALL_TEXTURE, WALL_VARIANTS, wallFrame, wallPhase, wallTemplates, wallVariant } from '@/game/terrain/walls';
 import { defineTile, Tiles, Traits } from '@/game/registry/registry';
 import { mountSide } from '@/game/terrain/support';
 
@@ -185,7 +185,7 @@ describe('Terrain.maskAt / frameAt（导火索自动拼贴）', () => {
   it('自动拼贴材质的帧 = 起始帧 + 掩码；普通材质不受影响', () => {
     expect(Terrain.frameAt(grid, 2, 3, 'editor')).toBe(base + 15);
     expect(Terrain.frameAt(grid, 1, 1, 'editor')).toBe(base + 2);
-    expect(Terrain.frameAt([['=', '=']], 0, 0)).toBe(Tiles.get('=')!.frame);
+    expect(Terrain.frameAt([['=', '=']], 0, 0, 'editor')).toBe(Tiles.get('=')!.frame);   // 字块是墙：编辑器里整块画
     expect(Terrain.frameAt([['.']], 0, 0)).toBe(-1);
   });
   it('L 形：只有右和下', () => {
@@ -203,7 +203,7 @@ describe('导火索在游戏里用伪装帧', () => {
     expect(d.gameFrame).not.toBe(d.frame);
   });
   it('没设 gameFrame 的砖块（不是墙）两种视角一样', () => {
-    const grid = [['=']];
+    const grid = [['X']];
     expect(Terrain.frameAt(grid, 0, 0, 'game')).toBe(Terrain.frameAt(grid, 0, 0, 'editor'));
   });
 });
@@ -280,28 +280,46 @@ describe('引线烧岩石：先裂成碎岩，再烧才没', () => {
   });
 });
 
-// 测试用的墙（现在正式砖块里没有墙）
+// 测试用的墙：W、Y 用同一张模板（像岩石和 Boss 封门），V 是另一种；V 掉下来时换一张
 defineTile({ id: 'W', name: '测试墙', color: 0x5d6470, frame: 1, wall: 'wall_test' }, Traits.Solid, Traits.Anchor);
+defineTile({ id: 'Y', name: '测试墙（同模板）', color: 0x5d6470, frame: 1, wall: 'wall_test' }, Traits.Solid, Traits.Anchor);
+defineTile({ id: 'V', name: '测试墙 2', color: 0x5d6470, frame: 2, wall: 'wall_test2', wallLoose: 'wall_test2_loose' }, Traits.Solid);
 
 describe('墙：游戏里按周围 8 格拼，编辑器里整块画', () => {
-  it('游戏视角的墙帧 = WALL_GID + 这种墙那一行 + 第几种样子；编辑器视角还是整块的帧', () => {
+  it('游戏视角的墙帧 = WALL_GID + 这种墙这一列的相位那一行 + 第几种样子；编辑器视角还是整块的帧', () => {
     const grid = ['WWW', 'WWW', 'WWW'].map(r => r.split(''));
-    const row = wallTemplates().indexOf('wall_test') * WALL_VARIANTS.length;
-    expect(Terrain.frameAt(grid, 1, 1, 'game')).toBe(WALL_GID + row + wallVariant(255));   // 四周都是墙：整块内部
-    expect(Terrain.frameAt(grid, 1, 0, 'game')).toBe(WALL_GID + row + wallVariant(255));   // 地图外面也算墙
+    const row = (k: number, x: number) => (wallTemplates().indexOf('wall_test') * WALL_PHASES + (x % WALL_PHASES)) * WALL_VARIANTS.length + k;
+    expect(Terrain.frameAt(grid, 1, 1, 'game')).toBe(WALL_GID + row(wallVariant(255), 1));   // 四周都是墙：整块内部
+    expect(Terrain.frameAt(grid, 1, 0, 'game')).toBe(WALL_GID + row(wallVariant(255), 1));   // 地图外面也算墙
     expect(Terrain.frameAt(grid, 1, 1, 'editor')).toBe(1);
   });
 
-  it('只有墙挨着才算连着；岩石、字块、空气都不算，它们自己还是整块画', () => {
-    const grid = ['...', '.WW', '...'].map(r => r.split(''));
-    expect(Terrain.frameAt(grid, 1, 1, 'game') - WALL_GID).toBe(wallFrame('wall_test', WALL_E));
-    const g2 = ['...', '.WR', '...'].map(r => r.split(''));
-    expect(Terrain.frameAt(g2, 1, 1, 'game') - WALL_GID).toBe(wallFrame('wall_test', 0));
-    expect(Terrain.frameAt(g2, 2, 1, 'game')).toBe(Tiles.get('R')!.gameFrame);
+  it('相位按列号：横着 WALL_PHASES 格一循环，同一列上下一样', () => {
+    const grid = [Array(WALL_PHASES + 2).fill('W'), Array(WALL_PHASES + 2).fill('W')];
+    const f = (x: number, y: number) => Terrain.frameAt(grid, x, y, 'game');
+    expect(f(1, 0)).not.toBe(f(2, 0));
+    expect(f(1, 0)).toBe(f(1 + WALL_PHASES, 0));
+    expect(f(1, 0)).toBe(f(1, 1));
+    expect(wallPhase(-1)).toBe(WALL_PHASES - 1);
   });
 
-  it('掉落碎块 / 移动方块：按给的邻居拼墙，别的砖整块画', () => {
+  it('只有同一张模板的墙挨着才算连着；别的墙、不是墙的砖、空气都不算', () => {
+    const grid = ['...', '.WW', '...'].map(r => r.split(''));
+    expect(Terrain.frameAt(grid, 1, 1, 'game') - WALL_GID).toBe(wallFrame('wall_test', WALL_E, 1));
+    const same = ['...', '.WY', '...'].map(r => r.split(''));   // 同一张模板的另一种砖（岩石和封门）：连着
+    expect(Terrain.frameAt(same, 1, 1, 'game') - WALL_GID).toBe(wallFrame('wall_test', WALL_E, 1));
+    const other = ['...', '.WV', '...'].map(r => r.split(''));  // 另一种墙（岩石和碎岩）：不连
+    expect(Terrain.frameAt(other, 1, 1, 'game') - WALL_GID).toBe(wallFrame('wall_test', 0, 1));
+    const spikes = ['...', '.WX', '...'].map(r => r.split(''));
+    expect(Terrain.frameAt(spikes, 1, 1, 'game') - WALL_GID).toBe(wallFrame('wall_test', 0, 1));
+  });
+
+  it('掉落碎块 / 移动方块：按给的邻居拼墙、相位按给的列；正在掉的换松脱模板；别的砖整块画', () => {
     expect(Terrain.pieceTexture('W', () => false)).toEqual([WALL_TEXTURE, wallFrame('wall_test', 0)]);
-    expect(Terrain.pieceTexture('R', () => true)).toEqual(['tiles', Tiles.get('R')!.frame]);
+    expect(Terrain.pieceTexture('W', () => false, 3)).toEqual([WALL_TEXTURE, wallFrame('wall_test', 0, 3)]);
+    expect(Terrain.pieceTexture('V', () => false, 2, true)).toEqual([WALL_TEXTURE, wallFrame('wall_test2_loose', 0, 2)]);
+    expect(Terrain.pieceTexture('W', () => false, 2, true)).toEqual([WALL_TEXTURE, wallFrame('wall_test', 0, 2)]);   // 没有松脱模板：照旧
+    expect(Terrain.pieceTexture('X', () => true)).toEqual(['tiles', Tiles.get('X')!.frame]);
+    expect(wallTemplates()).toContain('wall_test2_loose');
   });
 });

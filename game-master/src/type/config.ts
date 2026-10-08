@@ -48,7 +48,7 @@ export interface GameConfig {
   /** 碎块下落速度超过这个值才会压死人 / 压死怪 */
   crushMinSpeed: number;
   enemySpeed: number;
-  /** 史莱姆顶着走能推动的最大箱子边长（格）；0 = 推不动箱子 */
+  /** 夹子桑顶着走能推动的最大箱子边长（格）；0 = 推不动箱子 */
   enemyPushMaxBox: number;
   roomPanMs: number;
   /** 角色起跳技能的 id（见 game/registry/skills.ts） */
@@ -84,14 +84,12 @@ export interface GameConfig {
   /** Boss 参数 */
   bossHp: number;
   bossHopMs: number;
-  /** 两次吐小史莱姆之间至少隔多久（毫秒）；吐怪发生在扑击落地时 */
+  /** 两次吐小夹子桑之间至少隔多久（毫秒）；吐怪发生在扑击落地时 */
   bossSpitMs: number;
-  /** Boss 房里同时最多几只小史莱姆（只数 Boss 吐出来、还活着、在这个房间里的） */
+  /** Boss 房里同时最多几只小夹子桑（只数 Boss 吐出来、还活着、在这个房间里的） */
   bossMaxMinions: number;
-  /** 小史莱姆的大小（相对普通怪物），碰撞框跟着一起缩 */
+  /** Boss 吐的小夹子桑的大小（相对普通怪物），碰撞框跟着一起缩 */
   bossMinionScale: number;
-  /** 小史莱姆的颜色：把怪物贴图的色相转多少度（怪物是紫色，210 ≈ 绿色） */
-  bossMinionHue: number;
   /** Boss 死亡时射出的穿墙火花：数量 / 速度（像素/秒）/ 存活秒数。碰到引线端点就点燃 */
   bossBurstCount: number;
   bossBurstSpeed: number;
@@ -124,6 +122,8 @@ export interface GameConfig {
   sceneFx: { shadow: boolean; depth: boolean; vignette: boolean; dust: boolean; lights: boolean; shafts: boolean };
   /** 3D 舞台（src/stage3d）：游戏画面是舞台上的一块屏幕 */
   stage3d: Stage3DConfig;
+  /** Game Master 的木手（src/stage3d/hand）：开场挥手、拍标题、指菜单、演出里的那只 3D 手 */
+  gmHand: GmHandConfig;
   /** 3D 世界（src/world3d）：主角跳出画面之后 */
   world3d: World3DConfig;
 }
@@ -188,6 +188,30 @@ export interface RhythmConfig {
    * 到了 3D，屏幕每拍往后点一下头（度）、左右歪多少度
    */
   sway: { zoom: number; rollDeg: number; nodDeg: number; screenRollDeg: number };
+}
+
+/** 木手的姿势（和 protocol 的 HandPose 一致）：张开 / 指着 / 捏着东西 / 握拳 / 捏布 */
+export type GmHandPoseName = 'open' | 'point' | 'pinch' | 'fist' | 'grip';
+
+export interface GmHandConfig {
+  /** 手的长度（护腕后沿到指尖）占舞台高的比例（指菜单、演出里） */
+  length: number;
+  /** 伸进游戏画面里拎主角时手多长（格）：和主角一个尺度，不然主角整个被手盖住 */
+  carryTiles: number;
+  /** 一个像素多大：游戏画布在页面上一个像素的多少倍 */
+  pixel: number;
+  /** 主光的方向（相机坐标：x 右、y 上、z 朝镜头）；环境光；凹槽的环境光遮蔽取几次方（越大越黑） */
+  light: [number, number, number];
+  ambient: number;
+  aoPower: number;
+  /** 两个姿势之间过渡多久（毫秒） */
+  poseMs: number;
+  /** 每个姿势从镜头看的样子：绕手指方向转多少度、要不要把手心翻到另一面 */
+  view: Record<GmHandPoseName, { roll: number; flip: boolean }>;
+  /** 影子：往右、往下偏多少像素，多黑（0 = 没有） */
+  shadow: { x: number; y: number; opacity: number };
+  /** 前臂至少伸出画面外多少像素 */
+  armMargin: number;
 }
 
 export interface Stage3DConfig {

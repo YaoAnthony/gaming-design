@@ -45,7 +45,7 @@ export class PopOut {
       x: (at.x - cam.scrollX) / cam.width, y: (at.y - cam.scrollY) / cam.height,
       w: p.displayWidth / cam.width, h: p.displayHeight / cam.height,
       facing: p.flipX ? -1 : 1,
-      texture: p.texture.key,
+      texture: p.portraitKey,
       tile: this.d.tile / cam.width,
     };
     this.away = true;

@@ -58,6 +58,7 @@ export class Debris {
     this.falling.get(ch.id)?.destroy(); this.falling.delete(ch.id); this.shrugged.delete(ch.id);   // 落地后由砖块本身负责碰撞
     ctx.fx.fogDirty();
     playLand(ctx.scene);
+    ctx.fx.landed(cells);
     // 飘落的东西（纸）不会砸死任何东西，落地时也不算"埋住"
     if (cells.some(c => (Tiles.get(c.id)?.floatSpeed ?? 0) > 0)) return;
     if (!ctx.dead && !ctx.won && ctx.terrain.cellsOverlapRect(cells, ctx.player.body)) ctx.die('death.buriedByRock');

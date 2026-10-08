@@ -45,7 +45,7 @@ export class Chunks {
     world.onCellsCleared(cells);
     const container = world.scene.add.container(0, 0).setDepth(5);
     const connected = pieceConnected(cells);   // 墙按这一块碎块自己里面的邻居拼（它是单独掉下来的一整块）
-    cells.forEach(c => container.add(world.scene.add.image(c.x * T + T / 2, c.y * T + T / 2, ...pieceTexture(c.id, connected(c)))));
+    cells.forEach(c => container.add(world.scene.add.image(c.x * T + T / 2, c.y * T + T / 2, ...pieceTexture(c.id, connected(c), c.x, true))));
     this.push(cells, container);
   }
 

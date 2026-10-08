@@ -41,3 +41,16 @@ export const Colors = {
 
 /** 0xrrggbb → '#rrggbb' */
 export const hex = (c: number): string => '#' + c.toString(16).padStart(6, '0');
+
+/**
+ * Game Master 的木手（3D asset/gm_hand 的模型，stage3d/hand 画）：每种材质从亮到暗的几档颜色，stops 是每档的明暗下限（长度 = 颜色数 - 1）。
+ * 材质名和 glb 里的一致。木头和护腕的最后一档是凹槽里的颜色
+ */
+export const GM_HAND_PALETTE: Record<string, { colors: string[]; stops: number[] }> = {
+  wood: { colors: ['#d6c4a2', '#b8a688', '#9c8c74', '#776a5a', '#4d453c'], stops: [0.84, 0.55, 0.25, 0.11] },   // 手指、手掌、前臂
+  cuff: { colors: ['#d2bf9e', '#b09e80', '#978770', '#786b5b', '#4d453c'], stops: [0.84, 0.55, 0.25, 0.11] },   // 护腕
+  wrist: { colors: ['#625e55', '#524f47', '#45433d', '#383631'], stops: [0.82, 0.52, 0.24] },                   // 手腕、前臂的关节
+  knot: { colors: ['#5e5447', '#51483d'], stops: [0.4] },                                                       // 指节之间的暗缝
+  frame: { colors: ['#6b6254'], stops: [] },                                                                    // 护腕上的方框
+  boss: { colors: ['#958470'], stops: [] },                                                                     // 方框中间的小方块
+};

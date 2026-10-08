@@ -33,7 +33,7 @@ export const DEFAULT_CONFIG: GameConfig = {
   chunkMaxFall: 700,
   crushMinSpeed: 250,
   enemySpeed: 60,
-  enemyPushMaxBox: 1,   // 史莱姆推得动多大的箱子（边长，格）：1 = 只推 1x1，2x2 推不动
+  enemyPushMaxBox: 1,   // 夹子桑推得动多大的箱子（边长，格）：1 = 只推 1x1，2x2 推不动
   roomPanMs: 180,
   skill: 'blast',
   fuseDelayMs: 90,
@@ -54,7 +54,6 @@ export const DEFAULT_CONFIG: GameConfig = {
   bossSpitMs: 5000,
   bossMaxMinions: 6,
   bossMinionScale: 0.65,
-  bossMinionHue: 210,
   bossBurstCount: 24,
   bossBurstSpeed: 380,
   bossBurstTtl: 2.5,
@@ -70,6 +69,14 @@ export const DEFAULT_CONFIG: GameConfig = {
   fogUnseenAlpha: 0.85,
   sceneFx: { shadow: true, depth: true, vignette: true, dust: true, lights: true, shafts: true },
   stage3d: { fov: 40, tilt: { angle: 30, ms: 700 } },
+  gmHand: {
+    length: 0.36, carryTiles: 3, pixel: 1,
+    light: [-0.45, 0.6, 0.65], ambient: 0.18, aoPower: 2,   // 光从左上前方来（和 Blender 里渲设计稿时一样）
+    poseMs: 120,
+    view: { open: { roll: 6, flip: true }, point: { roll: 18, flip: false }, pinch: { roll: 18, flip: false }, fist: { roll: 18, flip: false }, grip: { roll: 10, flip: false } },
+    shadow: { x: 0, y: 6, opacity: 0.45 },
+    armMargin: 40,
+  },
   world3d: {
     moveSpeed: 7, jumpVelocity: 13, gravity: 36, maxFall: 28,
     popOut: { out: 8, up: 9 },

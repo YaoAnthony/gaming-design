@@ -56,7 +56,7 @@ export interface Mechanic {
    */
   takesControl?(): boolean;
   /**
-   * 进层时主角先别出场（比如标题画面：骷髅手先搭房间、拍菜单）：场景把人藏着、冻着，等机制调 ctx.enter() 才放出来。
+   * 进层时主角先别出场（比如标题画面：等玩家选择开始 / 继续）：场景把人藏着、冻着，等机制调 ctx.enter() 才放出来。
    * 进层时（start 之后）问一次
    */
   delaysEntrance?(): boolean;

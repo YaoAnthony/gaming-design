@@ -5,7 +5,7 @@ import type { EndingChoice } from '@/story/config';
 /** 一幕的结局画面：哪一幕、上面有哪几个选项（「继续」被 GM 扔掉之后就没了） */
 export interface EndingView { id: 'act1'; choices: EndingChoice[] }
 
-/** opening = 标题画面（骷髅手在搭地图、拍菜单，主角还没出场） */
+/** opening = 标题画面（房间和菜单直接显示，主角还没出场） */
 export type GameMode = 'idle' | 'opening' | 'playing' | 'dead' | 'won';
 
 export interface HudState {

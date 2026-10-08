@@ -3,10 +3,10 @@
 // 长大仪式（Growth）、攥纸团（CrumpleFx）、按键（GameInput）。玩法都在 game/mechanics/ 里：一个层机制（这一层怎么动）
 // + 若干通用机制（Boss、钥匙、角色……），这里按生命周期调用它们的钩子，不认识具体机制。
 import Phaser from 'phaser';
-import type { CarryOver, CellRef, CoreHost, EnemySpawn, Floor, GameConfig, Point, Project, WorldModel } from '@/type';
+import type { CarryOver, CoreHost, EnemySpawn, Floor, GameConfig, Point, Project, WorldModel } from '@/type';
 import { jsonCarry } from '@/shared/carry';
 import { classify } from '@/game/registry/registry';
-import { Terrain } from '@/game/terrain/Terrain';
+import { Terrain, type RemovedCell } from '@/game/terrain/Terrain';
 import { entityRows, floorAfter, roomKeyAt, worldRows } from '@/game/world/WorldModel';
 import { layerRows } from '@/game/world/layers';
 import { FuseNet } from '@/game/fuse/Fuse';
@@ -14,7 +14,7 @@ import { FogOfWar } from '@/game/fog/Fog';
 import { bridge, EVT, type StartGameData } from '@/protocol';
 import { SCENE } from '@/game/scenes/keys';
 import { Player } from '@/sprite';
-import { createSparkEmitter, type SparkEmitter } from '@/particle';
+import { createSparkEmitter, TileFx, type SparkEmitter } from '@/particle';
 import { store } from '@/redux/store';
 import { resizeGame } from '@/game/resize';
 import { Music } from '@/game/Music';
@@ -81,6 +81,8 @@ export class GameScene extends Phaser.Scene {
   private debris!: Debris;
   private solids!: Solids;
   private sparks!: SparkEmitter;
+  /** 砖块炸碎 / 烧裂 / 落地的特效 */
+  private tileFx!: TileFx;
   private music!: Music;
   private dialogue!: Dialogue;
   private rooms!: Rooms;
@@ -147,6 +149,8 @@ export class GameScene extends Phaser.Scene {
       onChunkLand: ch => this.debris.onChunkLand(ch),
       catchChunk: ch => this.debris.catchChunk(ch),
       onCellsBroken: cells => this.onCellsBroken(cells),
+      onCellsDestroyed: cells => this.tileFx.broken(cells.map(c => ({ x: c.x, y: c.y, mat: c.def.debris }))),
+      onCellsCracked: cells => this.tileFx.cracked(cells),
       occupied: (x, y) => this.mechs.some(m => m.occupies?.(x, y)),
       onChunkRemoved: ch => this.debris.onChunkRemoved(ch),
       drawnElsewhere: (x, y) => this.mechs.some(m => m.drawsCell?.(x, y)),
@@ -174,6 +178,7 @@ export class GameScene extends Phaser.Scene {
     }
 
     this.sparks = createSparkEmitter(this);
+    this.tileFx = new TileFx(this, T);
     this.music = new Music(this, this.cfg.musicVolume, this.floor.music ?? DEFAULT_MUSIC);
     this.dialogue = new Dialogue(() => ({ y: this.player.y - this.cameras.main.scrollY, h: this.cameras.main.height }));
     this.rooms = new Rooms({ scene: this, cfg: this.cfg, model, terrain: this.terrain, fog: () => this.fog, fx: () => this.sceneFx });
@@ -387,6 +392,7 @@ export class GameScene extends Phaser.Scene {
         popScore: (x, y, n) => this.popScore(x, y, n),
         fogDirty: () => { this.fogDirty = true; },
         light: (x, y, kind) => this.sceneFx.light(x, y, kind),
+        landed: cells => this.tileFx.landed(cells),
       },
       hud: {
         score: n => store.dispatch(setScore(n)),
@@ -607,10 +613,9 @@ export class GameScene extends Phaser.Scene {
     store.dispatch(setStats({ ...this.stats }));
   }
 
-  /** 挂着的砖（尖刺）因为下面没了而碎掉：一点碎屑，迷雾重算 */
-  private onCellsBroken(cells: CellRef[]): void {
-    const T = this.cfg.tile;
-    cells.forEach(c => this.sparks.explode(6, c.x * T + T / 2, c.y * T + T * 0.75));
+  /** 挂着的砖（尖刺）因为下面没了而碎掉：那种砖的碎块，迷雾重算 */
+  private onCellsBroken(cells: RemovedCell[]): void {
+    this.tileFx.broken(cells.map(c => ({ x: c.x, y: c.y, mat: c.def.debris })));
     this.fogDirty = true;
   }
 

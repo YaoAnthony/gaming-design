@@ -1,0 +1,109 @@
+{
+  "checks": [
+    {
+      "requested": "H",
+      "room": "H",
+      "active": [
+        "bg:woodland-h-v2.png"
+      ]
+    },
+    {
+      "requested": "J",
+      "room": "J",
+      "active": [
+        "bg:woodland-j-v2.png"
+      ]
+    },
+    {
+      "requested": "K",
+      "room": "K",
+      "active": [
+        "bg:woodland-k-v2.png"
+      ]
+    },
+    {
+      "requested": "M",
+      "room": "M",
+      "active": [
+        "bg:woodland-m-v2.png"
+      ]
+    },
+    {
+      "requested": "N",
+      "room": "N",
+      "active": [
+        "bg:woodland-n-v2.png"
+      ]
+    },
+    {
+      "requested": "F",
+      "room": "F",
+      "active": [
+        "bg:woodland-f-v2.png"
+      ]
+    },
+    {
+      "requested": "D",
+      "room": "D",
+      "active": [
+        "bg:woodland-d-v2.png"
+      ]
+    },
+    {
+      "requested": "A",
+      "room": "A",
+      "active": [
+        "bg:woodland-a-v1.png"
+      ]
+    },
+    {
+      "requested": "B",
+      "room": "B",
+      "active": [
+        "bg:woodland-b-v2.png"
+      ]
+    },
+    {
+      "requested": "C",
+      "room": "C",
+      "active": [
+        "bg:woodland-c-v2.png"
+      ]
+    },
+    {
+      "requested": "G",
+      "room": "G",
+      "active": [
+        "bg:woodland-g-v2.png"
+      ]
+    },
+    {
+      "requested": "E",
+      "room": "E",
+      "active": [
+        "bg:woodland-e-v2.png"
+      ]
+    },
+    {
+      "requested": "I",
+      "room": "I",
+      "active": [
+        "bg:woodland-i-v2.png"
+      ]
+    },
+    {
+      "requested": "O",
+      "room": "O",
+      "active": [
+        "bg:woodland-o-v2.png"
+      ]
+    },
+    {
+      "requested": "P",
+      "room": "P",
+      "active": []
+    }
+  ],
+  "errors": [],
+  "passed": true
+}

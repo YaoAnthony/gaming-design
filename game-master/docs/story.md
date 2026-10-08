@@ -9,7 +9,7 @@
 | 位置 | 管什么 | 依赖 |
 | --- | --- | --- |
 | `src/story/` | 剧情的数据：走到哪了（标记）、哪一层是哪一幕、剧本、演出的名单、编辑器改造画哪些格子 | 不依赖任何引擎（ESLint 管着），游戏和界面两边都读 |
-| `src/game/mechanics/story/` | 游戏里的那部分：开场搭房间、GM 的化身和剧本执行器 | Phaser，通过 `PlayContext` |
+| `src/game/mechanics/story/` | 游戏里的那部分：标题音乐与开始游戏、GM 的化身和剧本执行器 | Phaser，通过 `PlayContext` |
 | `src/ui/story/` | 界面上的那部分：骷髅手、标题菜单、设置、结局画面、四段演出、关卡编辑器外壳 | React，通过总线事件和 Redux |
 
 ```
@@ -22,12 +22,14 @@ src/story/
   montage.ts      第二幕开头：骷髅手在编辑器里画哪些格子
 src/game/mechanics/story/
   index.ts        通用机制 story（每一层都启用），登记物件 g
-  Opening.ts      标题画面第一段：骷髅手一挥，房间一条条从天上砸下来
   Gm.ts           GM 的化身 g：通关之后走近自动说剧本，演出期间接管人（takesControl），说完被拖进编辑器
 src/ui/story/
   StoryLayer.tsx  叠在游戏画布上的一层：开场、演出、编辑器外壳都挂在这
-  GmHand.tsx      骷髅手（gm_hand.png 四个姿势 + 平铺的前臂 gm_arm.png）
-  OpeningMenu.tsx 拍标题和菜单、手指着选中的那一项、开始时扫走
+  GmHand.tsx      Game Master 的木手：把状态（去哪、什么姿势、从哪边伸进来）登记到 handStore，GmHandLayer 的 3D 画布画最后登记的那一只
+  GmHandLayer.tsx 画手的透明画布（stage3d/hand/HandView：glb 模型、卡通调色板材质、像素风）；没有 WebGL 时 GmHand 退回 gm_hand.png 的精灵（GmHandSprite）
+  GameHandOverlay.tsx 游戏一侧要画的手（复活时捏着主角进场，game/core/respawnHand.ts 每帧发 EVT.gameHand）：换算坐标、登记给 handStore
+  OpeningMenu.tsx 菜单直接显示、手指向选中的 UI、开始时标题落下且按钮淡出
+  OpeningTitle.tsx 透明标题牌与棕色硬吊带（stage3d/title/TitleSignView）
   SettingsPanel.tsx  音乐音量、语言、全屏、清除进度
   Celebration.tsx    第一幕的结局画面（「你赢了！」）
   EditorShell.tsx    第二幕：游戏画面缩进关卡编辑器
@@ -37,10 +39,10 @@ src/ui/story/
 
 ## 一路走下来
 
-1. **开场**（`StartGameData.opening`）。游戏页一打开就起游戏场景（有存档就是存档的那个房间）。剧情机制的 `delaysEntrance()` 让场景先别放主角，HUD 是 `opening` 模式（不显示）。
-   - `Opening` 先让画面一片黑。骷髅手从左往右一挥（`EVT.storyHand` 告诉界面手在哪），手扫过哪一条，那一条房间就从画面上方砸下来、弹两下、扬灰，最后一条落地时画面一震。每一条是一个只看那一条的镜头，房间里的东西照常画，不用复制画面。
-   - 落完发 `EVT.openingBuilt`，界面把标题和三个按钮一个个拍进来（画面一震，「咚」）。
-   - 菜单里手指着选中的那一项。「开始」：手把标题和按钮扫出画面，发 `EVT.openingStart`，场景调 `ctx.enter()` 放主角出场、换成这一层的音乐。「设置」里清除了进度再「开始」：从头开一局（`ctx.newGame()`）。
+1. **开场**（`StartGameData.opening`）。游戏页一打开就起第一层出生房间的标题场景。剧情机制的 `delaysEntrance()` 让场景先别放主角，HUD 是 `opening` 模式（不显示）。
+   - 房间和按钮直接显示。标题牌独立落入画面，由两条棕色硬吊带接住；木手只指向选中的菜单、设置和确认框选项，点击时轻戳一下。
+   - 「开始 / 继续」：木手收起，按钮淡出，标题松开吊带落下，再发 `EVT.openingStart`。剧情机制通过 `ctx.startRun(mode)` 放主角出场或读取存档，切换到关卡音乐；有存档时选「开始」仍先确认覆盖进度。
+   - 已删除手搭建房间、逐个拍入按钮和扫走菜单的演出，以及专用的镜头、计时器、灰尘和事件。
 2. **第一幕**：第一层的平台解谜。碰到终点（`G`）时，`GameScene.win` 查 `ENDINGS`：这一层是第一幕的结局，不弹「通关！」，HUD 的 `ending` 带上选项，显示 `Celebration`。
 3. **结局画面**：选项发 `EVT.endingChoice`。
    - 继续：记 `act1.continued`，接着玩。

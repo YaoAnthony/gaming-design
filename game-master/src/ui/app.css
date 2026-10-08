@@ -6,7 +6,7 @@ html, body, #root { margin: 0; height: 100%; background: var(--bg); color: var(-
 .tabs .brand { font-weight: bold; color: var(--accent); margin-right: 12px; }
 .tabs button { background: transparent; border: 1px solid transparent; color: var(--muted); padding: 6px 12px; border-radius: 6px; cursor: pointer; }
 .tabs button.active { color: var(--text); border-color: var(--line); background: #1d2340; }
-.view { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.view { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }   /* 舞台震动（shakeStage）时内容会探出去几像素：不让页面冒出滚动条（滚动条一出一没，舞台宽度变、画布被清空，就是一闪） */
 .toolbar { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--line); }
 .stage { position: relative; flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
 .stage-col { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; }
@@ -284,7 +284,9 @@ label.check { display: flex; align-items: center; gap: 6px; margin: 8px 0; color
 @keyframes stage-shake { 0%, 100% { transform: none; } 20% { transform: translate(-4px, 3px); } 40% { transform: translate(4px, -2px); } 60% { transform: translate(-3px, -3px); } 80% { transform: translate(2px, 2px); } }
 @keyframes stage-shake-strong { 0%, 100% { transform: none; } 15% { transform: translate(-9px, 7px); } 35% { transform: translate(8px, -6px); } 55% { transform: translate(-6px, -5px); } 75% { transform: translate(5px, 4px); } }
 
-/* 骷髅手：外层负责位置（transform 过渡），里面是前臂和手 */
+/* 木手的 3D 画布（ui/story/GmHandLayer）：盖在标题、菜单、演出上面，按像素放大；像素比页面粗，和游戏画面一样 */
+.gm-hand3d { position: absolute; inset: 0; width: 100%; height: 100%; display: block; pointer-events: none; z-index: 6; image-rendering: pixelated; }
+/* 骷髅手的 PNG 精灵（没有 WebGL 时的退路）：外层负责位置（transform 过渡），里面是前臂和手 */
 .gm-hand { position: absolute; left: 0; top: 0; pointer-events: none; will-change: transform; z-index: 6; filter: drop-shadow(0 6px 8px rgba(0, 0, 0, .45)); }
 .gm-hand-img, .gm-hand-arm { position: absolute; top: 0; background-repeat: no-repeat; image-rendering: pixelated; }
 .gm-hand-img { left: 0; }
@@ -292,12 +294,27 @@ label.check { display: flex; align-items: center; gap: 6px; margin: 8px 0; color
 .gm-hand.tremble .gm-hand-img, .gm-hand.tremble .gm-hand-arm { animation: hand-tremble .07s linear infinite; }
 @keyframes hand-tremble { 0% { transform: translate(0, 0); } 25% { transform: translate(2px, -2px); } 50% { transform: translate(-2px, 1px); } 75% { transform: translate(1px, 2px); } }
 
-/* 标题画面：标题 + 三个按钮（骷髅手一个个拍进来）*/
+/* 标题画面：菜单直接显示，木手只用于指向 UI。 */
 .opening { position: absolute; inset: 0; pointer-events: auto; display: flex; align-items: center; justify-content: center; user-select: none; -webkit-user-select: none; }
 .op-menu { display: flex; flex-direction: column; align-items: center; gap: 2.4cqh; transition: opacity .2s; }
 .op-menu.dim { opacity: .2; }
+.op-menu.leaving .op-btn, .op-menu.leaving .op-note { opacity: 0; transform: translateY(2cqh); transition: opacity .18s, transform .18s; pointer-events: none; }
+/* 牌子还没挂稳：按钮藏着；挂稳了淡入（.leaving 有自己的过渡，更具体，会盖过这条） */
+.op-menu .op-btn { transition: opacity .45s ease-out; }
+.op-menu.entering .op-btn, .op-menu.entering .op-note { opacity: 0; pointer-events: none; }
+.op-hint { animation: op-fade-in .45s ease-out; }
+@keyframes op-fade-in { from { opacity: 0; } to { opacity: 1; } }
 .op-title { margin: 0 0 2.5cqh; text-align: center; font-family: "Press Start 2P", ui-monospace, monospace; font-weight: normal; font-size: min(9cqw, 13cqh); line-height: 1.2; color: #f1efe6;
   text-shadow: 0 .07em 0 #9a6a3c, .1em .14em 0 rgba(0, 0, 0, .55), 0 0 .4em rgba(155, 93, 229, .55); }
+.op-title-sign { position: relative; isolation: isolate; width: min(64cqw, 66cqh); aspect-ratio: 1672 / 941; margin: 0; line-height: 0; text-shadow: none; }
+.op-title-sign img { width: 100%; height: 100%; visibility: hidden; image-rendering: pixelated; }
+.op-title-canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; transition: opacity .2s; }
+
+.op-title-sign.fallback img { visibility: visible; }
+.op-title-sign.fallback::before, .op-title-sign.fallback::after { content: ''; position: absolute; width: 1.2%; height: 100cqh; bottom: 82.1%; background: #866247; border-left: 2px solid #ad8260; border-right: 2px solid #30271f; z-index: -1; }
+.op-title-sign.fallback::before { left: 20.9%; }
+.op-title-sign.fallback::after { left: 77.7%; }
+.op-title-sign.dropped, .op-title-sign.dropped img { visibility: hidden; }
 .op-btn, .cel-btn, .st-row { font-family: "Press Start 2P", "PingFang SC", "Microsoft YaHei", sans-serif; cursor: pointer; color: #f1efe6; background: rgba(11, 11, 20, .9); border: clamp(2px, .35cqh, 4px) solid #f1efe6; border-radius: 8px; }
 .op-btn { min-width: 10em; padding: .7em 1.6em; font-size: clamp(11px, min(3.2cqh, 4cqw), 30px); box-shadow: 0 .25em 0 rgba(0, 0, 0, .5); }
 .op-btn.sel, .cel-btn.sel, .st-row.sel { background: #ffd166; border-color: #ffd166; color: #0b0b14; }

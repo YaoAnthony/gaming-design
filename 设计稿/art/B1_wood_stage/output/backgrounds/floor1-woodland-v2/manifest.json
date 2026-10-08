@@ -1,0 +1,124 @@
+{
+  "version": 2,
+  "mode": "built-in image_gen",
+  "referenceStripPx": 50,
+  "roomSize": [
+    1536,
+    1024
+  ],
+  "layout": [
+    [
+      "H",
+      "J",
+      "K",
+      "M",
+      "N"
+    ],
+    [
+      "F",
+      "D",
+      "A",
+      "B",
+      "C"
+    ],
+    [
+      "G",
+      "E",
+      "I",
+      "O",
+      "P"
+    ]
+  ],
+  "excluded": [
+    "P"
+  ],
+  "AUnchanged": true,
+  "rooms": [
+    {
+      "room": "A",
+      "theme": "月下林心",
+      "file": "woodland-a-v2.png",
+      "backgroundId": "woodland-a-v1"
+    },
+    {
+      "room": "B",
+      "theme": "东侧林缘",
+      "file": "woodland-b-v2.png",
+      "backgroundId": "woodland-b-v1"
+    },
+    {
+      "room": "C",
+      "theme": "废弃伐木营地",
+      "file": "woodland-c-v2.png",
+      "backgroundId": "woodland-c-v1"
+    },
+    {
+      "room": "D",
+      "theme": "西侧林缘",
+      "file": "woodland-d-v2.png",
+      "backgroundId": "woodland-d-v1"
+    },
+    {
+      "room": "E",
+      "theme": "蕨叶洼地",
+      "file": "woodland-e-v2.png",
+      "backgroundId": "woodland-e-v1"
+    },
+    {
+      "room": "F",
+      "theme": "松林风谷",
+      "file": "woodland-f-v2.png",
+      "backgroundId": "woodland-f-v1"
+    },
+    {
+      "room": "G",
+      "theme": "旧采石场",
+      "file": "woodland-g-v2.png",
+      "backgroundId": "woodland-g-v1"
+    },
+    {
+      "room": "H",
+      "theme": "风车高林",
+      "file": "woodland-h-v2.png",
+      "backgroundId": "woodland-h-v1"
+    },
+    {
+      "room": "I",
+      "theme": "盘根林地",
+      "file": "woodland-i-v2.png",
+      "backgroundId": "woodland-i-v1"
+    },
+    {
+      "room": "J",
+      "theme": "风口树冠",
+      "file": "woodland-j-v2.png",
+      "backgroundId": "woodland-j-v1"
+    },
+    {
+      "room": "K",
+      "theme": "林心树冠",
+      "file": "woodland-k-v2.png",
+      "backgroundId": "woodland-k-v1"
+    },
+    {
+      "room": "M",
+      "theme": "高枝林隙",
+      "file": "woodland-m-v2.png",
+      "backgroundId": "woodland-m-v1"
+    },
+    {
+      "room": "N",
+      "theme": "废弃观星台",
+      "file": "woodland-n-v2.png",
+      "backgroundId": "woodland-n-v1"
+    },
+    {
+      "room": "O",
+      "theme": "积水根谷",
+      "file": "woodland-o-v2.png",
+      "backgroundId": "woodland-o-v1"
+    }
+  ],
+  "validation": "seam-report.json",
+  "prompts": "prompts.txt"
+}

@@ -1,6 +1,6 @@
 // 生成占位美术：纯 JS 写 PNG（不依赖任何绘图库），输出到 src/asset/image/ 下面各自的文件夹（见 DIR）
 // 运行：npm run gen-art                                 （全部重新生成，会覆盖手绘替换过的同名文件）
-//       npm run gen-art -- hand_hold.png hand_open.png  （只生成列出的文件）
+//       npm run gen-art -- grab_hand.png gm_hand.png  （只生成列出的文件）
 import { deflateSync } from 'node:zlib';
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
@@ -17,11 +17,13 @@ const ONLY = new Set(process.argv.slice(2));
 const DIR = Object.fromEntries(Object.entries({
   'image/background': ['cave_far.png', 'cave_near.png', 'dusk_hills.png', 'dusk_sky.png'],
   'image/fx': ['spark.png'],
-  'image/items': ['boss_trigger.png', 'candle.png', 'castle.png', 'crate1.png', 'crate2.png', 'hat.png', 'key.png', 'plate1.png', 'plate1_down.png', 'plate2.png', 'plate2_down.png', 'volume.png'],
+  // candle / castle / crate* / hat / key / plate* 不在这里：Aseprite asset/generators/items.py 画的
+  'image/items': ['boss_trigger.png', 'volume.png'],
   'image/items/pacman': ['bomb.png', 'ghosthouse.png', 'grapes.png', 'pellet.png', 'power.png', 'tunnel.png'],
-  'image/sprite': ['boss.png', 'enemy.png', 'gm_arm.png', 'gm_hand.png', 'grab_hand.png', 'hand_hold.png', 'hand_open.png', 'player.png', 'player_mid.png', 'player_tall.png', 'skeleton.png', 'skeleton_side.png'],
+  // player*.png / enemy.png / clip_* 不在这里：主角和怪物夹子桑是从仓库根目录 Aseprite asset/ 导出的
+  'image/sprite': ['boss.png', 'gm_arm.png', 'gm_hand.png', 'grab_hand.png', 'player_mid.png', 'player_tall.png', 'skeleton.png', 'skeleton_side.png'],
   'image/sprite/pacman': ['ghost.png', 'ghost2.png', 'ghosteyes.png', 'ghostscared.png'],
-  'image/tiles': ['door.png', 'fusenode.png', 'tiles.png'],
+  // image/tiles/ 下的全部（tiles.png / wall_*.png / fusenode.png / tile_*.png / door.png）不在这里：Aseprite asset/generators/tiles.py、items.py 生成的
   'image/ui': ['heart_empty.png', 'heart_full.png'],
 }).flatMap(([dir, files]) => files.map(f => [f, dir])));
 
@@ -101,109 +103,10 @@ class Canvas {
   }
 }
 
-const T = 32;
+// ---- 砖块图集（tiles.png）、拼墙模板（wall_*.png）、引线头（fusenode.png）、砖块特效（tile_*.png）不再在这里画：
+// 换成了按 B1 设定集画的砖块，见仓库根目录 Aseprite asset/generators/tiles.py ----
 
-// ---- 砖块图集：0 泥土 1 岩石 2 脆岩 3 沙土 4 尖刺 ----
-const tiles = new Canvas(T * 30, T);   // 0-4 基础砖块，5-20 引线的 16 种连接图案（只在编辑器里显示，白色，按引线颜色染色），21 纸，22 字块，23 门（白底，运行时按组染色），24 木板，25 碎岩，26-28 尖刺挂左 / 挂右 / 两边，29 王之炸药
-// 泥土
-tiles.rect(0, 0, T, T, 0x8d5a3b);
-tiles.rect(4, 6, 6, 4, 0x6f452c); tiles.rect(18, 12, 8, 4, 0x6f452c); tiles.rect(8, 22, 6, 4, 0x6f452c); tiles.rect(22, 24, 5, 3, 0x6f452c);
-tiles.rect(0, 0, T, 3, 0xa56f4a);
-// 岩石
-tiles.rect(T, 0, T, T, 0x5d6470);
-tiles.rect(T + 2, 4, 12, 10, 0x474d57); tiles.rect(T + 18, 16, 12, 12, 0x474d57); tiles.rect(T + 4, 20, 8, 8, 0x474d57);
-tiles.rect(T, 0, T, 2, 0x7a828f);
-// 脆岩
-tiles.rect(2 * T, 0, T, T, 0xc9b27c);
-tiles.line(2 * T + 4, 2, 2 * T + 14, 14, 0x8a7448); tiles.line(2 * T + 14, 14, 2 * T + 8, 28, 0x8a7448);
-tiles.line(2 * T + 28, 4, 2 * T + 18, 18, 0x8a7448); tiles.line(2 * T + 18, 18, 2 * T + 26, 30, 0x8a7448);
-// 沙土
-tiles.rect(3 * T, 0, T, T, 0xd9a066);
-for (let i = 0; i < 10; i++) tiles.rect(3 * T + ((i * 7) % 28) + 2, ((i * 11) % 26) + 3, 3, 3, 0xc4884f);
-tiles.rect(3 * T, 0, T, 3, 0xe8b77f);
-// 尖刺（透明背景）
-for (let k = 0; k < 4; k++) tiles.tri(4 * T + k * 8, T, 4 * T + k * 8 + 4, T - 14, 4 * T + k * 8 + 8, T, 0xef476f);
-// 引线自动拼贴（编辑器叠加层）：帧 = 5 + 位掩码（上=1 右=2 下=4 左=8）；透明底，叠在砖块上
-// 画成白色，编辑器按引线颜色染色。端头（只有一个邻居）和孤立格画成带深色芯的节点：那是唯一能被点燃的地方
-for (let mask = 0; mask < 16; mask++) {
-  const ox = (5 + mask) * T;
-  const c = T / 2;
-  const wire = 0xffffff, thick = 6, half = thick / 2;
-  if (mask & 1) tiles.rect(ox + c - half, 0, thick, c + half, wire);          // 上
-  if (mask & 2) tiles.rect(ox + c - half, c - half, T - c + half, thick, wire); // 右
-  if (mask & 4) tiles.rect(ox + c - half, c - half, thick, T - c + half, wire); // 下
-  if (mask & 8) tiles.rect(ox, c - half, c + half, thick, wire);              // 左
-  tiles.rect(ox + c - half, c - half, thick, thick, wire);                     // 中心接点
-  const bits = [1, 2, 4, 8].filter(b => mask & b).length;
-  if (bits <= 1) {                                                             // 端头 / 孤立：可点燃节点
-    tiles.rect(ox + c - 6, c - 6, 12, 12, 0xffffff);
-    tiles.rect(ox + c - 3, c - 3, 6, 6, 0x5a5a5a);
-  }
-}
-// 纸：白底、淡淡的横线、一角微卷
-tiles.rect(21 * T, 0, T, T, 0xf4f1e8);
-for (let k = 0; k < 4; k++) tiles.rect(21 * T + 5, 8 + k * 6, 22, 1, 0xd8d3c4);
-tiles.rect(21 * T, 0, T, 2, 0xffffff);
-tiles.tri(21 * T + T, T - 8, 21 * T + T, T, 21 * T + T - 8, T, 0xd8d3c4);
-// 字块：浅蓝灰的石板，中间一个小方孔
-tiles.rect(22 * T, 0, T, T, 0xb8c4e0);
-tiles.rect(22 * T, 0, T, 2, 0xdde4f5); tiles.rect(22 * T, T - 3, T, 3, 0x8e9bb8);
-tiles.rect(22 * T + 12, 12, 8, 8, 0x8e9bb8); tiles.rect(22 * T + 14, 14, 4, 4, 0x6f7c99);
-// 门：浅色门板 + 边框 + 锁孔，画成近白色，游戏里乘上各组的颜色
-tiles.rect(23 * T, 0, T, T, 0xbdbdbd);
-tiles.rect(23 * T + 3, 3, T - 6, T - 6, 0xefefef);
-tiles.rect(23 * T + 3, 3, T - 6, 2, 0xffffff); tiles.rect(23 * T + 3, T - 5, T - 6, 2, 0xd0d0d0);
-tiles.rect(23 * T + 13, 10, 6, 6, 0x2a2a2a); tiles.rect(23 * T + 15, 15, 2, 7, 0x2a2a2a);
-// 木板：只占格子上面一条（下面透明），两道木纹 + 两颗钉子，左右两端各一道接缝
-tiles.rect(24 * T, 0, T, 9, 0xb07a45);
-tiles.rect(24 * T, 0, T, 2, 0xd19a62);
-tiles.rect(24 * T, 7, T, 2, 0x7a5230);
-tiles.rect(24 * T + 3, 4, 10, 1, 0x93643a); tiles.rect(24 * T + 17, 3, 11, 1, 0x93643a);
-tiles.rect(24 * T + 5, 5, 2, 2, 0x4a3320); tiles.rect(24 * T + 25, 5, 2, 2, 0x4a3320);
-tiles.rect(24 * T, 0, 1, 9, 0x7a5230); tiles.rect(24 * T + T - 1, 0, 1, 9, 0x7a5230);
-// 碎岩：和岩石同一块底子，稍微亮一点，几道深色裂缝从中间炸开，缝边一点亮色
-tiles.rect(25 * T, 0, T, T, 0x6e7480);
-tiles.rect(25 * T + 2, 4, 12, 10, 0x575d68); tiles.rect(25 * T + 18, 16, 12, 12, 0x575d68); tiles.rect(25 * T + 4, 20, 8, 8, 0x575d68);
-tiles.rect(25 * T, 0, T, 2, 0x8a919e);
-tiles.line(25 * T + 16, 15, 25 * T + 5, 3, 0x23262c); tiles.line(25 * T + 16, 15, 25 * T + 28, 6, 0x23262c);
-tiles.line(25 * T + 16, 15, 25 * T + 9, 29, 0x23262c); tiles.line(25 * T + 16, 15, 25 * T + 26, 27, 0x23262c);
-tiles.line(25 * T + 9, 29, 25 * T + 3, 24, 0x23262c, 1); tiles.line(25 * T + 28, 6, 25 * T + 30, 14, 0x23262c, 1);
-tiles.rect(25 * T + 15, 13, 3, 3, 0x9aa1ad);
-// 尖刺改挂在旁边（透明背景，和 4 号同色）：26 挂左墙、刺朝右；27 挂右墙、刺朝左；
-// 28 两边都挂：把一边的刺缩小一半（尖 4 宽、伸出 7），每边上下各挂两排
-for (let k = 0; k < 4; k++) {
-  tiles.tri(26 * T, k * 8, 26 * T + 14, k * 8 + 4, 26 * T, k * 8 + 8, 0xef476f);
-  tiles.tri(28 * T, k * 8, 28 * T - 14, k * 8 + 4, 28 * T, k * 8 + 8, 0xef476f);
-}
-for (let k = 0; k < 8; k++) {
-  tiles.tri(28 * T, k * 4, 28 * T + 7, k * 4 + 2, 28 * T, k * 4 + 4, 0xef476f);
-  tiles.tri(29 * T, k * 4, 29 * T - 7, k * 4 + 2, 29 * T, k * 4 + 4, 0xef476f);
-}
-// 29 王之炸药：深紫灰的石块，中间一颗发光的红核，四道裂纹从核心往外透光，四角铆钉（史莱姆王死了它就炸）
-{
-  const ox = 29 * T;
-  tiles.rect(ox, 0, T, T, 0x2e2238);
-  tiles.rect(ox + 1, 1, T - 2, T - 2, 0x45344f);
-  tiles.rect(ox + 1, 1, T - 2, 2, 0x6a5578);                       // 顶上一道亮边
-  tiles.rect(ox + 1, T - 3, T - 2, 2, 0x241a2c);                   // 底下一道暗边
-  for (const [x, y] of [[3, 3], [26, 3], [3, 26], [26, 26]]) { tiles.rect(ox + x, y, 3, 3, 0x241a2c); tiles.set(ox + x, y, 0x8a7398); }   // 铆钉
-  for (const [x2, y2] of [[5, 5], [27, 6], [6, 27], [26, 26]]) tiles.line(ox + 16, 16, ox + x2, y2, 0xff6b8a, 1);   // 透光的裂纹
-  for (let y = 0; y < T; y++) for (let x = 0; x < T; x++) {        // 发光的核心：外圈红、里面粉白
-    const d = Math.hypot(x + 0.5 - 16, y + 0.5 - 16);
-    if (d <= 7) tiles.set(ox + x, y, d <= 2.5 ? 0xfff0f4 : d <= 4.5 ? 0xff8fa8 : 0xef476f);
-    else if (d <= 8.2) tiles.set(ox + x, y, 0x7a1630);
-  }
-}
-tiles.save('tiles.png');
-
-// ---- 玩家 32x32（一格）：圆角方块 + 一只眼睛 + 两只小脚。游戏里按 config.playerWidth / playerHeight 缩放 ----
-const player = new Canvas(32, 32);
-player.roundRect(1, 0, 30, 28, 7, 0x4cc9f0);             // 身体
-player.rect(3, 2, 26, 3, 0x7ad8f5);                        // 顶部高光
-player.roundRect(18, 8, 7, 8, 2, 0xffffff);               // 眼白
-player.rect(21, 10, 3, 5, 0x0b0b14);                       // 眼珠（朝右）
-player.rect(6, 28, 7, 4, 0x2a8fb8); player.rect(19, 28, 7, 4, 0x2a8fb8);   // 两只脚
-player.save('player.png');
+// ---- 玩家（player.png）不再在这里画：换成了 Aseprite 做的主角，见仓库根目录 Aseprite asset/ ----
 
 // ---- 长大后的玩家：第 2 关 32x48（1.5 格高）、第 3 关 32x64（2 格高）。同一个方块拉成长条，眼睛还在头部、脚还在底部（不是把 32x32 拉伸）----
 const tallPlayer = (h, name) => {
@@ -218,12 +121,7 @@ const tallPlayer = (h, name) => {
 tallPlayer(48, 'player_mid.png');
 tallPlayer(64, 'player_tall.png');
 
-// ---- 怪物 28x24 ----
-const enemy = new Canvas(28, 24);
-enemy.roundRect(0, 0, 28, 24, 7, 0x9b5de5);
-enemy.rect(6, 7, 5, 5, 0xffffff); enemy.rect(17, 7, 5, 5, 0xffffff);
-enemy.rect(8, 9, 2, 2, 0x0b0b14); enemy.rect(19, 9, 2, 2, 0x0b0b14);
-enemy.save('enemy.png');
+// ---- 怪物（enemy.png）不再在这里画：换成了 Aseprite 做的夹子桑，见仓库根目录 Aseprite asset/ ----
 
 // ---- 史莱姆王 96x96（正好 3x3 格）----
 // 身体和物理体对齐（Boss.ts：x 4~92、y 12~96）：果冻圆顶，按光从左上来分 5 档明暗，深色描边，右边一道反光；
@@ -347,18 +245,8 @@ boss.save('boss.png');
   c.save('boss_trigger.png');
 }
 
-// ---- 门 24x32 ----
-const door = new Canvas(24, 32);
-door.roundRect(0, 0, 24, 44, 12, 0xffd166);
-door.roundRect(4, 6, 16, 40, 8, 0x0b0b14);
-door.save('door.png');
+// ---- 出口门（door.png） 不再在这里画：换成了按 B1 设定集画的物件，见仓库根目录 Aseprite asset/generators/items.py ----
 
-// ---- 引线端点（游戏里唯一可见的部分）12x12，暗红色，不抢眼 ----
-const node = new Canvas(12, 12);
-node.roundRect(0, 0, 12, 12, 3, 0x4a1418);
-node.roundRect(2, 2, 8, 8, 2, 0x7a1f26);
-node.rect(4, 4, 4, 4, 0x9c2b33);
-node.save('fusenode.png');
 
 // ---- 粒子 6x6 ----
 const spark = new Canvas(6, 6);
@@ -415,40 +303,9 @@ sk.save('skeleton.png');
   c.save('skeleton_side.png');
 }
 
-// ---- 小城堡 128x112（通往下一层的门在正中底部）----
-const ca = new Canvas(128, 112);
-const wall = 0x6c7386, wallDk = 0x4f566a, wallLt = 0x8a92a8, roof = 0x9b2f3a, roofDk = 0x6e1f28, glow = 0xffd166;
-const brick = (x, y, w, h) => { for (let j = y + 4; j < y + h; j += 8) for (let i = x + ((j / 8) & 1 ? 4 : 0); i < x + w - 2; i += 10) ca.rect(i + 1, j, 4, 2, wallDk); };
-// 两侧塔楼
-for (const tx of [0, 104]) {
-  ca.rect(tx, 28, 24, 84, wall); ca.rect(tx, 28, 24, 2, wallLt); ca.rect(tx, 108, 24, 4, wallDk);
-  for (let i = 0; i < 3; i++) ca.rect(tx + i * 9, 22, 6, 6, wall);              // 垛口
-  ca.tri(tx - 2, 22, tx + 26, 22, tx + 12, 2, roof); ca.tri(tx + 2, 22, tx + 22, 22, tx + 12, 8, roofDk);
-  ca.rect(tx + 9, 44, 6, 10, dark); ca.rect(tx + 9, 72, 6, 10, dark);          // 窗
-  brick(tx, 30, 24, 78);
-}
-// 主体
-ca.rect(20, 52, 88, 60, wall); ca.rect(20, 52, 88, 2, wallLt); ca.rect(20, 108, 88, 4, wallDk);
-for (let i = 0; i < 9; i++) ca.rect(22 + i * 10, 46, 6, 6, wall);
-brick(20, 54, 88, 54);
-ca.rect(34, 62, 8, 12, dark); ca.rect(86, 62, 8, 12, dark);                      // 窗
-ca.rect(36, 65, 4, 4, glow); ca.rect(88, 65, 4, 4, glow);
-// 门：26x38 拱门，里面透光
-ca.roundRect(50, 70, 28, 44, 13, wallDk);
-ca.roundRect(52, 72, 24, 44, 11, dark);
-ca.roundRect(58, 84, 12, 28, 5, 0x3a2a12);
-ca.rect(62, 90, 4, 12, glow);
-// 旗
-ca.rect(63, 20, 2, 26, wallDk); ca.tri(65, 20, 65, 32, 79, 26, roof);
-ca.save('castle.png');
+// ---- 小城堡（castle.png） 不再在这里画：换成了按 B1 设定集画的物件，见仓库根目录 Aseprite asset/generators/items.py ----
 
-// ---- 蜡烛 12x18（地上的道具，捡起来拿在右手）----
-const cd = new Canvas(12, 18);
-cd.rect(3, 8, 6, 10, 0xf1efe6); cd.rect(3, 8, 2, 10, 0xffffff); cd.rect(7, 8, 2, 10, 0xc9c4b4);   // 蜡身 + 高光 / 阴影
-cd.rect(4, 17, 4, 1, 0xd9a066);                                                             // 底座一点暖色
-cd.rect(5, 6, 2, 2, 0x3a2a12);                                                              // 烛芯
-cd.tri(2, 6, 10, 6, 6, 0, 0xff9f1c); cd.tri(4, 6, 8, 6, 6, 2, 0xffd166); cd.rect(5, 4, 2, 2, 0xffffff); // 火苗
-cd.save('candle.png');
+// ---- 蜡烛（candle.png） 不再在这里画：换成了按 B1 设定集画的物件，见仓库根目录 Aseprite asset/generators/items.py ----
 
 // ---- 音量图标 24x24（设置房间里滑块左边的喇叭）----
 const vo = new Canvas(24, 24);
@@ -458,12 +315,7 @@ vo.rect(8, 8, 7, 8, 0xf1efe6);
 vo.rect(3, 9, 2, 6, 0xc9c4b4); vo.rect(13, 3, 2, 18, 0xc9c4b4);  // 阴影
 vo.save('volume.png');
 
-// ---- 钥匙 16x16（白色，按组染色）----
-const ky = new Canvas(16, 16);
-ky.roundRect(1, 1, 8, 8, 4, 0xffffff); ky.rect(4, 4, 2, 2, 0x2a2a2a);     // 钥匙环
-ky.rect(8, 8, 2, 2, 0xffffff); ky.line(8, 8, 14, 14, 0xffffff, 2);        // 钥匙杆
-ky.rect(12, 9, 3, 2, 0xffffff); ky.rect(10, 11, 2, 2, 0xffffff);          // 齿
-ky.save('key.png');
+// ---- 钥匙（key.png） 不再在这里画：换成了按 B1 设定集画的物件，见仓库根目录 Aseprite asset/generators/items.py ----
 
 // ---- 吃豆人：豆子 / 大力丸 / 鬼巢门 / 葡萄 / 隧道标记 ----
 const pe = new Canvas(8, 8); pe.roundRect(2, 2, 4, 4, 2, 0xffe8b0); pe.save('pellet.png');
@@ -498,46 +350,12 @@ bo.roundRect(1, 5, 18, 17, 8, 0x1b1b24); bo.roundRect(4, 8, 6, 5, 2, 0x4a4a5c); 
 bo.rect(9, 2, 4, 4, 0x5a3a1e); bo.rect(13, 0, 3, 3, 0xffd166); bo.rect(14, 1, 1, 1, 0xffffff);   // 引信 + 火星
 bo.save('bomb.png');
 
-// ---- 帽子 32x32（一格）：黑色高脚帽，戴上后主角算两格高 ----
-const hat = new Canvas(32, 32);
-hat.roundRect(1, 26, 30, 6, 2, 0x16161e);                 // 帽檐
-hat.roundRect(7, 2, 18, 25, 3, 0x1e1e28);                 // 帽筒
-hat.rect(7, 19, 18, 4, 0xb3263a);                          // 红色帽带
-hat.rect(9, 4, 3, 14, 0x3a3a4c);                           // 高光
-hat.rect(8, 2, 16, 2, 0x2c2c3a);                           // 帽顶边
-hat.save('hat.png');
+// ---- 帽子（hat.png） 不再在这里画：换成了按 B1 设定集画的物件，见仓库根目录 Aseprite asset/generators/items.py ----
 
-// ---- 木箱：1x1（32x32）和 2x2（64x64）。可以推，有重力 ----
-function crate(size, name, wood, dark, band) {
-  const c = new Canvas(size, size), e = Math.max(3, size / 10) | 0;
-  c.rect(0, 0, size, size, dark);
-  c.rect(1, 1, size - 2, size - 2, wood);
-  for (let y = e + size / 4; y < size - e; y += size / 4) c.rect(e, y | 0, size - 2 * e, 1, dark);   // 木板缝
-  c.line(e, e, size - e, size - e, dark, Math.max(2, e - 1));                                        // 对角撑
-  c.rect(0, 0, size, e, band); c.rect(0, size - e, size, e, band);                                    // 上下框
-  c.rect(0, 0, e, size, band); c.rect(size - e, 0, e, size, band);                                    // 左右框
-  for (const [x, y] of [[1, 1], [size - e + 1, 1], [1, size - e + 1], [size - e + 1, size - e + 1]]) c.rect(x, y, e - 2, e - 2, 0xd9d9d9);   // 四角钉
-  c.save(name);
-}
-crate(32, 'crate1.png', 0xb07a45, 0x6b4423, 0x8a5a30);
-crate(64, 'crate2.png', 0x8f6a4a, 0x4a3320, 0x5d6470);    // 大箱子：深一点、铁框，一眼能分出来
+// ---- 木箱（crate1.png / crate2.png） 不再在这里画：换成了按 B1 设定集画的物件，见仓库根目录 Aseprite asset/generators/items.py ----
 
 
-// ---- 压板：1x1（32x32）和 1x2（64x32），各一张没压 / 压下。贴在格子底部的一块踏板，正中间是红色的引线头；
-//      箱子压上去就点燃连着它的引线（引线在压板旁边的那一头不单独画，也点不着，只能靠压板） ----
-function plate(w, name, down) {
-  const c = new Canvas(w, 32), top = down ? 26 : 21, cx = w / 2;
-  c.roundRect(1, 27, w - 2, 5, 1, 0x3a3a4c);                       // 底座
-  c.roundRect(4, top, w - 8, down ? 3 : 6, 2, down ? 0xa87c30 : 0xd9a441);   // 踏板（压下去就扁、暗）
-  if (!down) c.rect(6, top, w - 12, 2, 0xf2cf7a);                  // 高光
-  c.roundRect(cx - 4, top - 5, 8, 7, 3, 0xb3263a);                  // 红色引线头
-  c.rect(cx - 2, top - 4, 2, 2, down ? 0xd9d9d9 : 0xff8f8f);        // 引线头高光（压下变灰：已经点过）
-  c.save(name);
-}
-plate(32, 'plate1.png', false);
-plate(32, 'plate1_down.png', true);
-plate(64, 'plate2.png', false);
-plate(64, 'plate2_down.png', true);
+// ---- 压板（plate1/2(_down).png） 不再在这里画：换成了按 B1 设定集画的物件，见仓库根目录 Aseprite asset/generators/items.py ----
 
 // ---- 骷髅手的骨头：骨头、阴影、描边三色；一串点连成一节节骨头，关节处画圆 ----
 const HB = 0xe8dfc9, HS = 0xb9ad94, HO = 0x2a1f35;
@@ -549,25 +367,6 @@ const boneSeg = (c, pts, t) => {
 };
 /** 圆的小骨头（腕骨、骨头末端的疙瘩） */
 const boneKnob = (c, x, y, r) => { c.roundRect(x - r - 1, y - r - 1, 2 * r + 2, 2 * r + 2, r + 1, HO); c.roundRect(x - r, y - r, 2 * r, 2 * r, r, HB); };
-
-// ---- 复活时把玩家放回来的骷髅手：160x160，两帧（捏着 / 张开）。手臂从左上角伸进来，
-//      捏合点（玩家身体中心放的位置）在 (104, 120)，和 asset/index.ts 的 RESPAWN_HAND.pinch 一致。紫色光雾在游戏里用粒子画 ----
-{
-  const knuckles = [[84, 84], [98, 74], [106, 74], [114, 80], [120, 88]];
-  const hand = (fingers, name) => {
-    const c = new Canvas(160, 160);
-    boneSeg(c, [[-6, 12], [60, 64]], 8);                       // 尺骨
-    boneSeg(c, [[6, -4], [68, 56]], 7);                        // 桡骨
-    [[64, 60], [72, 58], [68, 68], [76, 66], [72, 76]].forEach(([x, y]) => { c.roundRect(x - 6, y - 6, 12, 12, 6, HO); c.roundRect(x - 5, y - 5, 10, 10, 5, HB); });   // 腕骨
-    knuckles.forEach(k => boneSeg(c, [[72, 68], k], 5));      // 掌骨
-    fingers.forEach((f, i) => boneSeg(c, [knuckles[i], ...f], i === 0 ? 6 : 5));
-    c.save(name);
-  };
-  // 捏着：拇指在玩家左边，四根手指从右上绕下来扣住右边
-  hand([[[84, 100], [88, 114]], [[112, 80], [124, 92], [122, 106]], [[122, 84], [130, 100], [126, 116]], [[128, 94], [132, 112], [126, 126]], [[130, 106], [128, 122], [122, 132]]], 'hand_hold.png');
-  // 张开：拇指往左下、四指往右下散开
-  hand([[[78, 98], [70, 112]], [[118, 74], [136, 80], [146, 90]], [[126, 80], [144, 92], [152, 106]], [[132, 92], [146, 108], [150, 124]], [[134, 104], [140, 120], [138, 136]]], 'hand_open.png');
-}
 
 // ---- 第四面墙那只抓画面的骷髅手：手心朝镜头，手臂从左边水平伸进来，拇指朝上、四指朝右（右手）。
 //      grab_hand.png：6 帧横排（每帧 380x200），从张开一路攥成拳头。手臂伸到画布左边外面，放大后手臂末端在屏幕外。

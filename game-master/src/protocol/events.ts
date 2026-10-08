@@ -25,18 +25,33 @@ export interface StartGameData {
   rhythmLab?: boolean;
   /** 这一局最开始的启动数据（换层时一路带着）：「再来一次」从这里重开 */
   origin?: StartGameData;
-  /** 标题画面：骷髅手先把这个房间搭出来，主角等菜单里选了「开始」（EVT.openingStart）才出场 */
+  /** 标题画面直接显示房间和菜单，主角等选择开始 / 继续（EVT.openingStart）才出场。 */
   opening?: boolean;
 }
 
-/** 骷髅手的姿势（asset 的 GM_HAND 帧）：张开 / 指着 / 捏着 / 握拳 */
-export type HandPose = 'open' | 'point' | 'pinch' | 'fist';
+/** Game Master 的木手的姿势（stage3d/hand 的模型里每个姿势一段动画）：张开 / 指着 / 捏着东西 / 握拳 / 捏布（指尖合拢，拎主角的后领） */
+export type HandPose = 'open' | 'point' | 'pinch' | 'fist' | 'grip';
 /**
- * 开场时骷髅手在哪（画面上的比例坐标）、什么姿势、多久挪过去；null = 手收走。
- * from = 手臂从哪边伸进来（默认下面），tilt = 再转几度，whoosh = 这一下带风声（挥手）
+ * 游戏一侧要画的手（复活时捏着主角进场……）在哪（画面上的比例坐标）、什么姿势、多久挪过去；spot 为 null = 手收走。
+ * anchor = 拿手的哪一点对准 spot（指尖 / 捏合点 / 手心，不写就按姿势挑），from = 手臂从哪边伸进来（默认下面），tilt = 再转几度
  */
-export interface StoryHand { spot: ScreenSpot | null; pose: HandPose; ms: number; from?: 'left' | 'right' | 'top' | 'bottom'; tilt?: number; whoosh?: boolean }
-
+export interface GameHand {
+  spot: ScreenSpot | null;
+  pose: HandPose;
+  ms: number;
+  anchor?: 'tip' | 'pinch' | 'palm';
+  from?: 'left' | 'right' | 'top' | 'bottom';
+  tilt?: number;
+  /** 手多大：护腕后沿到指尖的长度占画面高的比例；不写就按 config.gmHand.length 占舞台高（指菜单那么大） */
+  length?: number;
+  /** 手里拎着的东西（主角）：也画在手那一层、在手前面，不然会被手挡住 */
+  held?: HeldSprite | null;
+}
+/**
+ * 被手拎着的一张贴图：texture = 贴图的 key（asset 清单里的 IMAGES / ASEPRITES），frame = 这一帧在贴图里的像素范围，
+ * at / w / h = 画在画面上的中心和大小（比例坐标），flipX = 左右翻
+ */
+export interface HeldSprite { texture: string; frame: { x: number; y: number; w: number; h: number }; at: ScreenSpot; w: number; h: number; flipX: boolean }
 /** 编辑器改造游戏时，骷髅手要点的一格：在画面上的位置、地图上的格子、画什么砖 */
 export interface PaintCell { spot: ScreenSpot; x: number; y: number; tile: string }
 
@@ -127,12 +142,10 @@ export const EVT = {
   heroEntry: 'hero:entry',
   /** 3D → Phaser：人走回画面了，放出来接着玩；参数是落在哪（HeroEntryQuery 的 answer），null = 原地 */
   heroReturn: 'hero:return',
-  /** Phaser → React：开场时骷髅手到哪了（一挥手，房间从天上砸下来）；参数是 StoryHand */
-  storyHand: 'story:hand',
-  /** Phaser → React：开场的房间落完了，该拍标题和菜单了 */
-  openingBuilt: 'story:opening-built',
-  /** React → Phaser：菜单里选了「开始」，标题和按钮已经扫走：放主角出场；参数是 OpeningStart */
+  /** React → Phaser：开始 / 继续已确认，标题落下、菜单退出后放主角出场；参数是 OpeningStart。 */
   openingStart: 'story:opening-start',
+  /** Phaser → React：游戏一侧要画的手到哪了（复活时捏着主角进场……，每帧发）；参数是 GameHand */
+  gameHand: 'game:hand',
   /** Phaser → React：放一段剧情演出；参数是 StoryCutscene */
   storyCutscene: 'story:cutscene',
   /** React → Phaser：演出放完了；参数是 StoryCutsceneDone */
@@ -172,9 +185,8 @@ export interface BridgeEvents {
   [EVT.heroLeft]: [HeroHandoff];
   [EVT.heroEntry]: [HeroEntryQuery];
   [EVT.heroReturn]: [ScreenSpot | null];
-  [EVT.storyHand]: [StoryHand];
-  [EVT.openingBuilt]: [];
   [EVT.openingStart]: [OpeningStart];
+  [EVT.gameHand]: [GameHand];
   [EVT.storyCutscene]: [StoryCutscene];
   [EVT.storyCutsceneDone]: [StoryCutsceneDone];
   [EVT.storyPaint]: [PaintCell];

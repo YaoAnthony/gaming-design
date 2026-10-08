@@ -99,7 +99,7 @@ export class Gm {
     p.setVelocity(0, 0);
     const msg: StoryCutscene = { id };
     if (id === CUTSCENES.pullEditor) {
-      msg.hero = { ...this.spotOf(p.x, p.y), ...this.sizeOf(p.displayWidth, p.displayHeight), texture: p.texture.key };
+      msg.hero = { ...this.spotOf(p.x, p.y), ...this.sizeOf(p.displayWidth, p.displayHeight), texture: p.portraitKey };
       p.setVisible(false);   // 演出里换成手拎着的那张图
     } else if (id === CUTSCENES.dragGM && this.sprite) {
       const s = this.sprite;

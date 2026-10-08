@@ -16,7 +16,6 @@ import { CHARGE } from './charge';
 import { FUSE_CHANNELS } from '@/game/fuse/channels';
 import type { FuseEnd } from '@/game/fuse/Fuse';
 import { SparkBurst } from './SparkBurst';
-import { hueShiftedTexture } from './minionTexture';
 import { SEAL } from './seal';
 import { createBossSound, type BossSound } from '@/audio/bossSound';
 import { Colors, hex } from '@/shared/palette';
@@ -75,7 +74,7 @@ export class BossFight implements Mechanic {
   /** 打赢之后解开了的 Boss 房（房间 key）：重置也不再出 Boss */
   private solved = new Set<string>();
   private bursts: SparkBurst[] = [];
-  /** Boss 吐出来的小史莱姆（上限只数这些，地图上的巡逻怪不算）；Boss 死的时候一起死 */
+  /** Boss 吐出来的小夹子桑（上限只数这些，地图上的巡逻怪不算）；Boss 死的时候一起死 */
   private minions: Enemy[] = [];
   /** 上次吐怪的时间：两次之间至少隔 bossSpitMs */
   private lastSpitAt = -Infinity;
@@ -370,14 +369,14 @@ export class BossFight implements Mechanic {
     if (boss.lethalRects().some(r => Phaser.Geom.Intersects.RectangleToRectangle(r, pr))) ctx.hurt('death.swallowedByBoss', { x: boss.x, y: boss.y });   // 扣一颗心、被弹开
   }
 
-  /** 扑击落地时吐两只小史莱姆：离上次吐至少 bossSpitMs；这个房间里 Boss 吐的、还活着的不超过 bossMaxMinions */
+  /** 扑击落地时吐两只小夹子桑：离上次吐至少 bossSpitMs；这个房间里 Boss 吐的、还活着的不超过 bossMaxMinions */
   private spitMinions(boss: Boss, now: number): void {
     const { ctx } = this, cfg = ctx.cfg;
     if (now - this.lastSpitAt < cfg.bossSpitMs) return;
     const room = this.room ?? ctx.rooms.current;
     this.minions = this.minions.filter(e => e.active);
     const alive = this.minions.filter(e => ctx.rooms.same(ctx.rooms.of(e.x, e.y), room)).length;
-    const look = { texture: hueShiftedTexture(ctx.scene, 'enemy', cfg.bossMinionHue), scale: cfg.bossMinionScale };
+    const look = { scale: cfg.bossMinionScale };   // 小一号的夹子桑
     let spat = 0;
     for (let i = 0; i < 2 && alive + i < cfg.bossMaxMinions; i++) {
       const e = new Enemy(ctx.scene, { x: boss.x, y: boss.body.top, rx: room.rx, ry: room.ry }, look);
@@ -464,7 +463,7 @@ export class BossFight implements Mechanic {
     this.iceVx = v;
   }
 
-  /** Boss 倒下的一瞬间：它吐的小史莱姆全部炸掉 */
+  /** Boss 倒下的一瞬间：它吐的小夹子桑全部炸掉 */
   private killMinions(): void {
     const { ctx } = this;
     this.minions.forEach(e => { if (!e.active) return; playCrush(ctx.sparks, e.x, e.y); e.destroy(); });

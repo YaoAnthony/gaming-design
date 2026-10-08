@@ -33,6 +33,21 @@ export const BACKGROUNDS: readonly BackgroundDef[] = [
   { id: DEFAULT_BACKGROUND, name: '星空（默认）', layers: [] },
   { id: 'cave', name: '洞穴', layers: [{ file: 'cave_far.png', parallax: 10 }, { file: 'cave_near.png', parallax: 34 }] },
   { id: 'dusk', name: '黄昏', layers: [{ file: 'dusk_sky.png', parallax: 4 }, { file: 'dusk_hills.png', parallax: 24 }] },
+  // 保留已存地图的背景 id；文件切换到通过接缝校验的版本。
+  { id: 'woodland-a-v1', name: '木作森林 · A 月下林心', pixelated: true, layers: [{ file: 'woodland-a-v1.png', parallax: 0 }] },
+  { id: 'woodland-b-v1', name: '木作森林 · B 东侧林缘', pixelated: true, layers: [{ file: 'woodland-b-v2.png', parallax: 0 }] },
+  { id: 'woodland-c-v1', name: '木作森林 · C 废弃伐木营地', pixelated: true, layers: [{ file: 'woodland-c-v2.png', parallax: 0 }] },
+  { id: 'woodland-d-v1', name: '木作森林 · D 西侧林缘', pixelated: true, layers: [{ file: 'woodland-d-v2.png', parallax: 0 }] },
+  { id: 'woodland-e-v1', name: '木作森林 · E 蕨叶洼地', pixelated: true, layers: [{ file: 'woodland-e-v2.png', parallax: 0 }] },
+  { id: 'woodland-f-v1', name: '木作森林 · F 松林风谷', pixelated: true, layers: [{ file: 'woodland-f-v2.png', parallax: 0 }] },
+  { id: 'woodland-g-v1', name: '木作森林 · G 旧采石场', pixelated: true, layers: [{ file: 'woodland-g-v2.png', parallax: 0 }] },
+  { id: 'woodland-h-v1', name: '木作森林 · H 风车高林', pixelated: true, layers: [{ file: 'woodland-h-v2.png', parallax: 0 }] },
+  { id: 'woodland-i-v1', name: '木作森林 · I 盘根林地', pixelated: true, layers: [{ file: 'woodland-i-v2.png', parallax: 0 }] },
+  { id: 'woodland-j-v1', name: '木作森林 · J 风口树冠', pixelated: true, layers: [{ file: 'woodland-j-v2.png', parallax: 0 }] },
+  { id: 'woodland-k-v1', name: '木作森林 · K 林心树冠', pixelated: true, layers: [{ file: 'woodland-k-v2.png', parallax: 0 }] },
+  { id: 'woodland-m-v1', name: '木作森林 · M 高枝林隙', pixelated: true, layers: [{ file: 'woodland-m-v2.png', parallax: 0 }] },
+  { id: 'woodland-n-v1', name: '木作森林 · N 废弃观星台', pixelated: true, layers: [{ file: 'woodland-n-v2.png', parallax: 0 }] },
+  { id: 'woodland-o-v1', name: '木作森林 · O 积水根谷', pixelated: true, layers: [{ file: 'woodland-o-v2.png', parallax: 0 }] },
 ];
 
 /** 背景图的地址（Vite 打包时带哈希；只是地址，真正下载要等用到的时候） */

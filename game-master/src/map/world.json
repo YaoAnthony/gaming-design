@@ -6,6 +6,7 @@
       "model": {
         "roomW": 30,
         "roomH": 20,
+        "roomBackgrounds": {"A":"woodland-a-v1","H":"woodland-h-v1","J":"woodland-j-v1","K":"woodland-k-v1","M":"woodland-m-v1","N":"woodland-n-v1","F":"woodland-f-v1","D":"woodland-d-v1","B":"woodland-b-v1","C":"woodland-c-v1","G":"woodland-g-v1","E":"woodland-e-v1","I":"woodland-i-v1","O":"woodland-o-v1"},
         "layout": [
           [
             "H",

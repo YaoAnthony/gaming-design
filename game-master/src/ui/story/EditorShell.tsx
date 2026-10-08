@@ -5,7 +5,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useAppSelector } from '@/redux/hooks';
-import { SPRITESHEETS, TILE_FRAMES, IMAGES } from '@/asset';
+import { SPRITESHEETS, TILE_ATLAS_FRAMES, TILE_FRAMES, IMAGES } from '@/asset';
 import { canvasBox, type Box } from './geometry';
 
 /** 编辑器套上来要多久（毫秒）：和 app.css 的 .stage.in-editor 过渡一致 */
@@ -58,7 +58,7 @@ export function EditorShell({ stage }: { stage: HTMLElement | null }) {
         <div className="es-head">{t('story.editor.tiles')}</div>
         <div className="es-grid">
           {TILES.map(([ch, frame]) => (
-            <span key={ch} data-story-tile={ch} className="es-tile" style={{ width: tile, height: tile, backgroundImage: `url(${sheet.url})`, backgroundSize: `${tile * 30}px ${tile}px`, backgroundPosition: `${-frame * tile}px 0` }} />
+            <span key={ch} data-story-tile={ch} className="es-tile" style={{ width: tile, height: tile, backgroundImage: `url(${sheet.url})`, backgroundSize: `${tile * TILE_ATLAS_FRAMES}px ${tile}px`, backgroundPosition: `${-frame * tile}px 0` }} />
           ))}
         </div>
       </div>

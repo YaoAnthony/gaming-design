@@ -4,7 +4,7 @@ import type Phaser from 'phaser';
 import type { CellRef } from '@/type';
 import { Tiles } from '@/game/registry/registry';
 import { AUTOTILE_VARIANTS } from '@/asset';
-import { WALL_TEXTURE, WALL_VARIANTS, wallTemplates } from './walls';
+import { WALL_PHASES, WALL_TEXTURE, WALL_VARIANTS, wallTemplates } from './walls';
 import { frameAt, isWallAt, WALL_GID } from './frames';
 import { depthToAirAround, shadeOf } from './shading';
 import { DEPTH } from '@/game/depth';
@@ -38,15 +38,15 @@ export class TerrainView {
     const collide: number[] = [];
     Tiles.filter(d => d.solid && d.gameFrame >= 0).forEach(d => { for (let k = 0; k < (d.autotile ? AUTOTILE_VARIANTS : 1); k++) collide.push(d.gameFrame + k); });
     Tiles.filter(d => d.solid && !!d.wall).forEach(d => {
-      const base = WALL_GID + wallTemplates().indexOf(d.wall!) * WALL_VARIANTS.length;
-      for (let k = 0; k < WALL_VARIANTS.length; k++) collide.push(base + k);
+      const base = WALL_GID + wallTemplates().indexOf(d.wall!) * WALL_PHASES * WALL_VARIANTS.length;
+      for (let k = 0; k < WALL_PHASES * WALL_VARIANTS.length; k++) collide.push(base + k);
     });
     this.layer.setCollision(collide);
   }
 
-  /** 拼墙时地图上哪些格子算墙：被别处接管着画的格子（移动方块）不算 */
-  readonly wallAt = (x: number, y: number): boolean =>
-    isWallAt(this.grid, x, y) && !(x >= 0 && y >= 0 && x < this.w && y < this.h && this.drawnElsewhere(x, y));
+  /** 拼墙时地图上哪些格子算连着的同种墙：被别处接管着画的格子（移动方块）不算 */
+  readonly wallAt = (x: number, y: number, wall: string): boolean =>
+    isWallAt(this.grid, x, y, wall) && !(x >= 0 && y >= 0 && x < this.w && y < this.h && this.drawnElsewhere(x, y));
 
   /** 这一格变了：重画它和邻居（墙看 8 个邻居，自动拼贴的材质、会改挂法的尖刺看上下左右） */
   cellChanged(x: number, y: number): void {

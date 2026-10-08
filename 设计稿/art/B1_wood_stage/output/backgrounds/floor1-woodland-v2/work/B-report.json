@@ -1,0 +1,20 @@
+{
+  "room": "B",
+  "rawSize": [
+    1561,
+    1007
+  ],
+  "canvas": [
+    1586,
+    1024
+  ],
+  "finalSize": [
+    1536,
+    1024
+  ],
+  "neighbors": {
+    "left": "A"
+  },
+  "boundaryMaxError": 0,
+  "localCorrectionWidth": 50
+}

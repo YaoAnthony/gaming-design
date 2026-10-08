@@ -15,6 +15,7 @@ import type { Debris } from './Debris';
 import type { Dialogue } from './Dialogue';
 import type { Rooms } from './Rooms';
 import { playRespawnHand } from './respawnHand';
+import { HeroShatter } from './heroShatter';
 import { Colors, hex } from '@/shared/palette';
 
 export interface RespawnDeps {
@@ -53,7 +54,12 @@ export class Respawn {
   private prevEntry: EntryState | null = null;
   private lastResetAt: number | null = null;
 
-  constructor(private readonly d: RespawnDeps) {}
+  /** 死的时候主角炸成碎块（复活时碎块淡出） */
+  private readonly shatter: HeroShatter;
+
+  constructor(private readonly d: RespawnDeps) {
+    this.shatter = new HeroShatter(d.scene, d.terrain);
+  }
 
   /** 进入新房间：记录入口状态（位置 + 速度），重置时回到这里 */
   onRoomChanged(r: RoomCoord): void {
@@ -131,6 +137,7 @@ export class Respawn {
   respawn(message: MsgKey | null, reason: AppearReason, delayMs = 0): void {
     const p = this.d.player(), { rooms } = this.d;
     this.dead = false;
+    this.shatter.clear();
     this.d.onRespawn?.();
     // 复活点可能留在别的房间（骑纸过边界时不记新入口）：先切过去，骷髅手按那个房间放人
     const er = rooms.of(this.entry.x, this.entry.y);
@@ -156,13 +163,15 @@ export class Respawn {
    */
   appear(reason: AppearReason, then?: () => void): void {
     const { scene, cfg, rooms } = this.d, p = this.d.player(), entry = this.entry;
+    p.setVisible(true);   // 死的时候炸成碎块、人藏起来了
     const land = () => { p.respawn(entry); this.lastResetAt = scene.time.now; this.d.fogDirty(); then?.(); };
     if (cfg.respawnHandMs <= 0 || !cfg.respawnHandOn[reason]) { land(); return; }
     this.respawning = true;
     const x0 = rooms.current.rx * rooms.pxW;
-    playRespawnHand(scene, p, entry, { tile: cfg.tile, durationMs: cfg.respawnHandMs, roomLeft: x0, roomRight: x0 + rooms.pxW }, () => {
+    playRespawnHand(scene, p, entry, { tile: cfg.tile, durationMs: cfg.respawnHandMs, roomLeft: x0, roomRight: x0 + rooms.pxW, handTiles: cfg.gmHand.carryTiles }, () => {
       this.respawning = false;
       land();
+      p.playAction('getup', { interruptible: true });   // 被放下：坐地、爬起来；按方向键或跳就打断
     });
   }
 
@@ -204,7 +213,8 @@ export class Respawn {
       const r = rooms.of(this.entry.x, this.entry.y);
       if (!rooms.same(r, rooms.current)) rooms.enter(r, false);
     }
-    p.freeze(Colors.rose);
+    p.freeze(0xffffff);
+    this.shatter.burst(p);   // 白闪一下，炸成碎块四溅
     this.d.flash(reason, hex(Colors.rose));
     scene.cameras.main.shake(200, 0.01);
     this.diedAt = scene.time.now;

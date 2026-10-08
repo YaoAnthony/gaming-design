@@ -1,0 +1,154 @@
+{
+  "method": "50px exact neighbor strips -> built-in image_gen outpaint -> crop reference strips -> local 50px edge interpolation; two-edge corners share the same boundary values. Theme edits preserve outer 80px.",
+  "rooms": 14,
+  "width": 1536,
+  "height": 1024,
+  "referenceStripPx": 50,
+  "AUnchanged": true,
+  "excluded": [
+    "P"
+  ],
+  "passedSeams": 20,
+  "checks": [
+    {
+      "from": "H",
+      "to": "J",
+      "axis": "horizontal",
+      "maxChannelError": 0,
+      "differentPixels": 0
+    },
+    {
+      "from": "H",
+      "to": "F",
+      "axis": "vertical",
+      "maxChannelError": 0,
+      "differentPixels": 0
+    },
+    {
+      "from": "J",
+      "to": "K",
+      "axis": "horizontal",
+      "maxChannelError": 0,
+      "differentPixels": 0
+    },
+    {
+      "from": "J",
+      "to": "D",
+      "axis": "vertical",
+      "maxChannelError": 0,
+      "differentPixels": 0
+    },
+    {
+      "from": "K",
+      "to": "M",
+      "axis": "horizontal",
+      "maxChannelError": 0,
+      "differentPixels": 0
+    },
+    {
+      "from": "K",
+      "to": "A",
+      "axis": "vertical",
+      "maxChannelError": 0,
+      "differentPixels": 0
+    },
+    {
+      "from": "M",
+      "to": "N",
+      "axis": "horizontal",
+      "maxChannelError": 0,
+      "differentPixels": 0
+    },
+    {
+      "from": "M",
+      "to": "B",
+      "axis": "vertical",
+      "maxChannelError": 0,
+      "differentPixels": 0
+    },
+    {
+      "from": "N",
+      "to": "C",
+      "axis": "vertical",
+      "maxChannelError": 0,
+      "differentPixels": 0
+    },
+    {
+      "from": "F",
+      "to": "D",
+      "axis": "horizontal",
+      "maxChannelError": 0,
+      "differentPixels": 0
+    },
+    {
+      "from": "F",
+      "to": "G",
+      "axis": "vertical",
+      "maxChannelError": 0,
+      "differentPixels": 0
+    },
+    {
+      "from": "D",
+      "to": "A",
+      "axis": "horizontal",
+      "maxChannelError": 0,
+      "differentPixels": 0
+    },
+    {
+      "from": "D",
+      "to": "E",
+      "axis": "vertical",
+      "maxChannelError": 0,
+      "differentPixels": 0
+    },
+    {
+      "from": "A",
+      "to": "B",
+      "axis": "horizontal",
+      "maxChannelError": 0,
+      "differentPixels": 0
+    },
+    {
+      "from": "A",
+      "to": "I",
+      "axis": "vertical",
+      "maxChannelError": 0,
+      "differentPixels": 0
+    },
+    {
+      "from": "B",
+      "to": "C",
+      "axis": "horizontal",
+      "maxChannelError": 0,
+      "differentPixels": 0
+    },
+    {
+      "from": "B",
+      "to": "O",
+      "axis": "vertical",
+      "maxChannelError": 0,
+      "differentPixels": 0
+    },
+    {
+      "from": "G",
+      "to": "E",
+      "axis": "horizontal",
+      "maxChannelError": 0,
+      "differentPixels": 0
+    },
+    {
+      "from": "E",
+      "to": "I",
+      "axis": "horizontal",
+      "maxChannelError": 0,
+      "differentPixels": 0
+    },
+    {
+      "from": "I",
+      "to": "O",
+      "axis": "horizontal",
+      "maxChannelError": 0,
+      "differentPixels": 0
+    }
+  ]
+}

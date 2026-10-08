@@ -132,10 +132,10 @@ export class Hat implements Mechanic {
     return false;
   }
 
-  /** 帽子跟着人：放在贴图头顶，朝向跟人一样。挂在 POST_UPDATE 上且比玩家晚注册，读到的是挤压拉伸之后的样子 */
+  /** 帽子跟着人：放在这一帧的头顶（跑跳时头会上下动），朝向跟人一样。挂在 POST_UPDATE 上且比玩家晚注册，读到的是挤压拉伸之后的样子 */
   private place(): void {
     if (!this.head) return;
     const p = this.ctx.player;
-    this.head.setPosition(p.x, p.y - p.displayHeight / 2 + 1).setFlipX(p.flipX).setVisible(p.visible).setDisplaySize(p.displayWidth, this.ctx.cfg.hatHeight * this.ctx.cfg.tile);   // 帽子占的高度 = 碰撞框加高的那段；人藏起来帽子也藏
+    this.head.setPosition(p.x, p.headTop + 1).setFlipX(p.flipX).setVisible(p.visible).setDisplaySize(p.artWidth, this.ctx.cfg.hatHeight * this.ctx.cfg.tile);   // 帽子占的高度 = 碰撞框加高的那段；人藏起来帽子也藏
   }
 }

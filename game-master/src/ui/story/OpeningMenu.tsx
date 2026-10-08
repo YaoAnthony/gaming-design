@@ -1,9 +1,6 @@
-// ===== 标题画面的第二段：房间搭好之后，骷髅手从上往下把标题和按钮一个个拍进画面（每拍一下画面一震）=====
-// 然后手从右边伸进来指着选中的那一项，跟着选择移动；选中时戳一下。
-// 有存档就多一项「继续游戏」（排第一）：手像清理桌面一样把标题和按钮扫出画面，然后发 EVT.openingStart（continue，回到存档的房间）。
-// 「开始游戏」：有存档先弹确认框（覆盖进度？），确定了同样扫走、发 openingStart（new，从第一层开始）。
-// 「设置」：设置面板（手指着里面选中的那一项；在里面清除了进度，「继续游戏」就没了）。「退出」：桌面版直接退出；网页版提示关掉页面。
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
+// 标题牌子先甩进来挂稳（OpeningTitle）；落稳之后按钮才淡入，木手从右边画面外滑进来指着选中的那一项，点击时轻戳一下。
+// 开始 / 继续时标题松开吊带落下，按钮淡出，再通知游戏开始。
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { bridge, EVT } from '@/protocol';
 import { isDesktop } from '@/platform';
@@ -14,133 +11,109 @@ import { ConfirmButtonIcon, ControllerIcon } from '@/ui/PadIcons';
 import { GmHand, type HandState } from './GmHand';
 import { SettingsPanel } from './SettingsPanel';
 import { ConfirmModal } from './ConfirmModal';
-import { elementBox, isAbort, wait } from './geometry';
-import { preloadSfx, sfx, shakeStage } from './sfx';
+import { elementBox } from './geometry';
+import { preloadSfx, sfx } from './sfx';
+import { OpeningTitle, type OpeningTitleHandle } from './OpeningTitle';
 
 type Item = 'continue' | 'start' | 'settings' | 'quit';
-/** 菜单项：有存档才有「继续游戏」 */
 const menuItems = (hasSave: boolean): Item[] => (hasSave ? ['continue', 'start', 'settings', 'quit'] : ['start', 'settings', 'quit']);
-/** 拍下来之前举多高（舞台高的比例）；手伸过来、砸下去、停一下、抬手各多久（毫秒） */
-const SLAM = { lift: 0.45, reach: 320, drop: 120, rest: 170, raise: 140 };
-/** 扫走：手从右到左扫过去多久；每一项比上一项晚多久飞走 */
-const SWEEP = { ms: 520, stagger: 45 };
+/** entering = 牌子还在往下甩、没挂稳：按钮藏着、手还没来 */
+type Step = 'entering' | 'menu' | 'settings' | 'confirm' | 'leaving';
+/** 手第一次从右边滑进来用多久（毫秒） */
+const HAND_ENTER_MS = 480;
 
-type Step = 'slam' | 'menu' | 'settings' | 'confirm' | 'sweep';
-
-export function OpeningMenu({ stage, stageH, onStarted }: { stage: HTMLElement; stageH: number; onStarted: () => void }) {
+export function OpeningMenu({ stage, stageH }: { stage: HTMLElement; stageH: number }) {
   const { t } = useTranslation();
-  /** 最后用的输入设备：底下的提示按它显示 */
   const device = useAppSelector(s => s.input.device);
-  const [step, setStep] = useState<Step>('slam');
-  /** 已经拍好的有几个（标题 + 三个按钮 = 4） */
-  const [placed, setPlaced] = useState(0);
-  /** 正举在手里、还没拍下来的那一个：举多高（像素）、多久落下去 */
-  const [lift, setLift] = useState<{ i: number; dy: number; ms: number } | null>(null);
+  const [step, setStep] = useState<Step>('entering');
   const [index, setIndex] = useState(0);
   const [hand, setHand] = useState<HandState | null>(null);
   const [note, setNote] = useState('');
-  const [swept, setSwept] = useState(false);
-  /** 标题画面一出来就看有没有存档；在设置里清除了进度就去掉「继续游戏」 */
   const [items, setItems] = useState(() => menuItems(store.getState().run.active));
   const hasSave = items[0] === 'continue';
-  const itemsRef = useRef(items);
-  itemsRef.current = items;
   const refs = useRef<(HTMLElement | null)[]>([]);
+  const titleControl = useRef<OpeningTitleHandle | null>(null);
+  const titleEntry = useRef<Promise<void>>(Promise.resolve());
+  const lifetime = useRef<AbortController | null>(null);
   const settingsTarget = useRef<HTMLElement | null>(null);
+  /** 手已经滑进来过了（之后只在按钮之间挪） */
+  const handEntered = useRef(false);
 
-  // ---- 拍进来 ----
   useEffect(() => {
     preloadSfx('slam', 'whoosh', 'click');
-    const ac = new AbortController(), s = ac.signal;
-    (async () => {
-      for (let i = 0; i < itemsRef.current.length + 1; i++) {
-        const el = refs.current[i];
-        if (!el) continue;
-        const b = elementBox(stage, el), dy = stageH * SLAM.lift, cx = b.x + b.w / 2;
-        setLift({ i, dy, ms: 0 });
-        setHand({ at: { x: cx, y: b.y - dy }, pose: 'open', from: 'top', anchor: 'palm', ms: i === 0 ? SLAM.reach + 150 : SLAM.reach });
-        await wait(i === 0 ? SLAM.reach + 150 : SLAM.reach, s);
-        setLift({ i, dy: 0, ms: SLAM.drop });
-        setHand({ at: { x: cx, y: b.y }, pose: 'open', from: 'top', anchor: 'palm', ms: SLAM.drop });
-        await wait(SLAM.drop, s);
-        setPlaced(i + 1); setLift(null);
-        sfx('slam', i === 0 ? 1 : 0.8);
-        shakeStage(stage, i === 0);
-        await wait(SLAM.rest, s);
-        setHand({ at: { x: cx, y: b.y - stageH * 0.3 }, pose: 'open', from: 'top', anchor: 'palm', ms: SLAM.raise });
-        await wait(SLAM.raise, s);
-      }
-      setStep('menu');
-    })().catch(e => { if (!isAbort(e)) throw e; });
+    const ac = new AbortController();
+    lifetime.current = ac;
+    titleEntry.current = titleControl.current?.enter() ?? Promise.resolve();
+    // 牌子挂稳了才轮到菜单：按钮淡入、手进来
+    titleEntry.current.then(() => { if (!ac.signal.aborted) setStep('menu'); });
     return () => ac.abort();
-  }, [stage, stageH]);
+  }, []);
 
-  // ---- 手指着选中的那一项（从右边伸进来） ----
   const pointAt = useCallback((el: HTMLElement | null, ms = 220) => {
     if (!el) return;
     const b = elementBox(stage, el);
     setHand({ at: { x: b.x + b.w + 6, y: b.y + b.h / 2 }, pose: 'point', from: 'right', anchor: 'tip', ms });
   }, [stage]);
-  useEffect(() => { if (step === 'menu') pointAt(refs.current[index + 1]); }, [step, index, pointAt]);
-  useEffect(() => {   // 窗口变了：重新对准
+  useEffect(() => {
+    if (step !== 'menu') return;
+    const el = refs.current[index];
+    if (handEntered.current || !el) { pointAt(el); return; }
+    // 第一次：手先放在右边画面外，再滑进来指着
+    handEntered.current = true;
+    const b = elementBox(stage, el);
+    setHand({ at: { x: stage.clientWidth + stageH * 0.6, y: b.y + b.h / 2 }, pose: 'point', from: 'right', anchor: 'tip', ms: 0 });
+    const timer = window.setTimeout(() => pointAt(el, HAND_ENTER_MS), 40);
+    return () => window.clearTimeout(timer);
+  }, [step, index, pointAt, stage, stageH]);
+  useEffect(() => {
     if (step !== 'menu' && step !== 'settings' && step !== 'confirm') return;
-    pointAt(step === 'menu' ? refs.current[index + 1] : settingsTarget.current, 0);
-  }, [stageH]);   // eslint-disable-line react-hooks/exhaustive-deps -- 只在舞台大小变时
+    pointAt(step === 'menu' ? refs.current[index] : settingsTarget.current, 0);
+  }, [stageH]); // eslint-disable-line react-hooks/exhaustive-deps -- Realign only when the stage size changes.
 
-  /** 戳一下（选中），然后做那件事 */
   const poke = useCallback((i: number, then: () => void) => {
-    const el = refs.current[i + 1];
+    const el = refs.current[i], signal = lifetime.current?.signal;
     if (!el) { then(); return; }
     const b = elementBox(stage, el);
     sfx('click');
     setHand({ at: { x: b.x + b.w - 10, y: b.y + b.h / 2 }, pose: 'point', from: 'right', anchor: 'tip', ms: 90 });
-    window.setTimeout(() => { pointAt(el, 120); then(); }, 110);
+    window.setTimeout(() => { if (!signal?.aborted) { pointAt(el, 120); then(); } }, 110);
   }, [stage, pointAt]);
 
-  const sweep = useCallback((mode: 'new' | 'continue') => {
-    setStep('sweep');
-    const els = refs.current.filter((e): e is HTMLElement => !!e);
-    const top = Math.min(...els.map(e => elementBox(stage, e).y)), bottom = Math.max(...els.map(e => { const b = elementBox(stage, e); return b.y + b.h; }));
-    const y = (top + bottom) / 2, right = stage.clientWidth;
-    setHand({ at: { x: right + 40, y }, pose: 'open', from: 'right', anchor: 'palm', ms: 0 });
-    window.setTimeout(() => {
-      sfx('whoosh');
-      setHand({ at: { x: -stage.clientWidth * 0.2, y }, pose: 'open', from: 'right', anchor: 'palm', ms: SWEEP.ms, tilt: -8 });
-      window.setTimeout(() => setSwept(true), SWEEP.ms * 0.35);
-      window.setTimeout(() => { setHand(null); bridge.emit(EVT.openingStart, { mode }); onStarted(); }, SWEEP.ms + SWEEP.stagger * 4 + 200);
-    }, 60);
-  }, [stage, onStarted]);
+  const startGame = useCallback((mode: 'new' | 'continue') => {
+    const signal = lifetime.current?.signal;
+    setStep('leaving');
+    setHand(null);
+    void (async () => {
+      // If selected immediately, finish placing the title before releasing its straps.
+      await titleEntry.current;
+      if (signal?.aborted) return;
+      await titleControl.current?.drop();
+      if (!signal?.aborted) bridge.emit(EVT.openingStart, { mode });
+    })();
+  }, []);
 
   const pick = useCallback((i: number) => {
     if (step !== 'menu') return;
     const item = items[i];
     poke(i, () => {
-      if (item === 'continue') sweep('continue');
-      else if (item === 'start') { if (hasSave) setStep('confirm'); else sweep('new'); }
+      if (item === 'continue') startGame('continue');
+      else if (item === 'start') { if (hasSave) setStep('confirm'); else startGame('new'); }
       else if (item === 'settings') setStep('settings');
       else if (isDesktop) window.gameDesktop?.quit();
       else { setNote(t('story.quitWeb')); window.setTimeout(() => setNote(''), 2600); }
     });
-  }, [step, items, hasSave, poke, sweep, t]);
+  }, [step, items, hasSave, poke, startGame, t]);
 
   useMenuNav({ count: items.length, index, enabled: step === 'menu', setIndex: i => { setIndex(i); sfx('click', 0.4); }, onPick: pick });
-
   const onSettingsFocus = useCallback((el: HTMLElement | null) => { settingsTarget.current = el; pointAt(el); }, [pointAt]);
-
-  /** 第 i 个（0 = 标题）现在什么样：还没轮到 = 不显示；举在手里 = 往上挪 dy；扫走了 = 飞出左边 */
-  const itemStyle = (i: number): CSSProperties => {
-    if (swept) return { transform: `translateX(${-stage.clientWidth * 1.2}px) rotate(-25deg)`, transition: `transform ${SWEEP.ms}ms cubic-bezier(.5, 0, .9, .4) ${(items.length - i) * SWEEP.stagger}ms` };
-    if (lift?.i === i) return { transform: `translateY(${-lift.dy}px)`, transition: lift.ms ? `transform ${lift.ms}ms cubic-bezier(.6, 0, 1, .6)` : 'none' };
-    return i < placed ? {} : { visibility: 'hidden' };
-  };
 
   return (
     <div className="opening">
-      <div className={'op-menu' + (step === 'settings' || step === 'confirm' ? ' dim' : '')}>
-        <h1 ref={el => { refs.current[0] = el; }} className="op-title" style={itemStyle(0)}>GAME<br />MASTER</h1>
+      <div className={'op-menu' + (step === 'settings' || step === 'confirm' ? ' dim' : step === 'leaving' ? ' leaving' : step === 'entering' ? ' entering' : '')}>
+        <OpeningTitle stage={stage} control={titleControl} />
         {items.map((item, i) => (
-          <button key={item} ref={el => { refs.current[i + 1] = el; }} className={'op-btn' + (step === 'menu' && index === i ? ' sel' : '')} style={itemStyle(i + 1)}
-            onMouseEnter={() => { if (step === 'menu' && index !== i) setIndex(i); }} onClick={() => pick(i)}>
+          <button key={item} ref={el => { refs.current[i] = el; }} className={'op-btn' + (step === 'menu' && index === i ? ' sel' : '')}
+            disabled={step === 'leaving' || step === 'entering'} onMouseEnter={() => { if (step === 'menu' && index !== i) setIndex(i); }} onClick={() => pick(i)}>
             {t(`story.menu.${item}`)}
           </button>
         ))}
@@ -151,7 +124,7 @@ export function OpeningMenu({ stage, stageH, onStarted }: { stage: HTMLElement; 
         : <div className="op-hint pad"><ControllerIcon /><ConfirmButtonIcon kind={device} /><span>{t('story.hint.pad')}</span></div>)}
       {step === 'settings' && <SettingsPanel onFocus={onSettingsFocus} onCleared={() => { setItems(menuItems(false)); setIndex(0); }} onClose={() => setStep('menu')} />}
       {step === 'confirm' && <ConfirmModal text={t('story.menu.newConfirm')} no={t('story.menu.newNo')} yes={t('story.menu.newYes')}
-        onFocus={onSettingsFocus} onNo={() => setStep('menu')} onYes={() => sweep('new')} />}
+        onFocus={onSettingsFocus} onNo={() => setStep('menu')} onYes={() => startGame('new')} />}
       <GmHand hand={hand} stageH={stageH} />
     </div>
   );

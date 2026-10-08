@@ -18,7 +18,7 @@ import { roomPx } from '@/game/PhaserGame';
 const needsGesture = () => !isDesktop && typeof navigator !== 'undefined' && !(navigator as Navigator & { userActivation?: { hasBeenActive: boolean } }).userActivation?.hasBeenActive;
 
 /**
- * 游戏页：一打开就是标题画面——游戏场景直接起来（永远是第一层的出生房间），骷髅手先把房间搭出来、拍菜单（剧情机制 + StoryLayer）。
+ * 游戏页：一打开就是标题画面——第一层出生房间和菜单直接显示，木手只指向 UI（剧情机制 + StoryLayer）。
  * 菜单看有没有存档：有就多一项「继续游戏」（回到存档的房间）；「开始游戏」从第一层开始。结局画面选「退出」回到这里重来一遍标题画面
  */
 export function GameView() {

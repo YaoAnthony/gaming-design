@@ -144,14 +144,32 @@ export interface ActorsConfig {
 /** 3D 世界里卡通材质的光：从哪来（世界坐标，指向光源）、环境光、凹槽的环境光遮蔽取几次方 */
 export interface ToonLightConfig { dir: [number, number, number]; ambient: number; aoPower: number }
 
+  /** 只照 Boss 脸（领口 anchor_socket）的一小束冷光，让它从黑里浮出来：从哪来（相对 Boss 站的位置，格）、颜色、多亮、张角（度）、边缘多柔和 */
+  bossLight: { from: [number, number, number]; color: string; intensity: number; angle: number; penumbra: number };
 export interface World3DConfig {
-  /** 关卡里的演员；角色材质的光 */
+  /** 关卡里的演员；灯光；角色材质固定方向的光（不用灯光照的那种材质用） */
   actors: ActorsConfig;
   toon: ToonLightConfig;
   /** 走路速度、起跳速度、重力（格 / 秒²）、最快下落 */
+/**
+ * 3D 世界的灯光（world3d/Lighting3D，照着《小小梦魇》的调子）：
+ * lamp = 头顶那盏吊灯（聚光灯挂在灯泡上）：灯泡在哪、照向哪（格）、多亮（倍数，不随距离衰减）、张角（度）、边缘多柔和、什么颜色、灯泡周围的光晕多大（格，0 = 没有）；
+ * ambient = 灯外面的冷光（颜色 + 多亮）；rim = 另一道很弱的冷光（从哪来，让黑里的 Boss 有形）；fog = 雾的颜色、从多远起、到多远全没（格）；
+ * dust = 光柱里的灰尘：多少粒、多大（格）、往下飘多快（格 / 秒）、撒多开（格）、颜色、多实；vignette = 四角压多黑（0 ~ 1）
+ */
+export interface LightingConfig {
+  lamp: { at: [number, number, number]; look: [number, number, number]; intensity: number; angle: number; penumbra: number; color: string; glow: number };
+  ambient: { color: string; intensity: number };
+  rim: { intensity: number; color: string; from: [number, number, number] };
+  fog: { color: string; near: number; far: number };
+  dust: { count: number; size: number; fall: number; spread: number; color: string; opacity: number };
+  vignette: number;
+}
+
   moveSpeed: number;
   jumpVelocity: number;
   gravity: number;
+  lighting: LightingConfig;
   maxFall: number;
   /** 跳出画面那一下：往画面外、往上的速度 */
   popOut: { out: number; up: number };

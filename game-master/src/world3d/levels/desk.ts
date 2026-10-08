@@ -19,8 +19,17 @@ export const DESK: Level3D = {
     { at: v(12, 6.5, 26), size: v(4, 0.5, 4) },
   ],
   actors: [
-    { kind: 'boss', at: v(-20, 0, 3), yaw: 35 },                      // 站在屏幕左边外面，侧着身看向屏幕前
+    { kind: 'boss', at: v(-22, 0, 0), yaw: 60, anim: 'reach' },      // 从屏幕左边的黑暗里探过来，一只手伸向舞台
     { kind: 'clip', at: v(-12, 0, 4), patrol: { to: v(-2, 0, 4) } },   // 屏幕前面的地板上来回走（主角一般从左半边跳出来）
+  ],
+  clutter: [
+    { kind: 'spool', at: v(4, 0, 17), yaw: 20 },
+    { kind: 'scissors', at: v(-17, 0, 21), yaw: -35 },
+    { kind: 'pin_jar', at: v(10, 0, 23), yaw: 10 },
+    { kind: 'spool', at: v(-24, 0, 26), yaw: 70, scale: 0.9 },
+    { kind: 'shavings', at: v(-3, 0, 25), yaw: 15, solid: false },
+    { kind: 'shavings', at: v(13, 0, 13), yaw: 140, scale: 1.2, solid: false },
+    { kind: 'shavings', at: v(-21, 0, 12), yaw: 80, solid: false },
   ],
   respawn: v(0, 2, 8),
   killY: -24,

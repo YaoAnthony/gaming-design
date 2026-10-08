@@ -4,6 +4,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { ToonPaletteMaterial, type ToonLight, type ToonPalette } from '@/stage3d/hand/ToonPaletteMaterial';
+import { toonLitMaterial } from './litMaterial';
 
 export interface CharacterOptions {
   /** 材质名 → 调色板；找不到的用 fallback 那个名字的 */
@@ -11,6 +12,8 @@ export interface CharacterOptions {
   fallback?: string;
   /** 不要的部件（按名字藏起来） */
   hide?: string[];
+  /** 用场景里的灯光照（受聚光灯、投影、雾）；不写就是按固定方向分档、直接输出调色板颜色 */
+  lit?: boolean;
 }
 
 export class CharacterModel {
@@ -21,7 +24,7 @@ export class CharacterModel {
   private readonly mixer: THREE.AnimationMixer;
   private readonly actions = new Map<string, THREE.AnimationAction>();
   private current: string | null = null;
-  private readonly materials: ToonPaletteMaterial[] = [];
+  private readonly materials: THREE.Material[] = [];
   private readonly dirView = new THREE.Vector3();
   private readonly camInv = new THREE.Quaternion();
 
@@ -32,19 +35,22 @@ export class CharacterModel {
 
   constructor(readonly scene: THREE.Group, clips: THREE.AnimationClip[], o: CharacterOptions) {
     this.root.add(scene);
-    const byName = new Map<string, ToonPaletteMaterial>();
+    const byName = new Map<string, THREE.Material>();
     scene.traverse(ob => {
       if (!(ob instanceof THREE.Mesh)) return;
       const old = ob.material as THREE.Material, name = old.name;
       let m = byName.get(name);
       if (!m) {
-        m = new ToonPaletteMaterial(o.palette[name] ?? o.palette[o.fallback ?? 'wood'] ?? Object.values(o.palette)[0]);
+        const palette = o.palette[name] ?? o.palette[o.fallback ?? 'wood'] ?? Object.values(o.palette)[0];
+        m = o.lit ? toonLitMaterial(palette.colors) : new ToonPaletteMaterial(palette);
+        m.name = name;   // 之后还能按名字认出来（props 里的灯泡）
         byName.set(name, m);
         this.materials.push(m);
       }
       ob.material = m;
       old.dispose();
       ob.frustumCulled = false;   // 骨头在动，不按静止的包围盒剔除
+      ob.castShadow = ob.receiveShadow = !!o.lit;
       if (o.hide?.includes(ob.name)) ob.visible = false;
     });
     this.mixer = new THREE.AnimationMixer(scene);
@@ -93,7 +99,7 @@ export class CharacterModel {
     this.camInv.copy(camera.quaternion).invert();
     this.dirView.copy(dirWorld).applyQuaternion(this.camInv);
     const l: ToonLight = { dir: [this.dirView.x, this.dirView.y, this.dirView.z], ambient, aoPower };
-    for (const m of this.materials) m.setLight(l);
+    for (const m of this.materials) if (m instanceof ToonPaletteMaterial) m.setLight(l);
   }
 
   dispose(): void {

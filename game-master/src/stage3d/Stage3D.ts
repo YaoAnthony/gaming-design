@@ -40,6 +40,8 @@ export class Stage3D {
   constructor(private readonly o: Stage3DOptions) {
     this.renderer = new THREE.WebGLRenderer({ canvas: o.canvas, alpha: true, antialias: true });
     this.renderer.setClearColor(0x000000, 0);
+    this.renderer.shadowMap.enabled = true;   // 3D 世界里的聚光灯要投影；没有投影的物体不受影响
+    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.screen = new ScreenPlane(this.scene, o.source);
     this.ctx = { screen: this.screen, scene: this.scene, camera: this.camera, config: o.config, resetCamera: () => this.layout() };
     o.canvas.style.visibility = 'hidden';

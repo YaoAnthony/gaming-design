@@ -79,13 +79,22 @@ export const DEFAULT_CONFIG: GameConfig = {
   },
   world3d: {
     actors: {
-      bossHeight: 4, clipHeight: 0.9, clipSpeed: 1.8,
+      bossHeight: 14, clipHeight: 0.9, clipSpeed: 1.8,   // Boss 比主角高十几倍，像从桌子那头探过来
       bossHandLength: 1.5, bossHands: { left: { pose: 'open', roll: 0 }, right: { pose: 'fist', roll: 0 } },
     },
+      bossLight: { from: [6, 18, 14], color: '#7f9fd8', intensity: 2.2, angle: 11, penumbra: 0.6 },   // 一小束冷光只打在领口上
+    },
+    lighting: {
+      lamp: { at: [-3, 13, 9], look: [-3, 0, 9], intensity: 3.4, angle: 42, penumbra: 0.6, color: '#ffe4b5', glow: 5 },   // 头顶一盏吊灯，只照亮舞台中间一圈
+      ambient: { color: '#2b3650', intensity: 0.35 },                       // 灯外面是冷蓝的暗
+      rim: { intensity: 0.55, color: '#4b6a9a', from: [-24, 16, 26] },    // 前方偏左上来一道很弱的冷光：黑里的 Boss 是深蓝的形，不是黑块
+      fog: { color: '#06080f', near: 18, far: 52 },
+      dust: { count: 260, size: 0.09, fall: 0.35, spread: 12, color: '#ffe9c4', opacity: 0.45 },
+      vignette: 0.85,
     toon: { dir: [-0.5, 0.8, 0.6], ambient: 0.18, aoPower: 2 },
     moveSpeed: 7, jumpVelocity: 13, gravity: 36, maxFall: 28,
     popOut: { out: 8, up: 9 },
-    camera: { distance: 18, height: 7, lookUp: 1.5, followMs: 260 },
+    camera: { distance: 22, height: 7, lookUp: 4, followMs: 260 },   // 机位退远、压低：人很小，Boss 从黑里探出来
     returnMs: 700,
     rhythm: {
       heroZ: 0.75, tail: 0.2, heroScale: 2.5,

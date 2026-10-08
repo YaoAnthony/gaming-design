@@ -5,6 +5,7 @@ import { MODELS } from '@/asset';
 import type { ActorsConfig } from '@/type';
 import { BOSS_PALETTE, CLIP_PALETTE, GM_HAND_PALETTE } from '@/shared/palette';
 import { CharacterModel } from '@/stage3d/characters/CharacterModel';
+import { toonLitMaterial } from '@/stage3d/characters/litMaterial';
 import { HandModel } from '@/stage3d/hand/HandModel';
 import { ToonPaletteMaterial } from '@/stage3d/hand/ToonPaletteMaterial';
 import type { Actor3D, Vec3 } from './level';
@@ -32,12 +33,14 @@ interface Run {
   hands: BossHand[];
   yaw: number;
   biteLeft: number;
+  /** Boss 脸上那一小束冷光 */
+  light?: THREE.SpotLight;
 }
 
 export class Actors3D {
   readonly object = new THREE.Group();
   private readonly runs: Run[] = [];
-  private readonly handMaterials = new Map<string, ToonPaletteMaterial>();
+  private readonly handMaterials = new Map<string, THREE.Material>();
   private disposed = false;
   // 每帧复用
   private readonly pw = new THREE.Vector3();
@@ -50,7 +53,8 @@ export class Actors3D {
   private readonly q = new THREE.Quaternion();
   private readonly qa = new THREE.Quaternion();
 
-  constructor(actors: Actor3D[], private readonly cfg: () => ActorsConfig, private readonly hero: () => Vec3) {
+  /** lit = 用场景里的灯光照（受聚光灯、投影） */
+  constructor(actors: Actor3D[], private readonly cfg: () => ActorsConfig, private readonly hero: () => Vec3, private readonly lit = false) {
     for (const actor of actors) void this.spawn(actor);
   }
 
@@ -58,10 +62,10 @@ export class Actors3D {
     const c = this.cfg();
     try {
       if (actor.kind === 'boss') {
-        const model = await CharacterModel.load(MODELS.boss, { palette: BOSS_PALETTE, fallback: 'wood' });
+        const model = await CharacterModel.load(MODELS.boss, { palette: BOSS_PALETTE, fallback: 'wood', lit: this.lit });
         if (this.disposed) { model.dispose(); return; }
         model.setHeight(c.bossHeight);
-        model.play('idle', 0);
+        model.play(actor.anim ?? 'idle', 0);
         const hands: BossHand[] = [];
         for (const [side, mirror, spec] of [['L', false, c.bossHands.left], ['R', true, c.bossHands.right]] as const) {
           const anchor = model.part(`anchor_hand.${side}`), elbow = model.part(`elbow.${side}`);
@@ -69,16 +73,26 @@ export class Actors3D {
           const hand = await HandModel.load(MODELS.gmHand, name => this.handMaterial(name));
           if (this.disposed) { hand.dispose(); return; }
           for (const n of HAND_HIDE) { const o = hand.root.getObjectByName(n); if (o) o.visible = false; }
+          hand.root.traverse(o => { if (o instanceof THREE.Mesh) o.castShadow = o.receiveShadow = this.lit; });
           hand.setPose(spec.pose, 0);
           anchor.add(hand.root);
           hands.push({ hand, anchor, elbow, mirror, pose: spec.pose, roll: spec.roll });
         }
-        this.add({ actor, model, hands, yaw: THREE.MathUtils.degToRad(actor.yaw ?? 0), biteLeft: 0 });
+        const run: Run = { actor, model, hands, yaw: THREE.MathUtils.degToRad(actor.yaw ?? 0), biteLeft: 0 };
+        if (this.lit) {
+          // 一小束冷光只照领口，让黑里的 Boss 浮出来（目标直接用领口的对准点）
+          const L = c.bossLight, light = new THREE.SpotLight(new THREE.Color(L.color), L.intensity, 0, THREE.MathUtils.degToRad(L.angle), L.penumbra, 0);
+          light.position.set(actor.at.x + L.from[0], actor.at.y + L.from[1], actor.at.z + L.from[2]);
+          light.target = model.part('anchor_socket') ?? model.root;
+          this.object.add(light);
+          run.light = light;
+        }
+        this.add(run);
       } else {
-        const model = await CharacterModel.load(MODELS.clip, { palette: CLIP_PALETTE, fallback: 'clip_wood' });
+        const model = await CharacterModel.load(MODELS.clip, { palette: CLIP_PALETTE, fallback: 'clip_wood', lit: this.lit });
         if (this.disposed) { model.dispose(); return; }
         model.setHeight(c.clipHeight);
-        model.play(actor.patrol ? 'walk' : 'idle', 0);
+        model.play(actor.anim ?? (actor.patrol ? 'walk' : 'idle'), 0);
         this.add({ actor, model, hands: [], patrol: actor.patrol ? { k: 0, dir: 1 } : undefined, yaw: THREE.MathUtils.degToRad(actor.yaw ?? 0), biteLeft: 0 });
       }
     } catch (err) {
@@ -96,7 +110,8 @@ export class Actors3D {
   private handMaterial(name: string): THREE.Material {
     let m = this.handMaterials.get(name);
     if (!m) {
-      m = new ToonPaletteMaterial(GM_HAND_PALETTE[name] ?? GM_HAND_PALETTE.wood);
+      const p = GM_HAND_PALETTE[name] ?? GM_HAND_PALETTE.wood;
+      m = this.lit ? toonLitMaterial(p.colors) : new ToonPaletteMaterial(p);
       this.handMaterials.set(name, m);
     }
     return m;
@@ -118,7 +133,7 @@ export class Actors3D {
     if (m.playing === 'attack') {
       if (!m.finished()) return;
       r.biteLeft = BITE.cooldown;
-      m.play(r.patrol ? 'walk' : 'idle', 0.1);
+      m.play(r.actor.anim ?? (r.patrol ? 'walk' : 'idle'), 0.1);
     }
     r.biteLeft = Math.max(0, r.biteLeft - dt);
     if (near && r.biteLeft <= 0) { m.play('attack', 0.05, true); return; }
@@ -153,13 +168,13 @@ export class Actors3D {
     if (this.handMaterials.size) {
       this.q.copy(camera.quaternion).invert();
       this.z.copy(dirWorld).applyQuaternion(this.q);
-      for (const m of this.handMaterials.values()) m.setLight({ dir: [this.z.x, this.z.y, this.z.z], ambient, aoPower });
+      for (const m of this.handMaterials.values()) if (m instanceof ToonPaletteMaterial) m.setLight({ dir: [this.z.x, this.z.y, this.z.z], ambient, aoPower });
     }
   }
 
   dispose(): void {
     this.disposed = true;
-    for (const r of this.runs) { for (const h of r.hands) h.hand.dispose(); r.model.dispose(); }
+    for (const r of this.runs) { for (const h of r.hands) h.hand.dispose(); r.model.dispose(); r.light?.dispose(); }
     this.runs.length = 0;
     for (const m of this.handMaterials.values()) m.dispose();
     this.object.removeFromParent();

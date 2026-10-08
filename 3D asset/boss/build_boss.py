@@ -136,7 +136,15 @@ def wave(t):
             "upperarm.R": (0, 0, 2), "forearm.R": (4, 0, 0)}
 
 
-CLIPS = {"idle": (3.0, idle, True), "wave": (2.0, wave, False)}
+def reach(t):
+    """从黑暗里探过来：身子前倾，左手（看的人的右边那只）抬起来伸向舞台，慢慢呼吸"""
+    s = math.sin(t / 3.0 * 2 * math.pi)
+    return {"loc:hips": (0, 0.4 * s, 0), "spine": (12 + 1.5 * s, 0, 0),
+            "upperarm.L": (72 + 2 * s, 0, 8), "forearm.L": (-6 + 2 * s, 0, 0),
+            "upperarm.R": (3 * s, 0, 2), "forearm.R": (6 + 3 * s, 0, 0)}
+
+
+CLIPS = {"idle": (3.0, idle, True), "wave": (2.0, wave, False), "reach": (3.0, reach, True)}
 
 
 def animate(rig):

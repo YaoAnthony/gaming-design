@@ -26,13 +26,13 @@ export class Hero3D {
   private shown = true;
   private disposed = false;
 
-  /** @param w,h 人的宽高（格） */
-  constructor(modelUrl: string, w: number, private readonly h: number) {
+  /** @param w,h 人的宽高（格）；lit = 用场景里的灯光照（3D 世界），否则按固定方向分档 */
+  constructor(modelUrl: string, w: number, private readonly h: number, private readonly lit = false) {
     this.shadow = new THREE.Mesh(new THREE.CircleGeometry(0.5, 24), new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: SHADOW.opacity, depthWrite: false }));
     this.shadow.rotation.x = -Math.PI / 2;
     this.shadow.scale.setScalar(w * SHADOW.scale);
     this.object.add(this.shadow);
-    CharacterModel.load(modelUrl, { palette: HERO_PALETTE, fallback: 'hero_head' }).then(m => {
+    CharacterModel.load(modelUrl, { palette: HERO_PALETTE, fallback: 'hero_head', lit }).then(m => {
       if (this.disposed) { m.dispose(); return; }
       this.model = m;
       m.setHeight(this.h * this.scale);
@@ -87,9 +87,9 @@ export class Hero3D {
     if (this.model) this.model.root.visible = this.shown;
   }
 
-  /** 影子落在人正下方的地面上；groundY = null（脚下是空的）就不画 */
+  /** 影子落在人正下方的地面上；groundY = null（脚下是空的）就不画。受灯光照的时候有真的投影，不画这团 */
   castShadow(groundY: number | null): void {
-    this.shadow.visible = groundY !== null;
+    this.shadow.visible = groundY !== null && !this.lit;
     if (groundY !== null) this.shadow.position.set(0, groundY - this.object.position.y + SHADOW_LIFT, 0);
   }
 

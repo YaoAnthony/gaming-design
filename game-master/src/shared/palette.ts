@@ -95,3 +95,31 @@ export const BOSS_PALETTE: ToonPalettes = {
   slit: bands(['#3a342e', '#262220']),
   buckle: bands(['#c4ad84', '#a8926a']),
 };
+
+/** 3D 世界的场景件（3D asset/props：木框、桌面、木箱、木板、吊灯），和 build_props.py 的 PALETTE 一致 */
+export const PROPS_PALETTE: ToonPalettes = {
+  frame: bands(['#b9805f', '#9a6648', '#754b35']),
+  corner: bands(['#8f5a44', '#73483a', '#55342a']),
+  nail: bands(['#4a4440', '#2e2a28']),
+  deck: bands(['#4c6a63', '#3d5651', '#2d403c']),
+  lip: bands(['#5f7d75', '#4c6a63', '#3d5651']),
+  leg: bands(['#8a7355', '#6d5a43', '#4f4131']),
+  crate: bands(['#cfae80', '#b7956a', '#8f734f']),
+  crate_edge: bands(['#9a7b55', '#7f6344', '#5c4731']),
+  crate_dark: bands(['#3a2f24', '#241d17']),
+  plank: bands(['#c7a678', '#a98a5e', '#806744']),
+  lamp_shade: bands(['#5d6a5e', '#434d44', '#2d342e']),
+  lamp_inner: bands(['#f1e6c8', '#d9ccaa']),
+  lamp_cord: bands(['#2a2826', '#1b1a19']),
+  lamp_bulb: bands(['#fff3d0']),
+  spool: bands(['#d8b98c', '#c9a97c', '#a0865e']),
+  thread: bands(['#b8403a', '#8f2f2b', '#5e1f1c']),
+  steel: bands(['#b9c0c6', '#8f979e', '#5f666c']),
+  handle: bands(['#3a3634', '#262322', '#161413']),
+  glass: bands(['#b9cfd0', '#8fb0b2', '#5f8587']),
+  lid: bands(['#8a7355', '#6d5a43', '#4f4131']),
+  pin_red: bands(['#d64b3f', '#a3362e']),
+  pin_blue: bands(['#3f7fd6', '#2e5ea3']),
+  pin_yellow: bands(['#e3c04a', '#b09234']),
+  shaving: bands(['#ecd7ad', '#d8bd8c', '#b29a6c']),
+};

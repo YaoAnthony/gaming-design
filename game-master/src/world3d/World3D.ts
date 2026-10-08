@@ -13,6 +13,7 @@ import { groundBelow, stepBody, type Body3D } from './physics';
 import { Hero3D } from './Hero3D';
 import { Actors3D } from './Actors3D';
 import { LevelView } from './LevelView';
+import { Lighting3D } from './Lighting3D';
 import { WorldInput } from './input';
 
 /** 一帧最多按多久算（毫秒）：切到别的标签页再回来，不让人一步穿过地面 */
@@ -49,6 +50,7 @@ export class World3D implements StageFxRun {
   private readonly actors: Actors3D;
   private readonly input = new WorldInput();
   private readonly light = new THREE.Vector3();
+  private readonly lighting: Lighting3D;
   private readonly body: Body3D;
   /** 屏幕的宽高（格）、人在画面上原来的位置（脚底中心，格） */
   private readonly screen: { w: number; h: number };
@@ -83,10 +85,12 @@ export class World3D implements StageFxRun {
     this.body = { pos: { ...this.home }, vel: { x: 0, y: cfg.popOut.up, z: cfg.popOut.out }, half: w * BODY_WIDTH / 2, height: h, grounded: false };
     this.facing = handoff.facing;
 
-    this.view = new LevelView(o.level);
-    this.hero = new Hero3D(o.heroUrl, w, h);
-    this.actors = new Actors3D(o.level.actors ?? [], () => this.o.config().actors, () => this.body.pos);
-    this.root.add(this.view.object, this.hero.object, this.actors.object);
+    const L = cfg.lighting;
+    this.view = new LevelView(o.level, this.screen, { x: L.lamp.at[0], y: L.lamp.at[1], z: L.lamp.at[2] });
+    this.hero = new Hero3D(o.heroUrl, w, h, true);
+    this.actors = new Actors3D(o.level.actors ?? [], () => this.o.config().actors, () => this.body.pos, true);
+    this.lighting = new Lighting3D(L, this.unit, ctx.scene);
+    this.root.add(this.view.object, this.hero.object, this.actors.object, this.lighting.object);
     ctx.scene.add(this.root);
     this.camHome = ctx.camera.position.clone();
     if (import.meta.env.DEV) window.__world3d = this;   // 控制台调试：看关卡里的演员、人在哪
@@ -114,6 +118,7 @@ export class World3D implements StageFxRun {
       if (move.x !== 0) this.facing = move.x > 0 ? 1 : -1;
     }
     stepBody(b, this.o.level.blocks, dt, cfg.gravity, cfg.maxFall);
+    this.view.collider?.resolve(b);   // 桌上的杂物按模型本身的形状撞
     if (this.phase === 'out' && b.grounded) { this.phase = 'play'; b.vel.x = 0; b.vel.z = 0; }
     if (b.pos.y < this.o.level.killY) { b.pos = { ...this.o.level.respawn }; b.vel = { x: 0, y: 0, z: 0 }; }
 
@@ -133,6 +138,7 @@ export class World3D implements StageFxRun {
     this.light.set(t.dir[0], t.dir[1], t.dir[2]).normalize();
     this.hero.update(dt);
     this.actors.update(dt);
+    this.lighting.update(dt);
     this.hero.setLight(this.light, cam, t.ambient, t.aoPower);
     this.actors.setLight(this.light, cam, t.ambient, t.aoPower);
   }
@@ -147,6 +153,7 @@ export class World3D implements StageFxRun {
     this.view.dispose();
     this.hero.dispose();
     this.actors.dispose();
+    this.lighting.dispose();
     this.ctx.resetCamera();
   }
 

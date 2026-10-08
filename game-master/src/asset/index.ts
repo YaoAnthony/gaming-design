@@ -72,6 +72,7 @@ import gmHandModelUrl from './model/gm_hand.glb?url';
 import heroModelUrl from './model/hero.glb?url';
 import clipModelUrl from './model/clip.glb?url';
 import bossModelUrl from './model/boss.glb?url';
+import propsModelUrl from './model/props.glb?url';
 import openingMusicUrl from './music/openingMusic.mp3';
 import boomUrl from './audio/boob.mp3';
 import bgmUrl from './music/Pixelated_Coffee.mp3';
@@ -258,7 +259,7 @@ export const GRAB_HAND = {
  * gmHand = Game Master 的木手（gm_hand/export_glb.py：骨架、姿势动画、对准点）；
  * hero / clip / boss = 主角、夹子桑、Game Master 本体（各自文件夹的 build_*.py --export：骨架 + 动作 + 对准点，3D 世界里用）
  */
-export const MODELS = { gmHand: gmHandModelUrl, hero: heroModelUrl, clip: clipModelUrl, boss: bossModelUrl };
+export const MODELS = { gmHand: gmHandModelUrl, hero: heroModelUrl, clip: clipModelUrl, boss: bossModelUrl, props: propsModelUrl };
 
 export const GM_HAND = {
   url: gmHandUrl,

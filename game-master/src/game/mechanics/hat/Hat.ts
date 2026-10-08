@@ -5,11 +5,21 @@
 // - 换层、死亡都不掉；只在平台层生效（俯视层的身体大小由层机制管）
 import Phaser from 'phaser';
 import type { PlayContext, Suckable } from '@/game/core/PlayContext';
+import type { LooseItem } from '@/game/core/LooseItems';
 import { INPUT_DOWN } from '@/shared/input';
 import { floorMechanicOf, type Mechanic } from '../define';
 import { Colors, hex } from '@/shared/palette';
 
-interface GroundHat { sprite: Phaser.GameObjects.Image; /** 刚放下 / 刚被撞掉：人走开之前不能再戴 */ blocked: boolean }
+interface GroundHat {
+  sprite: Phaser.GameObjects.Image;
+  /** 刚放下 / 刚被撞掉：人走开之前不能再戴 */
+  blocked: boolean;
+  /** 物理体（ctx.loose）：有重力，站在移动方块 / 纸上被带着走 */
+  loose: LooseItem;
+}
+
+/** 地上帽子的碰撞框（像素，和帽檐差不多宽、矮一点）；落地溅的火花颜色（帽带的红） */
+const GROUND_HAT = { body: { w: 24, h: 16 }, spark: 0xc94b52 };
 
 export class Hat implements Mechanic {
   private worn: boolean;
@@ -50,10 +60,10 @@ export class Hat implements Mechanic {
     const r = this.ctx.player.rect();
     for (let i = this.ground.length - 1; i >= 0; i--) {
       const g = this.ground[i];
-      const touching = Phaser.Geom.Intersects.RectangleToRectangle(g.sprite.getBounds(), r);
+      const touching = Phaser.Geom.Intersects.RectangleToRectangle(this.ctx.loose.rect(g.loose), r);
       if (g.blocked) { if (!touching) g.blocked = false; continue; }
       if (!touching || !this.hasHeadroom()) continue;
-      g.sprite.destroy(); this.ground.splice(i, 1);
+      this.ctx.loose.remove(g.loose); g.sprite.destroy(); this.ground.splice(i, 1);
       this.wear();
       this.ctx.sparks.explode(6, this.ctx.player.x, this.ctx.player.y - this.ctx.cfg.tile);
       return;
@@ -62,6 +72,9 @@ export class Hat implements Mechanic {
 
   /** 戴着帽子就带到下一层（存档里是 carry.hat = true） */
   persist(): true | undefined { return this.worn ? true : undefined; }
+
+  /** 重置：地上的帽子回到放下它的地方（按 R 只管这个房间的） */
+  onReset(scope: 'room' | 'world' | 'level'): void { this.ctx.loose.reset(scope, this.ground.map(g => g.loose)); }
 
   vortexTargets(): Suckable[] { return this.head ? [this.head] : []; }
 
@@ -92,13 +105,14 @@ export class Hat implements Mechanic {
     if (why === 'knock') ctx.fx.flash('msg.hatKnocked', hex(Colors.paper));
   }
 
-  /** 放一顶帽子到地上：从给定位置往下找到第一块实心砖，站在它上面 */
+  /** 放一顶帽子到地上：从给定位置往下找到第一块实心砖，放在它上面（之后有重力：脚下没了就掉，站在移动方块上跟着走） */
   private putOnGround(x: number, y: number, blocked: boolean): void {
     const { ctx } = this, T = ctx.cfg.tile, cx = Math.floor(x / T);
     let cy = Math.floor((y - 1) / T);
     while (cy < ctx.terrain.h - 1 && !ctx.terrain.isSolid(cx, cy + 1)) cy++;
-    const sprite = ctx.scene.add.image(x, (cy + 1) * T, 'hat').setOrigin(0.5, 1).setDepth(2.4);
-    this.ground.push({ sprite, blocked });
+    const sprite = ctx.scene.add.image(x, 0, 'hat').setDepth(2.4);
+    const loose = ctx.loose.add({ sprite, scale: 1, height: sprite.height, tint: GROUND_HAT.spark, bob: false }, x, (cy + 1) * T - sprite.height / 2, GROUND_HAT.body);
+    this.ground.push({ sprite, blocked, loose });
   }
 
   /** 头顶那 hatHeight 格没有实心砖，才戴得上。身高按现在的算（长大以后更高）；只在没戴着的时候问，身高里还没有帽子 */

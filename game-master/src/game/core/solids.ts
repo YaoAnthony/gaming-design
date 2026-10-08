@@ -4,6 +4,7 @@
 // 玩家建好之前登记的先记着，start() 时一起挂；之后再登记的立刻挂。同类之间（箱子和箱子、钥匙和箱子）的碰撞规则各机制自己挂
 import type Phaser from 'phaser';
 
+/** platform = 会动的实心地形（移动方块、纸）；crate = 箱子；key = 地上的小东西（钥匙、蜡烛、帽子、胶带，core/LooseItems.ts） */
 export type SolidKind = 'platform' | 'crate' | 'key';
 type Group = Phaser.Physics.Arcade.Group;
 type Process = Phaser.Types.Physics.Arcade.ArcadePhysicsCallback;

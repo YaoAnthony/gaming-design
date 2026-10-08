@@ -9,3 +9,8 @@ recordings/*-20*.json
 release/
 steam/build/
 .env.steam.local
+
+# 本地背景拆分缓存、预览帧和诊断结果（正式图片在 src/asset/image/background）
+output/background-ambient/
+output/background-depth/
+output/diagnostics/

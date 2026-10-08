@@ -30,7 +30,7 @@ export interface SceneFx {
   light(x: number, y: number, kind: LightKind): Phaser.GameObjects.Image | null;
 }
 
-export interface SceneFxRoom { x: number; y: number; w: number; h: number; key: string; dark: boolean }
+export interface SceneFxRoom { x: number; y: number; w: number; h: number; key: string; dark: boolean; woodland?: boolean }
 
 /** 暖光的圆和光束的条：程序画的渐变，只建一次 */
 function ensureTextures(textures: Phaser.Textures.TextureManager): void {
@@ -74,10 +74,11 @@ export function applySceneFx(scene: Phaser.Scene, on: { vignette: boolean; dust:
   if (on.vignette) cam.postFX?.addVignette(0.5, 0.5, VIGNETTE.radius, VIGNETTE.strength);   // 只有 WebGL 有 postFX
 
   const zone = new Phaser.Geom.Rectangle(0, 0, cam.width, cam.height);
+  let dust: Phaser.GameObjects.Particles.ParticleEmitter | undefined;
   if (on.dust) {
     const life = (DUST.lifeMs[0] + DUST.lifeMs[1]) / 2;
     // 柔光圆缩得很小当尘点，叠加发光；慢慢往上、左右晃着飘，出生和消失时渐隐（透明度按寿命走一个正弦）
-    scene.add.particles(0, 0, 'fogglow', {
+    dust = scene.add.particles(0, 0, 'fogglow', {
       emitZone: { type: 'random', source: zone } as Phaser.Types.GameObjects.Particles.ParticleEmitterRandomZoneConfig,
       lifespan: { min: DUST.lifeMs[0], max: DUST.lifeMs[1] },
       frequency: life / DUST.perRoom,
@@ -121,7 +122,12 @@ export function applySceneFx(scene: Phaser.Scene, on: { vignette: boolean; dust:
   scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => { scene.events.off(Phaser.Scenes.Events.UPDATE, flicker); lights.clear(); });
 
   return {
-    setRoom(x, y, w, h) { zone.setTo(x, y, w, h); },
+    setRoom(x, y, w, h) {
+      zone.setTo(x, y, w, h);
+      const woodland = rooms.find(room => room.x === x && room.y === y)?.woodland;
+      // 森林还有六颗很淡的萤光点，微尘降到约八粒，保持安静。
+      dust?.setFrequency((DUST.lifeMs[0] + DUST.lifeMs[1]) / 2 / (woodland ? 8 : DUST.perRoom));
+    },
     light(x, y, kind) {
       if (!on.lights) return null;
       const k = LIGHTS[kind], scale = k.radius * 2 * tile / LIGHT_TEX;

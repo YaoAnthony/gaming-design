@@ -6,6 +6,7 @@
 // - 视差：人在房间里走，远的层挪得少、近的挪得多（layout.ts 的 parallaxOffset）
 // - 层次：都在地形、光柱、微尘下面（depth.ts 的 DEPTH.background*）；画进游戏画布，3D 屏幕和攥纸团都会带上它
 import Phaser from 'phaser';
+import { WoodlandAmbient } from './WoodlandAmbient';
 import { backgroundDef, backgroundKey, backgroundUrl, BACKGROUND_KEY_PREFIX, DEFAULT_BACKGROUND, type BackgroundLayer } from '@/asset/backgrounds';
 import { Colors, hex } from '@/shared/palette';
 import { DEPTH } from '@/game/depth';
@@ -63,9 +64,11 @@ export class Backdrop {
   /** 已经放上去的（房间 key + 第几层），到一张放一张时不重复放 */
   private placedKeys = new Set<string>();
   private destroyed = false;
+  private readonly ambient: WoodlandAmbient;
 
   /** @param roomPx 一个房间多少像素 */
   constructor(private readonly scene: Phaser.Scene, private readonly floor: Floor, roomPx: { w: number; h: number }) {
+    this.ambient = new WoodlandAmbient(scene);
     const m = floor.model;
     this.rooms = m.layout.flatMap((row, ry) => row.flatMap((key, rx) => (key ? [{ key, x: rx * roomPx.w, y: ry * roomPx.h, w: roomPx.w, h: roomPx.h }] : [])));
     // 先整层铺星空（图还没加载完、或者加载失败的房间就是它），用图的房间等图到了盖在上面
@@ -108,6 +111,8 @@ export class Backdrop {
           .setAlpha(fade ? 0 : alpha).setDepth(DEPTH.background + i * DEPTH.backgroundStep).setVisible(false);
         if (fade) scene.tweens.add({ targets: img, alpha, duration: FADE_IN_MS, ease: 'Sine.easeOut' });
         this.placed.push({ room, layer, img });
+        if (def.ambient === 'woodland' && layer.motion === 'cloud') this.ambient.addCloud(room, img);
+        if (def.ambient === 'woodland' && i === def.layers.length - 1) this.ambient.add(room, img);
       });
     }
   }
@@ -118,6 +123,7 @@ export class Backdrop {
    */
   update(px: number, py: number): void {
     if (!this.placed.length) return;
+    this.ambient.update();
     const view = this.scene.cameras.main.worldView;
     for (const p of this.placed) {
       const r = p.room, seen = r.x < view.right && r.x + r.w > view.x && r.y < view.bottom && r.y + r.h > view.y;

@@ -9,6 +9,8 @@ html, body, #root { margin: 0; height: 100%; background: var(--bg); color: var(-
 .view { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }   /* 舞台震动（shakeStage）时内容会探出去几像素：不让页面冒出滚动条（滚动条一出一没，舞台宽度变、画布被清空，就是一闪） */
 .toolbar { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--line); }
 .stage { position: relative; flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
+/* 游戏画面两边（画布比例和窗口不一样时空出来的地方）：和画面边缘的黑一样（迷雾 + 暗角之后的颜色），不要页面底色那种偏蓝的黑 */
+.game-stage { background: #05070d; }
 .stage-col { display: flex; flex-direction: column; flex: 1; min-width: 0; min-height: 0; }
 .floors { display: flex; gap: 6px; padding: 8px 12px; border-bottom: 1px solid var(--line); background: var(--panel); overflow-x: auto; }
 .floors .floor { background: transparent; border: 1px solid var(--line); color: var(--muted); padding: 5px 12px; border-radius: 6px; cursor: pointer; white-space: nowrap; }

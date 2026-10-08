@@ -3,7 +3,7 @@
 // 钥匙不占手：碰到就捡，飘在身后排成一串跟着走（KEY_FOLLOW），已经跟着 MAX_KEYS 把就捡不起来；开门时那一把飞进门里。
 // 有照明的东西在地上自己发光（迷雾里的光源、周围一小圈暖光），拿在手上把视野撑开。
 // 钥匙画大一号、背后一圈同色的光一胀一缩、时不时闪一下，捡到时叮一声。
-// 地上的钥匙有重力、有碰撞体积：会掉下去、会被怪物推着走（LooseKeys.ts）；蜡烛固定在原地。
+// 地上的钥匙、蜡烛有重力、有碰撞体积：会掉下去、站在移动方块上被带着走、会被怪物推着走（core/LooseItems.ts）。
 // 往下按一下（↓ / S / 手柄 / 触屏）把最后一把钥匙放在脚边；戴着帽子时这一下是摘帽子，钥匙不放。
 import Phaser from 'phaser';
 import type { ItemDef } from '@/type';
@@ -13,8 +13,8 @@ import type { PlayContext } from '@/game/core/PlayContext';
 import { INPUT_DOWN } from '@/shared/input';
 import type { Mechanic } from '../define';
 import type { Hat } from '../hat/Hat';
-import { LooseKeys, type LooseKey } from './LooseKeys';
-import { KEY_BODY } from './keyFall';
+import type { SolveNodes } from '../solve';
+import type { LooseItem } from '@/game/core/LooseItems';
 import { DEPTH } from '@/game/depth';
 
 /** 能拿在手上的东西 */
@@ -42,10 +42,12 @@ interface GroundThing {
   blocked: boolean;
   /** 人自己放下的（换东西时丢在这里）：整张地图重置时钥匙留在这里，不回地图原位 */
   dropped: boolean;
-  /** 钥匙的物理体；蜡烛没有 */
-  loose?: LooseKey;
+  /** 物理体（ctx.loose） */
+  loose: LooseItem;
 }
 
+/** 地上的道具（蜡烛）落地溅的火花颜色 */
+const GROUND_SPARK = 0xffd08a;
 /** 钥匙放大多少倍（贴图 16×16）：地上的、拿在手上的 */
 const KEY_SCALE = { ground: 2, held: 1.5 };
 /** 身后最多跟几把钥匙 */
@@ -72,15 +74,19 @@ export class Carry implements Mechanic {
   private trail: TrailKey[] = [];
   /** 进场时手里的东西（换层 / 读档带过来的道具 id；编辑器试玩也可以是 'key:组号'，那就跟在身后） */
   private heldId: string | null;
-  /** 地上钥匙的物理体 */
-  private looseKeys: LooseKeys;
-  /** 物理把人、钥匙挪好之后：手上的东西跟着人，地上钥匙的贴图跟着物理体 */
-  private afterPhysics = (_time: number, delta: number) => { this.looseKeys.sync(this.ctx.scene.time.now); this.place(delta); };
+  /** 发光的东西现在在哪几格（迷雾里的光源）：变了才重新告诉迷雾 */
+  private lightCells = '';
+  /** 物理把人挪好之后：手上的东西跟着人（地上东西的贴图由场景的 ctx.loose 摆） */
+  private afterPhysics = (_time: number, delta: number) => { this.place(delta); };
 
   constructor(private ctx: PlayContext) {
     const carried = ctx.carried('carry');
     this.heldId = typeof carried === 'string' ? carried : null;
-    this.looseKeys = new LooseKeys(ctx);
+  }
+
+  /** 同层读档恢复：不触发拾取事件。 */
+  restoreKey(key: Carryable): void {
+    if (this.trail.length < MAX_KEYS) this.addTrail(key);
   }
 
   /** 手上拿的道具 */
@@ -95,26 +101,30 @@ export class Carry implements Mechanic {
   }
 
   /**
-   * 放一个东西在地上，(x, y) = 贴图停在地上时的中心。
-   * 钥匙：画大、带同色光晕和闪光，有物理体（悬空就往下掉）；其他的原地上下浮，会发光的自带光晕和一小圈暖光，也是迷雾里的光源
+   * 放一个东西在地上，(x, y) = 贴图停在地上时的中心。都有物理体（ctx.loose）：悬空就往下掉，站在移动方块上跟着走，停着时上下浮。
+   * 钥匙：画大、带同色光晕和闪光；其他的会发光的自带光晕和一小圈暖光，也是迷雾里的光源
    */
   spawnGround(carry: Carryable, x: number, y: number, blocked = false): void {
     const scene = this.ctx.scene;
-    const thing: GroundThing = { carry, x, y, sprite: scene.add.image(x, y, carry.texture).setTint(carry.tint).setDepth(2.4), extras: [], blocked, dropped: false };
+    const sprite = scene.add.image(x, y, carry.texture).setTint(carry.tint).setDepth(2.4);
+    const extras: Phaser.GameObjects.GameObject[] = [];
+    let loose: LooseItem;
     if (carry.key !== undefined) {
       const { halo, glints } = this.keyShine(x, y, carry.tint);
-      thing.extras.push(halo, glints);
-      thing.loose = this.looseKeys.add({ sprite: thing.sprite, halo, glints, tint: carry.tint, scale: KEY_SCALE.ground }, x, y);   // 上下浮也由它管
+      extras.push(halo, glints);
+      loose = this.ctx.loose.add({ sprite, scale: KEY_SCALE.ground, height: sprite.height * KEY_SCALE.ground, around: [halo, glints], tint: carry.tint }, x, y);
     } else {
-      scene.tweens.add({ targets: thing.sprite, y: y - 3, duration: 900, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
+      const around: { setPosition(x: number, y: number): unknown }[] = [];
       if (carry.light > 0) {
         const glow = scene.add.image(x, y, 'fogglow').setDepth(2.35).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.3).setScale(1.5);
         scene.tweens.add({ targets: glow, alpha: 0.45, scale: 1.75, duration: 160, yoyo: true, repeat: -1, ease: 'Sine.inOut' });
-        thing.extras.push(glow);
+        extras.push(glow); around.push(glow);
         const warm = this.ctx.fx.light(x, y, 'candle');
-        if (warm) thing.extras.push(warm);
+        if (warm) { extras.push(warm); around.push(warm); }
       }
+      loose = this.ctx.loose.add({ sprite, scale: 1, height: sprite.height, around, tint: GROUND_SPARK }, x, y, { w: Math.min(sprite.width, 24), h: Math.min(sprite.height, 18) });
     }
+    const thing: GroundThing = { carry, ...this.ctx.loose.anchor(loose), sprite, extras, blocked, dropped: false, loose };
     this.ground.push(thing);
     this.syncLightSources();
   }
@@ -183,15 +193,16 @@ export class Carry implements Mechanic {
     const start = this.heldId ? this.carryOf(this.heldId) : null;
     if (start?.key !== undefined) { this.heldId = null; this.addTrail(start); }
     else if (start) this.hold(start); else this.heldId = null;
-    this.looseKeys.start();
     this.ctx.scene.events.on(Phaser.Scenes.Events.POST_UPDATE, this.afterPhysics);
     this.ctx.scene.events.on(INPUT_DOWN, this.putDown);   // 往下按一下：键盘 ↓ / S、手柄、触屏都算
   }
 
-  /** 地上的钥匙：落地弹一下、被埋了挪出来；位置跟着物理体更新 */
-  update(now: number): void {
-    this.looseKeys.update(now);
+  /** 地上的东西的位置跟着物理体（落地弹、被埋了挪出来由 ctx.loose 管）；发光的换了格子就重新告诉迷雾 */
+  update(): void {
     this.syncKeyAnchors();
+    const T = this.ctx.cfg.tile;
+    const cells = this.ground.filter(g => g.carry.light > 0).map(g => `${Math.floor(g.x / T)},${Math.floor(g.y / T)}`).join(';');
+    if (cells !== this.lightCells) this.syncLightSources();
   }
 
   /** 碰到就捡：钥匙跟到身后（满 MAX_KEYS 把就不捡）；道具拿到手上，手里有东西就换：旧的留在这个位置，等人走开才能再捡 */
@@ -207,6 +218,7 @@ export class Carry implements Mechanic {
       this.removeGround(g);
       if (isKey) {
         this.addTrail(g.carry, { x: g.x, y: g.y });   // 从地上飞到身后，排在最后
+        this.ctx.mech<SolveNodes>('solve')?.onKeyPicked(g.carry.key!, this.ctx.rooms.of(g.x, g.y));
         if (this.ctx.scene.cache.audio.exists(KEY_SOUND.key)) this.ctx.scene.sound.play(KEY_SOUND.key, { volume: KEY_SOUND.volume });
       } else {
         const old = this.held?.carry ?? null;
@@ -223,7 +235,7 @@ export class Carry implements Mechanic {
    * 整张地图重置时该回原位的由 Locks 重新放（clearKeys）
    */
   onReset(scope: 'room' | 'world' | 'level'): void {
-    this.looseKeys.reset(scope);
+    this.ctx.loose.reset(scope, this.ground.map(g => g.loose));
     this.syncKeyAnchors();
   }
 
@@ -249,7 +261,7 @@ export class Carry implements Mechanic {
     this.spawnGround(last.carry, x, b.bottom, true);
     const g = this.ground[this.ground.length - 1];
     g.dropped = true;
-    if (g.loose) { g.loose.body.reset(x, b.bottom - KEY_BODY.h / 2); Object.assign(g, this.looseKeys.anchor(g.loose)); }   // 钥匙底边贴脚底
+    ctx.loose.dropAt(g.loose, x, b.bottom); Object.assign(g, ctx.loose.anchor(g.loose));   // 钥匙底边贴脚底
     this.removeTrail(last);
     this.syncLightSources();
     ctx.sparks.explode(6, x, b.bottom - 6);
@@ -257,20 +269,18 @@ export class Carry implements Mechanic {
 
   // ---------- 内部 ----------
   /**
-   * 碰到就捡的范围：钥匙按它的碰撞框（和开门的范围一样）。按贴图算不行：掉下来时贴图会歪、会压扁，外框变大，
-   * 人在隔壁一格往上跳、钥匙往下掉，隔着几像素也会擦到。其他东西按贴图
+   * 碰到就捡的范围：按碰撞框（钥匙和开门的范围一样）。按贴图算不行：掉下来时贴图会歪、会压扁，外框变大，
+   * 人在隔壁一格往上跳、钥匙往下掉，隔着几像素也会擦到
    */
   private pickArea(g: GroundThing): Phaser.Geom.Rectangle {
-    if (!g.loose) return g.sprite.getBounds();
-    const b = g.loose.body;
-    return new Phaser.Geom.Rectangle(b.x, b.y, b.width, b.height);
+    return this.ctx.loose.rect(g.loose);
   }
 
   /** 从地上拿掉（捡起来、开门用掉）：贴图、光晕、物理体一起没 */
   private removeGround(g: GroundThing): void {
     this.ground = this.ground.filter(o => o !== g);
     g.sprite.destroy(); g.extras.forEach(o => o.destroy());
-    if (g.loose) this.looseKeys.remove(g.loose);
+    this.ctx.loose.remove(g.loose);
   }
 
   /** 地上的钥匙开了门：消失，冒一下火花 */
@@ -281,7 +291,7 @@ export class Carry implements Mechanic {
 
   /** 钥匙的 (x, y) 跟着物理体走：捡的判定、换东西时旧的放在哪都按它 */
   private syncKeyAnchors(): void {
-    this.ground.forEach(g => { if (g.loose) Object.assign(g, this.looseKeys.anchor(g.loose)); });
+    this.ground.forEach(g => Object.assign(g, this.ctx.loose.anchor(g.loose)));
   }
 
   /** 进场时手里的东西：注册过的道具，或者这一层存在的那一组钥匙（编辑器试玩可以直接带钥匙进来） */
@@ -294,8 +304,9 @@ export class Carry implements Mechanic {
   }
 
   private syncLightSources(): void {
-    const T = this.ctx.cfg.tile;
-    this.ctx.fog?.setSources(this.ground.filter(g => g.carry.light > 0).map(g => ({ x: Math.floor(g.x / T), y: Math.floor(g.y / T), r: g.carry.light })));
+    const T = this.ctx.cfg.tile, lit = this.ground.filter(g => g.carry.light > 0);
+    this.lightCells = lit.map(g => `${Math.floor(g.x / T)},${Math.floor(g.y / T)}`).join(';');
+    this.ctx.fog?.setSources(lit.map(g => ({ x: Math.floor(g.x / T), y: Math.floor(g.y / T), r: g.carry.light })));
     this.ctx.fx.fogDirty();
   }
 

@@ -177,7 +177,7 @@ export class Movers implements Mechanic {
     this.scrapeRiders(g);
   }
 
-  /** 站在上面、被带进墙里的人 / 怪 / 箱子推回墙外：方块从脚下走开，它们就留在墙前面（钥匙由 LooseKeys 自己做同样的事） */
+  /** 站在上面、被带进墙里的人 / 怪 / 箱子推回墙外：方块从脚下走开，它们就留在墙前面（地上的钥匙、蜡烛、帽子、胶带由 core/LooseItems 自己做同样的事） */
   private scrapeRiders(g: Group): void {
     const { ctx } = this, t = ctx.terrain, T = ctx.cfg.tile;
     const solid = (cx: number, cy: number) => t.isSolid(cx, cy) && !t.def(cx, cy).oneWay;

@@ -5,9 +5,11 @@ import { EMPTY_RUN } from '@/redux/slices/runSlice';
 import { browserStorage, type SaveName } from '@/platform/storage';
 import { DEFAULT_PROJECT } from '@/game/world/defaultWorld';
 
-const RUN = { ...EMPTY_RUN, active: true, floorId: DEFAULT_PROJECT.floors[0].id, room: { rx: 0, ry: 0 }, stage: 1, stats: { jumps: 3, destroyed: 2 } };
+// 测试选择地图中实际存在的房间，布局左上角允许为空。
+const FIRST_ROOM = DEFAULT_PROJECT.floors[0].model.layout.flatMap((row, ry) => row.flatMap((key, rx) => key ? [{ rx, ry }] : []))[0];
+const RUN = { ...EMPTY_RUN, active: true, floorId: DEFAULT_PROJECT.floors[0].id, room: FIRST_ROOM, stage: 1, stats: { jumps: 3, destroyed: 2 } };
 const save = (over: object = {}) => ({ format: SAVE_FORMAT, savedAt: '2026-01-01T00:00:00Z', mapHash: 'h1', run: RUN, settings: { lang: 'zh', musicVolume: 0.5 }, ...over });
-const editor = (over: object = {}) => ({ format: EDITOR_FORMAT, mapHash: 'h1', project: DEFAULT_PROJECT, floor: 0, room: { rx: 0, ry: 0 }, play: { stage: 2, hat: true, held: '' }, fileHash: 'abc', ...over });
+const editor = (over: object = {}) => ({ format: EDITOR_FORMAT, mapHash: 'h1', project: DEFAULT_PROJECT, floor: 0, room: FIRST_ROOM, play: { stage: 2, hat: true, held: '' }, fileHash: 'abc', ...over });
 
 /** 内存里的存储：两份各一个格子 */
 function memory(init: Partial<Record<SaveName, string>> = {}) {
@@ -35,7 +37,7 @@ describe('编辑器的工作区（editor 那一份）', () => {
   it('读回项目、层、房间、试玩状态和文件指纹', () => {
     const e = readEditor(editor(), 'h1', false)!;
     expect(e.floor).toBe(0);
-    expect(e.room).toEqual({ rx: 0, ry: 0 });
+    expect(e.room).toEqual(FIRST_ROOM);
     expect(e.play).toEqual({ stage: 2, hat: true, held: '' });
     expect(e.fileHash).toBe('abc');
     expect(e.project?.floors.length).toBe(DEFAULT_PROJECT.floors.length);

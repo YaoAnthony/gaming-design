@@ -5,7 +5,8 @@
 每帧 40x40，脚底贴着最下面一行，身体中线在 x = 20。动作：idle 4 帧、run 8 帧、jump 5 帧
 （jump 里再分 jump_rise / jump_apex / jump_fall，游戏按竖直速度挑帧）、hang 6 帧（被捏着后背拎着挣扎，
 后背捏合点固定在 (20, 16)）、getup 8 帧（被放下后坐地、爬起来）、wallslide 2 帧（贴墙滑：面朝墙，手和鞋底贴在第 31 列，
-墙在第 32 列 = 碰撞框右边缘；游戏里贴左墙时左右翻转）。炸碎用的碎块和爆炸特效在 shatter.py。
+墙在第 32 列 = 碰撞框右边缘；游戏里贴左墙时左右翻转）、push 4 帧（推箱子：上身前压、两手按在箱子面上、腿往后蹬，
+手也画到第 31 列 = 箱子面）。炸碎用的碎块和爆炸特效在 shatter.py。
 
 需要 Python 3 + numpy + Pillow，以及 Aseprite（Steam 版：C:/Program Files (x86)/Steam/steamapps/common/Aseprite/Aseprite.exe）。
 在本文件夹里跑（ASE = 上面的 Aseprite.exe，<abs> = 本文件夹的绝对路径，GAME = ../../game-master/src/asset/image）：
@@ -408,6 +409,29 @@ def wallslide_pose(t):
     return p
 
 
+# ---------- 推箱子：上身往前压，两手平伸按在箱子面上，腿一步步往后蹬（脚在身子后面使劲）。4 帧一循环 ----------
+PUSH_LEAN = 34           # 上身前倾（度）
+
+
+def push_pose(t):
+    ph = 2 * math.pi * t
+    legs, arms = {}, {}
+    for side in (-1, 1):
+        p = ph + (0 if side < 0 else math.pi)
+        s = math.sin(p)
+        swing = -16 + 20 * s                                    # 两条腿整体在身后：往后蹬
+        bend = 26 + 30 * max(0.0, math.cos(p + 0.5)) ** 1.3     # 两腿都弯着压低身子；往前迈的那条腿再抬一点（抬得不高：一步步挪）
+        legs[side] = (-10, swing, bend, swing - bend, 0)        # 鞋底一直平着
+        arms[side] = (8, 108 - PUSH_LEAN + 3 * s, 26, 0)        # 手在胸口那么高往前推（世界里略高于平伸；胸口坐标要减掉前倾），跟着步子轻轻前后蹭
+    return {"root": (0, 0, 0), "legs": legs, "arms": arms, "lean": PUSH_LEAN, "shift": 1.2,
+            "twist": -6 * math.sin(ph), "head_dy": -2, "neck": 0.2, "head_yaw": -(RUN_YAW - YAW),
+            "hip_x": 1.6, "leg_scale": 1.3, "shoe_d": 7.5, "plain_torso": True,
+            "wall_x": WALL_X, "air": 0}
+
+
+PUSH_N = 4
+
+
 def snap_to_wall(img, x):
     """整张图横着挪，让最右边的不透明像素落在第 x 列（手脚贴着墙）"""
     a = np.array(img)
@@ -547,6 +571,8 @@ HANG_MS = [90] * HANG_N
 GETUP = getup_frames()
 WALLSLIDE = [wallslide_pose(0), wallslide_pose(1)]
 WALLSLIDE_MS = [120, 120]
+PUSH = [push_pose(i / PUSH_N) for i in range(PUSH_N)]
+PUSH_MS = [150] * PUSH_N
 
 if __name__ == "__main__":
     out = sys.argv[1]
@@ -554,7 +580,8 @@ if __name__ == "__main__":
     anims = []
     for name, poses, ms, yaw in (("idle", IDLE, IDLE_MS, YAW), ("run", RUN, RUN_MS, RUN_YAW),
                                  ("jump", JUMP, JUMP_MS, RUN_YAW), ("hang", HANG, HANG_MS, YAW),
-                                 ("getup", GETUP, GETUP_MS, YAW), ("wallslide", WALLSLIDE, WALLSLIDE_MS, WALL_YAW)):
+                                 ("getup", GETUP, GETUP_MS, YAW), ("wallslide", WALLSLIDE, WALLSLIDE_MS, WALL_YAW),
+                                 ("push", PUSH, PUSH_MS, RUN_YAW)):
         if only and name not in only:
             continue
         os.makedirs(f"{out}/{name}", exist_ok=True)

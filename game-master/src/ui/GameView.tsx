@@ -41,7 +41,7 @@ export function GameView() {
 
   return (
     <div className="view">
-      <div className="stage">
+      <div className="stage game-stage">
         {gate && <AudioGate onGo={() => setGate(false)} />}
         {data && <><PhaserCanvas mode="game" data={data} size={size(data)} /><StageLayer /><StoryLayer /><Hud />{touch && <TouchControls layout={controls} />}<CrumpleOverlay /><PauseMenu /></>}
       </div>

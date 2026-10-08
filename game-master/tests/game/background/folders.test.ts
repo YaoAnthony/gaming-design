@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { discoverBackgroundFolders } from '@/asset/backgroundFolders';
+import { backgroundDef } from '@/asset/backgrounds';
 
 describe('按文件夹自动发现背景层', () => {
   it('数字排序，1、2、10；忽略预览、原稿和根目录旧图', () => {
@@ -16,4 +17,14 @@ describe('按文件夹自动发现背景层', () => {
     expect(() => discoverBackgroundFolders(['A/1.png', 'A/01.near.png'])).toThrow('编号重复');
     expect(() => discoverBackgroundFolders(['A/0.png'])).toThrow('正整数');
   });
+});
+
+it('第一关的 14 个旧背景 id 都解析到对应房间的四层新素材', () => {
+  for (const room of 'ABCDEFGHIJKMNO') {
+    const key = room.toLowerCase();
+    expect(backgroundDef('woodland-' + key + '-v1').layers.map(layer => layer.file)).toEqual([
+      'woodland-' + key + '/1.far.png', 'woodland-' + key + '/2.clouds.png',
+      'woodland-' + key + '/3.middle.png', 'woodland-' + key + '/4.near.png',
+    ]);
+  }
 });

@@ -4,6 +4,7 @@ export interface BackgroundFolderOptions {
   id?: string;
   name?: string;
   pixelated?: boolean;
+  ambient?: 'woodland';
 }
 
 /** 数字是从远到近的堆叠顺序；说明图、原稿等非数字文件不进入游戏。 */
@@ -26,7 +27,8 @@ export function discoverBackgroundFolders(
     id: options[folder]?.id ?? folder,
     name: options[folder]?.name ?? folder,
     pixelated: options[folder]?.pixelated ?? true,
+    ambient: options[folder]?.ambient,
     // 已拼接的房间默认不平移，避免重新错开四边的接缝。
-    layers: layers.sort((a, b) => a.order - b.order).map(({ file }) => ({ file, parallax: 0 })),
+    layers: layers.sort((a, b) => a.order - b.order).map(({ file }) => ({ file, parallax: 0, ...(/[._-]clouds\./i.test(file) ? { motion: 'cloud' as const } : {}) })),
   }));
 }

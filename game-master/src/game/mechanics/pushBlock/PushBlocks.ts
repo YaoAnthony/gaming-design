@@ -161,11 +161,12 @@ export class PushBlocks implements Mechanic {
     });
   }
 
-  /** 人贴着箱子往那边走 → 推 */
+  /** 人贴着箱子往那边走 → 推（推不动的也告诉主角在顶着箱子使劲：播推的动画，放慢） */
   updateAlive(): void {
     const { ctx } = this, p = ctx.player, pb = p.body, T = ctx.cfg.tile, speed = ctx.cfg.pushSpeed;
-    const dir = Math.sign(pb.velocity.x);
+    const dir = Math.sign(pb.velocity.x) as -1 | 0 | 1;
     if (!dir || !pb.blocked.down && !pb.touching.down) return;
+    let straining = false;
     for (const bl of this.list) {
       const bb = bl.sprite.body as Phaser.Physics.Arcade.Body;
       if (!bb.enable) continue;
@@ -173,16 +174,19 @@ export class PushBlocks implements Mechanic {
       const gap = dir > 0 ? bb.left - pb.right : pb.left - bb.right;
       if (gap < -CONTACT_PX * 2 || gap > CONTACT_PX) continue;                                            // 没贴着
       if (!bb.blocked.down && !bb.touching.down) continue;                                                // 箱子在空中
+      straining = true;                                                                                   // 贴着箱子往前顶：推不推得动都算在推
       if (p.heightTiles + HEIGHT_TOLERANCE < bl.size) continue;                                           // 不够高
       if (!this.pathClear(bl, dir)) continue;                                                             // 前面挡住了
       if (!this.shoveAhead(bb, dir, CONTACT_PX, speed)) continue;                                        // 前面顶着推不动的怪物：推不动，人也别跟着往里挤（不然人和箱子位移一样，物理引擎不分开，人会钻进箱子）；推得动的夹子桑一起推
       bl.sprite.setVelocityX(dir * speed);
       p.setVelocityX(dir * speed);
+      p.markPushing(dir, true);
       // 目标 = 推的方向上的下一条格线（已经在格线上就是再下一格）；松手后 update 会把这一格走完
       const left = bb.left - INSET;
       bl.target = (dir > 0 ? Math.ceil((left + SNAP_EPS) / T) : Math.floor((left - SNAP_EPS) / T)) * T;
       return;
     }
+    if (straining) p.markPushing(dir, false);
   }
 
   /** 死亡：所有箱子回到原位。按 R：出生在这个房间的、或者现在就在这个房间里的箱子回到原位（从别的房间推过来的也回去） */

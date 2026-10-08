@@ -12,6 +12,7 @@ import type { StartGameData } from '@/protocol';
 import type { Mechanic, MoveInput } from '@/game/mechanics/define';
 import type { BossBarState } from '@/redux/slices/hudSlice';
 import type { Solids } from './solids';
+import type { LooseItems } from './LooseItems';
 import type { DeathKey, MsgKey } from '@/i18n/keys';
 import type { Dialogue } from './Dialogue';
 import type { Debris } from './Debris';
@@ -89,6 +90,8 @@ export interface PlayContext {
   /** 统计 */
   stats: { jumps: number; destroyed: number };
   pushStats(): void;
+  /** 事件发生时保存一次当前进度（试玩不落盘） */
+  saveCheckpoint(): void;
   /** 玩家设置的实时值（cfg 是进层时的快照）和改设置：滑块用 */
   settings: {
     config(): GameConfig;
@@ -169,4 +172,6 @@ export interface PlayContext {
   platformShift(b: Phaser.Physics.Arcade.Body): number;
   /** 实心体登记：会动的实心地形（移动方块、纸）和要站在它们上面的东西（箱子、钥匙）都登记在这，碰撞器统一挂 */
   solids: Solids;
+  /** 地上的东西（钥匙、蜡烛、帽子、胶带）：有重力、有碰撞，站在移动方块 / 纸上被带着走（core/LooseItems.ts）。机制往里放，重置时各管各的 */
+  loose: LooseItems;
 }

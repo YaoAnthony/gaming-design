@@ -295,6 +295,42 @@
     "spriteSourceSize": { "x": 0, "y": 0, "w": 40, "h": 40 },
     "sourceSize": { "w": 40, "h": 40 },
     "duration": 120
+   },
+   {
+    "filename": "33",
+    "frame": { "x": 40, "y": 160, "w": 40, "h": 40 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 40, "h": 40 },
+    "sourceSize": { "w": 40, "h": 40 },
+    "duration": 150
+   },
+   {
+    "filename": "34",
+    "frame": { "x": 80, "y": 160, "w": 40, "h": 40 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 40, "h": 40 },
+    "sourceSize": { "w": 40, "h": 40 },
+    "duration": 150
+   },
+   {
+    "filename": "35",
+    "frame": { "x": 120, "y": 160, "w": 40, "h": 40 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 40, "h": 40 },
+    "sourceSize": { "w": 40, "h": 40 },
+    "duration": 150
+   },
+   {
+    "filename": "36",
+    "frame": { "x": 160, "y": 160, "w": 40, "h": 40 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 40, "h": 40 },
+    "sourceSize": { "w": 40, "h": 40 },
+    "duration": 150
    }
  ],
  "meta": {
@@ -313,7 +349,8 @@
    { "name": "jump_fall", "from": 15, "to": 16, "direction": "forward", "color": "#000000ff" },
    { "name": "hang", "from": 17, "to": 22, "direction": "forward", "color": "#000000ff" },
    { "name": "getup", "from": 23, "to": 30, "direction": "forward", "color": "#000000ff" },
-   { "name": "wallslide", "from": 31, "to": 32, "direction": "forward", "color": "#000000ff" }
+   { "name": "wallslide", "from": 31, "to": 32, "direction": "forward", "color": "#000000ff" },
+   { "name": "push", "from": 33, "to": 36, "direction": "forward", "color": "#000000ff" }
   ]
  }
 }

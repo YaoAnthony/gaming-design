@@ -14,7 +14,7 @@ import type { RoomCoord } from '@/type';
 import { DOOR_CHAR, lockGroup, type LockCell } from '@/game/mechanics/locks/model';
 import type { PlayContext } from '@/game/core/PlayContext';
 import type { Mechanic } from '../define';
-import { keyCarryable, type Carry } from '../carry/Carry';
+import { keyCarryable, MAX_KEYS, type Carry } from '../carry/Carry';
 import { doorCluster, touchedDoor, type DoorHop } from './cluster';
 
 export interface LockData { doors: LockCell[]; keys: LockCell[] }
@@ -42,9 +42,25 @@ export class Locks implements Mechanic {
   private index(c: LockCell): number { return c.y * this.ctx.terrain.w + c.x; }
 
   start(): void {
-    this.spawnKeys(new Set(this.spent.keys()));
+    const kept = new Set(this.spent.keys());
+    const saved = this.ctx.carried('locks');
+    if (saved && typeof saved === 'object' && 'floorId' in saved && saved.floorId === this.ctx.floor.id && 'keys' in saved && Array.isArray(saved.keys)) {
+      for (const i of saved.keys) {
+        if (!Number.isInteger(i) || kept.has(i)) continue;
+        const c = this.data.keys[i];
+        if (!c || !this.carry || this.carry.keys.length >= MAX_KEYS) continue;
+        this.carry.restoreKey(keyCarryable(c.group, this.color(c.group), i));
+        kept.add(i);
+      }
+    }
+    this.spawnKeys(kept);
     this.placeKeyholes();
     this.tint();
+  }
+
+  /** 只在同层读档恢复随身钥匙；换层时忽略，地图原位也不会再生成一把。 */
+  persist(): { floorId: string; keys: number[] } {
+    return { floorId: this.ctx.floor.id, keys: (this.carry?.keys ?? []).flatMap(k => k.origin === undefined ? [] : [k.origin]) };
   }
 
   /** 每一把钥匙贴着同色的一扇门 → 从这扇门开始连锁打开，这把钥匙用掉 */

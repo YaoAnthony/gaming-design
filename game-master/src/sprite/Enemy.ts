@@ -27,13 +27,14 @@ export const CLIP_ATTACK = { range: 1.5, reach: 0.6, cooldownMs: 900, biteFrames
  * 掉下去的过程中不追也不巡逻，落稳了还看得见人就接着追、看不见就按下面的规矩找。
  * 看丢了就跑到最后看见的地方，每 lookMs 左右张望一次，丢了 forgetMs 回去巡逻。嘴里夹着纸的时候只顾驮纸，不追
  */
-export const CLIP_CHASE = { sight: 5, rows: 1, alertMs: 350, hop: -150, speed: 150, animRate: 2.2, lookMs: 400, forgetMs: 1800, reckless: true };
+export const CLIP_CHASE = { sight: 4, rows: 1, alertMs: 350, hop: -150, speed: 150, animRate: 2.2, lookMs: 400, forgetMs: 1800, reckless: true };
 /**
  * 站不稳就滑下去：站在地上、身子中线底下是空的（被箱子顶到崖边、落在边上，只剩几个像素踩着地），
  * 就往没东西的那边以 slipSpeed（px/s）滑出去掉下去；掉的过程中不追人、不巡逻（不会在空中拐回去又蹭回崖顶），落稳了再接着来。
  * 巡逻时不会走到这一步（脚前面没地就掉头，中线一直在地上）；追人冲下悬崖是整个人飞出去，不走这条
  */
-export const CLIP_EDGE = { slipSpeed: 80 };
+// 小落差最多 20px（32px 格子）：能从 18px 高的钥匙走回地面，整格落差仍视为悬崖。
+export const CLIP_EDGE = { slipSpeed: 80, stepDownTiles: 0.625 };
 /** 后层画在纸（深度 5，见 terrain/Chunks.ts）后面、地形前面 */
 const BACK_DEPTH = 4.9;
 
@@ -197,10 +198,16 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     return left === right ? 0 : left ? 1 : -1;
   }
 
-  /** 脚下前方那一格能不能站（箱子、纸也算） */
+  /** 脚下前方能不能落脚（箱子、纸也算；允许从钥匙高度的小台阶走下去） */
   private groundAhead(T: number, footing: (cx: number, cy: number) => boolean): boolean {
     const b = this.body;
-    return footing(Math.floor((this.dir > 0 ? b.right + 2 : b.left - 2) / T), Math.floor((b.bottom + 2) / T));
+    const cx = Math.floor((this.dir > 0 ? b.right + 2 : b.left - 2) / T);
+    const row = Math.floor((b.bottom + 2) / T);
+    if (footing(cx, row)) return true;
+    // 被钥匙托高时，这一行是空气；检查下一行的顶面是否只低了一小截。
+    // 按实际像素落差限制，不能无条件多看一格，否则真正的悬崖也会被当成路。
+    const lower = row + 1;
+    return lower * T - b.bottom <= T * CLIP_EDGE.stepDownTiles && footing(cx, lower);
   }
 
   preUpdate(time: number, delta: number): void {

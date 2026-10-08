@@ -100,8 +100,9 @@ describe('第一层地图里的剧情', () => {
     expect(where('g')).toEqual([expect.objectContaining({ k: 'P' })]);
   });
 
-  it('GM 所在的房间就是编辑器改造的房间：改造的格子原来都是空的', () => {
+  it('GM 房间已有地形会跳过，每笔改造仍有空格可画', () => {
     const [{ k }] = where('g');
-    for (const s of MONTAGE) for (const [x, y] of s.cells) expect(m.rooms[k][y][x], `${x},${y}`).toBe('.');
+    // Gm.montageCells / paintable 会保留已有砖；地图不必为演出清空地形。
+    for (const stroke of MONTAGE) expect(stroke.cells.some(([x, y]) => m.rooms[k][y][x] === '.'), stroke.tile).toBe(true);
   });
 });

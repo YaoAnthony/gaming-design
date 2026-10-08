@@ -1,3 +1,4 @@
+import { backgroundDef } from '@/asset/backgrounds';
 // ===== 游戏场景：只做编排 =====
 // 核心部件各管一摊（game/core/）：地形、碎块、怪物、引线、迷雾、房间与镜头（Rooms）、死亡与重置（Respawn）、
 // 长大仪式（Growth）、攥纸团（CrumpleFx）、按键（GameInput）。玩法都在 game/mechanics/ 里：一个层机制（这一层怎么动）
@@ -33,6 +34,7 @@ import { Enemies } from '@/game/core/Enemies';
 import { Debris } from '@/game/core/Debris';
 import { shiftUnder } from '@/game/core/solid';
 import { Solids } from '@/game/core/solids';
+import { LooseItems } from '@/game/core/LooseItems';
 import { Rooms } from '@/game/core/Rooms';
 import { Respawn } from '@/game/core/Respawn';
 import { Solves } from '@/game/core/Solves';
@@ -81,6 +83,9 @@ export class GameScene extends Phaser.Scene {
   private enemies!: Enemies;
   private debris!: Debris;
   private solids!: Solids;
+  /** 地上的东西（钥匙、蜡烛、帽子、胶带）的物理 */
+  private loose!: LooseItems;
+  private syncLoose = (): void => this.loose.sync(this.time.now);
   private sparks!: SparkEmitter;
   /** 砖块炸碎 / 烧裂 / 落地的特效 */
   private tileFx!: TileFx;
@@ -170,6 +175,7 @@ export class GameScene extends Phaser.Scene {
     if (this.cfg.sceneFx.depth) this.terrain.enableShading();
     const fxRooms = model.layout.flatMap((row, ry) => row.flatMap((key, rx) => (key ? [{
       x: rx * roomPxW, y: ry * roomPxH, w: roomPxW, h: roomPxH, key, dark: !!model.roomFlags?.[key]?.fog,
+      woodland: backgroundDef(backgroundOf(this.floor, model, key)).ambient === 'woodland',
     }] : [])));
     this.sceneFx = applySceneFx(this, this.cfg.sceneFx, fxRooms, T);
     this.fuses = new FuseNet(this, layerRows(model, 'fuse'), { tile: T, delayMs: this.cfg.fuseDelayMs, light: (x, y) => this.sceneFx.light(x, y, 'ember') });
@@ -209,6 +215,8 @@ export class GameScene extends Phaser.Scene {
     this.crumple = new CrumpleFx(this, () => this.dialogue.end());
     this.popOut = new PopOut({ scene: this, player: () => this.player, tile: T, canLeave: () => !this.busy && !this.crumple.active, blocked: (cx, cy) => this.ctx.blocked(cx, cy), hazard: (cx, cy) => !!this.terrain.def(cx, cy).hazard });
     this.solids = new Solids(this, () => ({ player: this.player, enemies: this.enemies.group }));
+    this.loose = new LooseItems({ scene: this, cfg: this.cfg, terrain: this.terrain, rooms: this.rooms, solids: this.solids, enemies: () => this.enemies.group });
+    this.events.on(Phaser.Scenes.Events.POST_UPDATE, this.syncLoose);   // 物理把位置同步好之后：贴图摆到物理体上（机制的 POST_UPDATE 在它后面）
     this.ctx = this.buildContext();
     this.enemies = new Enemies(this.ctx);
     this.debris = new Debris(this.ctx);
@@ -251,6 +259,7 @@ export class GameScene extends Phaser.Scene {
     this.physics.world.gravity.y = this.floorMech.gravity ?? this.cfg.gravity;
     if (this.floorMech.collideTerrain) this.physics.add.collider(this.player, this.terrain.layer, undefined, this.terrain.landsOnOneWay);
     this.solids.start();   // 玩家有了：把登记过的实心体（移动方块、纸、箱子、钥匙）的碰撞器都挂上
+    this.loose.start();    // 地上的东西：怪物推它、箱子托着它
 
     this.cameras.main.setBounds(0, 0, levelW, levelH);
     this.respawn.entry = { x: start.x, y: start.y, vx: 0, vy: 0 };
@@ -299,6 +308,7 @@ export class GameScene extends Phaser.Scene {
     }
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.mechs.forEach(m => m.destroy?.());
+      this.events.off(Phaser.Scenes.Events.POST_UPDATE, this.syncLoose);
       // 迷雾和地形体积感的画布是全局贴图（场景关了还在）：换层 / 重开时不放掉，内存只增不减
       this.fog?.destroy(); this.fog = null;
       this.terrain.destroy();
@@ -377,6 +387,7 @@ export class GameScene extends Phaser.Scene {
       set entry(e) { s.respawn.entry = e; },
       stats: this.stats,
       pushStats: () => store.dispatch(setStats({ ...this.stats })),
+      saveCheckpoint: () => this.saveCheckpoint(),
       die: reason => this.die(reason),
       hurt: (reason, from) => this.health.hurt(reason, from),
       addMaxHearts: n => this.health.addMax(n),
@@ -423,6 +434,7 @@ export class GameScene extends Phaser.Scene {
       weighs: (cx, cy) => this.mechs.some(m => m.weighs?.(cx, cy)),
       platformShift: b => shiftUnder(b, this.solids.groups('platform')),
       solids: this.solids,
+      loose: this.loose,
     };
   }
 
@@ -432,6 +444,7 @@ export class GameScene extends Phaser.Scene {
   update(time: number, delta: number): void {
     const dt = delta / 1000;
     this.terrain.updateChunks(dt);
+    this.loose.update(time);   // 地上的东西：被埋了挪出来、落地弹一下
     this.enemies.update();
     this.debris.update();
     this.dialogue.update(time);

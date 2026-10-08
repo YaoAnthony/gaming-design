@@ -9,7 +9,7 @@ import type { BossFight } from '../boss/BossFight';
 import type { Movers } from '../mover/Movers';
 import { SOLVE_NODES, type SolveNode } from './nodes';
 
-class SolveNodes implements Mechanic {
+export class SolveNodes implements Mechanic {
   /** 还没触发的节点和它的房间 */
   private left: { node: SolveNode; r: RoomCoord }[] = [];
 
@@ -31,8 +31,19 @@ class SolveNodes implements Mechanic {
     });
   }
 
+  /** 只由成功拾取调用；拿着、读档、放下重捡都不会重复触发同一节点。 */
+  onKeyPicked(group: number, at: RoomCoord): void {
+    this.left = this.left.filter(({ node, r }) => {
+      if (node.when.kind !== 'key' || node.when.group !== group || !this.ctx.rooms.same(r, at)) return true;
+      this.ctx.solves.solve(r, node.id);
+      this.ctx.saveCheckpoint();
+      return false;
+    });
+  }
+
   private met(node: SolveNode, r: RoomCoord): boolean {
     const w = node.when;
+    if (w.kind === 'key') return false;   // 钥匙只响应拾取事件，不逐帧看持有状态
     if (w.kind === 'door') return !!this.ctx.mech<Locks>('locks')?.openedIn(r, w.group);
     if (w.kind === 'boss') return !!this.ctx.mech<BossFight>('boss')?.isDefeated(r);
     return !!this.ctx.mech<Movers>('mover')?.startedIn(r);

@@ -11,7 +11,7 @@ import { DEPTH } from '@/game/depth';
  */
 export const HERO = { key: 'hero', artH: 30, artW: 21, hangPinch: { x: 20, y: 16 } } as const;   // hangPinch：hang 帧里后背捏合点的像素
 /** 循环播的动画；跳跃的三段（上升 / 最高点 / 下落）播一遍停在最后一帧 */
-const LOOPING = new Set(['idle', 'run']);
+const LOOPING = new Set(['idle', 'run', 'wallslide']);
 /** 空中竖直速度在 ±这么多（px/s）以内算最高点 */
 const APEX_SPEED = 120;
 
@@ -215,13 +215,20 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   /** 被捏着后背拎起来时，精灵中心在捏合点下面多远（世界像素）：骷髅手的捏合点对准 hang 帧里的 HERO.hangPinch */
   get hangOffsetY(): number { return this.hero ? (this.height / 2 - HERO.hangPinch.y) * this.scaleY : 0; }
 
-  /** 按身体的状态挑动画：地上 跑 / 站；空中按竖直速度挑 上升 / 最高点 / 下落；俯视（吃豆人）走起来也用跑 */
+  /**
+   * 按身体的状态挑动画：地上 跑 / 站；贴着墙往下滑 wallslide（面朝墙：帧里墙在右边，贴左墙时翻转）；
+   * 空中按竖直速度挑 上升 / 最高点 / 下落；俯视（吃豆人）走起来也用跑
+   */
   private animate(): void {
     if (!this.hero || this.action) return;
     const b = this.body, v = b.velocity;
     let key: string;
     if (!b.allowGravity) key = v.x !== 0 || v.y !== 0 ? 'run' : 'idle';
     else if (b.blocked.down || b.touching.down) key = v.x !== 0 && !(v.x < 0 ? b.blocked.left : b.blocked.right) ? 'run' : 'idle';
+    else if ((b.blocked.left || b.blocked.right) && v.y >= 0 && this.anims.exists('wallslide')) {
+      key = 'wallslide';
+      this.setFlipX(b.blocked.left);
+    }
     else key = v.y < -APEX_SPEED ? 'jump_rise' : v.y <= APEX_SPEED ? 'jump_apex' : 'jump_fall';
     if (this.anims.currentAnim?.key !== key) this.play({ key, repeat: LOOPING.has(key) ? -1 : 0 });
   }

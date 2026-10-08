@@ -45,18 +45,19 @@ h2 { font-size: 12px; color: var(--muted); margin: 14px 0 6px; text-transform: u
 @keyframes nudge { 0%, 100% { opacity: .5; transform: translateX(0); } 50% { opacity: 1; transform: translateX(3px); } }
 .dialogue.pos-top { bottom: auto; top: 6cqh; }
 .app.mobile .dialogue { bottom: auto; top: 10px; width: min(72cqw, 520px); }
-.hud .place { position: absolute; top: 1.2cqh; left: .9cqw; padding: .3em .7em; background: rgba(11, 11, 20, .92); border: 1px solid rgba(255,255,255,.25); border-radius: 6px; color: #fff; font-size: clamp(12px, 1.3cqw, 28px); font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; z-index: 3; }
-.app.mobile .hud .place { top: max(6px, env(safe-area-inset-top)); left: max(10px, env(safe-area-inset-left)); font-size: 12px; padding: 3px 8px; }
-/* 生命值：左上角一排像素心，地点名挪到心下面。心的大小跟着画面高度走（--heart），手机端固定小一点、让开刘海 */
-.hud .hearts { --heart: clamp(24px, 4.2cqh, 48px); position: absolute; top: 1.2cqh; left: .9cqw; display: flex; gap: calc(var(--heart) * .12); z-index: 3; filter: drop-shadow(0 2px 0 rgba(0,0,0,.55)); }
+/* 左上角一竖排：地点名在上，心在下（不显示心的层只有地点名）。手机端让开刘海 */
+.hud .corner { position: absolute; top: 1.2cqh; left: .9cqw; display: flex; flex-direction: column; align-items: flex-start; gap: max(6px, .8cqh); z-index: 3; }
+.app.mobile .hud .corner { top: max(6px, env(safe-area-inset-top)); left: max(10px, env(safe-area-inset-left)); gap: 6px; }
+.hud .place { white-space: nowrap; padding: .3em .7em; background: rgba(11, 11, 20, .92); border: 1px solid rgba(255,255,255,.25); border-radius: 6px; color: #fff; font-size: clamp(12px, 1.3cqw, 28px); font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
+.app.mobile .hud .place { font-size: 12px; padding: 3px 8px; }
+/* 生命值：地点名下面一排像素心。心的大小跟着画面高度走（--heart），手机端固定小一点 */
+.hud .hearts { --heart: clamp(24px, 4.2cqh, 48px); display: flex; gap: calc(var(--heart) * .12); filter: drop-shadow(0 2px 0 rgba(0,0,0,.55)); }
 .hud .hearts .heart { width: var(--heart); height: var(--heart); image-rendering: pixelated; }
 /* 金色的心：红心的贴图调个色 */
 .hud .hearts .heart.gold { filter: sepia(1) saturate(5) hue-rotate(-8deg) brightness(1.35); }
 .hud .hearts .heart.empty { animation: heart-lose .45s ease-out; }
 @keyframes heart-lose { 0% { transform: scale(1.5) rotate(-12deg); filter: brightness(2.2); } 30% { transform: scale(.85) rotate(8deg); } 60% { transform: translateX(-3px) rotate(-4deg); } 100% { transform: none; } }
-.hud .hearts ~ .place { top: calc(1.2cqh + clamp(24px, 4.2cqh, 48px) + .8cqh); }
-.app.mobile .hud .hearts { --heart: 26px; top: max(6px, env(safe-area-inset-top)); left: max(10px, env(safe-area-inset-left)); }
-.app.mobile .hud .hearts ~ .place { top: calc(max(6px, env(safe-area-inset-top)) + 32px); }
+.app.mobile .hud .hearts { --heart: 26px; }
 .hud .score { position: absolute; top: 1.2cqh; right: .9cqw; padding: .25em .7em; background: rgba(11, 11, 20, .92); border: 1px solid rgba(255,255,255,.25); border-radius: 6px; color: #ffe8b0; font-size: clamp(16px, 1.7cqw, 36px); font-weight: bold; letter-spacing: 1px; z-index: 3; }
 .app.mobile .hud .score { top: max(6px, env(safe-area-inset-top)); right: max(10px, env(safe-area-inset-right)); font-size: 14px; }
 /* 节奏关卡的判定：画面上方中间弹一下 */

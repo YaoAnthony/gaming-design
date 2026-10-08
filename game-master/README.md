@@ -320,7 +320,7 @@ defineSkill({
 
 ## 生命值
 
-`game/core/Health.ts`。玩家开局 1 颗心（`config.playerHearts`；每捡一卷胶带上限 +1，见「胶带」），显示在左上角（像素心 `asset/image/ui/heart_full.png` / `heart_empty.png`，`npm run gen-art -- heart_full.png heart_empty.png` 生成；地点名挪到心下面）。碰到**尖刺、怪物、Boss** 扣一颗心（机制里用 `ctx.hurt(原因, 伤害从哪来)`）：人整个变红一下（`hurtFlashMs`），往伤害来源的反方向弹开（`knockbackX / knockbackY`，弹开的 `knockbackMs` 里不听方向键；来源在脚下就往朝向的反方向、主要往上弹），左上角那颗心抖一下变空，人一闪一闪 `hurtFlickerMs`，从挨打算起 `hurtInvulnMs` 里无敌。心扣光才走原来的死亡流程。**被压、被埋、被箱子砸**还是直接死（`ctx.die`，人卡在里面出不来）。复活、R、换层心都回满。吃豆人层不用生命值（碰到就死，也不显示心）。手机端心固定 26 像素、让开刘海。
+`game/core/Health.ts`。玩家开局 1 颗心（`config.playerHearts`；每捡一卷胶带上限 +1，见「胶带」），显示在左上角（像素心 `asset/image/ui/heart_full.png` / `heart_empty.png`，`npm run gen-art -- heart_full.png heart_empty.png` 生成；地点名在上、心在它下面，`Hud.tsx` 的 `.corner`）。碰到**尖刺、怪物、Boss** 扣一颗心（机制里用 `ctx.hurt(原因, 伤害从哪来)`）：人整个变红一下（`hurtFlashMs`），往伤害来源的反方向弹开（`knockbackX / knockbackY`，弹开的 `knockbackMs` 里不听方向键；来源在脚下就往朝向的反方向、主要往上弹），左上角那颗心抖一下变空，人一闪一闪 `hurtFlickerMs`，从挨打算起 `hurtInvulnMs` 里无敌。心扣光才走原来的死亡流程。**被压、被埋、被箱子砸**还是直接死（`ctx.die`，人卡在里面出不来）。复活、R、换层心都回满。吃豆人层不用生命值（碰到就死，也不显示心）。手机端心固定 26 像素、让开刘海。
 
 ## 复活动画
 
@@ -350,9 +350,9 @@ defineSkill({
 
 ## 主角动画
 
-主角是 Aseprite 做的像素动画，源文件在仓库根目录 `Aseprite asset/player.aseprite`（标签 `idle` 4 帧、`run` 8 帧、`jump` 5 帧，`jump` 里再分 `jump_rise` / `jump_apex` / `jump_fall`；`hang` 6 帧 = 被骷髅手捏着后背拎着挣扎；`getup` 8 帧 = 被放下后坐地、爬起来），帧是 `Aseprite asset/generators/` 里的方块人模型渲染出来的（怎么重新生成、怎么导出写在 `boxman.py` 开头）。导出到游戏的是 `asset/image/sprite/player_sheet.png` + `.json`（清单里的 `ASEPRITES`，BootScene 用 `load.aseprite` 加载）和站姿第一帧 `player.png`（编辑器图标、剧情演出、3D 世界用的静态图）。炸碎用的 `player_debris.png` + `.json`（`player_debris.aseprite`）和 `fx/player_boom.png` + `.json`（`player_boom.aseprite`）由同一个文件夹的 `shatter.py` 生成。这些文件 `gen-art` 都不会覆盖。
+主角是 Aseprite 做的像素动画，源文件在仓库根目录 `Aseprite asset/player.aseprite`（标签 `idle` 4 帧、`run` 8 帧、`jump` 5 帧，`jump` 里再分 `jump_rise` / `jump_apex` / `jump_fall`；`hang` 6 帧 = 被骷髅手捏着后背拎着挣扎；`getup` 8 帧 = 被放下后坐地、爬起来；`wallslide` 2 帧 = 贴墙滑，设定集 01_player 第 10 格），帧是 `Aseprite asset/generators/` 里的方块人模型渲染出来的（怎么重新生成、怎么导出写在 `boxman.py` 开头）。导出到游戏的是 `asset/image/sprite/player_sheet.png` + `.json`（清单里的 `ASEPRITES`，BootScene 用 `load.aseprite` 加载）和站姿第一帧 `player.png`（编辑器图标、剧情演出、3D 世界用的静态图）。炸碎用的 `player_debris.png` + `.json`（`player_debris.aseprite`）和 `fx/player_boom.png` + `.json`（`player_boom.aseprite`）由同一个文件夹的 `shatter.py` 生成。这些文件 `gen-art` 都不会覆盖。
 
-每帧 40×40，脚底贴最下面一行、身体中线在正中，四周是给跑跳留的空。`sprite/Player.ts` 按身体状态挑动画：地上有横向速度播 `run`、没有播 `idle`；空中按竖直速度挑 `jump_rise` / `jump_apex`（±120 px/s 以内）/ `jump_fall`；吃豆人层走动也播 `run`。动画建在主角自己身上，不进全局。帽子戴在当前这一帧的头顶（`Player.headTop`）。长大（现在没有东西触发）时同一套动画往上拉高。
+每帧 40×40，脚底贴最下面一行、身体中线在正中，四周是给跑跳留的空。`sprite/Player.ts` 按身体状态挑动画：地上有横向速度播 `run`、没有播 `idle`；空中贴着墙往下滑播 `wallslide`（面朝墙：一只手撑墙、一只鞋底踩墙，手脚画在帧的第 31 列，正好贴着碰撞框边上的墙；贴左墙时翻转）；其它空中按竖直速度挑 `jump_rise` / `jump_apex`（±120 px/s 以内）/ `jump_fall`；吃豆人层走动也播 `run`。动画建在主角自己身上，不进全局。帽子戴在当前这一帧的头顶（`Player.headTop`）。只加一段新动作时不用重做整份源文件：`python boxman.py frames <动作名>` 只渲染那一段，`append_anims.lua` 追加进 `player.aseprite`（不动别的帧，手改过也安全），再导出。长大（现在没有东西触发）时同一套动画往上拉高。
 
 - **复活**：骷髅手拎人时播 `hang`（`Player.playAction`，播的时候不按身体状态换动画），手的捏合点对准 hang 帧里后背的捏合点（`HERO.hangPinch`，`respawnHand.ts` 把手抬高 `Player.hangOffsetY`，松手时人正好落在复活点）；松手后播一遍 `getup`，按方向键或跳就打断、直接能动。
 - **死亡**（`game/core/heroShatter.ts`，`Respawn.die` 调用）：人白闪 70 毫秒，然后藏起来，原地换成按站姿拆好的 12 块碎块（`HERO_DEBRIS`：每块在 40×40 帧里的位置、大小、前后顺序），交给物理炸开：从胸口往外、往上飞，带上人原来速度的三成，自转；撞地形、落地弹几下、贴地减速，慢下来就转到最近的整 90 度躺平（长条横躺、头侧躺）不再动；掉出地图的收掉。胸口同时播一段 `hero_boom`（星芒闪光、火星、烟）。参数在文件顶部的 `SHATTER`。复活时（`Respawn.respawn`）碎块淡出。没有碎块贴图时退回原来的整个人变红。

@@ -277,6 +277,24 @@
     "spriteSourceSize": { "x": 0, "y": 0, "w": 40, "h": 40 },
     "sourceSize": { "w": 40, "h": 40 },
     "duration": 140
+   },
+   {
+    "filename": "31",
+    "frame": { "x": 280, "y": 120, "w": 40, "h": 40 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 40, "h": 40 },
+    "sourceSize": { "w": 40, "h": 40 },
+    "duration": 120
+   },
+   {
+    "filename": "32",
+    "frame": { "x": 0, "y": 160, "w": 40, "h": 40 },
+    "rotated": false,
+    "trimmed": false,
+    "spriteSourceSize": { "x": 0, "y": 0, "w": 40, "h": 40 },
+    "sourceSize": { "w": 40, "h": 40 },
+    "duration": 120
    }
  ],
  "meta": {
@@ -284,7 +302,7 @@
   "version": "1.3.18.6-x64",
   "image": "player_sheet.png",
   "format": "RGBA8888",
-  "size": { "w": 320, "h": 160 },
+  "size": { "w": 320, "h": 200 },
   "scale": "1",
   "frameTags": [
    { "name": "idle", "from": 0, "to": 3, "direction": "forward", "color": "#000000ff" },
@@ -294,7 +312,8 @@
    { "name": "jump_apex", "from": 14, "to": 14, "direction": "forward", "color": "#000000ff" },
    { "name": "jump_fall", "from": 15, "to": 16, "direction": "forward", "color": "#000000ff" },
    { "name": "hang", "from": 17, "to": 22, "direction": "forward", "color": "#000000ff" },
-   { "name": "getup", "from": 23, "to": 30, "direction": "forward", "color": "#000000ff" }
+   { "name": "getup", "from": 23, "to": 30, "direction": "forward", "color": "#000000ff" },
+   { "name": "wallslide", "from": 31, "to": 32, "direction": "forward", "color": "#000000ff" }
   ]
  }
 }

@@ -131,8 +131,10 @@ export function Hud() {
         </div>
       )}
       <BossBar />
-      <Hearts />
-      {hud.place && <div className="place">{t('place', { place: hud.place })}</div>}
+      <div className="corner">
+        {hud.place && <div className="place">{t('place', { place: hud.place })}</div>}
+        <Hearts />
+      </div>
       <Score />
       {hud.whiteout > 0 && <div key={hud.whiteout} className="whiteout" />}
       <RhythmKeys />

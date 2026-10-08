@@ -4,7 +4,8 @@
 1 个模型单位 = 1 个像素。角色空间：x 向角色左手边，y 向上，z 向角色正前方，原点在地面。
 每帧 40x40，脚底贴着最下面一行，身体中线在 x = 20。动作：idle 4 帧、run 8 帧、jump 5 帧
 （jump 里再分 jump_rise / jump_apex / jump_fall，游戏按竖直速度挑帧）、hang 6 帧（被捏着后背拎着挣扎，
-后背捏合点固定在 (20, 16)）、getup 8 帧（被放下后坐地、爬起来）。炸碎用的碎块和爆炸特效在 shatter.py。
+后背捏合点固定在 (20, 16)）、getup 8 帧（被放下后坐地、爬起来）、wallslide 2 帧（贴墙滑：面朝墙，手和鞋底贴在第 31 列，
+墙在第 32 列 = 碰撞框右边缘；游戏里贴左墙时左右翻转）。炸碎用的碎块和爆炸特效在 shatter.py。
 
 需要 Python 3 + numpy + Pillow，以及 Aseprite（Steam 版：C:/Program Files (x86)/Steam/steamapps/common/Aseprite/Aseprite.exe）。
 在本文件夹里跑（ASE = 上面的 Aseprite.exe，<abs> = 本文件夹的绝对路径，GAME = ../../game-master/src/asset/image）：
@@ -25,6 +26,9 @@
            --format json-array --sheet-type horizontal --list-tags --filename-format "{frame}"
 
 在 Aseprite 里手改过 .aseprite 之后只跑第 3 步；第 1、2 步会重新生成并覆盖。
+只加一段新动作、不想覆盖手改过的 player.aseprite：只渲染那一段，再追加进去（同名标签会先删掉旧的那几帧），然后跑第 3 步：
+       python boxman.py frames wallslide
+       ASE -b --script-param spec=<abs>/frames/anims.json --script-param file=<abs>/../player.aseprite --script append_anims.lua
 改了碎块的 .aseprite：每块要留在格子正中，meta.json 里的位置才对得上。
 """
 import itertools
@@ -384,6 +388,38 @@ def getup_frames():
 GETUP_MS = [80, 90, 220, 220, 120, 100, 90, 140]
 
 
+# ---------- 贴墙滑（设定集 01_player 第 10 格）：面朝墙（墙在画面右边），近镜头那只手往上撑在墙上，
+# 远的那只手屈肘扶着墙；近腿提膝、鞋底平贴墙面，远腿往下垂、脚尖点着墙。两帧：手和点墙的脚往下蹭一下（在往下滑） ----------
+WALL_YAW = 80            # 身子差不多转成侧面（往前伸的手脚才够得到墙、看得清），头转回 3/4
+WALL_X = 31              # 帧里贴着墙的那一列：碰撞框右边缘在第 32 列（宽 0.75 格、居中），手脚画到第 31 列正好贴墙
+
+
+def wallslide_pose(t):
+    """t = 0 / 1：撑墙的手和点墙的脚往下蹭一点"""
+    d = 5 * t
+    legs = {
+        -1: legs_fk(-8, 85, 45, toe=-90),                   # 近腿：提膝，鞋底转成竖的平贴墙面
+        1: legs_fk(-6, 42 - d, 8 + d, toe=55),              # 远腿：往下垂，脚尖往下点着墙
+    }
+    arms = {-1: (6, 112 - d, 4 + d), 1: (12, 62, 70)}      # (外张, 胸口坐标里的前摆, 屈肘)：近手往前上方伸、越过头的前沿撑在墙上（再高会挡住面罩），远手屈肘扶墙
+    p = body_pose(legs, arms, lean=-12, head_yaw=-(WALL_YAW - YAW), ground="all")
+    p["wall_x"] = WALL_X
+    p["neck"] = 0.3
+    return p
+
+
+def snap_to_wall(img, x):
+    """整张图横着挪，让最右边的不透明像素落在第 x 列（手脚贴着墙）"""
+    a = np.array(img)
+    cols = np.nonzero(a[:, :, 3].max(0))[0]
+    if not len(cols):
+        return img
+    dx = x - int(cols.max())
+    out = Image.new("RGBA", img.size, (0, 0, 0, 0))
+    out.paste(img, (dx, 0))
+    return out
+
+
 def place_on_ground(pose):
     """骨盆高度 = 让最低的鞋底贴地，再加上腾空"""
     probe = build(pose)
@@ -509,19 +545,27 @@ JUMP = jump_frames()
 HANG = [hang_pose(i / HANG_N) for i in range(HANG_N)]
 HANG_MS = [90] * HANG_N
 GETUP = getup_frames()
+WALLSLIDE = [wallslide_pose(0), wallslide_pose(1)]
+WALLSLIDE_MS = [120, 120]
 
 if __name__ == "__main__":
     out = sys.argv[1]
+    only = set(sys.argv[2:])          # 后面写了动作名就只渲染这几段（追加用，见开头的 append_anims.lua）
     anims = []
     for name, poses, ms, yaw in (("idle", IDLE, IDLE_MS, YAW), ("run", RUN, RUN_MS, RUN_YAW),
                                  ("jump", JUMP, JUMP_MS, RUN_YAW), ("hang", HANG, HANG_MS, YAW),
-                                 ("getup", GETUP, GETUP_MS, YAW)):
+                                 ("getup", GETUP, GETUP_MS, YAW), ("wallslide", WALLSLIDE, WALLSLIDE_MS, WALL_YAW)):
+        if only and name not in only:
+            continue
         os.makedirs(f"{out}/{name}", exist_ok=True)
         files = []
         for f, pose in enumerate(poses):
             path = f"{out}/{name}/f{f}.png"
             fy = pose.get("yaw", yaw)
-            cleanup(render(place(pose, fy, PITCH), fy, PITCH)).save(path)
+            img = cleanup(render(place(pose, fy, PITCH), fy, PITCH))
+            if "wall_x" in pose:
+                img = snap_to_wall(img, pose["wall_x"])
+            img.save(path)
             files.append(os.path.abspath(path).replace("\\", "/"))
         anim = {"tag": name, "files": files, "ms": ms}
         if name == "jump":

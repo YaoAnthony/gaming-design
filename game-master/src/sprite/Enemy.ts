@@ -22,14 +22,16 @@ export const CLIP = { key: 'clip', back: 'clip_back', feetY: 38, body: { w: 14, 
 export const CLIP_ATTACK = { range: 1.5, reach: 0.6, cooldownMs: 900, biteFrames: [1, 2], lungeFrame: 1, lungeSpeed: 200 };
 /**
  * 追人：探查范围 = 横向 sight 格、上下 rows 格（同一层），中间没墙挡着（见 clipSees）。看见了先愣 alertMs（原地蹦一下 hop、头上冒「!」），
- * 再用 speed（px/s）冲过去，腿倒腾得快 animRate 倍；追到悬崖边 / 墙根就站住干瞪着，不会跳下去。
+ * 再用 speed（px/s）冲过去，腿倒腾得快 animRate 倍；追到墙根就站住干瞪着。
+ * reckless = 追人时只顾往前冲、不看脚下：前面是悬崖也照样冲出去掉下去（平时巡逻遇悬崖会掉头）——站在崖对面引它扑空是躲它的办法；
+ * 掉下去的过程中不追也不巡逻，落稳了还看得见人就接着追、看不见就按下面的规矩找。
  * 看丢了就跑到最后看见的地方，每 lookMs 左右张望一次，丢了 forgetMs 回去巡逻。嘴里夹着纸的时候只顾驮纸，不追
  */
-export const CLIP_CHASE = { sight: 5, rows: 1, alertMs: 350, hop: -150, speed: 150, animRate: 2.2, lookMs: 400, forgetMs: 1800 };
+export const CLIP_CHASE = { sight: 5, rows: 1, alertMs: 350, hop: -150, speed: 150, animRate: 2.2, lookMs: 400, forgetMs: 1800, reckless: true };
 /**
  * 站不稳就滑下去：站在地上、身子中线底下是空的（被箱子顶到崖边、落在边上，只剩几个像素踩着地），
  * 就往没东西的那边以 slipSpeed（px/s）滑出去掉下去；掉的过程中不追人、不巡逻（不会在空中拐回去又蹭回崖顶），落稳了再接着来。
- * 自己走的时候不会走到这一步：巡逻、追人在脚前面没地时就停 / 掉头了，中线一直在地上
+ * 巡逻时不会走到这一步（脚前面没地就掉头，中线一直在地上）；追人冲下悬崖是整个人飞出去，不走这条
  */
 export const CLIP_EDGE = { slipSpeed: 80 };
 /** 后层画在纸（深度 5，见 terrain/Chunks.ts）后面、地形前面 */
@@ -172,13 +174,13 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
     this.setFlipX(this.dir > 0);
   }
 
-  /** 朝最后看见主角的地方冲；前面是墙 / 悬崖就站住；到了那儿还没看见就左右张望 */
+  /** 朝最后看见主角的地方冲；前面是墙就站住，悬崖不看（reckless）照样冲下去；到了那儿还没看见就左右张望 */
   private chase(T: number, footing: (cx: number, cy: number) => boolean): void {
     const b = this.body, now = this.scene.time.now, dx = this.lastSeenX - b.center.x;
     if (Math.abs(dx) > 3) {
       this.dir = dx > 0 ? 1 : -1;
       const wall = this.dir > 0 ? b.blocked.right : b.blocked.left;
-      if (!wall && (!b.blocked.down || this.groundAhead(T, footing))) this.speed = CLIP_CHASE.speed;
+      if (!wall && (CLIP_CHASE.reckless || !b.blocked.down || this.groundAhead(T, footing))) this.speed = CLIP_CHASE.speed;
     } else if (this.lastSeenAt < now && now >= this.lookAt) {
       this.dir = this.dir > 0 ? -1 : 1;
       this.lookAt = now + CLIP_CHASE.lookMs;

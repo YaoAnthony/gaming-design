@@ -79,10 +79,9 @@ export const DEFAULT_CONFIG: GameConfig = {
   },
   world3d: {
     actors: {
-      bossHeight: 14, clipHeight: 0.9, clipSpeed: 1.8,   // Boss 比主角高十几倍，像从桌子那头探过来
+      bossHeight: 18, clipHeight: 0.9, clipSpeed: 1.8,   // Boss 比主角高近十倍、细长，像踩着高跷从桌子那头探过来
       bossHandLength: 1.5, bossHands: { left: { pose: 'open', roll: 0 }, right: { pose: 'fist', roll: 0 } },
-    },
-      bossLight: { from: [6, 18, 14], color: '#7f9fd8', intensity: 2.2, angle: 11, penumbra: 0.6 },   // 一小束冷光只打在领口上
+      bossLight: { from: [10, 26, 20], color: '#9cbcf0', intensity: 6, angle: 26, penumbra: 0.7 },   // 一束冷光从前上方打在它上半身，让它从黑里浮出来
     },
     lighting: {
       lamp: { at: [-3, 13, 9], look: [-3, 0, 9], intensity: 3.4, angle: 42, penumbra: 0.6, color: '#ffe4b5', glow: 5 },   // 头顶一盏吊灯，只照亮舞台中间一圈
@@ -91,6 +90,7 @@ export const DEFAULT_CONFIG: GameConfig = {
       fog: { color: '#06080f', near: 18, far: 52 },
       dust: { count: 260, size: 0.09, fall: 0.35, spread: 12, color: '#ffe9c4', opacity: 0.45 },
       vignette: 0.85,
+    },
     toon: { dir: [-0.5, 0.8, 0.6], ambient: 0.18, aoPower: 2 },
     moveSpeed: 7, jumpVelocity: 13, gravity: 36, maxFall: 28,
     popOut: { out: 8, up: 9 },

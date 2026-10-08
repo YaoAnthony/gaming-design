@@ -2,7 +2,7 @@
 奶白色的胸甲（顶上一圈领口框、里面是空的——没有头）、胸口两道缝、大圆肩、一节节的粗圆木胳膊垂到腰下、
 从腰到脚踝越来越宽的喇叭形围裙（胸口口袋、吊牌、背后交叉的背带和扣子）、分得很开的两只木靴子。
 手不在这里建：游戏里把 gm_hand.glb 挂在 anchor_hand.L / anchor_hand.R 上（手很大，约 15 像素长）。
-尺寸单位 = 像素（本体 72 像素高），1 像素 = 0.1 Blender 单位。朝 -Y。
+尺寸单位 = 像素（本体约 106 像素高：裙摆下面露出两条长长的细腿，像踩着高跷），1 像素 = 0.1 Blender 单位。朝 -Y。
 
     blender -P build_boss.py                 建模 + 骨骼 + 动作
     blender -b -P build_boss.py -- --export  导出到 game-master/src/asset/model/boss.glb
@@ -34,21 +34,22 @@ PALETTE = {
     "buckle": ["#c4ad84", "#a8926a"],
 }
 
-# ---- 尺寸（像素），脚底 z = 0；按设定图量的：总高 72 ----
+# ---- 尺寸（像素），脚底 z = 0；上半身按设定图量的，再整体抬高 34、腿拉长：总高约 106 ----
 BOOT = dict(w=11, d=14, h=9, x=16)
-LEG = dict(r=4, x=14, z0=8, z1=30)
-PLATE = dict(w=30, d=15, z0=44, z1=68, r=4)             # 胸甲
+LEG = dict(r=3.4, x=13, z0=8, z1=62)                    # 长细腿：从靴子一直伸进裙子里（裙摆 z = 44 以下都露着）
+KNEE = dict(z=28, r=4.2)                                # 膝盖一个小圆球，腿才不像两根杆
+PLATE = dict(w=30, d=15, z0=78, z1=102, r=4)            # 胸甲
 COLLAR = dict(w=17, d=11, rim=2.5, h=4)                 # 领口框：外沿、框多宽、多高；里面是洞
-SLITS = dict(w=13, h=2.4, zs=(60, 53))
-SHOULDER = dict(r=6.5, x=19.5, z=62)
-ELBOW = dict(x=25, y=-1, z=42, size=7)
-WRIST = dict(x=28, y=-3, z=26, r=4)
-ARM_R = dict(upper=5.6, fore=5.0)
-APRON = dict(top=(32, 14), bottom=(62, 22), z0=11, z1=46)
-WAIST = dict(w=33, d=15, h=3, z=46)
+SLITS = dict(w=13, h=2.4, zs=(94, 87))
+SHOULDER = dict(r=6.5, x=19.5, z=96)
+ELBOW = dict(x=25, y=-1, z=72, size=7)
+WRIST = dict(x=28, y=-3, z=50, r=4)
+ARM_R = dict(upper=5.2, fore=4.6)
+APRON = dict(top=(32, 14), bottom=(58, 21), z0=44, z1=80)
+WAIST = dict(w=33, d=15, h=3, z=80)
 STRAP = dict(w=5, x=9, d=2.2)
-POCKET = dict(w=12, h=13, x=-10, z=29)
-TAG = dict(x=10, w=5, h=8, z=38, string=7)
+POCKET = dict(w=12, h=13, x=-10, z=62)
+TAG = dict(x=10, w=5, h=8, z=71, string=7)
 SIDES = (("L", 1), ("R", -1))
 
 
@@ -67,7 +68,8 @@ def build():
         rig.bone(f"shoulder.{s}", (k * (PLATE["w"] / 2 - 2), 0, SHOULDER["z"]), sh, up, "spine")
         rig.bone(f"upperarm.{s}", sh, el, up, f"shoulder.{s}")
         rig.bone(f"forearm.{s}", el, wr, up, f"upperarm.{s}", True)
-        rig.bone(f"thigh.{s}", (k * LEG["x"], 0, LEG["z1"]), (k * BOOT["x"], 0, LEG["z0"]), up, "hips")
+        rig.bone(f"thigh.{s}", (k * LEG["x"], 0, LEG["z1"]), (k * LEG["x"], 0, KNEE["z"]), up, "hips")
+        rig.bone(f"shin.{s}", (k * LEG["x"], 0, KNEE["z"]), (k * BOOT["x"], 0, LEG["z0"]), up, f"thigh.{s}", True)
     rig.build()
     at = rig.attach
 
@@ -113,9 +115,11 @@ def build():
         at(W.log(coll, f"forearm.{s}", ARM_R["fore"], el, wr, M["wood"], bevel=1.6), f"forearm.{s}")
         at(W.sphere(coll, f"wrist.{s}", WRIST["r"], wr, M["wrist"], segments=14, rings=8), f"forearm.{s}")
         at(W.empty(coll, f"anchor_hand.{s}", wr), f"forearm.{s}")
-        # 腿（藏在裙子里）和靴子
-        at(W.log(coll, f"leg.{s}", LEG["r"], (k * LEG["x"], 0, LEG["z1"]), (k * BOOT["x"], 0, LEG["z0"]), M["wood"], bevel=1.0), f"thigh.{s}")
-        at(W.box(coll, f"boot.{s}", (BOOT["w"], BOOT["d"], BOOT["h"]), (k * BOOT["x"], -1.5, BOOT["h"] / 2), M["cuff"], r=2.5), f"thigh.{s}")
+        # 长细腿：大腿一截进裙子里，膝盖一个球，小腿一截落到靴子上
+        at(W.log(coll, f"thigh.{s}", LEG["r"], (k * LEG["x"], 0, LEG["z1"]), (k * LEG["x"], 0, KNEE["z"]), M["wood"], bevel=1.0), f"thigh.{s}")
+        at(W.sphere(coll, f"knee.{s}", KNEE["r"], (k * LEG["x"], 0, KNEE["z"]), M["wrist"], segments=14, rings=8), f"shin.{s}")
+        at(W.log(coll, f"shin.{s}", LEG["r"] - 0.3, (k * LEG["x"], 0, KNEE["z"]), (k * BOOT["x"], 0, LEG["z0"]), M["wood"], bevel=1.0), f"shin.{s}")
+        at(W.box(coll, f"boot.{s}", (BOOT["w"], BOOT["d"], BOOT["h"]), (k * BOOT["x"], -1.5, BOOT["h"] / 2), M["cuff"], r=2.5), f"shin.{s}")
     at(W.empty(coll, "anchor_socket", (0, 0, PLATE["z1"] + ch)), "spine")
     return coll, rig
 

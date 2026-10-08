@@ -41,9 +41,19 @@ export class SolveNodes implements Mechanic {
     });
   }
 
+  /** 压板从松开变为压下时调用；同一节点只触发一次。 */
+  onPlatePressed(at: RoomCoord): void {
+    this.left = this.left.filter(({ node, r }) => {
+      if (node.when.kind !== 'plate' || !this.ctx.rooms.same(r, at)) return true;
+      this.ctx.solves.solve(r, node.id);
+      this.ctx.saveCheckpoint();
+      return false;
+    });
+  }
+
   private met(node: SolveNode, r: RoomCoord): boolean {
     const w = node.when;
-    if (w.kind === 'key') return false;   // 钥匙只响应拾取事件，不逐帧看持有状态
+    if (w.kind === 'key' || w.kind === 'plate') return false;   // 只响应获得 / 压下事件，不逐帧看状态
     if (w.kind === 'door') return !!this.ctx.mech<Locks>('locks')?.openedIn(r, w.group);
     if (w.kind === 'boss') return !!this.ctx.mech<BossFight>('boss')?.isDefeated(r);
     return !!this.ctx.mech<Movers>('mover')?.startedIn(r);

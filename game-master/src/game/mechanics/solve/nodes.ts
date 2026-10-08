@@ -8,6 +8,8 @@ export type SolveWhen =
   | { kind: 'door'; group: number }
   /** 在这个房间成功捡起指定组的钥匙（拾取事件） */
   | { kind: 'key'; group: number }
+  /** 这个房间的压板首次被压下（压下事件） */
+  | { kind: 'plate' }
   /** 这个房间的 Boss 被打败 */
   | { kind: 'boss' }
   /** 这个房间里的移动方块第一次动起来 */
@@ -22,6 +24,7 @@ export const SOLVE_NODES: Record<string, SolveNode[]> = {
     { id: 'f2.J.yellowKey', room: 'J', when: { kind: 'key', group: 3 } },
     { id: 'f2.C.mover', room: 'C', when: { kind: 'mover' } },
     { id: 'f2.A.blue', room: 'A', when: { kind: 'door', group: 1 } },
+    { id: 'f2.D.plate', room: 'D', when: { kind: 'plate' } },
     { id: 'f2.D.yellow', room: 'D', when: { kind: 'door', group: 3 } },
     { id: 'f2.F.boss', room: 'F', when: { kind: 'boss' } },
     { id: 'f2.I.red', room: 'I', when: { kind: 'door', group: 4 } },

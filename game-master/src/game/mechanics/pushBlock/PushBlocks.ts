@@ -20,6 +20,7 @@ import type { FuseEnd } from '@/game/fuse/Fuse';
 import type { Enemy } from '@/sprite';
 import type { FuseBurnCell, Mechanic } from '../define';
 import { pressedByWeight } from './plates';
+import type { SolveNodes } from '../solve';
 import { Colors, hex } from '@/shared/palette';
 
 interface Block {
@@ -331,6 +332,8 @@ export class PushBlocks implements Mechanic {
       pl.cells.forEach(c => ctx.fuses.endsNear(c, PLATE_FUSE_RADIUS, true).forEach(e => { const k = `${e.x},${e.y},${e.ch}`; if (!seen.has(k)) { seen.add(k); ends.push(e); } }));
       pl.cells.forEach(c => ctx.sparks.explode(4, c.x * T + T / 2, (c.y + 1) * T - 4));
       if (ends.length && ctx.igniteFuses(ends)) ctx.fx.flash('msg.fuseLit', hex(Colors.ember));
+      const c = pl.cells[0];
+      if (c) ctx.mech<SolveNodes>('solve')?.onPlatePressed(ctx.rooms.of((c.x + 0.5) * T, (c.y + 0.5) * T));
     });
   }
 

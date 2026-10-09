@@ -1,6 +1,6 @@
 // ===== 巡逻怪物「夹子桑」（核心）：物件 M、Boss 吐出来的小夹子都在这一组 =====
 import Phaser from 'phaser';
-import type { EnemySpawn, RoomCoord } from '@/type';
+import type { EnemySpawn, RoomCoord, EnemyCheckpoint } from '@/type';
 import { Enemy } from '@/sprite';
 import { playCrush } from '@/particle';
 import type { PlayContext } from './PlayContext';
@@ -14,6 +14,16 @@ export class Enemies {
   constructor(private ctx: PlayContext) {
     this.group = ctx.scene.physics.add.group({ classType: Enemy, runChildUpdate: false });
     ctx.scene.physics.add.collider(this.group, ctx.terrain.layer, undefined, ctx.terrain.landsOnOneWay);
+  }
+
+  checkpointState(): EnemyCheckpoint[] { return this.list().map(e => e.checkpointState()); }
+
+  restoreCheckpoint(saved: EnemyCheckpoint[]): void {
+    this.list().forEach(e => e.destroy());
+    saved.forEach(s => {
+      const e = new Enemy(this.ctx.scene, { ...s.spawn }, { scale: s.scale });
+      this.group.add(e); e.restoreCheckpoint(s);
+    });
   }
 
   /** 地图上的怪物：记下出生位置，重置时按它复原 */

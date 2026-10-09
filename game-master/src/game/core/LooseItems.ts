@@ -10,7 +10,7 @@
 // - 站在移动方块上被带着撞墙：推回墙外，方块从底下走开，东西就掉下去（碎岩横梁当「刮板」，第四层的玩法）
 // 参数和纯计算在 looseFall.ts。
 import Phaser from 'phaser';
-import type { GameConfig, RoomCoord } from '@/type';
+import type { GameConfig, RoomCoord, LooseCheckpoint } from '@/type';
 import type { Terrain } from '@/game/terrain/Terrain';
 import type { Solids } from './solids';
 import type { RoomApi } from './PlayContext';
@@ -104,6 +104,17 @@ export class LooseItems {
     this.list.push(k);
     this.place(k, scene.time.now);
     return k;
+  }
+
+  checkpointItem(k: LooseItem): LooseCheckpoint {
+    return { x: k.body.center.x, y: k.body.center.y, vx: k.body.velocity.x, vy: k.body.velocity.y, home: { ...k.home }, onGround: k.onGround };
+  }
+
+  restoreItem(k: LooseItem, s: LooseCheckpoint): void {
+    k.body.reset(s.x, s.y); k.body.setVelocity(s.vx, s.vy);
+    k.home = { ...s.home }; k.homeRoom = this.d.rooms.of(s.home.x, s.home.y);
+    k.onGround = s.onGround; k.lastVy = s.vy;
+    this.place(k, this.d.scene.time.now);
   }
 
   /** 被捡走了：物理体拿掉（贴图由放它的机制销毁） */

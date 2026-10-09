@@ -211,6 +211,33 @@ export class PushBlocks implements Mechanic {
     this.settlePlates();   // 箱子回到原位后压板跟着复原，不重新点引线（引线也复原了）
   }
 
+  checkpointState() {
+    return {
+      boxes: this.list.map(bl => {
+        const b = bl.sprite.body as Phaser.Physics.Arcade.Body;
+        return { x: bl.sprite.x, y: bl.sprite.y, vx: b.velocity.x, vy: b.velocity.y, enabled: b.enable, home: { ...bl.home }, room: { ...bl.room }, target: bl.target, carrySpeed: bl.carrySpeed };
+      }),
+      plates: this.plates.map(pl => ({ gone: pl.gone, pressed: pl.pressed, solvedGone: pl.solvedGone })),
+    };
+  }
+
+  restoreCheckpoint(data: unknown): void {
+    const s = data as ReturnType<PushBlocks['checkpointState']>;
+    if (!s || !Array.isArray(s.boxes) || !Array.isArray(s.plates)) return;
+    s.boxes.forEach((v, i) => {
+      const bl = this.list[i]; if (!bl) return;
+      const b = bl.sprite.body as Phaser.Physics.Arcade.Body;
+      b.reset(v.x, v.y); b.setVelocity(v.vx, v.vy); b.enable = v.enabled;
+      bl.sprite.setVisible(v.enabled); bl.home = { ...v.home }; bl.room = { ...v.room };
+      bl.target = v.target; bl.carrySpeed = v.carrySpeed; bl.cells = ''; bl.lastVy = v.vy;
+    });
+    s.plates.forEach((v, i) => {
+      const pl = this.plates[i]; if (!pl) return;
+      pl.gone = v.gone; pl.pressed = v.pressed; pl.solvedGone = v.solvedGone;
+      pl.sprite.setVisible(!pl.gone); this.showPlate(pl);
+    });
+  }
+
   // ---------- 解开 ----------
   /** 房间解开：在这个房间里的箱子以现在的位置为原位；已经消失的压板不再恢复 */
   onSolve(r: RoomCoord): void {

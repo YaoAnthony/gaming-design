@@ -27,6 +27,7 @@ export class SolveNodes implements Mechanic {
     this.left = this.left.filter(({ node, r }) => {
       if (!this.met(node, r)) return true;
       this.ctx.solves.solve(r, node.id);
+      this.ctx.saveCheckpoint();
       return false;
     });
   }

@@ -42,6 +42,8 @@ export interface RespawnDeps {
   away: () => boolean;
   /** 重置之前：刚解开、还在等安静下来的房间先记下来（Solves.flush），不然解开的东西被这次重置冲掉 */
   beforeReset?: () => void;
+  /** 有完整快照时，死亡从同一份全图 checkpoint 重建，而不是混用房间初始状态。 */
+  restoreCheckpoint?: () => boolean;
 }
 
 export class Respawn {
@@ -104,6 +106,7 @@ export class Respawn {
 
   /** R：当前房间的地形、引线、怪物恢复，玩家回到入口。revive = 死了之后的复活；appearDelayMs = 人多久之后才由骷髅手放进来（这段时间藏着，等画面淡入） */
   resetRoom(revive = false, appearDelayMs = 0): void {
+    if (revive && this.d.restoreCheckpoint?.()) return;
     const { rooms, terrain, fuses } = this.d;
     this.d.beforeReset?.();
     this.clearTransient('room');
@@ -120,6 +123,7 @@ export class Respawn {
    * 玩家回到重置点；探索记忆保留。机制可以改复活点（Boss 重演）。appearDelayMs 同 resetRoom
    */
   resetWorld(revive = false, appearDelayMs = 0): void {
+    if (revive && this.d.restoreCheckpoint?.()) return;
     const { terrain, fuses } = this.d;
     this.d.beforeReset?.();
     this.d.rooms.sleepAll();   // 别的房间重新睡着：等玩家再进去才动
@@ -178,6 +182,7 @@ export class Respawn {
   /** 死亡画面里按 R（或点一下）：按设置（config.deathReset）复活、重置当前房间或整张地图 */
   resetAfterDeath(): void {
     if (!this.dead || this.d.scene.time.now - this.diedAt < 300) return;   // 刚死的一瞬间不响应，免得误触
+    if (this.d.restoreCheckpoint?.()) return;
     const mode = this.d.cfg.deathReset;
     if (mode === 'world') this.resetWorld(true);
     else if (mode === 'room' || this.d.mechs().some(m => m.resetsRoomOnDeath?.())) this.resetRoom(true);

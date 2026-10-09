@@ -48,7 +48,11 @@ export class TerrainView {
   readonly wallAt = (x: number, y: number, group: string): boolean =>
     isWallAt(this.grid, x, y, group) && !(x >= 0 && y >= 0 && x < this.w && y < this.h && this.drawnElsewhere(x, y));
 
-  /** 这一格变了：重画它和邻居（墙看 8 个邻居，自动拼贴的材质、会改挂法的尖刺看上下左右） */
+  /**
+   * 这一格变了：重画它和邻居（墙看 8 个邻居，自动拼贴的材质、会改挂法的尖刺看上下左右）。
+   * 最后把这 3×3 的碰撞面重算一遍：Phaser 的 putTileAt 重放一块还是实心的砖时，会把它四个面全部当成外露面、又不重算
+   * （只有实心 ↔ 空气变化才重算）。不重算的话，内部的地板砖会带着假的左右面，贴着地滑的钥匙、箱子走到接缝就被卡住
+   */
   cellChanged(x: number, y: number): void {
     this.refreshFrame(x, y);
     for (const [dx, dy] of NEIGHBORS8) {
@@ -57,6 +61,7 @@ export class TerrainView {
       const d = Tiles.get(this.grid[ny][nx]);
       if (d?.wall || ((d?.autotile || d?.sideMount) && (dx === 0 || dy === 0))) this.refreshFrame(nx, ny);
     }
+    this.layer.calculateFacesWithin(x - 1, y - 1, 3, 3);
   }
 
   /** 这些格子重新按 drawnElsewhere 决定画不画（接管 / 交还某些格子的时候调）；旁边的墙跟着重拼 */

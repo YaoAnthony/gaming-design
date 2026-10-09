@@ -71,6 +71,23 @@ export class Boss extends Phaser.Physics.Arcade.Sprite {
     this.view = new BossView(scene, this);
   }
 
+  checkpointState() {
+    const now = this.scene.time.now;
+    return { x: this.x, y: this.y, vx: this.body.velocity.x, vy: this.body.velocity.y, hp: this.hp,
+      phase: this.phase, phaseMs: this.phaseUntil - now, hopsLeft: this.hopsLeft, hopMs: this.hopAt - now, hurtMs: this.hurtUntil - now,
+      wasOnGround: this.wasOnGround, chargeDir: this.chargeDir, fighting: this.fighting, crouchMs: this.crouchUntil ? this.crouchUntil - now : null,
+      hopDir: this.hopDir, closeCount: this.closeCount, scareAfter: this.scareAfter, fleeVx: this.fleeVx, lookAt: { ...this.lookAt } };
+  }
+
+  restoreCheckpoint(s: ReturnType<Boss['checkpointState']>): void {
+    const now = this.scene.time.now;
+    this.body.reset(s.x, s.y); this.setVelocity(s.vx, s.vy); this.hp = s.hp;
+    this.phase = s.phase; this.phaseUntil = now + s.phaseMs; this.hopsLeft = s.hopsLeft;
+    this.hopAt = now + s.hopMs; this.hurtUntil = now + s.hurtMs; this.wasOnGround = s.wasOnGround;
+    this.chargeDir = s.chargeDir; this.fighting = s.fighting; this.crouchUntil = s.crouchMs === null ? 0 : now + s.crouchMs;
+    this.hopDir = s.hopDir; this.closeCount = s.closeCount; this.scareAfter = s.scareAfter; this.fleeVx = s.fleeVx; this.lookAt = { ...s.lookAt };
+  }
+
   preUpdate(time: number, delta: number): void {
     super.preUpdate(time, delta);
     if (this.active) this.view.update(time, delta / 1000, { mood: this.mood(), onGround: this.body.blocked.down, vx: this.body.velocity.x, vy: this.body.velocity.y, look: this.lookAt });

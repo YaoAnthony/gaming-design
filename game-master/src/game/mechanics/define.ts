@@ -51,6 +51,9 @@ export interface Mechanic {
    * 存在 CarryOver[这个机制的 id] 下；进层时用 ctx.carried(id) 拿回来，自己检查对不对
    */
   persist?(): unknown;
+  /** 全图 checkpoint：正在运行的完整状态，JSON 数据；restore 在 start 之后调用。 */
+  checkpointState?(): unknown;
+  restoreCheckpoint?(data: unknown): void;
   /**
    * 这一刻按键和人归这个机制管（比如节奏关卡开打了）：场景不让人走、不响应跳和 R，机制自己用 ctx.held() 读方向、自己听按键
    */

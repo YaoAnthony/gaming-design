@@ -32,6 +32,9 @@ export class Solves {
 
   constructor(private readonly d: SolvesDeps) {}
 
+  checkpointNodes(): string[] { return [...this.fired]; }
+  restoreNodes(nodes: string[]): void { this.pending.clear(); this.fired = new Set(nodes); }
+
   /** 这个节点触发过吗 */
   has(node: string): boolean { return this.fired.has(node); }
 

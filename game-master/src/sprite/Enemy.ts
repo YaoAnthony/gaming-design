@@ -1,7 +1,7 @@
 // ===== 怪物「夹子桑」：巡逻，遇墙 / 遇悬崖掉头（脚下前方是箱子、纸也算地面，能走上去）；尖刺伤不到它，可以穿过房间边界；
 // 看见主角就愣一下、头上冒「!」，然后嘎嘎嘎地冲过去；到了跟前停下来扑过去夹一口；驮纸时用上半截（嘴）夹住纸，只有腿在走 =====
 import Phaser from 'phaser';
-import type { EnemySpawn } from '@/type';
+import type { EnemySpawn, EnemyCheckpoint } from '@/type';
 import type { Terrain } from '@/game/terrain/Terrain';
 import { DEPTH } from '@/game/depth';
 import { Colors } from '@/shared/palette';
@@ -83,6 +83,28 @@ export class Enemy extends Phaser.Physics.Arcade.Sprite {
       this.once(Phaser.GameObjects.Events.DESTROY, () => scene.events.off(Phaser.Scenes.Events.POST_UPDATE, this.syncBack, this));
     } else this.body.setSize(26, 22);
     if (look?.scale) this.setScale(look.scale);
+  }
+
+  checkpointState(): EnemyCheckpoint {
+    const now = this.scene.time.now;
+    return { spawn: { ...this.spawn }, x: this.x, y: this.y, vx: this.body.velocity.x, vy: this.body.velocity.y, scale: this.scaleX,
+      dir: this.dir, awake: this.awake, biting: this.biting, biteFrame: Math.max(0, (this.anims.currentFrame?.index ?? 1) - 1), mode: this.mode, alertMs: Math.max(0, this.alertUntil - now), seenAgo: now - this.lastSeenAt,
+      lastSeenX: this.lastSeenX, lookMs: Math.max(0, this.lookAt - now), biteMs: Math.max(0, this.nextBiteAt - now), slipping: this.slipping };
+  }
+
+  restoreCheckpoint(s: EnemyCheckpoint): void {
+    const now = this.scene.time.now;
+    this.body.reset(s.x, s.y); this.setVelocity(s.vx, s.vy);
+    this.dir = s.dir; this.awake = s.awake; this.mode = s.mode;
+    this.alertUntil = now + s.alertMs; this.lastSeenAt = now - s.seenAgo; this.lastSeenX = s.lastSeenX;
+    this.lookAt = now + s.lookMs; this.nextBiteAt = now + s.biteMs; this.slipping = s.slipping;
+    this.setFlipX(this.dir > 0);
+    if (s.biting && this.clip) {
+      this.biting = true; this.anims.timeScale = 1;
+      this.play({ key: 'clip_attack', startFrame: s.biteFrame }).once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
+        this.biting = false; this.nextBiteAt = this.scene.time.now + CLIP_ATTACK.cooldownMs;
+      });
+    }
   }
 
   /** 用的是不是夹子桑的动画（不是就是旧的方块贴图，比如单测） */

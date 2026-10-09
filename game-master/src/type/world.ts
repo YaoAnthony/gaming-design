@@ -7,7 +7,7 @@ export interface WorldModel {
   layout: (string | null)[][];
   /** 每个房间 roomH 行、每行 roomW 个字符 */
   rooms: Record<string, string[]>;
-  /** 迷雾区（可选，任何房间都能画）：每个房间 roomH 行，'.' = 无区，'1'-'4' = 区号；揭开前伪装成周围的墙，玩家进入区内任一格，整个区永久揭开 */
+  /** 迷雾区（可选，任何房间都能画）：每个房间 roomH 行，'.' = 无区，'1'-'4' = 区号；揭开前全黑；同房间、同区号、上下左右连着的格子算一团，玩家进入哪一团就永久揭开那一团 */
   fog?: Record<string, string[]>;
   /** 物件层（可选）：出生点 / 怪物 / 终点，和砖块分开，所以怪物可以放在尖刺上。'.' = 无 */
   entities?: Record<string, string[]>;

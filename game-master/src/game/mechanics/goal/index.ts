@@ -46,6 +46,11 @@ class Goal implements Mechanic {
     }
   }
 
+  checkpointState() { return this.goals.map(g => ({ armed: g.armed, done: g.done })); }
+  restoreCheckpoint(data: unknown): void {
+    if (Array.isArray(data)) data.forEach((s, i) => { const g = this.goals[i]; if (g && s) { g.armed = s.armed; g.done = s.done; } });
+  }
+
   /** 门后面的一座剪影建筑，亮着窗 */
   private drawBuilding(cx: number, baseY: number): void {
     const T = this.ctx.cfg.tile;

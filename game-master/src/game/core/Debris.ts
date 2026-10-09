@@ -1,3 +1,4 @@
+import type { PaperCheckpoint } from '@/type';
 // ===== 碎块（核心）：掉落的地块、飘落的纸、被怪物驮着的纸 =====
 // Terrain 负责碎块自己的下落；这里处理碎块和玩家 / 怪物之间发生的事。
 import Phaser from 'phaser';
@@ -31,6 +32,26 @@ export class Debris {
   constructor(private ctx: PlayContext) {
     this.platforms = ctx.scene.physics.add.group({ allowGravity: false, immovable: true });
     ctx.solids.register(this.platforms, 'platform', { player: this.hitsPlayer, enemy: this.hitsEnemy });   // 玩家、怪物、箱子、钥匙都能站在纸上、撞到纸
+  }
+
+  checkpointState(): PaperCheckpoint[] {
+    const enemies = this.ctx.enemies.list();
+    return this.carried.flatMap(c => {
+      const carrier = c.carrier === this.ctx.player ? 'player' : enemies.indexOf(c.carrier as Enemy);
+      if (carrier === -1) return [];
+      return [{ carrier, offsetX: c.left - c.carrier.x,
+        chunk: { cells: c.cells.map(cell => ({ ...cell })), vy: 0, py: 0, floatSpeed: 0, t: 0 } }];
+    });
+  }
+
+  restoreCheckpoint(saved: PaperCheckpoint[]): void {
+    this.carried.forEach(c => c.destroy()); this.carried = [];
+    saved.forEach(s => {
+      const carrier = s.carrier === 'player' ? this.ctx.player : this.ctx.enemies.list()[s.carrier];
+      if (!carrier) return;
+      const ch = this.ctx.terrain.restoreCarriedChunk(s.chunk);
+      this.carried.push(new CarriedPaper(this.ctx.scene, this.platforms, carrier, ch, this.ctx.cfg.tile, undefined, s.offsetX));
+    });
   }
 
   /** 碎块被别的东西吃掉了（比如砸中 Boss）：平台由 onChunkRemoved 一起删 */

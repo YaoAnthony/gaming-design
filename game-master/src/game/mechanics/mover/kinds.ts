@@ -18,8 +18,8 @@ export interface MoverKind {
 
 /** 编辑器物品栏按这个顺序列出；加一种新的移动（比如斜着走）就是在这里加一行 */
 export const MOVER_KINDS: MoverKind[] = [
-  { ch: 'h', name: '左右移动', desc: '画在方块上：相连的一片连同底下的方块一起左右来回走，任何一格撞到东西就掉头', axis: 'x', startDir: 1, color: Colors.sky },
-  { ch: 'v', name: '上下移动', desc: '画在方块上：相连的一片连同底下的方块一起上下来回走，任何一格撞到东西就掉头', axis: 'y', startDir: -1, color: 0xf15bb5 },
+  { ch: 'h', name: '左右移动', desc: '画在方块上：相连的一片连同底下的方块一起左右来回走，任何一格撞到东西就掉头。动起来之前和普通的墙看不出区别', axis: 'x', startDir: 1, color: Colors.sky },
+  { ch: 'v', name: '上下移动', desc: '画在方块上：相连的一片连同底下的方块一起上下来回走，任何一格撞到东西就掉头。动起来之前和普通的墙看不出区别', axis: 'y', startDir: -1, color: 0xf15bb5 },
 ];
 
 export const moverKind = (ch: string | undefined): MoverKind | undefined => MOVER_KINDS.find(k => k.ch === ch);

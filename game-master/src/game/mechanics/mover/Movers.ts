@@ -1,9 +1,11 @@
 // ===== 移动方块：画了移动标记的方块，相连的一片一起沿一根轴来回走 =====
 // - 方块一直在地形网格里（爆炸、引线、支撑、迷雾都照常算），每走满一格把整组在网格里平移一格（Terrain.moveCells）。
 //   走到一半的时候网格里还是原来那一格，画面和碰撞已经在路上
-// - 瓦片层不画这些格子（drawsCell），由这里画、这里做碰撞：一行连着的格子一个物理体，直接改位置（directControl），
-//   站在上面的人、箱子、怪物被带着走
-// - 停在格子上的时候检查下一步：整组任何一格的下一格被挡（地形、箱子、别的移动方块、没站在上面的人或怪物），就停一下掉头。
+// - 动起来之前藏在墙里：瓦片层照常把它们当普通墙画（和旁边的墙拼成一整面，看不出区别）。第一次挪动的那一刻（revealed）才从瓦片层拿掉、
+//   由这里画（drawsCell）：四面有自己的边，和不动的墙分开。亮过相就一直由这里画，重置、回到原位也不再藏回去（玩家已经知道了，省得闪）
+// - 碰撞一直在这里做：一行连着的格子一个物理体，直接改位置（directControl），站在上面的人、箱子、怪物被带着走
+// - 停在格子上的时候检查下一步：整组任何一格的下一格被挡（地形、箱子、别的移动方块），就停一下掉头。
+//   人和怪物挡在路上不算：砖照常走、把他们推开（不然在砖前面蹦一下就能让它掉头）；只有他们背后已经贴着墙、再推就夹进墙里了才算挡住。
 //   往上运人时，人头顶撞墙也算挡住
 // - 寄托的方块没了（变成空气），这一格就退出（岩石裂成碎岩还算在）
 // - 重置（R、死亡、进入下一关）：所有移动方块先回到一开始的位置，再让地形复原。
@@ -48,12 +50,15 @@ interface Group {
   bodies: { img: Phaser.Physics.Arcade.Image; run: SolidRun }[];
   /** 开始走了没有：整组有一格在醒着的房间里才开始（Rooms.isAwake），开始了就一直走；重置时重新睡 */
   awake: boolean;
+  /** 亮过相没有：第一次挪动起就 true，从此由这里画；false = 还藏在墙里，瓦片层当普通墙画 */
+  revealed: boolean;
 }
 
 export class Movers implements Mechanic {
   private groups: Group[];
-  /** 由这里画的格子（所有组现在的位置） */
+  /** 由这里画的格子（亮过相的组现在的位置）；held = 所有组现在占着的格子（藏着的也算：压板要知道上面有重物） */
   private drawn = new Set<number>();
+  private held = new Set<number>();
   readonly solid: Phaser.Physics.Arcade.Group;
 
   constructor(private ctx: PlayContext, specs: MoverGroupSpec[]) {
@@ -62,7 +67,7 @@ export class Movers implements Mechanic {
     this.groups = specs.map(s => ({
       kind: s.kind, home: s.cells, alive: s.cells.map(() => true), ids: s.cells.map(c => ctx.terrain.grid[c.y][c.x]),
       shift: { x: 0, y: 0 }, base: { shift: { x: 0, y: 0 }, dir: s.kind.startDir }, dir: s.kind.startDir, pos: 0, waitUntil: 0, reserved: new Set(),
-      view: ctx.scene.add.container(0, 0).setDepth(0.5), images: [], bodies: [], awake: false,
+      view: ctx.scene.add.container(0, 0).setDepth(0.5), images: [], bodies: [], awake: false, revealed: false,
     }));
     this.syncDrawn();   // 一开始就知道自己占哪些格：别的机制 start 时（比如压板摆初始状态）就能问到
   }
@@ -76,8 +81,8 @@ export class Movers implements Mechanic {
 
   drawsCell(cx: number, cy: number): boolean { return this.drawn.has(cy * this.ctx.terrain.w + cx); }
 
-  /** 移动方块是重物：停在（或滑过）压板那一格时，压板算被压下。按网格里的位置算，走满一格才算进了那一格 */
-  weighs(cx: number, cy: number): boolean { return this.drawsCell(cx, cy); }
+  /** 移动方块是重物：停在（或滑过）压板那一格时，压板算被压下。按网格里的位置算，走满一格才算进了那一格；还藏在墙里的也算 */
+  weighs(cx: number, cy: number): boolean { return this.held.has(cy * this.ctx.terrain.w + cx); }
 
   update(now: number, dt: number): void { this.groups.forEach(g => this.tick(g, now, dt)); }
 
@@ -108,6 +113,26 @@ export class Movers implements Mechanic {
     this.place(g);
   }
 
+  checkpointState() {
+    return this.groups.map(g => ({ shift: { ...g.shift }, dir: g.dir, pos: g.pos, waitMs: Math.max(0, g.waitUntil - this.ctx.scene.time.now), alive: [...g.alive], ids: [...g.ids], awake: g.awake, revealed: g.revealed, reserved: [...g.reserved] }));
+  }
+
+  restoreCheckpoint(data: unknown): void {
+    if (!Array.isArray(data)) return;
+    data.forEach((s, i) => {
+      const g = this.groups[i];
+      if (!g || !s?.shift || !Array.isArray(s.alive) || s.alive.length !== g.home.length) return;
+      g.shift = { ...s.shift }; g.dir = s.dir; g.pos = s.pos;
+      g.base = { shift: { ...s.shift }, dir: s.dir };
+      g.waitUntil = this.ctx.scene.time.now + s.waitMs;
+      g.alive = [...s.alive]; g.ids = [...s.ids]; g.awake = s.awake; g.revealed = s.revealed;
+      g.reserved = new Set(s.reserved); g.shape = null;
+      this.rebuild(g); this.place(g);
+    });
+    this.syncDrawn();
+    this.ctx.terrain.refreshCells(this.groups.flatMap(g => [...g.home, ...this.current(g)]));
+  }
+
   // ---------- 解开 ----------
   /** 这个房间里有方块已经动起来了（离开了一开始的位置，或者正在走第一步） */
   startedIn(r: RoomCoord): boolean {
@@ -132,6 +157,7 @@ export class Movers implements Mechanic {
       if (!g || !Number.isInteger(d.x) || !Number.isInteger(d.y) || (d.dir !== 1 && d.dir !== -1)) return;
       g.base = { shift: { x: d.x, y: d.y }, dir: d.dir };
       g.shift = { x: d.x, y: d.y }; g.dir = d.dir;
+      if (d.x || d.y) g.revealed = true;
       const grid = this.ctx.terrain.grid;
       g.home.forEach((c, k) => { const id = grid[c.y + d.y]?.[c.x + d.x]; g.alive[k] = canCarry(id); if (g.alive[k]) g.ids[k] = id; });
       g.shape = null;
@@ -161,6 +187,7 @@ export class Movers implements Mechanic {
       const [dx, dy] = this.delta(g), w = this.ctx.terrain.w, cells = this.current(g);
       const own = new Set(cells.map(c => c.y * w + c.x));
       g.reserved = new Set(cells.map(c => (c.y + dy) * w + c.x + dx).filter(i => !own.has(i)));
+      this.reveal(g);   // 要动了：这一刻起不再是普通的墙
     }
     const prev = g.pos, step = this.ctx.cfg.moverSpeed * dt;
     // 走到一半也要看：有人（怪）跳上来 / 走进路线里，再往前就会被夹进墙里的话，当场掉头退回去
@@ -226,7 +253,7 @@ export class Movers implements Mechanic {
     const others = new Set(this.groups.filter(o => o !== g).flatMap(o => [...o.reserved]));
     const hit = (x: number, y: number) => x < 0 || y < 0 || x >= t.w || y >= t.h || t.isSolid(x, y) || ctx.occupied(x, y) || ctx.blockedByMechanics(x, y) || others.has(y * t.w + x);
     if (stepBlocked(cells, dx, dy, hit)) return true;
-    // 人和怪物：站在上面的被带着走；不在上面、挡在路上的算撞到
+    // 人和怪物：站在上面的被带着走；挡在路上的会被推开，只有背后紧贴着墙（再推就夹进墙里）才算撞到；在砖前面跳来跳去不会让砖掉头
     const { own } = this.shape(g);
     const targets = cells.map(c => ({ x: c.x + dx, y: c.y + dy })).filter(c => !own.has(cellKey(c.x, c.y)));
     for (const b of this.bodiesAround()) {
@@ -235,9 +262,18 @@ export class Movers implements Mechanic {
         if (dy < 0 && this.rectHitsTerrain(b.left + INSET, b.right - INSET, b.top - T + INSET, b.top, own)) return true;
         continue;
       }
-      if (targets.some(c => b.right - INSET > c.x * T && b.left + INSET < (c.x + 1) * T && b.bottom - INSET > c.y * T && b.top + INSET < (c.y + 1) * T)) return true;
+      const inWay = targets.some(c => b.right - INSET > c.x * T && b.left + INSET < (c.x + 1) * T && b.bottom - INSET > c.y * T && b.top + INSET < (c.y + 1) * T);
+      if (inWay && this.pinned(b, dx, dy, 1, own)) return true;
     }
     return false;
+  }
+
+  /** 这具身体背着砖前进的方向、step 像素以内有没有墙：有 = 再推就把它夹进墙里 */
+  private pinned(b: Phaser.Physics.Arcade.Body, dx: number, dy: number, step: number, own: Set<number>): boolean {
+    return dx > 0 ? this.rectHitsTerrain(b.right, b.right + step + 1, b.top + INSET, b.bottom - INSET, own)
+      : dx < 0 ? this.rectHitsTerrain(b.left - step - 1, b.left, b.top + INSET, b.bottom - INSET, own)
+      : dy > 0 ? this.rectHitsTerrain(b.left + INSET, b.right - INSET, b.bottom, b.bottom + step + 1, own)
+      : this.rectHitsTerrain(b.left + INSET, b.right - INSET, b.top - step - 1, b.top, own);
   }
 
   /** 能被夹住的身体：玩家和怪物 */
@@ -260,17 +296,15 @@ export class Movers implements Mechanic {
         if (dy < 0 && this.rectHitsTerrain(b.left + INSET, b.right - INSET, b.top - step - 1, b.top, own)) return true;
         continue;
       }
+      // 前进那一面这一步扫过的范围里有没有它：被推着走的身体每帧都被物理挤到正好贴着砖面（不重叠），所以前进方向上算到贴着为止，不缩进
       const pushed = lead.some(c => {
         const x0 = c.x * T + px + Math.min(0, dx * step), x1 = (c.x + 1) * T + px + Math.max(0, dx * step);
         const y0 = c.y * T + py + Math.min(0, dy * step), y1 = (c.y + 1) * T + py + Math.max(0, dy * step);
-        return b.right - INSET > x0 && b.left + INSET < x1 && b.bottom - INSET > y0 && b.top + INSET < y1;
+        const inX = dx > 0 ? b.left <= x1 && b.right > x0 : dx < 0 ? b.right >= x0 && b.left < x1 : b.right - INSET > x0 && b.left + INSET < x1;
+        const inY = dy > 0 ? b.top <= y1 && b.bottom > y0 : dy < 0 ? b.bottom >= y0 && b.top < y1 : b.bottom - INSET > y0 && b.top + INSET < y1;
+        return inX && inY;
       });
-      if (!pushed) continue;
-      const wall = dx > 0 ? this.rectHitsTerrain(b.right, b.right + step + 1, b.top + INSET, b.bottom - INSET, own)
-        : dx < 0 ? this.rectHitsTerrain(b.left - step - 1, b.left, b.top + INSET, b.bottom - INSET, own)
-        : dy > 0 ? this.rectHitsTerrain(b.left + INSET, b.right - INSET, b.bottom, b.bottom + step + 1, own)
-        : this.rectHitsTerrain(b.left + INSET, b.right - INSET, b.top - step - 1, b.top, own);
-      if (wall) return true;
+      if (pushed && this.pinned(b, dx, dy, step, own)) return true;
     }
     return false;
   }
@@ -310,7 +344,17 @@ export class Movers implements Mechanic {
 
   private syncDrawn(): void {
     const w = this.ctx.terrain.w;
-    this.drawn = new Set(this.groups.flatMap(g => this.current(g).map(c => c.y * w + c.x)));
+    this.held = new Set(this.groups.flatMap(g => this.current(g).map(c => c.y * w + c.x)));
+    this.drawn = new Set(this.groups.filter(g => g.revealed).flatMap(g => this.current(g).map(c => c.y * w + c.x)));
+  }
+
+  /** 第一次挪动：从瓦片层拿掉这些格子（旁边的墙重新拼边，朝它画出边来），改由这里画 */
+  private reveal(g: Group): void {
+    if (g.revealed) return;
+    g.revealed = true;
+    g.view.setVisible(true);
+    this.syncDrawn();
+    this.ctx.terrain.refreshCells(this.current(g));
   }
 
   // ---------- 画面和物理体 ----------
@@ -331,6 +375,7 @@ export class Movers implements Mechanic {
     g.images.forEach(i => i?.destroy());
     g.images = g.home.map((c, i) => (g.alive[i] ? scene.add.image(c.x * T + T / 2, c.y * T + T / 2, ...this.pieceTexture(g, i)) : null));
     g.images.forEach(i => { if (i) g.view.add(i); });
+    g.view.setVisible(g.revealed);   // 还藏在墙里的由瓦片层画
     g.bodies.forEach(b => b.img.destroy());
     g.bodies = solidRuns(g.home.filter((_, i) => g.alive[i])).map(run => ({ img: makeSolidBody(scene, this.solid, run, T), run }));
     // 新建的物理体在 (0,0)：摆到位置后归位一次，不然第一步会被当成一下子挪了好几百像素，把站在上面的人甩出去

@@ -1,23 +1,45 @@
 // ===== 地图迷雾：设计师迷雾区 + 全屋暗（光照扩散 + 半透明记忆） =====
 // 两样东西分开：
 // - 迷雾区：任何房间里都能画，藏秘密通道用。没揭开前全黑（连轮廓都不露，和墙里面的黑连成一片），光照不进去、也透不过去；
-//   玩家踏进区内任一格（或者区里有砖被炸掉）整区永久揭开，黑慢慢淡掉。
+//   玩家踏进区内任一格（或者区里有砖被炸掉）整团永久揭开，黑慢慢淡掉。「一团」= 同一房间里同一区号、上下左右连在一起的那片格子：
+//   同一个区号画成分开的几团，各揭各的（区号只是编辑器里的颜色，不是分组）。
 // - 全屋暗（房间开关）：整个房间只看得见光照到的地方。没见过的很暗、隐约看得出轮廓（unseenAlpha = 1 就是全黑），
 //   见过但不在视野的半透明，视野里清晰。光从玩家所在格出发沿空气逐格衰减，实心格能被照亮但挡住后面。
 // 没开全屋暗的房间里，迷雾区以外正常显示。探索记忆随存档保存，不随死亡 / R 重置消失。
 // 画法：每格一个迷雾浓度，写进两张小图（FogLayer：全屋暗的光照、迷雾区），放大平滑插值画进迷雾层 —— 光圈是圆润的渐变，
-// 迷雾区的边跟着格子走、只有很窄的一圈柔边。
+// 迷雾区的黑一直盖到格子边外面 FOG_TUNE.bleedPx 像素才开始淡（边界格子里的砖边、墙面一点都不露），柔边落在区外的邻格上。
 import type Phaser from 'phaser';
 import type { CellRef, FogState, RoomCoord } from '@/type';
 import { Tiles } from '@/game/registry/registry';
 import { DEPTH } from '@/game/depth';
 
-/** 迷雾区揭开时雾淡掉用多久（毫秒） */
-export const ZONE_REVEAL_MS = 400;
-/** 小图一格几个点：光照 1 个（插值横跨整格，光圈渐变最顺）；迷雾区 2 个（只在边界两边各 1/4 格里过渡，边收得紧） */
-const LIGHT_SUB = 1, ZONE_SUB = 2;
-/** 迷雾的颜色 */
+/** 迷雾区的样子（用临时调参面板定的：黑只往旁边的墙上多盖一点点、硬边、每格抖几像素、圆角） */
+export interface FogTune {
+  /** 黑往区外多盖多少像素：这以内全黑 */
+  bleedPx: number;
+  /** 全黑再往外多少像素里淡到 0（0 = 硬边） */
+  featherPx: number;
+  /** 外扩的形状：true = 按直线距离（角是圆的），false = 按棋盘距离（角是方的） */
+  roundCorners: boolean;
+  /** 每格的外扩随机抖动 ±多少像素（按格子位置算的固定噪声，不会闪） */
+  noisePx: number;
+  /** 往哪种邻格外扩：all = 都扩；wall = 只盖到旁边的墙上；air = 只盖到旁边的空气上 */
+  bleedInto: 'all' | 'wall' | 'air';
+  /** 黑的浓度 0..1 */
+  alpha: number;
+  /** 迷雾的颜色 */
+  color: string;
+  /** 揭开时雾淡掉用多久（毫秒） */
+  revealMs: number;
+}
+export const FOG_TUNE: FogTune = { bleedPx: 1, featherPx: 2, roundCorners: true, noisePx: 3, bleedInto: 'wall', alpha: 1, color: '#05060c', revealMs: 550 };
+/** 小图一格几个点：光照 1 个（插值横跨整格，光圈渐变最顺）；迷雾区 8 个（4 像素一个点，外扩 / 柔边能按像素调） */
+const LIGHT_SUB = 1, ZONE_SUB = 8;
+/** 全屋暗那层的颜色 */
 const FOG_RGB = [0x05, 0x06, 0x0c];
+const hexRgb = (hex: string): number[] => { const n = parseInt(hex.replace('#', ''), 16); return [(n >> 16) & 255, (n >> 8) & 255, n & 255]; };
+/** 0..1 的固定噪声（按格子位置算，同一格每次一样） */
+const cellNoise = (x: number, y: number): number => { const n = Math.sin(x * 127.1 + y * 311.7) * 43758.5453; return n - Math.floor(n); };
 
 /** 一张一格 sub×sub 个点的小图：每个点一个迷雾浓度，放大到房间大小时平滑插值，画进迷雾层 */
 class FogLayer {
@@ -42,6 +64,41 @@ class FogLayer {
       const p = ((ly * this.sub + sy) * this.pw + lx * this.sub + sx) * 4;
       d[p] = FOG_RGB[0]; d[p + 1] = FOG_RGB[1]; d[p + 2] = FOG_RGB[2]; d[p + 3] = a;
     }
+  }
+
+  /**
+   * 按格子浓度 cover(lx, ly) 填整张图（迷雾区用），样子按 tune：每个采样点看自己和周围 8 格里有雾的格子，
+   * 到那格方框的距离 ≤ bleedPx 就取那格的浓度，再往外 featherPx 里线性淡到 0（几格都盖到取最浓的）。
+   * 格子里面距离是 0，所以区内总是全黑；外扩只落在区外的邻格上，bleedInto 决定只落在墙上 / 空气上还是都落。
+   * solid(lx, ly) = 这一格是不是实心（bleedInto 用）
+   */
+  fill(roomW: number, roomH: number, tile: number, cover: (lx: number, ly: number) => number, solid: (lx: number, ly: number) => boolean, tune: FogTune): void {
+    const n = this.sub, rgb = hexRgb(tune.color);
+    for (let ly = 0; ly < roomH; ly++) for (let lx = 0; lx < roomW; lx++) {
+      const own = cover(lx, ly);
+      const mayBleed = own > 0 ? false : tune.bleedInto === 'all' || (tune.bleedInto === 'wall') === solid(lx, ly);
+      for (let sy = 0; sy < n; sy++) for (let sx = 0; sx < n; sx++) {
+        const px = (lx + (sx + 0.5) / n) * tile, py = (ly + (sy + 0.5) / n) * tile;   // 采样点的位置（像素）
+        let a = own;
+        if (mayBleed) for (let dy = -1; dy <= 1 && a < 1; dy++) for (let dx = -1; dx <= 1 && a < 1; dx++) {
+          const cx = lx + dx, cy = ly + dy;
+          if ((!dx && !dy) || cx < 0 || cy < 0 || cx >= roomW || cy >= roomH) continue;
+          const c = cover(cx, cy);
+          if (c <= 0) continue;
+          const ox = Math.max(cx * tile - px, 0, px - (cx + 1) * tile), oy = Math.max(cy * tile - py, 0, py - (cy + 1) * tile);
+          const d = tune.roundCorners ? Math.hypot(ox, oy) : Math.max(ox, oy);
+          const bleed = tune.bleedPx + (cellNoise(cx, cy) * 2 - 1) * tune.noisePx;
+          const f = d <= bleed ? 1 : tune.featherPx > 0 ? Math.max(0, 1 - (d - bleed) / tune.featherPx) : 0;
+          a = Math.max(a, c * f);
+        }
+        this.point(lx * n + sx, ly * n + sy, a * tune.alpha, rgb);
+      }
+    }
+  }
+
+  private point(x: number, y: number, alpha: number, rgb: number[]): void {
+    const d = this.pixels.data, p = (y * this.pw + x) * 4;
+    d[p] = rgb[0]; d[p + 1] = rgb[1]; d[p + 2] = rgb[2]; d[p + 3] = Math.round(alpha * 255);
   }
 
   /** 上传，平滑放大画进 rt */
@@ -89,8 +146,9 @@ export class FogOfWar {
   private readonly solidAtStart: Uint8Array;
   private room: RoomCoord = { rx: -1, ry: -1 };
   private dirty = true;
-  /** 每格属于哪个迷雾区（zoneKeys 的下标，-1 = 不在区里）；建的时候算一次 */
+  /** 每格属于哪一团迷雾（zoneKeys 的下标，-1 = 不在区里）；建的时候算一次 */
   private readonly zoneOf: Int32Array;
+  /** 每团的 id：「房间:区号@房间里最靠上、最靠左那格的坐标」，存档里记的就是它（地图没改过就稳定） */
   private readonly zoneKeys: string[] = [];
   /** 全屋暗的房间里的格子（只有它们按光照显示；别的格子除了没揭开的迷雾区都正常显示） */
   private readonly dark: Uint8Array;
@@ -103,19 +161,34 @@ export class FogOfWar {
     this.light = new Float32Array(this.w * this.h);
     this.zoneOf = new Int32Array(this.w * this.h).fill(-1);
     this.dark = new Uint8Array(this.w * this.h);
-    const zoneIds = new Map<string, number>();
+    const roomOf = (x: number, y: number) => opts.keyAt(Math.floor(x / opts.roomW), Math.floor(y / opts.roomH));
+    const zoneCh = (x: number, y: number) => { const c = zones[y]?.[x]; return c && c !== '.' ? c : null; };
     for (let y = 0; y < this.h; y++) for (let x = 0; x < this.w; x++) {
-      const i = y * this.w + x, key = opts.keyAt(Math.floor(x / opts.roomW), Math.floor(y / opts.roomH));
+      const i = y * this.w + x, key = roomOf(x, y);
       if (key && opts.darkRooms.has(key)) this.dark[i] = 1;
-      const c = zones[y]?.[x];
-      if (!key || !c || c === '.') continue;
-      const zk = `${key}:${c}`;
-      if (!zoneIds.has(zk)) { zoneIds.set(zk, this.zoneKeys.length); this.zoneKeys.push(zk); }
-      this.zoneOf[i] = zoneIds.get(zk)!;
+      const c = zoneCh(x, y);
+      if (!key || !c || this.zoneOf[i] >= 0) continue;
+      // 从这格（按行扫到的第一格，就是这团最靠上、最靠左的）四邻泛洪，同房间、同区号、连着的归一团
+      const z = this.zoneKeys.length;
+      this.zoneKeys.push(`${key}:${c}@${x % opts.roomW},${y % opts.roomH}`);
+      const stack = [i]; this.zoneOf[i] = z;
+      while (stack.length) {
+        const j = stack.pop()!, jx = j % this.w, jy = (j - jx) / this.w;
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const nx = jx + dx, ny = jy + dy;
+          if (nx < 0 || ny < 0 || nx >= this.w || ny >= this.h) continue;
+          const n = ny * this.w + nx;
+          if (this.zoneOf[n] >= 0 || zoneCh(nx, ny) !== c || roomOf(nx, ny) !== key) continue;
+          this.zoneOf[n] = z; stack.push(n);
+        }
+      }
     }
     if (saved && saved.explored.length === this.h) {
       saved.explored.forEach((row, y) => [...row].forEach((c, x) => { if (c === '1') this.explored[y * this.w + x] = 1; }));
-      saved.revealedZones.forEach(z => this.revealed.add(z));
+      saved.revealedZones.forEach(z => {
+        if (z.includes('@')) { this.revealed.add(z); return; }
+        this.zoneKeys.filter(k => k.startsWith(`${z}@`)).forEach(k => this.revealed.add(k));   // 旧存档记的是「房间:区号」：那个区号的每一团都算揭开
+      });
     }
     const T = opts.tile;
     this.rt = scene.add.renderTexture(0, 0, opts.roomW * T, opts.roomH * T).setOrigin(0).setDepth(DEPTH.fog).setVisible(false);
@@ -198,7 +271,7 @@ export class FogOfWar {
       if (this.light[i] === 0) lit.push(i);
       if (v > this.light[i]) this.light[i] = v;
     };
-    // 区里有砖被炸掉 / 烧掉了：整区揭开（墙都破了，没法再装）
+    // 团里有砖被炸掉 / 烧掉了：整团揭开（墙都破了，没法再装）
     for (let i = 0; i < this.solidAtStart.length; i++) {
       if (this.solidAtStart[i] && this.hiddenZone(i) && !Tiles.get(this.grid[Math.floor(i / this.w)][i % this.w])?.solid) this.reveal(this.zoneOf[i], now);
     }
@@ -206,7 +279,7 @@ export class FogOfWar {
     const blocks = (x: number, y: number) => this.hiddenZone(y * this.w + x);
     FogOfWar.forEachLit(this.grid, px, py, this.opts.radius, add, blocks);
     this.sources.forEach(s => FogOfWar.forEachLit(this.grid, s.x, s.y, s.r, add, blocks));
-    // 踏进迷雾区就揭开整个区（假墙在 ZONE_REVEAL_MS 里淡掉）
+    // 踏进哪一团就揭开那一团（黑在 FOG_TUNE.revealMs 里淡掉）
     const z = stepReveals ? this.zoneAt(px, py) : -1;
     if (z >= 0) this.reveal(z, now);
     lit.forEach(i => { if (!this.hiddenZone(i) && !this.explored[i]) { this.explored[i] = 1; this.knownRev++; } });   // 没揭开的区照到了也不算见过（预览不显示里面）
@@ -214,7 +287,7 @@ export class FogOfWar {
     this.dirty = true;
   }
 
-  /** 揭开第 z 个迷雾区（已经揭开就不动） */
+  /** 揭开第 z 团迷雾（已经揭开就不动） */
   private reveal(z: number, now: number): void {
     const key = this.zoneKeys[z];
     if (this.revealed.has(key)) return;
@@ -266,7 +339,7 @@ export class FogOfWar {
     const key = this.zoneKeys[z];
     if (!this.revealed.has(key)) return 1;
     const at = this.revealedAt.get(key);
-    return at === undefined ? 0 : Math.max(0, 1 - (now - at) / ZONE_REVEAL_MS);
+    return at === undefined ? 0 : Math.max(0, 1 - (now - at) / Math.max(1, FOG_TUNE.revealMs));
   }
 
   /** 照明半径变了（比如捡到蜡烛） */
@@ -294,19 +367,24 @@ export class FogOfWar {
     this.rt.setPosition(ox * T, oy * T);
     this.rt.clear();
     let anyDark = false, anyZone = false, fading = false;
+    const covers = new Float32Array(roomW * roomH);
     for (let ly = 0; ly < roomH; ly++)
       for (let lx = 0; lx < roomW; lx++) {
         const x = ox + lx, y = oy + ly;
-        if (x >= this.w || y >= this.h) { this.lightLayer.set(lx, ly, 1); this.zoneLayer.set(lx, ly, 0); anyDark = true; continue; }
+        if (x >= this.w || y >= this.h) { this.lightLayer.set(lx, ly, 1); anyDark = true; continue; }
         const i = y * this.w + x;
         const fog = 1 - this.baseClarity(i), cover = this.zoneCover(i, now);
         if (fog > 0) anyDark = true;
         if (cover > 0) { anyZone = true; if (cover < 1) fading = true; }
         this.lightLayer.set(lx, ly, fog);
-        this.zoneLayer.set(lx, ly, cover);
+        covers[ly * roomW + lx] = cover;
       }
     if (anyDark) this.lightLayer.drawInto(this.rt);
-    if (anyZone) this.zoneLayer.drawInto(this.rt);
+    if (anyZone) {
+      const solid = (lx: number, ly: number) => !!Tiles.get(this.grid[oy + ly]?.[ox + lx])?.solid;
+      this.zoneLayer.fill(roomW, roomH, T, (lx, ly) => covers[ly * roomW + lx], solid, FOG_TUNE);
+      this.zoneLayer.drawInto(this.rt);
+    }
     this.rt.setVisible(true);
     if (fading) this.dirty = true;   // 迷雾区正在淡出：下一帧接着画
   }

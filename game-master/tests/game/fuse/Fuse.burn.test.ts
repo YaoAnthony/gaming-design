@@ -9,7 +9,7 @@ function fakeScene() {
   let now = 0;
   const timers: { at: number; cb: () => void; removed: boolean; hasDispatched: boolean; remove(): void }[] = [];
   const obj = (): Record<string, unknown> => { const o: Record<string, unknown> = { x: 0, y: 0, list: [] }; ['setDepth', 'setScale', 'setBlendMode', 'setTint', 'setAlpha', 'setOrigin'].forEach(k => { o[k] = () => o; }); o.destroy = () => {}; o.add = (c: unknown) => (o.list as unknown[]).push(c); return o; };
-  const layer = { setCollision() {}, putTileAt() { return {}; }, removeTileAt() {} };
+  const layer = { setCollision() {}, putTileAt() { return {}; }, removeTileAt() {}, calculateFacesWithin() {} };
   const scene = {
     make: { tilemap: () => ({ addTilesetImage: () => ({}), createLayer: () => layer }) },
     add: { container: obj, image: obj, circle: obj, particles: obj },

@@ -1,11 +1,12 @@
 // ===== 玩家的进度（存档）：2D 游戏和 3D 世界共用的一份，在 Redux 的 run 切片里，由 redux/persist.ts 落盘 =====
-// 只在检查点写（进层、换房间、跳出 / 回到画面）；每帧在变的东西（位置、速度）不放这里。
-// 读档 = 回到检查点：那一层按初始状态重建，人出现在检查点的房间里，炸掉的地形不记。
+// 只在开局和解开节点写完整快照；普通换房间不覆盖 checkpoint。
+// 读档 / 死亡 = 用 world 快照还原整张地图；旧存档仍兼容 solved 的局部恢复。
 import type { RoomCoord } from './tile';
 import type { CarryOver } from './save';
+import type { WorldCheckpoint } from './checkpoint';
 
-/** 存档结构的版本：结构变了就加一，并在 redux/persist.ts 的 readRun 里接住旧版本（1 → 2：帽子、手上的道具并进 carry） */
-export const RUN_VERSION = 2;
+/** 存档结构的版本：结构变了就加一，并在 redux/persist.ts 的 readRun 里接住旧版本（1 → 2：随身物品并进 carry；2 → 3：增加全图快照） */
+export const RUN_VERSION = 3;
 
 /** 人现在在哪个世界：flat = 画面里的 2D 游戏，deep = 跳出画面之后的 3D 世界 */
 export type Realm = 'flat' | 'deep';
@@ -31,6 +32,8 @@ export interface RunState {
   deep: { levelId: string } | null;
   /** 解开过的房间和触发过的解开节点：层 id → 那一层的。读档时这些房间换成解开时的样子 */
   solved: Record<string, SolvedFloor>;
+  /** 当前层最近一次完整 checkpoint；旧档没有全图状态时为 null。 */
+  world: WorldCheckpoint | null;
 }
 
 /** 一层里解开过的东西 */
@@ -45,4 +48,4 @@ export interface SolvedFloor {
 export interface SolvedRoom { terrain: string[]; fuse: string[]; mechs: Record<string, unknown> }
 
 /** 一个检查点能改的东西 */
-export type RunCheckpoint = Partial<Pick<RunState, 'floorId' | 'room' | 'stage' | 'carry' | 'stats'>>;
+export type RunCheckpoint = Partial<Pick<RunState, 'floorId' | 'room' | 'stage' | 'carry' | 'stats' | 'world' | 'flags'>>;

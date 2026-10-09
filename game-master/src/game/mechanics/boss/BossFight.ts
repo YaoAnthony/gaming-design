@@ -96,6 +96,7 @@ export class BossFight implements Mechanic {
   private iceVx: number | null = null;
   /** 排着队等炸的王之炸药（重置时取消） */
   private chargeTimers: Phaser.Time.TimerEvent[] = [];
+  private pendingCharges = new Map<Phaser.Time.TimerEvent, { cx: number; cy: number }>();
 
   constructor(private ctx: PlayContext) {}
 
@@ -123,7 +124,7 @@ export class BossFight implements Mechanic {
   onClear(): void {
     this.rearm = this.doors.length > 0;
     this.cancelIntro();
-    this.chargeTimers.forEach(t => t.remove(false)); this.chargeTimers = [];
+    this.chargeTimers.forEach(t => t.remove(false)); this.chargeTimers = []; this.pendingCharges.clear();
     if (this.boss || this.doors.length || this.doorsPending.length) this.end(false);
     this.bursts.forEach(b => b.destroy()); this.bursts = [];
   }
@@ -142,6 +143,53 @@ export class BossFight implements Mechanic {
       if (this.rearm) this.armed = true;   // 打到一半重来：人在场地里复活，直接等他站稳就封门、Boss 重新出场
     }
     this.rearm = false;
+  }
+
+  checkpointState() {
+    const now = this.ctx.scene.time.now;
+    return { defeated: [...this.defeated], solved: [...this.solved],
+      charges: [...this.pendingCharges].map(([t, c]) => ({ ...c, ms: t.getRemaining() })), bursts: this.bursts.map(b => b.checkpointState()),
+      boss: this.boss?.checkpointState() ?? null, room: this.room, doors: this.doors, doorsPending: this.doorsPending,
+      armed: this.armed, intro: this.intro, lastSpitAgo: Number.isFinite(this.lastSpitAt) ? now - this.lastSpitAt : null,
+      minions: this.minions.map(e => this.ctx.enemies.list().indexOf(e)).filter(i => i >= 0),
+      slime: [...this.slime].map(([key, s]) => ({ key, ms: Math.max(0, s.until - now) })),
+      blobs: this.blobs.map(b => ({ x: b.img.x, y: b.img.y, vx: (b.img.body as Phaser.Physics.Arcade.Body).velocity.x, vy: (b.img.body as Phaser.Physics.Arcade.Body).velocity.y, ms: Math.max(0, b.until - now) })), iceVx: this.iceVx,
+    };
+  }
+
+  restoreCheckpoint(data: unknown): void {
+    const s = data as ReturnType<BossFight['checkpointState']>;
+    if (!s || !Array.isArray(s.defeated) || !Array.isArray(s.solved)) return;
+    const { ctx } = this, now = ctx.scene.time.now;
+    this.defeated = new Set(s.defeated); this.solved = new Set(s.solved);
+    this.room = s.room ? { ...s.room } : null; this.doors = s.doors.map(c => ({ ...c })); this.doorsPending = s.doorsPending.map(c => ({ ...c })); this.armed = s.armed;
+    this.lastSpitAt = s.lastSpitAgo === null ? -Infinity : now - s.lastSpitAgo;
+    this.minions = s.minions.flatMap(i => ctx.enemies.list()[i] ? [ctx.enemies.list()[i]] : []);
+    if (s.boss) {
+      this.boss = new Boss(ctx.scene, s.boss.x, s.boss.y, { hp: ctx.cfg.bossHp, hopMs: ctx.cfg.bossHopMs, spitMs: ctx.cfg.bossSpitMs, tile: ctx.cfg.tile });
+      this.boss.restoreCheckpoint(s.boss); this.collider = ctx.scene.physics.add.collider(this.boss, ctx.terrain.layer);
+      if (s.intro === 'falling') this.intro = 'falling';
+      else if (s.intro) this.introLanded(this.boss);
+      else { ctx.hud.boss({ hp: this.boss.hp, max: this.boss.maxHp, name: BOSS_NAME }); ctx.music.play(BOSS_MUSIC); }
+    } else if (s.intro && this.room && this.doors.length) this.startIntro();
+    s.charges.forEach(c => this.queueCharge(c.cx, c.cy, c.ms));
+    this.bursts = s.bursts.map(b => {
+      const burst = new SparkBurst(ctx.scene, 0, 0, 0, 0, ctx.cfg.tile, 0);
+      burst.restoreCheckpoint(ctx.scene, b); return burst;
+    });
+    s.slime.forEach(v => {
+      const [x, row] = v.key.split(',').map(Number), T = ctx.cfg.tile;
+      const img = ctx.scene.add.image(x * T, row * T - 6, BOSS_TEX.gooFloor).setOrigin(0, 0).setDepth(3);
+      this.slime.set(v.key, { img, until: now + v.ms });
+    });
+    if (s.blobs.length) {
+      this.blobGroup = ctx.scene.physics.add.group(); ctx.scene.physics.add.collider(this.blobGroup, ctx.terrain.layer);
+      this.blobs = s.blobs.map(v => {
+        const img = this.blobGroup!.create(v.x, v.y, BOSS_TEX.goo) as Phaser.Physics.Arcade.Image;
+        img.setScale(2.2).setDepth(9.2).setVelocity(v.vx, v.vy); return { img, until: now + v.ms };
+      });
+    }
+    this.iceVx = s.iceVx;
   }
 
   // ---------- 解开 ----------
@@ -495,8 +543,8 @@ export class BossFight implements Mechanic {
   }
 
   private queueCharge(cx: number, cy: number, ms: number): void {
-    const t = this.ctx.scene.time.delayedCall(ms, () => { this.chargeTimers = this.chargeTimers.filter(o => o !== t); this.blastCharge(cx, cy); });
-    this.chargeTimers.push(t);
+    const t = this.ctx.scene.time.delayedCall(ms, () => { this.chargeTimers = this.chargeTimers.filter(o => o !== t); this.pendingCharges.delete(t); this.blastCharge(cx, cy); });
+    this.chargeTimers.push(t); this.pendingCharges.set(t, { cx, cy });
   }
 
   /**

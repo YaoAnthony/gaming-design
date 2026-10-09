@@ -2,7 +2,7 @@
 // 所有"这个格子能不能炸 / 会不会掉 / 挡不挡人"都问注册表（Tiles），这里不认识具体砖块字符。
 // 画面在 TerrainView，碎块下落在 Chunks，纯算法在 frames / blast / support：这里只剩网格状态和把它们串起来。
 import type Phaser from 'phaser';
-import type { CellBox, CellRef, TileDef } from '@/type';
+import type { CellBox, CellRef, TileDef, TerrainCheckpoint, ChunkCheckpoint } from '@/type';
 import { AIR, Tiles } from '@/game/registry/registry';
 import { TerrainView } from './TerrainView';
 import { Chunks, type Chunk, type ChunkCell } from './Chunks';
@@ -55,6 +55,7 @@ export class Terrain {
   private readonly origin: Int32Array;
   /** 还没执行的延迟摧毁 */
   private pending: Phaser.Time.TimerEvent[] = [];
+  private pendingCells = new Map<Phaser.Time.TimerEvent, RemovedCell[]>();
 
   // 纯函数挂在类上，老的调用方式（Terrain.frameAt(...)）和单测不用改
   static readonly frameOf = frameOf;
@@ -244,27 +245,43 @@ export class Terrain {
     immediate.forEach(c => this.set(c.x, c.y, AIR));
     if (immediate.length) { this.host.onCellsDestroyed?.(immediate); this.breakMounted(immediate); this.resolveSupportNear(immediate); this.shake(immediate, 0); }
     [...delayed.entries()].sort((a, b) => a[0] - b[0]).forEach(([delayMs, group]) => {
-      const timer: Phaser.Time.TimerEvent = this.host.scene.time.delayedCall(delayMs, () => {
-        this.pending = this.pending.filter(t => t !== timer);
-        // 等的这段时间里格子可能已经变了（被别的爆炸炸掉、被重置）：只烧还是原来那种材料的
-        const still = group.filter(c => this.grid[c.y][c.x] === c.id);
-        if (!still.length) return;
-        still.forEach(c => this.set(c.x, c.y, AIR));
-        this.host.onCellsDestroyed?.(still);
-        this.breakMounted(still);
-        this.resolveSupportNear(still);
-        this.shake(still, 0);
-        this.host.onFuseBurn?.(still);
-      });
-      this.pending.push(timer);
+      this.scheduleDestruction(group, delayMs);
     });
     return removed;
   }
 
+  private scheduleDestruction(group: RemovedCell[], delayMs: number): void {
+    const timer: Phaser.Time.TimerEvent = this.host.scene.time.delayedCall(delayMs, () => {
+      this.pending = this.pending.filter(t => t !== timer); this.pendingCells.delete(timer);
+      const still = group.filter(c => this.grid[c.y][c.x] === c.id);
+      if (!still.length) return;
+      still.forEach(c => this.set(c.x, c.y, AIR));
+      this.host.onCellsDestroyed?.(still); this.breakMounted(still);
+      this.resolveSupportNear(still); this.shake(still, 0); this.host.onFuseBurn?.(still);
+    });
+    this.pending.push(timer); this.pendingCells.set(timer, group);
+  }
+
+  checkpointState(): TerrainCheckpoint {
+    return { rows: this.rowsIn(0, 0, this.w, this.h), origin: [...this.origin], chunks: this.chunkSys.checkpointState(),
+      pending: [...this.pendingCells].map(([t, cells]) => ({ cells: cells.map(c => ({ x: c.x, y: c.y, id: c.id })), ms: t.getRemaining() })) };
+  }
+
+  restoreCheckpoint(s: TerrainCheckpoint): void {
+    this.cancelPending();
+    while (this.chunkSys.list.length) this.chunkSys.dropAt(this.chunkSys.list.length - 1);
+    s.rows.forEach((row, y) => [...row].forEach((id, x) => { this.set(x, y, id); this.original[y][x] = id; }));
+    this.origin.set(s.origin);
+    s.chunks.forEach(ch => this.chunkSys.restoreChunk(ch));
+    s.pending.forEach(p => this.scheduleDestruction(p.cells.map(c => ({ ...c, def: Tiles.get(c.id)! })), p.ms));
+  }
+
+  restoreCarriedChunk(s: ChunkCheckpoint): Chunk { return this.chunkSys.restoreChunk(s, true); }
+
   /** 取消全部延迟摧毁（整张图的，不分房间） */
   cancelPending(): void {
     this.pending.forEach(t => t.remove(false));
-    this.pending = [];
+    this.pending = []; this.pendingCells.clear();
   }
 
   /** 引线烧到这些格子：岩石裂成碎岩（还是实心、还撑着东西），其它实心的烧没；shatter（紫色引线）连岩石也直接烧没。然后做支撑检测。返回烧没的格子 */

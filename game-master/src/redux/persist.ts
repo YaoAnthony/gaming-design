@@ -5,7 +5,7 @@
 // 别的地方不直接碰存储；读进来的东西逐个字段检查，不对的丢掉用默认值，坏档不会让游戏起不来。
 import type { EditorState, PlayLoadout } from './slices/editorSlice';
 import type { SettingsState } from './slices/settingsSlice';
-import { RUN_VERSION, type CarryOver, type GameConfig, type Project, type RoomCoord, type RunState, type SolvedFloor, type SolvedRoom } from '@/type';
+import { RUN_VERSION, type CarryOver, type GameConfig, type Project, type RoomCoord, type RunState, type SolvedFloor, type SolvedRoom, type WorldCheckpoint } from '@/type';
 import { EMPTY_RUN } from './slices/runSlice';
 import { jsonCarry } from '@/shared/carry';
 import { asProject, roomKeyAt } from '@/game/world/WorldModel';
@@ -78,7 +78,7 @@ function carryOfV1(o: Record<string, unknown>): CarryOver {
 export function readRun(v: unknown): RunState | undefined {
   if (!v || typeof v !== 'object') return undefined;
   const o = v as Record<string, unknown>;
-  if ((o.version !== RUN_VERSION && o.version !== 1) || o.active !== true) return undefined;
+  if ((o.version !== RUN_VERSION && o.version !== 2 && o.version !== 1) || o.active !== true) return undefined;
   const count = (n: unknown) => (Number.isInteger(n) && (n as number) >= 0 ? n as number : 0);
   const stats = obj(o.stats), deep = obj(o.deep);
   const flags = Object.fromEntries(Object.entries(obj(o.flags)).filter(([, on]) => on === true)) as Record<string, true>;
@@ -93,7 +93,41 @@ export function readRun(v: unknown): RunState | undefined {
     flags,
     deep: typeof deep.levelId === 'string' ? { levelId: deep.levelId } : null,
     solved: readSolved(o.solved),
+    world: readWorldCheckpoint(o.world),
   };
+}
+
+/** 校验完整快照，避免只有地形或只有钥匙的半份状态被使用。 */
+export function readWorldCheckpoint(v: unknown): WorldCheckpoint | null {
+  const s = obj(v), t = obj(s.terrain), f = obj(s.fuse), e = obj(s.entry);
+  const rows = t.rows, fuse = f.rows;
+  if (s.version !== 1 || typeof s.floorId !== 'string' || typeof s.mapKey !== 'string' || !Number.isFinite(s.tile) || (s.tile as number) <= 0) return null;
+  if (!Array.isArray(rows) || !rows.length || !rows.every(r => typeof r === 'string' && r.length === rows[0].length) || !rows[0].length) return null;
+  if (!Array.isArray(fuse) || fuse.length !== rows.length || !fuse.every(r => typeof r === 'string' && r.length === rows[0].length && /^[0-9a-f]*$/i.test(r))) return null;
+  if (!['x', 'y', 'vx', 'vy'].every(k => typeof e[k] === 'number' && Number.isFinite(e[k]))) return null;
+  if (!Array.isArray(t.origin) || t.origin.length !== rows.length * rows[0].length || !t.origin.every(Number.isInteger)) return null;
+  if (![t.chunks, t.pending, f.pending, f.locked, s.enemies, s.paper, s.awake, s.nodes].every(Array.isArray)) return null;
+  if (!s.mechs || typeof s.mechs !== 'object' || !s.carry || typeof s.carry !== 'object' || !s.stats || typeof s.stats !== 'object') return null;
+  const finite = (o: Record<string, unknown>, keys: string[]) => keys.every(k => typeof o[k] === 'number' && Number.isFinite(o[k]));
+  const list = (a: unknown, check: (v: unknown) => boolean) => Array.isArray(a) && a.every(check);
+  const texts = (a: unknown) => list(a, v => typeof v === 'string');
+  const cell = (v: unknown) => { const c = obj(v); return Number.isInteger(c.x) && Number.isInteger(c.y); };
+  const chunk = (v: unknown) => { const c = obj(v); return finite(c, ['vy', 'py', 'floatSpeed', 't']) && Array.isArray(c.cells) && c.cells.length > 0 && c.cells.every(v => cell(v) && typeof obj(v).id === 'string' && (obj(v).id as string).length === 1); };
+  const timers = (a: unknown, check: (v: unknown) => boolean) => list(a, v => { const p = obj(v); return finite(p, ['ms']) && (p.ms as number) >= 0 && Array.isArray(p.cells) && p.cells.length > 0 && p.cells.every(check); });
+  const loose = (v: unknown) => { const p = obj(v); return finite(p, ['x', 'y', 'vx', 'vy']) && finite(obj(p.home), ['x', 'y']) && typeof p.onGround === 'boolean'; };
+  const carryable = (v: unknown) => { const c = obj(v); return typeof c.id === 'string' && typeof c.texture === 'string' && finite(c, ['tint', 'light']); };
+  const mechs = obj(s.mechs), stats = obj(s.stats);
+  if (!Number.isInteger(s.stage) || (s.stage as number) < 0 || !finite(stats, ['jumps', 'destroyed']) || !s.flags || Array.isArray(s.flags) || !Object.values(obj(s.flags)).every(f => f === true)) return null;
+  if (!texts(s.awake) || !texts(s.nodes) || !list(t.chunks, chunk) || !timers(t.pending, v => cell(v) && typeof obj(v).id === 'string')) return null;
+  if (!timers(f.pending, v => cell(v) && Number.isInteger(obj(v).ch) && (obj(v).ch as number) >= 0 && (obj(v).ch as number) < 4) || !list(f.locked, Number.isInteger)) return null;
+  if (!list(s.enemies, v => { const e = obj(v); return finite(e, ['x', 'y', 'vx', 'vy', 'scale', 'alertMs', 'seenAgo', 'lastSeenX', 'lookMs', 'biteMs']) && finite(obj(e.spawn), ['x', 'y', 'rx', 'ry']) && (e.dir === 1 || e.dir === -1) && typeof e.awake === 'boolean'; })) return null;
+  if (!list(s.paper, v => { const p = obj(v); return chunk(p.chunk) && finite(p, ['offsetX']) && (p.carrier === 'player' || Number.isInteger(p.carrier)); })) return null;
+  if ('carry' in mechs) { const c = obj(mechs.carry); if ((c.held !== null && !carryable(c.held)) || !list(c.keys, carryable) || !list(c.ground, v => carryable(obj(v).carry) && loose(obj(v).loose))) return null; }
+  if ('hat' in mechs) { const h = obj(mechs.hat); if (typeof h.worn !== 'boolean' || !list(h.ground, v => loose(obj(v).loose))) return null; }
+  if ('tape' in mechs && !list(mechs.tape, v => typeof obj(v).id === 'string' && loose(obj(v).loose))) return null;
+  if ('locks' in mechs) { const l = obj(mechs.locks); if (!list(l.opened, Number.isInteger) || !Array.isArray(l.used) || !Array.isArray(l.spent) || !timers(l.pending, cell)) return null; }
+  if (s.fog !== null) { const fog = obj(s.fog); if (!texts(fog.explored) || !texts(fog.revealedZones)) return null; }
+  try { return JSON.parse(JSON.stringify(v)) as WorldCheckpoint; } catch { return null; }
 }
 
 const strings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []);
@@ -128,7 +162,7 @@ export function readSave(v: unknown, mapHash: string): PersistedState {
   if (o.format !== SAVE_FORMAT) return out;
   readSettings(o.settings, out);
   const run = readRun(o.run);
-  if (run) out.run = o.mapHash === mapHash ? run : { ...run, room: null, solved: {} };
+  if (run) out.run = o.mapHash === mapHash ? run : { ...run, room: null, solved: {}, world: null };
   return out;
 }
 
@@ -161,7 +195,7 @@ export function readLegacy(v: unknown, mapHash: string, dropStale: boolean): Per
   if (asEditor) out.editor = asEditor;
   readSettings({ ...obj(p.settings), musicVolume: obj(p.config).musicVolume }, out);
   const run = readRun(p.run);
-  if (run) out.run = stale ? { ...run, room: null, solved: {} } : run;
+  if (run) out.run = stale ? { ...run, room: null, solved: {}, world: null } : run;
   return out;
 }
 

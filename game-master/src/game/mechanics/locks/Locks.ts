@@ -31,6 +31,7 @@ export class Locks implements Mechanic {
   private spent = new Map<number, string>();
   /** 连锁还没传到的那几格 */
   private pending: Phaser.Time.TimerEvent[] = [];
+  private pendingCells = new Map<Phaser.Time.TimerEvent, LockCell[]>();
   /** 每扇门的锁孔：挂在这扇门最靠正中的那一格上（格子序号 → 图） */
   private keyholes = new Map<number, Phaser.GameObjects.Image>();
 
@@ -205,13 +206,29 @@ export class Locks implements Mechanic {
     cluster.forEach(c => { const g = byHop.get(c.hop) ?? []; g.push(c); byHop.set(c.hop, g); });
     byHop.forEach((cells, hop) => {
       if (hop === 0) { this.vanish(cells); return; }
-      const timer: Phaser.Time.TimerEvent = ctx.scene.time.delayedCall(hop * ctx.cfg.lockChainDelayMs, () => {
-        this.pending = this.pending.filter(t => t !== timer);
-        this.vanish(cells);
-      });
-      this.pending.push(timer);
+      this.scheduleVanish(cells, hop * ctx.cfg.lockChainDelayMs);
     });
     return true;
+  }
+
+  private scheduleVanish(cells: LockCell[], ms: number): void {
+    const timer: Phaser.Time.TimerEvent = this.ctx.scene.time.delayedCall(ms, () => {
+      this.pending = this.pending.filter(t => t !== timer); this.pendingCells.delete(timer); this.vanish(cells);
+    });
+    this.pending.push(timer); this.pendingCells.set(timer, cells);
+  }
+
+  checkpointState() {
+    return { opened: [...this.opened], used: [...this.used], spent: [...this.spent],
+      pending: [...this.pendingCells].map(([t, cells]) => ({ cells: cells.map(c => ({ ...c })), ms: t.getRemaining() })) };
+  }
+
+  restoreCheckpoint(data: unknown): void {
+    const s = data as ReturnType<Locks['checkpointState']>;
+    if (!s || !Array.isArray(s.opened) || !Array.isArray(s.used) || !Array.isArray(s.spent)) return;
+    this.cancelPending(); this.opened = new Set(s.opened); this.used = new Map(s.used); this.spent = new Map(s.spent);
+    s.pending.forEach(p => this.scheduleVanish(p.cells, p.ms));
+    this.tint(); this.syncKeyholes();
   }
 
   /** 这几扇门消失：火花 + 一块门颜色的光放大淡出 */
@@ -238,6 +255,6 @@ export class Locks implements Mechanic {
 
   private cancelPending(): void {
     this.pending.forEach(t => t.remove(false));
-    this.pending = [];
+    this.pending = []; this.pendingCells.clear();
   }
 }

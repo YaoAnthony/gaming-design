@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import '@/game/registry/tiles';
-import { FogOfWar, ZONE_REVEAL_MS } from '@/game/fog/Fog';
+import { FogOfWar, FOG_TUNE } from '@/game/fog/Fog';
+const ZONE_REVEAL_MS = FOG_TUNE.revealMs;
 
 describe('FogOfWar.computeLight（光照扩散）', () => {
   it('光沿空气衰减，实心格被照亮但挡住后面', () => {

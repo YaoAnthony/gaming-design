@@ -1,0 +1,33 @@
+{
+  "L": {
+    "right": "K",
+    "bottom": "J"
+  },
+  "T": {
+    "left": "J",
+    "top": "K",
+    "bottom": "A"
+  },
+  "O": {
+    "left": "I",
+    "top": "B"
+  },
+  "R": {
+    "left": "T",
+    "top": "M",
+    "bottom": "B"
+  },
+  "S": {
+    "left": "R",
+    "top": "N"
+  },
+  "Q": {
+    "left": "B",
+    "right": "C",
+    "top": "S"
+  },
+  "P": {
+    "left": "O",
+    "top": "Q"
+  }
+}

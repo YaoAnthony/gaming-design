@@ -37,6 +37,12 @@ export class Npcs implements Mechanic {
     ctx.dialogue.talk({ name: npc.spawn.name, avatar: npc.spawn.avatar, lines: npc.spawn.lines }, () => this.leave(npc));
   }
 
+  checkpointState(): boolean[] { return this.npcs.map(n => n.done); }
+  restoreCheckpoint(data: unknown): void {
+    if (!Array.isArray(data)) return;
+    data.forEach((done, i) => { const n = this.npcs[i]; if (n && done === true) { n.done = true; n.sprite.destroy(); } });
+  }
+
   vortexTargets(): Suckable[] { return this.npcs.filter(n => n.sprite.active).map(n => n.sprite); }
 
   /** 说完了：带着音效淡出，路就通了 */

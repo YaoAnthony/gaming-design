@@ -1,10 +1,11 @@
+import { captureCheckpoint, checkpointMatches } from '@/game/core/checkpoint';
 import { backgroundDef } from '@/asset/backgrounds';
 // ===== 游戏场景：只做编排 =====
 // 核心部件各管一摊（game/core/）：地形、碎块、怪物、引线、迷雾、房间与镜头（Rooms）、死亡与重置（Respawn）、
 // 长大仪式（Growth）、攥纸团（CrumpleFx）、按键（GameInput）。玩法都在 game/mechanics/ 里：一个层机制（这一层怎么动）
 // + 若干通用机制（Boss、钥匙、角色……），这里按生命周期调用它们的钩子，不认识具体机制。
 import Phaser from 'phaser';
-import type { CarryOver, CoreHost, EnemySpawn, Floor, GameConfig, Point, Project, WorldModel } from '@/type';
+import type { WorldCheckpoint, EntryState, CarryOver, CoreHost, EnemySpawn, Floor, GameConfig, Point, Project, WorldModel } from '@/type';
 import { jsonCarry } from '@/shared/carry';
 import { classify } from '@/game/registry/registry';
 import { Terrain, type RemovedCell } from '@/game/terrain/Terrain';
@@ -94,6 +95,8 @@ export class GameScene extends Phaser.Scene {
   private rooms!: Rooms;
   private respawn!: Respawn;
   private solves!: Solves;
+  private worldCheckpoint: WorldCheckpoint | null = null;
+  private checkpointPending: { entry: EntryState | null } | null = null;
   private health!: Health;
   private growth!: Growth;
   private crumple!: CrumpleFx;
@@ -123,6 +126,7 @@ export class GameScene extends Phaser.Scene {
     this.project = data.project;
     this.floor = (data.floorId && this.project.floors.find(f => f.id === data.floorId)) || this.project.floors[0];
     this.mechs = []; this.mechById = new Map();
+    this.worldCheckpoint = data.world ?? null; this.checkpointPending = null;
     this.fog = null; this.fogTile = { x: -1, y: -1 }; this.fogDirty = true; this.fogCarried = false;
     this.spawnPoints = [];
     this.stats = { jumps: data.stats?.jumps ?? 0, destroyed: data.stats?.destroyed ?? 0 };
@@ -139,7 +143,15 @@ export class GameScene extends Phaser.Scene {
 
   create(): void {
     this.cfg = store.getState().config;
+    if (this.worldCheckpoint && !checkpointMatches(this.worldCheckpoint, this.floor, this.cfg.tile, Math.max(...this.floor.model.layout.map(r => r.length)) * this.floor.model.roomW, this.floor.model.layout.length * this.floor.model.roomH)) {
+      this.worldCheckpoint = null; this.startData.entry = null;
+    }
     const T = this.cfg.tile;
+    if (this.worldCheckpoint) {
+      const world = this.worldCheckpoint;
+      this.localFlags = new Set(Object.keys(world.flags) as StoryFlag[]);
+      if (!this.playtest) store.dispatch(checkpoint({ stage: world.stage, carry: world.carry, stats: world.stats, flags: world.flags }));
+    }
 
     // ---- 机制：层机制一个 + 启用的通用机制；建地形之前先让它们改模型 ----
     const defs: MechanicDef[] = [floorMechanicOf(this.floor), ...globalMechanicsOf(this.floor)];
@@ -187,7 +199,7 @@ export class GameScene extends Phaser.Scene {
       this.fog = new FogOfWar(this, this.terrain.grid, zones.map(r => r.split('')), {
         tile: T, roomW: model.roomW, roomH: model.roomH, radius: this.cfg.fogRadius, memoryAlpha: this.cfg.fogMemoryAlpha, unseenAlpha: this.cfg.fogUnseenAlpha,
         keyAt: (rx, ry) => roomKeyAt(model, rx, ry), darkRooms,
-      });
+      }, this.worldCheckpoint?.fog ?? undefined);
     }
 
     this.sparks = createSparkEmitter(this);
@@ -205,6 +217,7 @@ export class GameScene extends Phaser.Scene {
       onRespawn: () => this.health?.reset(),
       away: () => this.popOut.away,
       beforeReset: () => this.solves.flush(),
+      restoreCheckpoint: () => this.restoreWorldCheckpoint(),
     });
     this.growth = new Growth({
       scene: this, cfg: this.cfg, rooms: this.rooms, respawn: this.respawn, terrain: this.terrain, fuses: this.fuses,
@@ -246,7 +259,8 @@ export class GameScene extends Phaser.Scene {
       scene: this, rooms: this.rooms, terrain: this.terrain, fuses: this.fuses, mechs: () => [...this.mechById],
       save: (room, data, node) => { if (!this.playtest) store.dispatch(solveRoom({ floorId: this.floor.id, room, data, node })); },
     });
-    if (!this.playtest && !this.startData.opening) this.solves.restore(store.getState().run.solved[this.floor.id]);
+    if (this.worldCheckpoint) this.solves.restoreNodes(this.worldCheckpoint.nodes);
+    else if (!this.playtest && !this.startData.opening) this.solves.restore(store.getState().run.solved[this.floor.id]);
 
     // ---- 玩家：读档入口 > 指定起始房间（里面的出生点，否则找个能站的地方）> 全图出生点 > 兜底 ----
     const startRoom = this.startData.startRoom ?? null;
@@ -273,6 +287,8 @@ export class GameScene extends Phaser.Scene {
     store.dispatch(setStats(this.stats));
 
     this.mechs.forEach(m => m.start?.());
+    if (this.worldCheckpoint) this.applyWorldCheckpoint(this.worldCheckpoint);
+    this.events.on(Phaser.Scenes.Events.POST_UPDATE, this.writeCheckpoint);
     this.mechs.forEach(m => m.onRoomChanged?.(this.rooms.current));
 
     this.controls = new GameInput(this, {
@@ -309,6 +325,7 @@ export class GameScene extends Phaser.Scene {
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.mechs.forEach(m => m.destroy?.());
       this.events.off(Phaser.Scenes.Events.POST_UPDATE, this.syncLoose);
+      this.events.off(Phaser.Scenes.Events.POST_UPDATE, this.writeCheckpoint);
       // 迷雾和地形体积感的画布是全局贴图（场景关了还在）：换层 / 重开时不放掉，内存只增不减
       this.fog?.destroy(); this.fog = null;
       this.terrain.destroy();
@@ -387,7 +404,7 @@ export class GameScene extends Phaser.Scene {
       set entry(e) { s.respawn.entry = e; },
       stats: this.stats,
       pushStats: () => store.dispatch(setStats({ ...this.stats })),
-      saveCheckpoint: () => this.saveCheckpoint(),
+      saveCheckpoint: () => this.saveCheckpoint(true),
       die: reason => this.die(reason),
       hurt: (reason, from) => this.health.hurt(reason, from),
       addMaxHearts: n => this.health.addMax(n),
@@ -549,11 +566,60 @@ export class GameScene extends Phaser.Scene {
     else bridge.emit(EVT.toTitle);
   }
 
-  /** 存档的检查点（进层、换房间）：在哪层哪个房间、身上带着什么。试玩不存 */
-  private saveCheckpoint(): void {
+  /** 开局一次、解开节点一次。普通换房间不能覆盖最近的真正 checkpoint。 */
+  private saveCheckpoint(explicit = false): void {
+    if (!explicit && (this.worldCheckpoint || this.checkpointPending)) return;
+    this.checkpointPending = { entry: explicit ? null : { ...this.respawn.entry } };
+  }
+
+  /** 物理和本帧拾取/钥匙消耗都结束后捕获，避免快照夹在两个物品处理步骤之间。 */
+  private writeCheckpoint = (): void => {
+    const pending = this.checkpointPending;
+    if (!pending) return;
+    this.checkpointPending = null;
+    const entry = pending.entry ?? { x: this.player.x, y: this.player.y, vx: this.player.body.velocity.x, vy: this.player.body.velocity.y };
+    const world = captureCheckpoint({
+      floor: this.floor, tile: this.cfg.tile, entry, stage: this.player.stage,
+      carry: this.collectCarry(), stats: this.stats, flags: this.storyFlags(), fog: this.fog?.toState() ?? null,
+      terrain: this.terrain, fuses: this.fuses, enemies: this.enemies, debris: this.debris,
+      rooms: this.rooms, solves: this.solves, mechs: [...this.mechById],
+    });
+    this.worldCheckpoint = world;
+    this.persistWorldCheckpoint(world);
+  };
+
+  private persistWorldCheckpoint(world: WorldCheckpoint): void {
     if (this.playtest) return;
-    const { rx, ry } = this.rooms.current;
-    store.dispatch(checkpoint({ floorId: this.floor.id, room: { rx, ry }, stage: this.player.stage, carry: this.collectCarry(), stats: { ...this.stats } }));
+    const room = this.rooms.of(world.entry.x, world.entry.y);
+    store.dispatch(checkpoint({ floorId: world.floorId, room, stage: world.stage, carry: world.carry, stats: world.stats, flags: world.flags, world }));
+  }
+
+  private applyWorldCheckpoint(world: WorldCheckpoint): void {
+    this.terrain.restoreCheckpoint(world.terrain);
+    this.enemies.restoreCheckpoint(world.enemies);
+    this.mechById.forEach((m, id) => { if (id in world.mechs) m.restoreCheckpoint?.(world.mechs[id]); });
+    this.debris.restoreCheckpoint(world.paper);
+    this.fuses.restoreCheckpoint(world.fuse, this.terrain, cells => {
+      this.onFuseBurn(cells);
+    });
+    this.rooms.restoreCheckpoint(world.awake);
+    this.solves.restoreNodes(world.nodes);
+    this.fogDirty = true;
+  }
+
+  /** 通过同一个场景重建路径恢复全部物件，旧定时器和碰撞体随场景一起销毁。 */
+  private restoreWorldCheckpoint(): boolean {
+    const world = this.worldCheckpoint;
+    if (!world || !checkpointMatches(world, this.floor, this.cfg.tile, this.terrain.w, this.terrain.h)) return false;
+    this.persistWorldCheckpoint(world);
+    this.localFlags = new Set(Object.keys(world.flags) as StoryFlag[]);
+    this.scene.restart({
+      project: this.project, floorId: this.floor.id, playtest: this.playtest,
+      startRoom: this.rooms.of(world.entry.x, world.entry.y), entry: { ...world.entry },
+      stage: world.stage, carry: world.carry, stats: world.stats, world,
+      origin: this.startData.origin ?? this.startData,
+    } satisfies StartGameData);
+    return true;
   }
 
   /** 各机制要带走的东西（Mechanic.persist）：机制 id → 数据 */

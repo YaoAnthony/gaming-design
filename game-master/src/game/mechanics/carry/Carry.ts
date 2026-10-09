@@ -1,3 +1,4 @@
+import type { LooseCheckpoint } from '@/type';
 // ===== 携带（共用机制）：手上一个位置（蜡烛等道具），身后最多跟 MAX_KEYS 把钥匙 =====
 // 道具拿在右手：碰到就捡，手里已经有东西时两者交换，旧的留在原地（人走开之后才能再捡）。
 // 钥匙不占手：碰到就捡，飘在身后排成一串跟着走（KEY_FOLLOW），已经跟着 MAX_KEYS 把就捡不起来；开门时那一把飞进门里。
@@ -186,6 +187,30 @@ export class Carry implements Mechanic {
       out.push({ group: g.carry.key, area: new Phaser.Geom.Rectangle(b.x, b.y, b.width, b.height), origin: g.carry.origin, use: () => this.useGround(g) });
     });
     return out;
+  }
+
+  checkpointState() {
+    return {
+      held: this.held?.carry ?? null, keys: this.keys,
+      ground: this.ground.map(g => ({ carry: g.carry, blocked: g.blocked, dropped: g.dropped, loose: this.ctx.loose.checkpointItem(g.loose) })),
+    };
+  }
+
+  restoreCheckpoint(data: unknown): void {
+    const s = data as { held: Carryable | null; keys: Carryable[]; ground: { carry: Carryable; blocked: boolean; dropped: boolean; loose: LooseCheckpoint }[] };
+    if (!s || !Array.isArray(s.ground) || !Array.isArray(s.keys)) return;
+    this.ground.slice().forEach(g => this.removeGround(g));
+    this.trail.slice().forEach(k => this.removeTrail(k));
+    this.dropHeldSprites();
+    if (s.held) this.hold(s.held);
+    s.keys.forEach(k => this.restoreKey(k));
+    s.ground.forEach(g => {
+      this.spawnGround(g.carry, g.loose.x, g.loose.y, g.blocked);
+      const item = this.ground[this.ground.length - 1];
+      item.dropped = g.dropped;
+      this.ctx.loose.restoreItem(item.loose, g.loose);
+    });
+    this.syncKeyAnchors(); this.syncLightSources();
   }
 
   // ---------- 生命周期 ----------

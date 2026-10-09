@@ -1,3 +1,4 @@
+import type { LooseCheckpoint } from '@/type';
 // ===== 帽子：戴在头上（单独的位置，不占手），主角算 1 + hatHeight 格高 =====
 // - 碰到地上的帽子就戴上（头顶要有空间）
 // - 往下按一下（↓ / S / 手柄往下）摘下，放在脚边（人走开之前不会再戴回去）
@@ -75,6 +76,23 @@ export class Hat implements Mechanic {
 
   /** 重置：地上的帽子回到放下它的地方（按 R 只管这个房间的） */
   onReset(scope: 'room' | 'world' | 'level'): void { this.ctx.loose.reset(scope, this.ground.map(g => g.loose)); }
+
+  checkpointState() {
+    return { worn: this.worn, ground: this.ground.map(g => ({ blocked: g.blocked, loose: this.ctx.loose.checkpointItem(g.loose) })) };
+  }
+
+  restoreCheckpoint(data: unknown): void {
+    const s = data as { worn: boolean; ground: { blocked: boolean; loose: LooseCheckpoint }[] };
+    if (!s || !Array.isArray(s.ground)) return;
+    this.ground.forEach(g => { this.ctx.loose.remove(g.loose); g.sprite.destroy(); });
+    this.ground = []; this.head?.destroy(); this.head = null; this.worn = false;
+    if (this.enabled) { this.ctx.player.setExtraHeight(0); if (s.worn) this.wear(); }
+    else this.worn = s.worn;
+    s.ground.forEach(g => {
+      this.putOnGround(g.loose.x, g.loose.y, g.blocked);
+      this.ctx.loose.restoreItem(this.ground[this.ground.length - 1].loose, g.loose);
+    });
+  }
 
   vortexTargets(): Suckable[] { return this.head ? [this.head] : []; }
 

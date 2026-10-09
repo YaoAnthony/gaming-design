@@ -11,7 +11,7 @@ defineTile({ id: 'Y', name: '测试延迟链', color: 0xffffff, frame: 0 }, Trai
 function fakeHost(hooks: Partial<TerrainHost> = {}) {
   let now = 0;
   const timers: { at: number; cb: () => void; removed: boolean; hasDispatched: boolean }[] = [];
-  const layer = { setCollision() {}, putTileAt() { return {}; }, removeTileAt() {} };
+  const layer = { setCollision() {}, putTileAt() { return {}; }, removeTileAt() {}, calculateFacesWithin() {} };
   const scene = {
     make: { tilemap: () => ({ addTilesetImage: () => ({}), createLayer: () => layer }) },
     add: {

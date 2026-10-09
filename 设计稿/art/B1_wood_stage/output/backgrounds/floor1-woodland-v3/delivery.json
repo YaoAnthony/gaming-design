@@ -1,0 +1,63 @@
+{
+  "tool": "built-in imagegen",
+  "newRooms": [
+    "L",
+    "T",
+    "R",
+    "S",
+    "Q",
+    "P"
+  ],
+  "repaintedRooms": [
+    "O"
+  ],
+  "continuityRepairs": [
+    "L bottom to J",
+    "T bottom to A",
+    "all current horizontal and vertical RGBA contacts"
+  ],
+  "nativeGenerationSizes": {
+    "L": [
+      1524,
+      1032
+    ],
+    "T": [
+      1489,
+      1056
+    ],
+    "R": [
+      1490,
+      1056
+    ],
+    "S": [
+      1524,
+      1032
+    ],
+    "Q": [
+      1547,
+      1016
+    ],
+    "P": [
+      1524,
+      1032
+    ],
+    "O": [
+      1524,
+      1032
+    ]
+  },
+  "exportSize": [
+    1920,
+    1280
+  ],
+  "layersPerRoom": 4,
+  "runtimeVerifiedRooms": 20,
+  "runtimeVerifiedLayers": 80,
+  "backgroundTestsPassed": 17,
+  "castleRoomBounds": [
+    752,
+    48,
+    880,
+    160
+  ]
+}

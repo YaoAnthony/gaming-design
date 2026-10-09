@@ -1,0 +1,66 @@
+{
+  "layout": [
+    [
+      null,
+      "L",
+      "K",
+      "M",
+      "N",
+      null
+    ],
+    [
+      "H",
+      "J",
+      "T",
+      "R",
+      "S",
+      null
+    ],
+    [
+      "F",
+      "D",
+      "A",
+      "B",
+      "Q",
+      "C"
+    ],
+    [
+      "G",
+      "E",
+      "I",
+      "O",
+      "P",
+      null
+    ]
+  ],
+  "missing": [
+    "L",
+    "T",
+    "R",
+    "S",
+    "Q",
+    "P"
+  ],
+  "castle": {
+    "room": "P",
+    "boundsRoomPixels": [
+      752,
+      48,
+      880,
+      160
+    ],
+    "roomPixels": [
+      960,
+      640
+    ]
+  },
+  "generationOrder": [
+    "L",
+    "T",
+    "O",
+    "R",
+    "S",
+    "Q",
+    "P"
+  ]
+}

@@ -7,7 +7,7 @@
 import Phaser from 'phaser';
 import type { PlayContext } from '@/game/core/PlayContext';
 import type { LooseItem } from '@/game/core/LooseItems';
-import type { SpawnAt } from '@/type';
+import type { SpawnAt, LooseCheckpoint } from '@/type';
 import type { Mechanic } from '../define';
 import { Colors, hex } from '@/shared/palette';
 
@@ -80,6 +80,18 @@ export class Tape implements Mechanic {
 
   persist(): Saved | undefined {
     return this.bonus || this.taken.size ? { bonus: this.bonus, taken: [...this.taken] } : undefined;
+  }
+
+  checkpointState() {
+    return this.ground.map(g => ({ id: g.id, loose: this.ctx.loose.checkpointItem(g.loose) }));
+  }
+
+  restoreCheckpoint(data: unknown): void {
+    if (!Array.isArray(data)) return;
+    for (const s of data as { id: string; loose: LooseCheckpoint }[]) {
+      const g = this.ground.find(g => g.id === s.id);
+      if (g) this.ctx.loose.restoreItem(g.loose, s.loose);
+    }
   }
 
   destroy(): void {

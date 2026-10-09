@@ -1,7 +1,7 @@
 // ===== 碎块：失去支撑的地块整块掉下来，落地并回网格；纸慢慢飘，还可能被接住 =====
 // 网格本身是 Terrain 的，这里通过 ChunkWorld 读写它；场景关心的事（掉了、落地了、接住了）走 host 回调
 import type Phaser from 'phaser';
-import type { CellRef } from '@/type';
+import type { CellRef, ChunkCheckpoint } from '@/type';
 import { AIR, Tiles } from '@/game/registry/registry';
 import { pieceConnected, pieceTexture } from './frames';
 
@@ -62,6 +62,22 @@ export class Chunks {
     this.list.push(chunk);
     this.world.onChunkFall?.(chunk);
     return chunk;
+  }
+
+  checkpointState(): ChunkCheckpoint[] {
+    return this.list.map(ch => ({ cells: ch.cells.map(c => ({ ...c })), vy: ch.vy, py: ch.py, floatSpeed: ch.floatSpeed, t: ch.t }));
+  }
+
+  /** 已经离开网格的碎块，恢复时不再删网格、不再触发支撑破坏。 */
+  restoreChunk(s: ChunkCheckpoint, carried = false): Chunk {
+    const cells = s.cells.map(c => ({ ...c })), T = this.world.T;
+    const container = this.world.scene.add.container(0, 0).setDepth(5);
+    const connected = pieceConnected(cells);
+    cells.forEach(c => container.add(this.world.scene.add.image(c.x * T + T / 2, c.y * T + T / 2, ...pieceTexture(c.id, connected(c), c.x, true))));
+    const ch: Chunk = { ...s, cells, container, id: this.nextId++ };
+    container.y = ch.py; container.x = ch.floatSpeed > 0 ? Math.sin(ch.t * 2.5) * 4 : 0;
+    if (!carried) { this.list.push(ch); this.world.onChunkFall?.(ch); }
+    return ch;
   }
 
   /** 每帧：整体下落，任一格子下方被挡住就落地并并回格子 */

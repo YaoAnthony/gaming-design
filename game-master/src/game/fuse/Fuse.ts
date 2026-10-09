@@ -7,7 +7,7 @@
 // 连通、端点、点燃、燃烧、锁住全都按颜色分开算：交叉的两种颜色互不连通、互不引爆，
 // 一种颜色烧过交叉点，只清掉自己那一位，另一种颜色的引线还在（之后照样能烧，比如把碎岩再烧一次）。
 import Phaser from 'phaser';
-import type { CellRef } from '@/type';
+import type { CellRef, FuseCheckpoint } from '@/type';
 import type { Terrain } from '@/game/terrain/Terrain';
 import { decodeFuse, encodeFuseState, FUSE_CHANNELS, fuseBit } from './channels';
 
@@ -37,6 +37,7 @@ export class FuseNet {
   private nodes = new Map<number, NodeGfx>();
   /** 还没烧到的那几跳（重置时要取消，不然会在恢复后的地形上继续炸） */
   private pending: Phaser.Time.TimerEvent[] = [];
+  private pendingCells = new Map<Phaser.Time.TimerEvent, FuseEnd[]>();
 
   constructor(private scene: Phaser.Scene, rows: string[], private opts: FuseOptions, saved?: string[]) {
     this.h = rows.length; this.w = rows[0]?.length ?? 0;
@@ -136,7 +137,7 @@ export class FuseNet {
     const free = this.cells.map((m, i) => m & ~this.claimed[i]);   // 还没排上计划的位
     let total = 0;
     CHANNELS.forEach(ch => {
-      const bit = fuseBit(ch), shatter = !!FUSE_CHANNELS[ch].shatter;
+      const bit = fuseBit(ch);
       const planned = FuseNet.plan(free, this.w, this.h, starts.filter(s => s.ch === ch), bit);
       if (!planned.length) return;
       total += planned.length;
@@ -144,25 +145,43 @@ export class FuseNet {
       const byHop = new Map<number, FuseEnd[]>();
       planned.forEach(c => { const g = byHop.get(c.hop) ?? []; g.push({ x: c.x, y: c.y, ch }); byHop.set(c.hop, g); });
       byHop.forEach((group, hop) => {
-        const burn = () => {
-          group.forEach(c => { const i = c.y * this.w + c.x; this.cells[i] &= ~bit; this.claimed[i] &= ~bit; });
-          terrain.burnCells(group, shatter);   // 烧到哪格烧哪格：岩石裂成碎岩（紫色直接烧没），其它实心的烧没
-          terrain.shake(group, 0);    // 周围的脆岩松脱（经过空气也算爆炸）
-          this.refreshNodes(group);
-          onBurn?.(group);
-        };
-        if (hop === 0) { burn(); return; }
-        const timer: Phaser.Time.TimerEvent = this.scene.time.delayedCall(hop * this.opts.delayMs, () => { this.pending = this.pending.filter(t => t !== timer); burn(); });
-        this.pending.push(timer);
+        this.scheduleBurn(group, hop * this.opts.delayMs, terrain, onBurn);
       });
     });
     return total;
   }
 
+  private scheduleBurn(group: FuseEnd[], ms: number, terrain: Terrain, onBurn?: (cells: FuseEnd[]) => void): void {
+    const burn = () => {
+      group.forEach(c => { const i = c.y * this.w + c.x, bit = fuseBit(c.ch); this.cells[i] &= ~bit; this.claimed[i] &= ~bit; });
+      terrain.burnCells(group, !!FUSE_CHANNELS[group[0].ch].shatter);
+      terrain.shake(group, 0); this.refreshNodes(group); onBurn?.(group);
+    };
+    if (ms <= 0) { burn(); return; }
+    const timer: Phaser.Time.TimerEvent = this.scene.time.delayedCall(ms, () => {
+      this.pending = this.pending.filter(t => t !== timer); this.pendingCells.delete(timer); burn();
+    });
+    this.pending.push(timer); this.pendingCells.set(timer, group);
+  }
+
+  checkpointState(): FuseCheckpoint {
+    return { rows: this.rowsIn(0, 0, this.w, this.h), locked: [...this.locked],
+      pending: [...this.pendingCells].map(([t, cells]) => ({ cells: cells.map(c => ({ ...c })), ms: t.getRemaining() })) };
+  }
+
+  restoreCheckpoint(s: FuseCheckpoint, terrain: Terrain, onBurn?: (cells: FuseEnd[]) => void): void {
+    this.cancelPending(); this.locked = new Set(s.locked);
+    this.restoreRect(0, 0, s.rows);
+    s.pending.forEach(p => {
+      p.cells.forEach(c => { this.claimed[c.y * this.w + c.x] |= fuseBit(c.ch); });
+      this.scheduleBurn(p.cells, p.ms, terrain, onBurn);
+    });
+  }
+
   /** 取消所有还在路上的燃烧（排上计划没烧到的位也一起放掉） */
   cancelPending(): void {
     this.pending.forEach(t => t.remove(false));
-    this.pending = [];
+    this.pending = []; this.pendingCells.clear();
     this.claimed.fill(0);
   }
 

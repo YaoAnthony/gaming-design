@@ -21,6 +21,11 @@ BOXES={
 }
 
 def main():
+    # Current-layout woodland pipeline: never rebuild the retired three-row atlas.
+    if (ROOT / "设计稿/art/B1_wood_stage/output/backgrounds/floor1-woodland-v3/plan.json").exists():
+        import subprocess, sys
+        subprocess.run([sys.executable, str(ROOT / "game-master/scripts/rebuild-woodland.py"), "build"], check=True)
+        return
     parser=argparse.ArgumentParser();parser.add_argument('--fresh',action='store_true');args=parser.parse_args()
     cache=OUT/'source-far';cache.mkdir(parents=True,exist_ok=True)
     all_layers={};counts={}

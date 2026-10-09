@@ -1,0 +1,242 @@
+[
+  {
+    "room": "L",
+    "exportSize": [
+      1920,
+      1280
+    ],
+    "sourceSize": [
+      1536,
+      1024
+    ],
+    "cloudPixels": 83567
+  },
+  {
+    "room": "K",
+    "exportSize": [
+      1920,
+      1280
+    ],
+    "sourceSize": [
+      1536,
+      1024
+    ],
+    "cloudPixels": 59437
+  },
+  {
+    "room": "M",
+    "exportSize": [
+      1920,
+      1280
+    ],
+    "sourceSize": [
+      1536,
+      1024
+    ],
+    "cloudPixels": 0
+  },
+  {
+    "room": "N",
+    "exportSize": [
+      1920,
+      1280
+    ],
+    "sourceSize": [
+      1536,
+      1024
+    ],
+    "cloudPixels": 183707
+  },
+  {
+    "room": "H",
+    "exportSize": [
+      1920,
+      1280
+    ],
+    "sourceSize": [
+      1536,
+      1024
+    ],
+    "cloudPixels": 40978
+  },
+  {
+    "room": "J",
+    "exportSize": [
+      1920,
+      1280
+    ],
+    "sourceSize": [
+      1536,
+      1024
+    ],
+    "cloudPixels": 6926
+  },
+  {
+    "room": "T",
+    "exportSize": [
+      1920,
+      1280
+    ],
+    "sourceSize": [
+      1536,
+      1024
+    ],
+    "cloudPixels": 30022
+  },
+  {
+    "room": "R",
+    "exportSize": [
+      1920,
+      1280
+    ],
+    "sourceSize": [
+      1536,
+      1024
+    ],
+    "cloudPixels": 96907
+  },
+  {
+    "room": "S",
+    "exportSize": [
+      1920,
+      1280
+    ],
+    "sourceSize": [
+      1536,
+      1024
+    ],
+    "cloudPixels": 86996
+  },
+  {
+    "room": "F",
+    "exportSize": [
+      1920,
+      1280
+    ],
+    "sourceSize": [
+      1536,
+      1024
+    ],
+    "cloudPixels": 2754
+  },
+  {
+    "room": "D",
+    "exportSize": [
+      1920,
+      1280
+    ],
+    "sourceSize": [
+      1536,
+      1024
+    ],
+    "cloudPixels": 18209
+  },
+  {
+    "room": "A",
+    "exportSize": [
+      1920,
+      1280
+    ],
+    "sourceSize": [
+      1536,
+      1024
+    ],
+    "cloudPixels": 21073
+  },
+  {
+    "room": "B",
+    "exportSize": [
+      1920,
+      1280
+    ],
+    "sourceSize": [
+      1536,
+      1024
+    ],
+    "cloudPixels": 38259
+  },
+  {
+    "room": "Q",
+    "exportSize": [
+      1920,
+      1280
+    ],
+    "sourceSize": [
+      1536,
+      1024
+    ],
+    "cloudPixels": 54380
+  },
+  {
+    "room": "C",
+    "exportSize": [
+      1920,
+      1280
+    ],
+    "sourceSize": [
+      1536,
+      1024
+    ],
+    "cloudPixels": 152897
+  },
+  {
+    "room": "G",
+    "exportSize": [
+      1920,
+      1280
+    ],
+    "sourceSize": [
+      1536,
+      1024
+    ],
+    "cloudPixels": 0
+  },
+  {
+    "room": "E",
+    "exportSize": [
+      1920,
+      1280
+    ],
+    "sourceSize": [
+      1536,
+      1024
+    ],
+    "cloudPixels": 0
+  },
+  {
+    "room": "I",
+    "exportSize": [
+      1920,
+      1280
+    ],
+    "sourceSize": [
+      1536,
+      1024
+    ],
+    "cloudPixels": 0
+  },
+  {
+    "room": "O",
+    "exportSize": [
+      1920,
+      1280
+    ],
+    "sourceSize": [
+      1536,
+      1024
+    ],
+    "cloudPixels": 0
+  },
+  {
+    "room": "P",
+    "exportSize": [
+      1920,
+      1280
+    ],
+    "sourceSize": [
+      1536,
+      1024
+    ],
+    "cloudPixels": 0
+  }
+]

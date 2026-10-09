@@ -15,6 +15,11 @@ class TextBlocks implements Mechanic {
     this.list = baked.filter(b => b.cells.length > 0).map(b => ({ ...b, done: false }));
   }
 
+  checkpointState(): boolean[] { return this.list.map(b => b.done); }
+  restoreCheckpoint(data: unknown): void {
+    if (Array.isArray(data)) data.forEach((done, i) => { if (this.list[i]) this.list[i].done = done === true; });
+  }
+
   updateAlive(): void {
     const grid = this.ctx.terrain.grid;
     const tb = this.list.find(b => !b.done && b.cells.every(c => grid[c.y]?.[c.x] !== b.block.tile));

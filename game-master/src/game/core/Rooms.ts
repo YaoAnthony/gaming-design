@@ -53,6 +53,9 @@ export class Rooms implements RoomApi {
   }
   standingSpot(r: RoomCoord): ReturnType<RoomApi['standingSpot']> { return standingSpot(this.d.terrain, r, this.w, this.h, this.d.cfg.playerHeight); }
 
+  checkpointState(): string[] { return [...this.awake]; }
+  restoreCheckpoint(awake: string[]): void { this.awake = new Set(awake); }
+
   isAwake(r: RoomCoord): boolean { return this.awake.has(`${r.rx},${r.ry}`); }
   wake(r: RoomCoord): void { this.awake.add(`${r.rx},${r.ry}`); }
   /** 整张图重置：所有房间重新睡着（复活时再叫醒复活点所在的那间） */

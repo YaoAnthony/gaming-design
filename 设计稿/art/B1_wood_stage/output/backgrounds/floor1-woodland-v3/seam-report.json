@@ -1,0 +1,842 @@
+[
+  {
+    "a": "L",
+    "b": "K",
+    "axis": "h",
+    "layer": "1.far.png",
+    "maxError": 0
+  },
+  {
+    "a": "L",
+    "b": "J",
+    "axis": "v",
+    "layer": "1.far.png",
+    "maxError": 0
+  },
+  {
+    "a": "K",
+    "b": "M",
+    "axis": "h",
+    "layer": "1.far.png",
+    "maxError": 0
+  },
+  {
+    "a": "K",
+    "b": "T",
+    "axis": "v",
+    "layer": "1.far.png",
+    "maxError": 0
+  },
+  {
+    "a": "M",
+    "b": "N",
+    "axis": "h",
+    "layer": "1.far.png",
+    "maxError": 0
+  },
+  {
+    "a": "M",
+    "b": "R",
+    "axis": "v",
+    "layer": "1.far.png",
+    "maxError": 0
+  },
+  {
+    "a": "N",
+    "b": "S",
+    "axis": "v",
+    "layer": "1.far.png",
+    "maxError": 0
+  },
+  {
+    "a": "H",
+    "b": "J",
+    "axis": "h",
+    "layer": "1.far.png",
+    "maxError": 0
+  },
+  {
+    "a": "H",
+    "b": "F",
+    "axis": "v",
+    "layer": "1.far.png",
+    "maxError": 0
+  },
+  {
+    "a": "J",
+    "b": "T",
+    "axis": "h",
+    "layer": "1.far.png",
+    "maxError": 0
+  },
+  {
+    "a": "J",
+    "b": "D",
+    "axis": "v",
+    "layer": "1.far.png",
+    "maxError": 0
+  },
+  {
+    "a": "T",
+    "b": "R",
+    "axis": "h",
+    "layer": "1.far.png",
+    "maxError": 0
+  },
+  {
+    "a": "T",
+    "b": "A",
+    "axis": "v",
+    "layer": "1.far.png",
+    "maxError": 0
+  },
+  {
+    "a": "R",
+    "b": "S",
+    "axis": "h",
+    "layer": "1.far.png",
+    "maxError": 0
+  },
+  {
+    "a": "R",
+    "b": "B",
+    "axis": "v",
+    "layer": "1.far.png",
+    "maxError": 0
+  },
+  {
+    "a": "S",
+    "b": "Q",
+    "axis": "v",
+    "layer": "1.far.png",
+    "maxError": 0
+  },
+  {
+    "a": "F",
+    "b": "D",
+    "axis": "h",
+    "layer": "1.far.png",
+    "maxError": 0
+  },
+  {
+    "a": "F",
+    "b": "G",
+    "axis": "v",
+    "layer": "1.far.png",
+    "maxError": 0
+  },
+  {
+    "a": "D",
+    "b": "A",
+    "axis": "h",
+    "layer": "1.far.png",
+    "maxError": 0
+  },
+  {
+    "a": "D",
+    "b": "E",
+    "axis": "v",
+    "layer": "1.far.png",
+    "maxError": 0
+  },
+  {
+    "a": "A",
+    "b": "B",
+    "axis": "h",
+    "layer": "1.far.png",
+    "maxError": 0
+  },
+  {
+    "a": "A",
+    "b": "I",
+    "axis": "v",
+    "layer": "1.far.png",
+    "maxError": 0
+  },
+  {
+    "a": "B",
+    "b": "Q",
+    "axis": "h",
+    "layer": "1.far.png",
+    "maxError": 0
+  },
+  {
+    "a": "B",
+    "b": "O",
+    "axis": "v",
+    "layer": "1.far.png",
+    "maxError": 0
+  },
+  {
+    "a": "Q",
+    "b": "C",
+    "axis": "h",
+    "layer": "1.far.png",
+    "maxError": 0
+  },
+  {
+    "a": "Q",
+    "b": "P",
+    "axis": "v",
+    "layer": "1.far.png",
+    "maxError": 0
+  },
+  {
+    "a": "G",
+    "b": "E",
+    "axis": "h",
+    "layer": "1.far.png",
+    "maxError": 0
+  },
+  {
+    "a": "E",
+    "b": "I",
+    "axis": "h",
+    "layer": "1.far.png",
+    "maxError": 0
+  },
+  {
+    "a": "I",
+    "b": "O",
+    "axis": "h",
+    "layer": "1.far.png",
+    "maxError": 0
+  },
+  {
+    "a": "O",
+    "b": "P",
+    "axis": "h",
+    "layer": "1.far.png",
+    "maxError": 0
+  },
+  {
+    "a": "L",
+    "b": "K",
+    "axis": "h",
+    "layer": "2.clouds.png",
+    "maxError": 0
+  },
+  {
+    "a": "L",
+    "b": "J",
+    "axis": "v",
+    "layer": "2.clouds.png",
+    "maxError": 0
+  },
+  {
+    "a": "K",
+    "b": "M",
+    "axis": "h",
+    "layer": "2.clouds.png",
+    "maxError": 0
+  },
+  {
+    "a": "K",
+    "b": "T",
+    "axis": "v",
+    "layer": "2.clouds.png",
+    "maxError": 0
+  },
+  {
+    "a": "M",
+    "b": "N",
+    "axis": "h",
+    "layer": "2.clouds.png",
+    "maxError": 0
+  },
+  {
+    "a": "M",
+    "b": "R",
+    "axis": "v",
+    "layer": "2.clouds.png",
+    "maxError": 0
+  },
+  {
+    "a": "N",
+    "b": "S",
+    "axis": "v",
+    "layer": "2.clouds.png",
+    "maxError": 0
+  },
+  {
+    "a": "H",
+    "b": "J",
+    "axis": "h",
+    "layer": "2.clouds.png",
+    "maxError": 0
+  },
+  {
+    "a": "H",
+    "b": "F",
+    "axis": "v",
+    "layer": "2.clouds.png",
+    "maxError": 0
+  },
+  {
+    "a": "J",
+    "b": "T",
+    "axis": "h",
+    "layer": "2.clouds.png",
+    "maxError": 0
+  },
+  {
+    "a": "J",
+    "b": "D",
+    "axis": "v",
+    "layer": "2.clouds.png",
+    "maxError": 0
+  },
+  {
+    "a": "T",
+    "b": "R",
+    "axis": "h",
+    "layer": "2.clouds.png",
+    "maxError": 0
+  },
+  {
+    "a": "T",
+    "b": "A",
+    "axis": "v",
+    "layer": "2.clouds.png",
+    "maxError": 0
+  },
+  {
+    "a": "R",
+    "b": "S",
+    "axis": "h",
+    "layer": "2.clouds.png",
+    "maxError": 0
+  },
+  {
+    "a": "R",
+    "b": "B",
+    "axis": "v",
+    "layer": "2.clouds.png",
+    "maxError": 0
+  },
+  {
+    "a": "S",
+    "b": "Q",
+    "axis": "v",
+    "layer": "2.clouds.png",
+    "maxError": 0
+  },
+  {
+    "a": "F",
+    "b": "D",
+    "axis": "h",
+    "layer": "2.clouds.png",
+    "maxError": 0
+  },
+  {
+    "a": "F",
+    "b": "G",
+    "axis": "v",
+    "layer": "2.clouds.png",
+    "maxError": 0
+  },
+  {
+    "a": "D",
+    "b": "A",
+    "axis": "h",
+    "layer": "2.clouds.png",
+    "maxError": 0
+  },
+  {
+    "a": "D",
+    "b": "E",
+    "axis": "v",
+    "layer": "2.clouds.png",
+    "maxError": 0
+  },
+  {
+    "a": "A",
+    "b": "B",
+    "axis": "h",
+    "layer": "2.clouds.png",
+    "maxError": 0
+  },
+  {
+    "a": "A",
+    "b": "I",
+    "axis": "v",
+    "layer": "2.clouds.png",
+    "maxError": 0
+  },
+  {
+    "a": "B",
+    "b": "Q",
+    "axis": "h",
+    "layer": "2.clouds.png",
+    "maxError": 0
+  },
+  {
+    "a": "B",
+    "b": "O",
+    "axis": "v",
+    "layer": "2.clouds.png",
+    "maxError": 0
+  },
+  {
+    "a": "Q",
+    "b": "C",
+    "axis": "h",
+    "layer": "2.clouds.png",
+    "maxError": 0
+  },
+  {
+    "a": "Q",
+    "b": "P",
+    "axis": "v",
+    "layer": "2.clouds.png",
+    "maxError": 0
+  },
+  {
+    "a": "G",
+    "b": "E",
+    "axis": "h",
+    "layer": "2.clouds.png",
+    "maxError": 0
+  },
+  {
+    "a": "E",
+    "b": "I",
+    "axis": "h",
+    "layer": "2.clouds.png",
+    "maxError": 0
+  },
+  {
+    "a": "I",
+    "b": "O",
+    "axis": "h",
+    "layer": "2.clouds.png",
+    "maxError": 0
+  },
+  {
+    "a": "O",
+    "b": "P",
+    "axis": "h",
+    "layer": "2.clouds.png",
+    "maxError": 0
+  },
+  {
+    "a": "L",
+    "b": "K",
+    "axis": "h",
+    "layer": "3.middle.png",
+    "maxError": 0
+  },
+  {
+    "a": "L",
+    "b": "J",
+    "axis": "v",
+    "layer": "3.middle.png",
+    "maxError": 0
+  },
+  {
+    "a": "K",
+    "b": "M",
+    "axis": "h",
+    "layer": "3.middle.png",
+    "maxError": 0
+  },
+  {
+    "a": "K",
+    "b": "T",
+    "axis": "v",
+    "layer": "3.middle.png",
+    "maxError": 0
+  },
+  {
+    "a": "M",
+    "b": "N",
+    "axis": "h",
+    "layer": "3.middle.png",
+    "maxError": 0
+  },
+  {
+    "a": "M",
+    "b": "R",
+    "axis": "v",
+    "layer": "3.middle.png",
+    "maxError": 0
+  },
+  {
+    "a": "N",
+    "b": "S",
+    "axis": "v",
+    "layer": "3.middle.png",
+    "maxError": 0
+  },
+  {
+    "a": "H",
+    "b": "J",
+    "axis": "h",
+    "layer": "3.middle.png",
+    "maxError": 0
+  },
+  {
+    "a": "H",
+    "b": "F",
+    "axis": "v",
+    "layer": "3.middle.png",
+    "maxError": 0
+  },
+  {
+    "a": "J",
+    "b": "T",
+    "axis": "h",
+    "layer": "3.middle.png",
+    "maxError": 0
+  },
+  {
+    "a": "J",
+    "b": "D",
+    "axis": "v",
+    "layer": "3.middle.png",
+    "maxError": 0
+  },
+  {
+    "a": "T",
+    "b": "R",
+    "axis": "h",
+    "layer": "3.middle.png",
+    "maxError": 0
+  },
+  {
+    "a": "T",
+    "b": "A",
+    "axis": "v",
+    "layer": "3.middle.png",
+    "maxError": 0
+  },
+  {
+    "a": "R",
+    "b": "S",
+    "axis": "h",
+    "layer": "3.middle.png",
+    "maxError": 0
+  },
+  {
+    "a": "R",
+    "b": "B",
+    "axis": "v",
+    "layer": "3.middle.png",
+    "maxError": 0
+  },
+  {
+    "a": "S",
+    "b": "Q",
+    "axis": "v",
+    "layer": "3.middle.png",
+    "maxError": 0
+  },
+  {
+    "a": "F",
+    "b": "D",
+    "axis": "h",
+    "layer": "3.middle.png",
+    "maxError": 0
+  },
+  {
+    "a": "F",
+    "b": "G",
+    "axis": "v",
+    "layer": "3.middle.png",
+    "maxError": 0
+  },
+  {
+    "a": "D",
+    "b": "A",
+    "axis": "h",
+    "layer": "3.middle.png",
+    "maxError": 0
+  },
+  {
+    "a": "D",
+    "b": "E",
+    "axis": "v",
+    "layer": "3.middle.png",
+    "maxError": 0
+  },
+  {
+    "a": "A",
+    "b": "B",
+    "axis": "h",
+    "layer": "3.middle.png",
+    "maxError": 0
+  },
+  {
+    "a": "A",
+    "b": "I",
+    "axis": "v",
+    "layer": "3.middle.png",
+    "maxError": 0
+  },
+  {
+    "a": "B",
+    "b": "Q",
+    "axis": "h",
+    "layer": "3.middle.png",
+    "maxError": 0
+  },
+  {
+    "a": "B",
+    "b": "O",
+    "axis": "v",
+    "layer": "3.middle.png",
+    "maxError": 0
+  },
+  {
+    "a": "Q",
+    "b": "C",
+    "axis": "h",
+    "layer": "3.middle.png",
+    "maxError": 0
+  },
+  {
+    "a": "Q",
+    "b": "P",
+    "axis": "v",
+    "layer": "3.middle.png",
+    "maxError": 0
+  },
+  {
+    "a": "G",
+    "b": "E",
+    "axis": "h",
+    "layer": "3.middle.png",
+    "maxError": 0
+  },
+  {
+    "a": "E",
+    "b": "I",
+    "axis": "h",
+    "layer": "3.middle.png",
+    "maxError": 0
+  },
+  {
+    "a": "I",
+    "b": "O",
+    "axis": "h",
+    "layer": "3.middle.png",
+    "maxError": 0
+  },
+  {
+    "a": "O",
+    "b": "P",
+    "axis": "h",
+    "layer": "3.middle.png",
+    "maxError": 0
+  },
+  {
+    "a": "L",
+    "b": "K",
+    "axis": "h",
+    "layer": "4.near.png",
+    "maxError": 0
+  },
+  {
+    "a": "L",
+    "b": "J",
+    "axis": "v",
+    "layer": "4.near.png",
+    "maxError": 0
+  },
+  {
+    "a": "K",
+    "b": "M",
+    "axis": "h",
+    "layer": "4.near.png",
+    "maxError": 0
+  },
+  {
+    "a": "K",
+    "b": "T",
+    "axis": "v",
+    "layer": "4.near.png",
+    "maxError": 0
+  },
+  {
+    "a": "M",
+    "b": "N",
+    "axis": "h",
+    "layer": "4.near.png",
+    "maxError": 0
+  },
+  {
+    "a": "M",
+    "b": "R",
+    "axis": "v",
+    "layer": "4.near.png",
+    "maxError": 0
+  },
+  {
+    "a": "N",
+    "b": "S",
+    "axis": "v",
+    "layer": "4.near.png",
+    "maxError": 0
+  },
+  {
+    "a": "H",
+    "b": "J",
+    "axis": "h",
+    "layer": "4.near.png",
+    "maxError": 0
+  },
+  {
+    "a": "H",
+    "b": "F",
+    "axis": "v",
+    "layer": "4.near.png",
+    "maxError": 0
+  },
+  {
+    "a": "J",
+    "b": "T",
+    "axis": "h",
+    "layer": "4.near.png",
+    "maxError": 0
+  },
+  {
+    "a": "J",
+    "b": "D",
+    "axis": "v",
+    "layer": "4.near.png",
+    "maxError": 0
+  },
+  {
+    "a": "T",
+    "b": "R",
+    "axis": "h",
+    "layer": "4.near.png",
+    "maxError": 0
+  },
+  {
+    "a": "T",
+    "b": "A",
+    "axis": "v",
+    "layer": "4.near.png",
+    "maxError": 0
+  },
+  {
+    "a": "R",
+    "b": "S",
+    "axis": "h",
+    "layer": "4.near.png",
+    "maxError": 0
+  },
+  {
+    "a": "R",
+    "b": "B",
+    "axis": "v",
+    "layer": "4.near.png",
+    "maxError": 0
+  },
+  {
+    "a": "S",
+    "b": "Q",
+    "axis": "v",
+    "layer": "4.near.png",
+    "maxError": 0
+  },
+  {
+    "a": "F",
+    "b": "D",
+    "axis": "h",
+    "layer": "4.near.png",
+    "maxError": 0
+  },
+  {
+    "a": "F",
+    "b": "G",
+    "axis": "v",
+    "layer": "4.near.png",
+    "maxError": 0
+  },
+  {
+    "a": "D",
+    "b": "A",
+    "axis": "h",
+    "layer": "4.near.png",
+    "maxError": 0
+  },
+  {
+    "a": "D",
+    "b": "E",
+    "axis": "v",
+    "layer": "4.near.png",
+    "maxError": 0
+  },
+  {
+    "a": "A",
+    "b": "B",
+    "axis": "h",
+    "layer": "4.near.png",
+    "maxError": 0
+  },
+  {
+    "a": "A",
+    "b": "I",
+    "axis": "v",
+    "layer": "4.near.png",
+    "maxError": 0
+  },
+  {
+    "a": "B",
+    "b": "Q",
+    "axis": "h",
+    "layer": "4.near.png",
+    "maxError": 0
+  },
+  {
+    "a": "B",
+    "b": "O",
+    "axis": "v",
+    "layer": "4.near.png",
+    "maxError": 0
+  },
+  {
+    "a": "Q",
+    "b": "C",
+    "axis": "h",
+    "layer": "4.near.png",
+    "maxError": 0
+  },
+  {
+    "a": "Q",
+    "b": "P",
+    "axis": "v",
+    "layer": "4.near.png",
+    "maxError": 0
+  },
+  {
+    "a": "G",
+    "b": "E",
+    "axis": "h",
+    "layer": "4.near.png",
+    "maxError": 0
+  },
+  {
+    "a": "E",
+    "b": "I",
+    "axis": "h",
+    "layer": "4.near.png",
+    "maxError": 0
+  },
+  {
+    "a": "I",
+    "b": "O",
+    "axis": "h",
+    "layer": "4.near.png",
+    "maxError": 0
+  },
+  {
+    "a": "O",
+    "b": "P",
+    "axis": "h",
+    "layer": "4.near.png",
+    "maxError": 0
+  }
+]

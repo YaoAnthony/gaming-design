@@ -13,13 +13,13 @@ defineEditorTool({
     title: '迷雾区',
     buttons: () => [
       ...FOG_ZONES.map(z => ({
-        brush: fogBrush(z), name: `迷雾区 ${z}`, sub: 'fog', title: `迷雾区 ${z}：玩家踏进区内任一格，整个区永久揭开。按住拖出一个矩形，松开整片填上；右键拖擦掉`,
+        brush: fogBrush(z), name: `迷雾区 ${z}`, sub: 'fog', title: `迷雾区 ${z}：玩家踏进哪一团就永久揭开那一团（同区号分开画的几团各揭各的，区号只是颜色）。按住拖出一个矩形，松开整片填上；右键拖擦掉`,
         icon: { kind: 'class' as const, className: 'swatch', color: FOG_ZONE_COLORS[z] },
       })),
       { brush: fogBrush('.'), name: '擦除迷雾区', sub: 'fog', title: '擦掉迷雾区标记：按住拖出矩形，松开整片擦掉（也可以选任意迷雾区后右键拖）', icon: { kind: 'glyph', text: '⌫' } },
     ],
     toggles: [{ label: '显示迷雾区（不影响游戏）', title: '只管编辑器里画不画迷雾区的叠加色，游戏里照旧；选着迷雾画笔时总会画', checked: s => s.showFog, action: on => setShowFog(on) }],
-    hint: '迷雾区揭开前伪装成周围的墙，不影响地形，任何房间都能画。',
+    hint: '迷雾区揭开前是一团黑（盖到格子边外一点），不影响地形，任何房间都能画；上下左右连着的算一团，各团各自揭开。',
   },
   paintRect: ({ key, x0, y0, x1, y1, brush, erase }) => paintLayerRect({ layer: 'fog', key, x0, y0, x1, y1, ch: erase ? '.' : brush.slice(PREFIX.length) }),
   rectColor: (brush, erase) => (erase ? 0xffffff : FOG_ZONE_COLORS[brush.slice(PREFIX.length)] ?? 0xffffff),

@@ -15,6 +15,13 @@ export class SparkBurst {
     }
   }
 
+  checkpointState() { return this.sparks.map(s => ({ x: s.img.x, y: s.img.y, vx: s.vx, vy: s.vy, ttl: s.ttl })); }
+
+  restoreCheckpoint(scene: Phaser.Scene, data: ReturnType<SparkBurst['checkpointState']>): void {
+    this.destroy();
+    this.sparks = data.map(s => ({ img: scene.add.image(s.x, s.y, 'spark').setDepth(11).setTint(0xc4a7ff).setScale(1.6).setBlendMode(Phaser.BlendModes.ADD), vx: s.vx, vy: s.vy, ttl: s.ttl }));
+  }
+
   get alive(): boolean { return this.sparks.length > 0; }
 
   /** 每帧推进；每颗火花所在的格子交给 onCell，返回 true 表示被吃掉（比如点燃了引线） */

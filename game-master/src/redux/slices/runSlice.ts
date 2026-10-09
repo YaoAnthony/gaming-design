@@ -4,7 +4,7 @@ import { RUN_VERSION, type Realm, type RunCheckpoint, type RunState, type Solved
 
 export const EMPTY_RUN: RunState = {
   version: RUN_VERSION, active: false, realm: 'flat', floorId: null, room: null,
-  stage: 0, carry: {}, stats: { jumps: 0, destroyed: 0 }, flags: {}, deep: null, solved: {},
+  stage: 0, carry: {}, stats: { jumps: 0, destroyed: 0 }, flags: {}, deep: null, solved: {}, world: null,
 };
 
 const runSlice = createSlice({

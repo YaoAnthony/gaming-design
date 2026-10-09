@@ -81,6 +81,11 @@ def composite(layers):
 
 
 def main():
+    # Current-layout woodland pipeline: never rebuild the retired three-row atlas.
+    if (ROOT / "设计稿/art/B1_wood_stage/output/backgrounds/floor1-woodland-v3/plan.json").exists():
+        import subprocess, sys
+        subprocess.run([sys.executable, str(ROOT / "game-master/scripts/rebuild-woodland.py"), "build"], check=True)
+        return
     parser = argparse.ArgumentParser()
     parser.add_argument("--far-blur", type=float, default=2.4, help="Native image pixels, 1.5 game pixels at 960x640")
     parser.add_argument("--middle-blur", type=float, default=0.65)

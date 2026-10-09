@@ -2,7 +2,7 @@
 // React → Phaser：编辑器重载、重置、试玩退出、攥纸团特效的往返。
 // Phaser → React：展示数据 dispatch 到 Redux 的 hud 切片（只在场景和 core 里做，机制通过 PlayContext），不走这里。
 // 事件名在 EVT，参数在 BridgeEvents。
-import type { Project, RoomCoord, CarryOver } from '@/type';
+import type { Project, RoomCoord, CarryOver, WorldCheckpoint } from '@/type';
 import type { HeroEntryQuery, HeroHandoff, ScreenSpot } from './handoff';
 import type { CutsceneId } from '@/story/cutscenes';
 import type { EndingChoice } from '@/story/config';
@@ -21,6 +21,8 @@ export interface StartGameData {
   /** 长大阶段（0 = 1 格高，1 = 1.5 格，2 = 2 格；换层时带过去） */
   stage?: number;
   playtest?: boolean;
+  /** 同层 checkpoint 重建的全图快照。 */
+  world?: WorldCheckpoint;
   /** 技术验证编辑器里的试玩：到了节奏关卡的场地不自动开打，等 EVT.rhythmStart 带着 test 来 */
   rhythmLab?: boolean;
   /** 这一局最开始的启动数据（换层时一路带着）：「再来一次」从这里重开 */

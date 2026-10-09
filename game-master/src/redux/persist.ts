@@ -127,7 +127,10 @@ export function readWorldCheckpoint(v: unknown): WorldCheckpoint | null {
   if ('tape' in mechs && !list(mechs.tape, v => typeof obj(v).id === 'string' && loose(obj(v).loose))) return null;
   if ('locks' in mechs) { const l = obj(mechs.locks); if (!list(l.opened, Number.isInteger) || !Array.isArray(l.used) || !Array.isArray(l.spent) || !timers(l.pending, cell)) return null; }
   if (s.fog !== null) { const fog = obj(s.fog); if (!texts(fog.explored) || !texts(fog.revealedZones)) return null; }
-  try { return JSON.parse(JSON.stringify(v)) as WorldCheckpoint; } catch { return null; }
+  // 修复前的版本没有 kind：只有已触发节点的快照才算正式 checkpoint。
+  const kind = s.kind ?? ((s.nodes as string[]).length ? 'checkpoint' : 'entry');
+  if (kind !== 'entry' && kind !== 'checkpoint') return null;
+  try { return JSON.parse(JSON.stringify({ ...s, kind })) as WorldCheckpoint; } catch { return null; }
 }
 
 const strings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : []);

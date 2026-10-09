@@ -42,7 +42,7 @@ export interface RespawnDeps {
   away: () => boolean;
   /** 重置之前：刚解开、还在等安静下来的房间先记下来（Solves.flush），不然解开的东西被这次重置冲掉 */
   beforeReset?: () => void;
-  /** 有完整快照时，死亡从同一份全图 checkpoint 重建，而不是混用房间初始状态。 */
+  /** 已触发正式 checkpoint 时，死亡从全图快照重建；只有入口存档时返回 false，保留入口复活规则。 */
   restoreCheckpoint?: () => boolean;
 }
 

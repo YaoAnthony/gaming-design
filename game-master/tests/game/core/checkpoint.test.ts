@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { GameScene } from '@/game/scenes/GameScene';
 import '@/game/registry/tiles';
 import '@/game/mechanics';
 import { Terrain } from '@/game/terrain/Terrain';
@@ -28,7 +29,7 @@ function setup() {
   const ground = [{ carry: { ...key, key: 2, id: 'key:2', origin: 1 }, blocked: false, dropped: true, loose: { x: 70, y: 80, vx: 0, vy: 0, home: { x: 48, y: 80 }, onGround: true } }];
   Object.assign(carry, { held: null, trail: [{ carry: key }], ground, ctx: { loose: { checkpointItem: (s: unknown) => s } } });
   const d = {
-    floor, tile: 32, entry: { x: 224, y: 64, vx: 0, vy: 0 }, stage: 0,
+    floor, tile: 32, kind: 'checkpoint', entry: { x: 224, y: 64, vx: 0, vy: 0 }, stage: 0,
     carry: { locks: { floorId: 'f2', keys: [0] } }, stats: { jumps: 5, destroyed: 1 }, flags: {}, fog: null,
     terrain: m.terrain, fuses: m.fuses,
     enemies: { checkpointState: () => [] }, debris: { checkpointState: () => [] },
@@ -102,9 +103,56 @@ describe('full-map checkpoint', () => {
     const save = { format: SAVE_FORMAT, mapHash: 'old', run: { ...EMPTY_RUN, active: true, world } };
     expect(readSave(save, 'new').run!.world).toBeNull();
   });
+  it('distinguishes entrance autosaves and real checkpoints, including saves written before kind existed', () => {
+    const world = captureCheckpoint(setup().d);
+    const { kind: _kind, ...old } = world;
+    expect(readWorldCheckpoint(old)?.kind).toBe('checkpoint');
+    expect(readWorldCheckpoint({ ...old, nodes: [] })?.kind).toBe('entry');
+    expect(readWorldCheckpoint({ ...world, kind: 'entry' })?.kind).toBe('entry');
+    expect(readWorldCheckpoint({ ...world, kind: 'invalid' })).toBeNull();
+  });
   it('migrates version 2 saves without inventing missing full-map state', () => {
     const legacy = readRun({ ...EMPTY_RUN, version: 2, active: true, carry: { locks: { floorId: 'f2', keys: [0] } }, world: undefined })!;
     expect(legacy.version).toBe(3); expect(legacy.world).toBeNull();
     expect(legacy.carry.locks).toEqual({ floorId: 'f2', keys: [0] });
+  });
+});
+
+
+describe('room entrance versus explicit checkpoint', () => {
+  function scenePolicy(kind: 'entry' | 'checkpoint') {
+    const p = setup(), world = { ...captureCheckpoint(p.d), kind };
+    const entry = { x: 48, y: 64, vx: 120, vy: 0 }, restart = vi.fn(), persist = vi.fn();
+    const scene = Object.assign(new GameScene(), {
+      worldCheckpoint: world, checkpointPending: null, respawn: { entry },
+      floor: p.floor, cfg: { tile: 32 }, terrain: { w: 10, h: 4 }, scene: { restart },
+      rooms: { of: () => ({ rx: 1, ry: 0 }) }, startData: {}, project: DEFAULT_PROJECT,
+      persistWorldCheckpoint: persist,
+    }) as unknown as {
+      worldCheckpoint: typeof world; checkpointPending: { entry: typeof entry | null; kind: 'entry' | 'checkpoint' } | null;
+      saveCheckpoint(explicit?: boolean): void; restoreWorldCheckpoint(): boolean;
+    };
+    return { scene, world, entry, restart, persist };
+  }
+  it('an initial snapshot does not override the current room entrance on death', () => {
+    const p = scenePolicy('entry');
+    expect(p.scene.restoreWorldCheckpoint()).toBe(false);
+    expect(p.restart).not.toHaveBeenCalled(); expect(p.persist).not.toHaveBeenCalled();
+  });
+  it('updates entrance saves before a real checkpoint, including the entry velocity', () => {
+    const p = scenePolicy('entry'); p.scene.saveCheckpoint();
+    expect(p.scene.checkpointPending).toEqual({ entry: p.entry, kind: 'entry' });
+  });
+  it('an explicit checkpoint still restores the entire map and its saved position', () => {
+    const p = scenePolicy('checkpoint');
+    expect(p.scene.restoreWorldCheckpoint()).toBe(true);
+    expect(p.persist).toHaveBeenCalledWith(p.world);
+    expect(p.restart).toHaveBeenCalledWith(expect.objectContaining({ world: p.world, entry: p.world.entry }));
+  });
+  it('ordinary room changes cannot replace a saved or pending real checkpoint', () => {
+    const saved = scenePolicy('checkpoint'); saved.scene.saveCheckpoint(); expect(saved.scene.checkpointPending).toBeNull();
+    const pending = scenePolicy('entry'); pending.scene.saveCheckpoint(true);
+    const before = pending.scene.checkpointPending; pending.scene.saveCheckpoint();
+    expect(pending.scene.checkpointPending).toBe(before);
   });
 });

@@ -1,6 +1,6 @@
 // ===== 玩家的进度（存档）：2D 游戏和 3D 世界共用的一份，在 Redux 的 run 切片里，由 redux/persist.ts 落盘 =====
-// 只在开局和解开节点写完整快照；普通换房间不覆盖 checkpoint。
-// 读档 / 死亡 = 用 world 快照还原整张地图；旧存档仍兼容 solved 的局部恢复。
+// 正式节点触发前保存当前房间入口；触发后普通换房间不覆盖 checkpoint。
+// 继续游戏还原 world；死亡仅在正式 checkpoint 后还原 world，否则按原规则回到房间入口。
 import type { RoomCoord } from './tile';
 import type { CarryOver } from './save';
 import type { WorldCheckpoint } from './checkpoint';

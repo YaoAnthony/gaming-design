@@ -32,6 +32,8 @@ export interface PaperCheckpoint {
 /** 一次 checkpoint 的全图状态；只包含 JSON 数据，不包含 Phaser 对象。 */
 export interface WorldCheckpoint {
   version: 1; floorId: string; mapKey: string; tile: number;
+  /** entry 只用于继续游戏；checkpoint 才接管死亡时的全图恢复。 */
+  kind: 'entry' | 'checkpoint';
   entry: EntryState; stage: number; carry: CarryOver; stats: RunStats;
   flags: Record<string, true>;
   terrain: TerrainCheckpoint; fuse: FuseCheckpoint;

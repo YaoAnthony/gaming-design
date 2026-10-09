@@ -8,7 +8,7 @@ import type { Rooms } from './Rooms';
 import type { Solves } from './Solves';
 
 export interface CheckpointSource {
-  floor: Floor; tile: number; entry: EntryState; stage: number;
+  floor: Floor; tile: number; entry: EntryState; stage: number; kind: WorldCheckpoint['kind'];
   carry: CarryOver; stats: RunStats; flags: Record<string, true>; fog: FogState | null;
   terrain: Terrain; fuses: FuseNet; enemies: Enemies; debris: Debris; rooms: Rooms; solves: Solves;
   mechs: [string, Mechanic][];
@@ -20,7 +20,7 @@ export function captureCheckpoint(d: CheckpointSource): WorldCheckpoint {
   d.mechs.forEach(([id, m]) => { const s = m.checkpointState?.(); if (s !== undefined) mechs[id] = s; });
   const world: WorldCheckpoint = {
     version: 1, floorId: d.floor.id, mapKey: checkpointMapKey(d.floor.model), tile: d.tile,
-    entry: d.entry, stage: d.stage, carry: d.carry, stats: d.stats, flags: d.flags,
+    kind: d.kind, entry: d.entry, stage: d.stage, carry: d.carry, stats: d.stats, flags: d.flags,
     terrain: d.terrain.checkpointState(), fuse: d.fuses.checkpointState(), mechs,
     enemies: d.enemies.checkpointState(), paper: d.debris.checkpointState(),
     awake: d.rooms.checkpointState(), nodes: d.solves.checkpointNodes(), fog: d.fog,

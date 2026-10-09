@@ -96,7 +96,7 @@ export class GameScene extends Phaser.Scene {
   private respawn!: Respawn;
   private solves!: Solves;
   private worldCheckpoint: WorldCheckpoint | null = null;
-  private checkpointPending: { entry: EntryState | null } | null = null;
+  private checkpointPending: { entry: EntryState | null; kind: WorldCheckpoint['kind'] } | null = null;
   private health!: Health;
   private growth!: Growth;
   private crumple!: CrumpleFx;
@@ -566,10 +566,10 @@ export class GameScene extends Phaser.Scene {
     else bridge.emit(EVT.toTitle);
   }
 
-  /** 开局一次、解开节点一次。普通换房间不能覆盖最近的真正 checkpoint。 */
+  /** 正式 checkpoint 前记录当前入口供继续游戏；触发节点后普通换房间不能覆盖它。 */
   private saveCheckpoint(explicit = false): void {
-    if (!explicit && (this.worldCheckpoint || this.checkpointPending)) return;
-    this.checkpointPending = { entry: explicit ? null : { ...this.respawn.entry } };
+    if (!explicit && (this.worldCheckpoint?.kind === 'checkpoint' || this.checkpointPending?.kind === 'checkpoint')) return;
+    this.checkpointPending = { entry: explicit ? null : { ...this.respawn.entry }, kind: explicit ? 'checkpoint' : 'entry' };
   }
 
   /** 物理和本帧拾取/钥匙消耗都结束后捕获，避免快照夹在两个物品处理步骤之间。 */
@@ -579,7 +579,7 @@ export class GameScene extends Phaser.Scene {
     this.checkpointPending = null;
     const entry = pending.entry ?? { x: this.player.x, y: this.player.y, vx: this.player.body.velocity.x, vy: this.player.body.velocity.y };
     const world = captureCheckpoint({
-      floor: this.floor, tile: this.cfg.tile, entry, stage: this.player.stage,
+      floor: this.floor, tile: this.cfg.tile, entry, stage: this.player.stage, kind: pending.kind,
       carry: this.collectCarry(), stats: this.stats, flags: this.storyFlags(), fog: this.fog?.toState() ?? null,
       terrain: this.terrain, fuses: this.fuses, enemies: this.enemies, debris: this.debris,
       rooms: this.rooms, solves: this.solves, mechs: [...this.mechById],
@@ -610,7 +610,7 @@ export class GameScene extends Phaser.Scene {
   /** 通过同一个场景重建路径恢复全部物件，旧定时器和碰撞体随场景一起销毁。 */
   private restoreWorldCheckpoint(): boolean {
     const world = this.worldCheckpoint;
-    if (!world || !checkpointMatches(world, this.floor, this.cfg.tile, this.terrain.w, this.terrain.h)) return false;
+    if (!world || world.kind !== 'checkpoint' || !checkpointMatches(world, this.floor, this.cfg.tile, this.terrain.w, this.terrain.h)) return false;
     this.persistWorldCheckpoint(world);
     this.localFlags = new Set(Object.keys(world.flags) as StoryFlag[]);
     this.scene.restart({

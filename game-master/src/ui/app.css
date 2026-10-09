@@ -311,7 +311,7 @@ label.check { display: flex; align-items: center; gap: 6px; margin: 8px 0; color
   text-shadow: 0 .07em 0 #9a6a3c, .1em .14em 0 rgba(0, 0, 0, .55), 0 0 .4em rgba(155, 93, 229, .55); }
 .op-title-sign { position: relative; isolation: isolate; width: min(64cqw, 66cqh); aspect-ratio: 1672 / 941; margin: 0; line-height: 0; text-shadow: none; }
 .op-title-sign img { width: 100%; height: 100%; visibility: hidden; image-rendering: pixelated; }
-.op-title-canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; transition: opacity .2s; }
+.op-title-canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; image-rendering: pixelated; transition: opacity .2s; }
 
 .op-title-sign.fallback img { visibility: visible; }
 .op-title-sign.fallback::before, .op-title-sign.fallback::after { content: ''; position: absolute; width: 1.2%; height: 100cqh; bottom: 82.1%; background: #866247; border-left: 2px solid #ad8260; border-right: 2px solid #30271f; z-index: -1; }

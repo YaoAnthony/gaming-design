@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import '@/game/registry/tiles';
 import '@/game/mechanics';
 import { BACKGROUNDS, DEFAULT_BACKGROUND, backgroundDef, backgroundUrl } from '@/asset/backgrounds';
-import { backgroundOf, backgroundsOfFloor, coverScale, parallaxOffset, startRoomKey } from '@/game/background/layout';
+import { backgroundOf, backgroundsOfFloor, coverScale, parallaxOffset, startRoomKey, nearbyBackgrounds } from '@/game/background/layout';
 import { deleteRoom, setRoomBackground } from '@/game/world/WorldModel';
 import reducer, { addFloor, renameFloor, replaceProject, setRoomBackground as setRoomBg, undo, type EditorState } from '@/redux/slices/editorSlice';
 import type { Floor, Project } from '@/type';
@@ -100,5 +100,24 @@ describe('开场在哪个房间（它的背景进这一层之前就下好）', (
     expect(startRoomKey({ ...m, entities: {} }, 32, {})).toBe('A');
     expect(startRoomKey(m, 32, { startRoom: { rx: 0, ry: 1 } })).toBe('C');
     expect(startRoomKey({ roomW: 3, roomH: 3, layout: [[null]] }, 32, {})).toBeNull();
+  });
+});
+
+
+describe('背景按邻房预取', () => {
+  it('只加载当前房间和四邻，不上传远处和对角房间', () => {
+    const f = floor(); f.model.layout = [['A', 'B', 'C'], ['D', 'E', 'F'], ['G', 'H', 'I']];
+    f.model.roomBackgrounds = Object.fromEntries('ABCDEFGHI'.split('').map(k => [k, 'woodland-' + k.toLowerCase() + '-v1']));
+    expect(nearbyBackgrounds(f, 1, 1)).toEqual(['woodland-e-v1', 'woodland-d-v1', 'woodland-f-v1', 'woodland-b-v1', 'woodland-h-v1']);
+    expect(nearbyBackgrounds(f, 0, 0)).toEqual(['woodland-a-v1', 'woodland-b-v1', 'woodland-d-v1']);
+  });
+  it('跳到其他房间时当前背景优先，忽略空房间', () => {
+    const f = floor({ background: 'cave' }); f.model.roomBackgrounds = { C: 'dusk' };
+    expect(nearbyBackgrounds(f, 1, 1)).toEqual(['dusk', 'cave']);
+  });
+  it('共用背景只请求一次，空地图无需请求', () => {
+    expect(nearbyBackgrounds(floor({ background: 'cave' }), 1, 0)).toEqual(['cave']);
+    const f = floor(); f.model.layout = [[null]];
+    expect(nearbyBackgrounds(f, 0, 0)).toEqual([]);
   });
 });

@@ -470,7 +470,7 @@ export class GameScene extends Phaser.Scene {
     this.updateFog();
     this.growth.update(time);   // 回到出生点、落了地再开始长
     this.popOut.update();
-    this.backdrop.update(this.player.x, this.player.y);
+    this.backdrop.update(this.player.x, this.player.y, !this.awaitingEntrance);
     if (this.frozen) return;
 
     const r = this.rooms.of(this.player.x, this.player.y);

@@ -30,7 +30,8 @@ export class TitleSignView {
   constructor(canvas: HTMLCanvasElement, url: string, private readonly measure: () => TitleSignLayout, private readonly onCatch: () => void = () => {}) {
     this.renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: false });
     this.renderer.setClearColor(0x000000, 0);
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    // 像素风标题按 CSS 像素画，避免透明全屏画布在高 DPI 下放大四倍。
+    this.renderer.setPixelRatio(1);
     this.camera.position.z = 10;
     this.sign.position.z = 1;
     this.scene.add(this.sign);
@@ -50,13 +51,16 @@ export class TitleSignView {
       this.straps.push(strap); this.scene.add(strap);
     }
     this.layout();
-    this.ready = new THREE.TextureLoader().loadAsync(url).then(texture => {
+    this.ready = new THREE.TextureLoader().loadAsync(url).then(async texture => {
       if (this.disposed) { texture.dispose(); return; }
       this.texture = texture;
       texture.colorSpace = THREE.SRGBColorSpace;
       texture.magFilter = THREE.NearestFilter; texture.minFilter = THREE.NearestFilter;
       texture.generateMipmaps = false;
       this.material.map = texture; this.material.needsUpdate = true;
+      // 动画计时开始前完成首次上传和材质编译，别把第一帧卡在下落途中。
+      this.renderer.initTexture(texture);
+      await this.renderer.compileAsync(this.scene, this.camera);
     });
   }
 

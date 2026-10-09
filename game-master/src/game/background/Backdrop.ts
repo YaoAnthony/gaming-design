@@ -1,6 +1,6 @@
 // ===== 背景（游戏里）：每个房间按 asset/backgrounds.ts 的背景画；默认的是程序画的渐变天空 + 星星 =====
 // - 背景图不在启动清单里：开场所在房间的图在进这一层之前（GameScene.preload）就下好，进去第一帧就是对的；
-//   这一层别的房间的图进来以后在后台接着下，到一张就淡入一张（图到之前那个房间垫深色，不露出默认的蓝色天空）；
+//   玩家出场后只加载当前房间和相邻房间，每次一个房间（图到之前垫深色，不露出默认的蓝色天空）；
 //   换层时把这一层用不到的背景图放掉（evictBackgrounds）
 // - 每个房间单独放一套图（房间之间平移时相邻两个房间各显示各的）；只有镜头看得到的房间显示
 // - 视差：人在房间里走，远的层挪得少、近的挪得多（layout.ts 的 parallaxOffset）
@@ -11,7 +11,7 @@ import { backgroundDef, backgroundKey, backgroundUrl, BACKGROUND_KEY_PREFIX, DEF
 import { Colors, hex } from '@/shared/palette';
 import { DEPTH } from '@/game/depth';
 import type { Floor } from '@/type';
-import { backgroundOf, backgroundsOfFloor, coverScale, parallaxOffset } from './layout';
+import { backgroundOf, backgroundsOfFloor, coverScale, parallaxOffset, nearbyBackgrounds } from './layout';
 
 /** 星空：每个房间撒几颗星（只撒在上面这么多比例里） */
 const STARS = { perRoom: 14, top: 0.8 };
@@ -64,6 +64,8 @@ export class Backdrop {
   /** 已经放上去的（房间 key + 第几层），到一张放一张时不重复放 */
   private placedKeys = new Set<string>();
   private destroyed = false;
+  private streaming = false;
+  private readonly requested = new Set<string>();
   private readonly ambient: WoodlandAmbient;
 
   /** @param roomPx 一个房间多少像素 */
@@ -86,8 +88,7 @@ export class Backdrop {
     const ids = backgroundsOfFloor(floor);
     evictBackgrounds(scene.textures, ids);
     this.place(false);   // 已经下好的（开场所在的房间，GameScene.preload 下的）直接放上去
-    const more = () => { if (!this.destroyed) this.place(true); };
-    loadBackgrounds(scene, ids, more, more);
+
     scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => { this.destroyed = true; });
   }
 
@@ -121,7 +122,20 @@ export class Backdrop {
    * 每帧：只显示镜头看得到的房间；视差按人在那个房间里的位置算（人不在那个房间——镜头正平移过去——就按人离那个房间最近的那一点算）。
    * 只是挪位置、裁边、开关可见（不用遮罩），很便宜
    */
-  update(px: number, py: number): void {
+  update(px: number, py: number, stream = true): void {
+    if (stream && !this.streaming && !this.destroyed) {
+      const r = this.rooms[0];
+      const ids = r ? nearbyBackgrounds(this.floor, Math.floor(px / r.w), Math.floor(py / r.h)) : [];
+      const id = ids.find(id => !this.requested.has(id));
+      if (id) {
+        this.requested.add(id); this.streaming = true;
+        // 每次只上传一个房间；标题期间只用 preload 已加载的首页背景。
+        loadBackgrounds(this.scene, [id], () => {
+          this.streaming = false;
+          if (!this.destroyed) this.place(true);
+        });
+      }
+    }
     if (!this.placed.length) return;
     this.ambient.update();
     const view = this.scene.cameras.main.worldView;

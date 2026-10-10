@@ -35,14 +35,14 @@ export interface InputHandlers {
 
 export class GameInput {
   private readonly cursors: Phaser.Types.Input.Keyboard.CursorKeys;
-  private readonly keys: Record<'A' | 'D' | 'W' | 'S', Phaser.Input.Keyboard.Key>;
+  private readonly keys: Record<'A' | 'D' | 'W' | 'S' | 'SHIFT' | 'E', Phaser.Input.Keyboard.Key>;
   /** 上一帧「下」是不是按着：只在按下的那一刻发 INPUT_DOWN */
   private downHeld = false;
 
   constructor(private readonly scene: Phaser.Scene, h: InputHandlers, playtest: boolean) {
     const kb = scene.input.keyboard!;
     this.cursors = kb.createCursorKeys();
-    this.keys = kb.addKeys({ A: 'A', D: 'D', W: 'W', S: 'S' }) as GameInput['keys'];
+    this.keys = kb.addKeys({ A: 'A', D: 'D', W: 'W', S: 'S', SHIFT: 'SHIFT', E: 'E' }) as GameInput['keys'];
     kb.on('keydown-SPACE', () => h.press('SPACE'));
     kb.on('keydown-UP', () => h.press('UP'));
     kb.on('keydown-W', () => h.press('W'));
@@ -74,7 +74,7 @@ export class GameInput {
     });
   }
 
-  /** 上下左右：键盘（方向键、WASD）、触屏、手柄（左摇杆、十字键）任何一个按着都算 */
+  /** 上下左右：键盘（方向键、WASD）、触屏、手柄（左摇杆、十字键）任何一个按着都算；抓键：Shift / E、手柄 X（□） */
   read(): MoveInput {
     const c = this.cursors, k = this.keys, pad = readPads(this.scene.input.gamepad);
     return {
@@ -82,6 +82,7 @@ export class GameInput {
       right: c.right.isDown || k.D.isDown || touch.right || pad.right,
       up: c.up.isDown || k.W.isDown || touch.up || pad.up,
       down: c.down.isDown || k.S.isDown || touch.down || pad.down,
+      grab: k.SHIFT.isDown || k.E.isDown || !!touch.grab || !!pad.grab,
     };
   }
 

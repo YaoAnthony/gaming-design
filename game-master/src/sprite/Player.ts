@@ -11,7 +11,7 @@ import { DEPTH } from '@/game/depth';
  */
 export const HERO = { key: 'hero', artH: 30, artW: 21, hangPinch: { x: 20, y: 16 } } as const;   // hangPinch：hang 帧里后背捏合点的像素
 /** 循环播的动画；跳跃的三段（上升 / 最高点 / 下落）播一遍停在最后一帧 */
-const LOOPING = new Set(['idle', 'run', 'wallslide', 'push']);
+const LOOPING = new Set(['idle', 'run', 'wallslide', 'push', 'pull']);
 /** 顶着推不动的箱子（太大、前面挡住）时 push 放慢多少：看着在使劲 */
 const PUSH_STRAIN_RATE = 0.55;
 /** 空中竖直速度在 ±这么多（px/s）以内算最高点 */
@@ -65,8 +65,8 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   private unsquashed: { sx: number; sy: number; qx: number; qy: number; dy: number; qyPos: number } | null = null;
   /** 正在播的指定动作（见 playAction）：播着的时候 animate 不换动画 */
   private action: { key: string; interruptible: boolean } | null = null;
-  /** 推箱子（PushBlocks 每帧告诉，见 markPushing）：往哪边、推不推得动、什么时候说的 */
-  private push = { dir: 0, moving: false, at: -9999 };
+  /** 推 / 拉箱子（PushBlocks 每帧告诉，见 markPushing / markPulling）：推还是拉、面朝哪边、在不在动、什么时候说的 */
+  private push: { kind: 'push' | 'pull'; dir: number; moving: boolean; at: number } = { kind: 'push', dir: 0, moving: false, at: -9999 };
 
   constructor(scene: Phaser.Scene, x: number, y: number, private cfg: GameConfig) {
     super(scene, x, y, scene.textures.exists(HERO.key) ? HERO.key : 'player');
@@ -217,24 +217,27 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
   stopAction(): void { this.action = null; }
 
   /** 这一帧正贴着箱子往 dir 那边推（moving = 推得动，箱子跟着走；false = 顶着推不动的箱子在使劲）。PushBlocks 每帧调，不调就不算在推 */
-  markPushing(dir: -1 | 1, moving: boolean): void { this.push = { dir, moving, at: this.scene.time.now }; }
+  markPushing(dir: -1 | 1, moving: boolean): void { this.push = { kind: 'push', dir, moving, at: this.scene.time.now }; }
+
+  /** 这一帧抓着箱子（face = 箱子在哪边，人一直面朝它；moving = 正在往后拉，false = 抓着不动，停在当前那一帧）。PushBlocks 每帧调 */
+  markPulling(face: -1 | 1, moving: boolean): void { this.push = { kind: 'pull', dir: face, moving, at: this.scene.time.now }; }
 
   /** 被捏着后背拎起来时，精灵中心在捏合点下面多远（世界像素）：骷髅手的捏合点对准 hang 帧里的 HERO.hangPinch */
   get hangOffsetY(): number { return this.hero ? (this.height / 2 - HERO.hangPinch.y) * this.scaleY : 0; }
 
   /**
-   * 按身体的状态挑动画：地上 推箱子 push / 跑 / 站；贴着墙往下滑 wallslide（面朝墙：帧里墙在右边，贴左墙时翻转）；
+   * 按身体的状态挑动画：地上 推箱子 push / 拉箱子 pull / 跑 / 站；贴着墙往下滑 wallslide（面朝墙：帧里墙在右边，贴左墙时翻转）；
    * 空中按竖直速度挑 上升 / 最高点 / 下落；俯视（吃豆人）走起来也用跑
    */
   private animate(): void {
     if (!this.hero || this.action) return;
     const b = this.body, v = b.velocity;
-    // 上一帧 PushBlocks 说了在推（隔一两帧没说就不算：松手、死了、换层都会自己停）
-    const pushing = this.scene.time.now - this.push.at <= 50 && this.anims.exists('push') ? this.push.dir : 0;
+    // 上一帧 PushBlocks 说了在推 / 拉（隔一两帧没说就不算：松手、死了、换层都会自己停）
+    const pushing = this.scene.time.now - this.push.at <= 50 && this.anims.exists(this.push.kind) ? this.push.dir : 0;
     let key: string;
     if (!b.allowGravity) key = v.x !== 0 || v.y !== 0 ? 'run' : 'idle';
     else if ((b.blocked.down || b.touching.down) && pushing) {
-      key = 'push';
+      key = this.push.kind;
       this.setFlipX(pushing < 0);
     }
     else if (b.blocked.down || b.touching.down) key = v.x !== 0 && !(v.x < 0 ? b.blocked.left : b.blocked.right) ? 'run' : 'idle';
@@ -244,7 +247,8 @@ export class Player extends Phaser.Physics.Arcade.Sprite {
     }
     else key = v.y < -APEX_SPEED ? 'jump_rise' : v.y <= APEX_SPEED ? 'jump_apex' : 'jump_fall';
     if (this.anims.currentAnim?.key !== key) this.play({ key, repeat: LOOPING.has(key) ? -1 : 0 });
-    this.anims.timeScale = key === 'push' && !this.push.moving ? PUSH_STRAIN_RATE : 1;
+    // 推不动：放慢（使劲）；抓着不拉：停在当前帧
+    this.anims.timeScale = this.push.moving || (key !== 'push' && key !== 'pull') ? 1 : key === 'push' ? PUSH_STRAIN_RATE : 0;
   }
 
   /** 每帧：处理输入与跳跃，起跳时返回事件 */

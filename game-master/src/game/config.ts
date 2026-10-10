@@ -13,6 +13,7 @@ export const DEFAULT_CONFIG: GameConfig = {
   moveSpeed: 230,
   hatHeight: 1,
   pushSpeed: 90,
+  pullSpeed: 70,
   growMs: 2500,
   jumpVelocity: -560,
   jumpVelocityByStage: [-490, -560, -600],   // 1 格高 ≈ 跳 3 格，1.5 格高 = 原版（≈ 3.9 格），2 格高 ≈ 跳 4.5 格

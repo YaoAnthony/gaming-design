@@ -25,7 +25,9 @@ function setup(floor = 'f2', restored = false, plateRoom = D) {
   const blocks = Object.create(PushBlocks.prototype) as PushBlocks;
   Object.assign(blocks, { ctx, list: [], plates: [{
     cells: [{ x: plateRoom.rx * 30 + 10, y: plateRoom.ry * 20 + 16 }],
-    pressed: false, gone: false, sprite: { setTexture: vi.fn() }, up: 'up', down: 'down',
+    pressed: false, gone: false, up: 'up', down: 'down',
+    // 压板贴图：没有动画（anims.exists 返回 false），压下 / 松开都直接换图
+    sprite: { setTexture: vi.fn(), off: vi.fn(), stop: vi.fn(), play: vi.fn(), once: vi.fn(), scene: { anims: { exists: () => false } } },
   }] });
   // 执行真实压板状态转换，输入用重物是否压住模拟；不依赖图形引擎。
   const update = () => Reflect.apply(Reflect.get(blocks, 'updatePlates'), blocks, []);

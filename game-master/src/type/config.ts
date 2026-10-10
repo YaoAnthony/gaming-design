@@ -17,6 +17,8 @@ export interface GameConfig {
   hatHeight: number;
   /** 推箱子的速度（像素/秒），比走路慢 */
   pushSpeed: number;
+  /** 拉箱子的速度（px/s）：比推慢一点，一次拉一整格 */
+  pullSpeed: number;
   /** 假通关进下一层后，身体从 1 格长到 2 格的动画时长（毫秒） */
   growMs: number;
   /** 起跳速度：这是第 2 阶段（1.5 格高）的原版手感 */

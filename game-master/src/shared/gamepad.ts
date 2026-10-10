@@ -11,6 +11,8 @@ export const GAMEPAD_BUTTONS = {
   jump: [0],
   /** 重置房间：和 R 一样 */
   reset: [3],
+  /** 抓箱子（按住）：和 Shift / E 一样。按住的键不走按钮事件，GameInput.read 每帧读 */
+  grab: [2],
   /** 编辑器试玩时退出：和 ESC 一样 */
   exit: [8],
   /** 游戏里暂停（开暂停菜单）：和 ESC 一样 */

@@ -6,6 +6,9 @@
 // - 夹子桑走过来顶着箱子也能推（边长 ≤ enemyPushMaxBox，用夹子桑的速度）；前面挡住 / 站着人就推不动，照常撞上
 // - 反过来，人推的箱子也能顶着夹子桑走（夹子桑前面空着、站在地上才行），推到悬崖外它就掉下去
 // - 掉得够快（≥ crushMinSpeed）砸到人头上 → 死；砸到怪物 → 怪物死
+// - 拉：贴着箱子按住抓键（Shift / E、手柄 X），往反方向走就拉（pullSpeed）。一次拉一整格：拉起来了松手也把这一格拉完，箱子永远对齐格子；
+//   人身后那一格是墙 / 别的箱子就拉不动；人走下悬崖、跳起来就松手。抓着的时候人一直面朝箱子，往箱子那边走照常是推
+// - 挡块（mechanics/stopper）挡箱子：pathClear 问它，跨不过挡块挡着的格线
 // - 木板（boxPassThrough）挡不住箱子：站不住会漏下去，也能推着穿过去
 // - 占着的格子算「地面」：掉下来的碎块落在箱子上，箱子上的砖算被它撑住；箱子挪开，上面的砖就掉下来
 // - 压板（1x1、1x2）：一个落在地上的箱子同时盖住压板的每一格才算压下（人踩没用；大箱子也能压 1x1）。
@@ -20,6 +23,8 @@ import type { FuseEnd } from '@/game/fuse/Fuse';
 import type { Enemy } from '@/sprite';
 import type { FuseBurnCell, Mechanic } from '../define';
 import { pressedByWeight } from './plates';
+import type { Stoppers } from '../stopper/Stoppers';
+import { PLATE_ANIM } from '@/asset';
 import type { SolveNodes } from '../solve';
 import { Colors, hex } from '@/shared/palette';
 
@@ -43,8 +48,8 @@ interface Block {
 interface Plate {
   /** 压板占的格子（地图坐标），从左到右 */
   cells: CellRef[];
-  sprite: Phaser.GameObjects.Image;
-  /** 没压 / 压下的贴图 */
+  sprite: Phaser.GameObjects.Sprite;
+  /** 没压 / 压下的贴图；压下去、弹起来的动画（见 plateAnims） */
   up: string;
   down: string;
   pressed: boolean;
@@ -80,6 +85,10 @@ const SNAP_EPS = 0.05;
 export class PushBlocks implements Mechanic {
   private list: Block[] = [];
   private plates: Plate[] = [];
+  /** 按着抓键贴着的箱子，在人的哪一边（1 = 右） */
+  private grabbed: { bl: Block; side: -1 | 1 } | null = null;
+  /** 正在拉的那一格：往哪边拉、箱子要到的格线（贴图左边）。拉完这一格才放手 */
+  private pulling: { bl: Block; dir: -1 | 1; target: number } | null = null;
   private group: Phaser.Physics.Arcade.Group;
 
   constructor(private ctx: PlayContext) {
@@ -107,7 +116,9 @@ export class PushBlocks implements Mechanic {
   /** 放一块压板：width = 1 或 2（格），放的那一格是它的左边那格 */
   addPlate(width: number, cell: { x: number; y: number }): void {
     const T = this.ctx.cfg.tile, up = width === 1 ? 'plate1' : 'plate2';
-    const sprite = this.ctx.scene.add.image(cell.x * T, (cell.y + 1) * T, up).setOrigin(0, 1).setDepth(2.5);
+    // 画在箱子（2.6）前面：箱子和格子一样宽，压上去会把压板整个挡住，压下去的动画就看不见了
+    const sprite = this.ctx.scene.add.sprite(cell.x * T, (cell.y + 1) * T, up).setOrigin(0, 1).setDepth(2.65);
+    plateAnims(this.ctx.scene, up);
     const cells = Array.from({ length: width }, (_, i) => ({ x: cell.x + i, y: cell.y }));
     this.plates.push({ cells, sprite, up, down: up + '_down', pressed: false, ends: [], gone: false, solvedGone: false });
   }
@@ -162,9 +173,10 @@ export class PushBlocks implements Mechanic {
     });
   }
 
-  /** 人贴着箱子往那边走 → 推（推不动的也告诉主角在顶着箱子使劲：播推的动画，放慢） */
+  /** 人贴着箱子往那边走 → 推（推不动的也告诉主角在顶着箱子使劲：播推的动画，放慢）；按着抓键往反方向走 → 拉 */
   updateAlive(): void {
     const { ctx } = this, p = ctx.player, pb = p.body, T = ctx.cfg.tile, speed = ctx.cfg.pushSpeed;
+    if (this.grabAndPull()) return;
     const dir = Math.sign(pb.velocity.x) as -1 | 0 | 1;
     if (!dir || !pb.blocked.down && !pb.touching.down) return;
     let straining = false;
@@ -188,6 +200,102 @@ export class PushBlocks implements Mechanic {
       return;
     }
     if (straining) p.markPushing(dir, false);
+  }
+
+  /**
+   * 抓和拉：正在拉一格就接着拉完；按着抓键、站在地上、贴着箱子就抓住（面朝它），往反方向走就开始拉下一格。
+   * 这一帧人和箱子归拉管了返回 true（推的逻辑不跑）；往箱子那边走返回 false，照常推
+   */
+  private grabAndPull(): boolean {
+    const { ctx } = this, p = ctx.player, pb = p.body;
+    const onGround = pb.blocked.down || pb.touching.down;
+    if (this.pullStep(onGround)) return true;
+    const input = ctx.held();
+    if (!input.grab || !onGround) { this.grabbed = null; return false; }
+    if (!this.grabbed || this.touchSide(this.grabbed.bl) !== this.grabbed.side) this.grabbed = this.findGrab();
+    if (!this.grabbed) return false;
+    const { bl, side } = this.grabbed, want = input.left === input.right ? 0 : input.left ? -1 : 1;
+    p.setFlipX(side < 0);                                       // 抓着的时候一直面朝箱子
+    if (want === side) return false;                            // 往箱子那边走：照常推
+    const back = -side as -1 | 1;                               // 往后退 = 拉
+    if (want === back) {
+      const target = this.nextLine(bl, back);
+      if (this.canPull(bl, back, target)) {
+        this.pulling = { bl, dir: back, target };
+        if (this.pullStep(onGround)) return true;
+      }
+    }
+    p.setVelocityX(0);                                          // 抓着不动 / 拉不动：站住
+    p.markPulling(side, false);
+    return true;
+  }
+
+  /** 正在拉的这一格：人和箱子一起往 dir 挪，最后一帧正好到格线。到了、人离地了、人被挡住了就停（返回 false） */
+  private pullStep(onGround: boolean): boolean {
+    const pl = this.pulling;
+    if (!pl) return false;
+    const { ctx } = this, p = ctx.player, pb = p.body, bb = pl.bl.sprite.body as Phaser.Physics.Arcade.Body;
+    const diff = pl.target - (bb.left - INSET);
+    const stuck = pl.dir > 0 ? pb.blocked.right : pb.blocked.left;
+    if (Math.abs(diff) < SNAP_EPS || !onGround || stuck || !bb.enable) { this.pulling = null; return false; }
+    const v = Phaser.Math.Clamp(diff / PHYSICS_STEP, -ctx.cfg.pullSpeed, ctx.cfg.pullSpeed);
+    pl.bl.sprite.setVelocityX(v);
+    pl.bl.target = pl.target;
+    p.setVelocityX(v);
+    p.setFlipX(pl.dir > 0);                                     // 面朝箱子（箱子在 -dir 那边）
+    p.markPulling(-pl.dir as -1 | 1, true);
+    return true;
+  }
+
+  /** 这个箱子贴在人的哪一边（1 右 / -1 左；没贴着、在空中、比人高、上下没对上 = 0） */
+  private touchSide(bl: Block): -1 | 0 | 1 {
+    const p = this.ctx.player, pb = p.body, bb = bl.sprite.body as Phaser.Physics.Arcade.Body;
+    if (!bb.enable || (!bb.blocked.down && !bb.touching.down)) return 0;
+    if (pb.bottom <= bb.top + 2 || pb.top >= bb.bottom - 2) return 0;
+    if (p.heightTiles + HEIGHT_TOLERANCE < bl.size) return 0;
+    const near = (gap: number) => gap >= -CONTACT_PX * 2 && gap <= CONTACT_PX + 1;
+    return near(bb.left - pb.right) ? 1 : near(pb.left - bb.right) ? -1 : 0;
+  }
+
+  /** 按着抓键时抓哪个箱子：贴着的，面朝的那边优先 */
+  private findGrab(): { bl: Block; side: -1 | 1 } | null {
+    const facing = this.ctx.player.flipX ? -1 : 1;
+    let pick: { bl: Block; side: -1 | 1 } | null = null;
+    for (const bl of this.list) {
+      const side = this.touchSide(bl);
+      if (!side) continue;
+      if (side === facing) return { bl, side };
+      pick ??= { bl, side };
+    }
+    return pick;
+  }
+
+  /** 箱子往 dir 再走一格要到的格线（贴图左边；已经在格线上就是下一条） */
+  private nextLine(bl: Block, dir: -1 | 1): number {
+    const T = this.ctx.cfg.tile, left = (bl.sprite.body as Phaser.Physics.Arcade.Body).left - INSET;
+    return (dir > 0 ? Math.ceil((left + SNAP_EPS) / T) : Math.floor((left - SNAP_EPS) / T)) * T;
+  }
+
+  /** 能拉：箱子往 dir 那边走得过去（墙、别的箱子、挡块），人往后退的这一段（和箱子走一样远）没有墙、没有别的箱子 */
+  private canPull(bl: Block, dir: -1 | 1, target: number): boolean {
+    const { ctx } = this, T = ctx.cfg.tile, t = ctx.terrain, pb = ctx.player.body, bb = bl.sprite.body as Phaser.Physics.Arcade.Body;
+    if (!this.stopperClear(bb, dir)) return false;
+    const dist = Math.abs(target - (bb.left - INSET));
+    const x0 = dir > 0 ? pb.right : pb.left - dist, x1 = dir > 0 ? pb.right + dist : pb.left;
+    for (let cy = Math.floor((pb.top + SNAP_EPS) / T); cy <= Math.floor((pb.bottom - SNAP_EPS) / T); cy++)
+      for (let cx = Math.floor(x0 / T); cx <= Math.floor((x1 - SNAP_EPS) / T); cx++)
+        if (cx < 0 || cy < 0 || cx >= t.w || cy >= t.h || (t.isSolid(cx, cy) && !t.def(cx, cy).oneWay)) return false;
+    const behind = new Phaser.Geom.Rectangle(x0, pb.top + 2, x1 - x0, pb.height - 4);
+    return !this.list.some(o => {
+      if (o === bl) return false;
+      const ob = o.sprite.body as Phaser.Physics.Arcade.Body;
+      return ob.enable && Phaser.Geom.Intersects.RectangleToRectangle(behind, new Phaser.Geom.Rectangle(ob.x, ob.y, ob.width, ob.height));
+    });
+  }
+
+  /** 挡块（mechanics/stopper）挡不挡这个箱子往 dir 走 */
+  private stopperClear(bb: Phaser.Physics.Arcade.Body, dir: -1 | 1): boolean {
+    return !this.ctx.mech<Stoppers>('stopper')?.blocksBox(bb, dir);
   }
 
   /** 死亡：所有箱子回到原位。按 R：出生在这个房间的、或者现在就在这个房间里的箱子回到原位（从别的房间推过来的也回去） */
@@ -288,8 +396,14 @@ export class PushBlocks implements Mechanic {
     this.plates.forEach(pl => {
       if (pl.gone || !(endHit(pl) || cellHit(pl))) return;
       pl.gone = true; pl.pressed = false;
-      pl.sprite.setVisible(false);
-      pl.cells.forEach(c => this.ctx.sparks.explode(8, c.x * T + T / 2, (c.y + 1) * T - 6));
+      const vanish = () => {
+        pl.sprite.setVisible(false);
+        pl.cells.forEach(c => this.ctx.sparks.explode(8, c.x * T + T / 2, (c.y + 1) * T - 6));
+      };
+      // 压板自己点的引线第一下就烧到它自己这一头：等压下去的动画播完再消失，不然一压就没了、动画看不到（重置时 showPlate 会取消）
+      const s = pl.sprite;
+      if (s.anims.isPlaying && s.anims.currentAnim?.key === `${pl.up}_press`) s.once(Phaser.Animations.Events.ANIMATION_COMPLETE, vanish);
+      else vanish();
     });
   }
 
@@ -338,7 +452,21 @@ export class PushBlocks implements Mechanic {
     });
   }
 
-  private showPlate(pl: Plate): void { pl.sprite.setTexture(pl.pressed ? pl.down : pl.up); }
+  /**
+   * 压板换成压下 / 没压的样子。animate = 这一刻真的被压下 / 松开：播压下去（停在最后一帧，和压下的图一样）/ 弹起来（播完换回没压的图）；
+   * 不播动画的（开局、重置、读档）直接换图
+   */
+  private showPlate(pl: Plate, animate = false): void {
+    const s = pl.sprite, key = `${pl.up}_${pl.pressed ? 'press' : 'release'}`;
+    s.off(Phaser.Animations.Events.ANIMATION_COMPLETE);
+    if (animate && s.scene.anims.exists(key)) {
+      s.play(key);
+      if (!pl.pressed) s.once(Phaser.Animations.Events.ANIMATION_COMPLETE, () => { if (!pl.pressed) s.setTexture(pl.up); });
+      return;
+    }
+    s.stop();
+    s.setTexture(pl.pressed ? pl.down : pl.up);
+  }
 
   /** 不触发，只按箱子现在的位置摆好压板（进场、重置） */
   private settlePlates(): void {
@@ -353,7 +481,7 @@ export class PushBlocks implements Mechanic {
       const now = this.pressedBy(pl, true);
       if (now === pl.pressed) return;
       pl.pressed = now;
-      this.showPlate(pl);
+      this.showPlate(pl, true);
       if (!now) return;
       const seen = new Set<string>(), ends: FuseEnd[] = [];
       pl.cells.forEach(c => ctx.fuses.endsNear(c, PLATE_FUSE_RADIUS, true).forEach(e => { const k = `${e.x},${e.y},${e.ch}`; if (!seen.has(k)) { seen.add(k); ends.push(e); } }));
@@ -436,9 +564,10 @@ export class PushBlocks implements Mechanic {
     return ctx.dead || !hit(ctx.player.body);
   }
 
-  /** 箱子前面一列（它的整个高度）没有砖、也没有别的箱子 */
+  /** 箱子前面一列（它的整个高度）没有砖、也没有别的箱子，也没被挡块挡住 */
   private pathClear(bl: Block, dir: number): boolean {
     const { ctx } = this, T = ctx.cfg.tile, t = ctx.terrain, bb = bl.sprite.body as Phaser.Physics.Arcade.Body;
+    if (!this.stopperClear(bb, dir > 0 ? 1 : -1)) return false;
     const ax = dir > 0 ? bb.right + 1 : bb.left - 2;
     const cx = Math.floor(ax / T);
     // 上下各让一点：箱子和格子一样高，物理算出来的顶边会是 991.9999…，不能因此把头顶那格也算进来
@@ -451,4 +580,13 @@ export class PushBlocks implements Mechanic {
       return Phaser.Geom.Intersects.RectangleToRectangle(ahead, new Phaser.Geom.Rectangle(ob.x, ob.y, ob.width, ob.height));
     });
   }
+}
+
+/** 压板（up = 'plate1' / 'plate2'）的压下去、弹起来两段动画：从 <up>_anim 动画条里取（帧数和时长见 asset 的 PLATE_ANIM），整个游戏建一次 */
+function plateAnims(scene: Phaser.Scene, up: string): void {
+  const sheet = `${up}_anim`, anims = scene.anims;
+  if (!scene.textures.exists(sheet) || anims.exists(`${up}_press`)) return;
+  const frames = (from: number, ms: readonly number[]) => ms.map((duration, i) => ({ key: sheet, frame: from + i, duration }));
+  anims.create({ key: `${up}_press`, frames: frames(0, PLATE_ANIM.press) });
+  anims.create({ key: `${up}_release`, frames: frames(PLATE_ANIM.press.length, PLATE_ANIM.release) });
 }

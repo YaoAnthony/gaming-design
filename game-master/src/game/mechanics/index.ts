@@ -21,6 +21,7 @@ import './locks';
 import './hat';
 import './tape';
 import './pushBlock';
+import './stopper';   // 挡块：推箱子要问它，放在后面也行（只在 updateAlive 里问）
 import './mover';
 import './solve';   // 看别的机制的状态（门、Boss、移动方块）：放在它们后面
 import './story';

@@ -65,6 +65,8 @@ import plate1Url from './image/items/plate1.png';
 import plate2Url from './image/items/plate2.png';
 import plate1DownUrl from './image/items/plate1_down.png';
 import plate2DownUrl from './image/items/plate2_down.png';
+import plate1AnimUrl from './image/items/plate1_anim.png';
+import plate2AnimUrl from './image/items/plate2_anim.png';
 import grabHandUrl from './image/sprite/grab_hand.png';
 import gmHandUrl from './image/sprite/gm_hand.png';
 import gmArmUrl from './image/sprite/gm_arm.png';
@@ -81,6 +83,7 @@ import bossLaughUrl from './audio/boss_laughing.mp3';
 import keyPickupUrl from './audio/key_pickup.mp3';
 import eatUrl from './audio/eat.mp3';
 import tapeUrl from './image/items/tape.png';
+import stopperUrl from './image/items/stopper.png';
 import warningUrl from './audio/warning.mp3';
 import avatarDefaultUrl from './image/ui/avatar_default.png';
 import avatarLaughUrl from './image/ui/avatar_la.png';
@@ -171,7 +174,15 @@ export const ASEPRITES: AsepriteAsset[] = [
 export interface DebrisPiece { name: string; w: number; h: number; x: number; y: number }
 export const HERO_DEBRIS = { key: 'hero_debris', ...(playerDebrisMeta as { cell: number; chest: [number, number]; pieces: DebrisPiece[] }) };
 
+/**
+ * 压板的动画条（plate1_anim / plate2_anim，Aseprite asset/generators/items.py 的 PLATE_PRESS / PLATE_RELEASE）：
+ * 前 press 帧是压下去（下沉、木撑压断、砸到底扬灰、点着、落定 = 压下的那张图），后 release 帧是箱子挪走弹起来；每帧多少毫秒
+ */
+export const PLATE_ANIM = { press: [45, 55, 70, 90, 70], release: [60, 70] } as const;
+
 export const SPRITESHEETS: SpriteSheetAsset[] = [
+  { key: 'plate1_anim', url: plate1AnimUrl, frameWidth: 32, frameHeight: 32 },
+  { key: 'plate2_anim', url: plate2AnimUrl, frameWidth: 64, frameHeight: 32 },
   { key: 'tiles', url: tilesUrl, frameWidth: TILE_SIZE, frameHeight: TILE_SIZE },
   { key: TILE_DEBRIS.key, url: tileDebrisUrl, frameWidth: TILE_DEBRIS.size, frameHeight: TILE_DEBRIS.size },
   { key: TILE_FX.crack, url: tileCrackUrl, frameWidth: TILE_SIZE, frameHeight: TILE_SIZE },
@@ -219,6 +230,8 @@ export const IMAGES: ImageAsset[] = [
   { key: 'hat', url: hatUrl },
   /** 胶带（捡到心的上限 +1，mechanics/tape）：Aseprite asset/generators/items.py 画的 */
   { key: 'tape', url: tapeUrl },
+  /** 挡块（只挡怪物和箱子，mechanics/stopper）：Aseprite asset/generators/items.py 画的 */
+  { key: 'stopper', url: stopperUrl },
   { key: 'crate1', url: crate1Url },
   { key: 'crate2', url: crate2Url },
   { key: 'plate1', url: plate1Url },

@@ -7,9 +7,11 @@
   candle.png 12x18   蜡烛：米白蜡身、石墨色烛台、点火色火苗
   hat.png 32x32      高脚帽：石墨色帽筒、危险红帽带
   plate1(_down).png 32x32 / plate2(_down).png 64x32   压板：旧石灰底座 + 架着的灰绿薄面板（素纸白亮边、右上角折角）+ 陶土色木撑（压下去贴平、冒火花）
+  plate1_anim.png / plate2_anim.png  压板的动画条：压下去 5 帧（下沉、木撑压断、砸到底扬灰、点着、落定）+ 弹起来 2 帧
   door.png 24x32     出口门：奖励金色的拱门框、里面黑
   castle.png 128x112 终点城堡：和岩石一样的砌石墙、陶土色尖顶、窗里透金光、正中底部是门、顶上一面危险红的旗
   tape.png 22x22     胶带：奖励金色的一卷，陶土色纸芯，右边垂下一截胶带头（捡到心的上限 +1；游戏里另外加金光）
+  stopper.png 12x26  挡块：石墨色小立柱、两道校改紫反光带、头片色顶帽（只挡怪物和箱子；放在崖边时立在崖边那条线上）
 
 用法（在本文件夹里跑）：python items.py <输出目录>（还会出一张 preview.png）
   然后 crate1/crate2/key/candle/hat/plate*/castle 复制到 ../../game-master/src/asset/image/items/，door.png 复制到 .../image/tiles/
@@ -154,14 +156,20 @@ def hat():
 def plate(w, down):
     """压板（设定集 03_mechanics 右上那排）：旧石灰色的底座，上面架一块刷了灰绿漆的薄面板（顶边素纸白亮边、
     右上角折下来一个小角——和主角头片同一个折角记号），底下两根陶土色小木撑；压下去面板贴平、木撑没了、上面冒火花"""
+    return plate_frame(w, 24, 26, braces=False, spark=1) if down else plate_frame(w, 19, 24, braces=True)
+
+
+def plate_frame(w, top, bottom, braces, spark=0, dust=0, chips=0):
+    """压板的一帧：面板顶边 / 底边在第 top / bottom 行；braces = 画木撑（从面板底下撑到底座上，面板越低木撑越短）；
+    spark：0 没有 / 1 压下后的一小簇火花 / 2 刚点着的一大团；dust：两边扬尘 0 / 1 / 2；chips：压断的木撑崩出来的木屑 0 / 1 / 2"""
     base, base_hi, base_lo = hexc('#7d8072'), hexc('#a3a596'), hexc('#5f6258')
     panel, panel_lo, cream = hexc('#596d66'), hexc('#44534d'), hexc('#ddd5bc')
     brace, brace_lo = hexc('#b77a63'), hexc('#8d5a47')
     fire, fire_hi = hexc('#ef8754'), hexc('#ffd2a6')
+    smoke, smoke_lo = hexc('#c9c3b2'), hexc('#9f9a8b')
     c = Cell(w, 32)
     c.rect(1, 27, w - 2, 30, base); c.hline(1, w - 2, 27, base_hi); c.hline(1, w - 2, 30, base_lo)
     x0, x1 = 3, w - 4
-    top, bottom = (24, 26) if down else (19, 24)
     c.rect(x0, top, x1, bottom, panel)
     c.hline(x0 + 1, x1 - 1, top, cream)                      # 顶边亮边（可站的边）
     c.hline(x0, x1, bottom, panel_lo)
@@ -173,18 +181,56 @@ def plate(w, down):
         c.px(x, y, CLEAR)
     c.px(x1 - 1, top + 1, cream); c.px(x1 - 2, top + 1, cream); c.px(x1 - 1, top + 2, cream)
     c.px(x1 - 2, top + 2, panel_lo)
-    if not down:
+    if braces and bottom < 26:
         for x in range(7, w - 8, 16 if w > 32 else w):        # 木撑
             c.rect(x, bottom + 1, x + 1, 26, brace); c.px(x + 1, 26, brace_lo)
         c.rect(w - 9, bottom + 1, w - 8, 26, brace); c.px(w - 8, 26, brace_lo)
-    else:
-        cx = w // 2                                            # 点着了：面板上方一簇火花
+    cx = w // 2
+    if spark == 1:                                             # 点着了：面板上方一簇火花
         c.rect(cx - 1, 20, cx, 22, fire); c.px(cx - 1, 21, fire_hi)
         for x, y in ((cx - 3, 19), (cx + 2, 18), (cx, 16), (cx - 2, 17), (cx + 3, 21)):
             c.px(x, y, fire)
         c.px(cx, 17, fire_hi)
+    elif spark == 2:                                           # 刚点着：一大团，中间亮，往四周迸
+        c.rect(cx - 2, 18, cx + 1, 22, fire); c.rect(cx - 1, 19, cx, 21, fire_hi)
+        for dx, dy in ((-5, -2), (4, -3), (0, -7), (-3, -6), (3, -6), (-6, 1), (5, 0), (-1, -9), (2, -9)):
+            c.px(cx + dx, 20 + dy, fire)
+        for dx, dy in ((-4, -4), (3, -5), (0, -5)):
+            c.px(cx + dx, 20 + dy, fire_hi)
+    if dust:                                                   # 面板砸下来，两边挤出来一点灰
+        for side in (-1, 1):
+            ox = 1 if side < 0 else w - 2
+            for i in range(2 + dust):
+                x = ox + side * (i if dust == 2 else i // 2)
+                y = 25 - (i % 2) - (dust - 1) * (i // 2)
+                c.px(x, y, smoke if i % 2 == 0 else smoke_lo)
+    if chips:                                                  # 木撑压断：两粒木屑往两边上方崩
+        for (x, y) in ((6 - 2 * chips, 22 - 2 * chips), (w - 7 + 2 * chips, 21 - 2 * chips)):
+            c.rect(x, y, x + 1, y, brace); c.px(x, y + 1, brace_lo)
     outline(c)
     return c
+
+
+PLATE_PRESS = [   # 压下去：面板一点点沉、木撑压短 → 木撑压断崩出木屑 → 砸到底扬灰 → 点着一大团火花 → 落定（= 压下的那张图）
+    dict(top=21, bottom=25, braces=True),
+    dict(top=23, bottom=26, braces=False, chips=1),
+    dict(top=24, bottom=26, braces=False, dust=1, chips=2),
+    dict(top=24, bottom=26, braces=False, spark=2, dust=2),
+    dict(top=24, bottom=26, braces=False, spark=1),
+]
+PLATE_RELEASE = [  # 弹起来（箱子挪走了）：木撑重新撑起来，面板往上弹过头一点，下一帧就是没压的那张图
+    dict(top=22, bottom=25, braces=True),
+    dict(top=18, bottom=23, braces=True),
+]
+
+
+def plate_sheet(w):
+    """压板的动画条：PLATE_PRESS 5 帧 + PLATE_RELEASE 2 帧，横排，每帧 w x 32"""
+    frames = PLATE_PRESS + PLATE_RELEASE
+    sheet = Image.new('RGBA', (w * len(frames), 32), CLEAR)
+    for i, f in enumerate(frames):
+        sheet.paste(plate_frame(w, **f).img(), (i * w, 0))
+    return sheet
 
 
 # ---------------- 出口门 ----------------
@@ -321,6 +367,26 @@ def tape():
     return c
 
 
+# ---------- 挡块（只挡怪物和箱子，主角穿得过去）：石墨色小立柱、两道校改紫的反光带、头片色的顶帽、底下一圈底座 ----------
+def stopper():
+    """12x26：立柱 6 像素宽（游戏里的碰撞也是 6 像素宽），底座贴着地面（最下面一行 = 地面）"""
+    metal, metal_hi, metal_lo = hexc('#4c4a53'), hexc('#6c6a72'), hexc('#34323a')
+    band, band_hi = hexc('#b2a0cc'), hexc('#d6cbe8')
+    cap, cap_hi, cap_lo = hexc('#ddd5bc'), hexc('#f3edda'), hexc('#b6ad94')
+    c = Cell(12, 26)
+    c.rect(3, 4, 8, 22, metal)                              # 立柱
+    c.vline(3, 4, 22, metal_hi); c.vline(8, 4, 22, metal_lo)
+    for y0 in (8, 15):                                      # 反光带
+        c.rect(3, y0, 8, y0 + 2, band); c.hline(3, 7, y0, band_hi); c.px(8, y0 + 2, hexc('#8d7cab'))
+    c.rect(2, 1, 9, 4, cap); c.hline(3, 8, 1, cap_hi); c.px(2, 2, cap_hi); c.hline(2, 9, 4, cap_lo)   # 顶帽
+    c.rect(1, 22, 10, 25, metal); c.hline(1, 10, 22, metal_hi); c.hline(1, 10, 25, metal_lo)       # 底座
+    c.px(2, 24, metal_lo); c.px(9, 24, metal_lo)                                                     # 底座上的螺栓
+    outline(c)
+    for (x, y) in ((0, 25), (11, 25)):
+        c.px(x, y, CLEAR)
+    return c
+
+
 if __name__ == '__main__':
     out = sys.argv[1] if len(sys.argv) > 1 else 'frames_items'
     os.makedirs(out, exist_ok=True)
@@ -333,11 +399,14 @@ if __name__ == '__main__':
     plate(32, True).img().save(f'{out}/plate1_down.png')
     plate(64, False).img().save(f'{out}/plate2.png')
     plate(64, True).img().save(f'{out}/plate2_down.png')
+    plate_sheet(32).save(f'{out}/plate1_anim.png')
+    plate_sheet(64).save(f'{out}/plate2_anim.png')
     door().img().save(f'{out}/door.png')
     castle().img().save(f'{out}/castle.png')
     tape().img().save(f'{out}/tape.png')
+    stopper().img().save(f'{out}/stopper.png')
     # 预览
-    names = ['crate1', 'crate2', 'key', 'candle', 'hat', 'plate1', 'plate1_down', 'plate2', 'plate2_down', 'door', 'castle', 'tape']
+    names = ['crate1', 'crate2', 'key', 'candle', 'hat', 'plate1', 'plate1_down', 'plate2', 'plate2_down', 'door', 'castle', 'tape', 'stopper']
     ims = [Image.open(f'{out}/{n}.png') for n in names]
     pv = Image.new('RGBA', (sum(i.width * 2 + 10 for i in ims), max(i.height * 2 for i in ims)), (46, 52, 48, 255))
     x = 0
